@@ -1,0 +1,79 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [windows-latest, macos-latest]
+        include:
+          - os: windows-latest
+            artifact_name: atmos_mixer_pro_windows.zip
+            build_cmd: flutter build windows
+            artifact_path: build/windows/x64/runner/Release/*
+          - os: macos-latest
+            artifact_name: atmos_mixer_pro_macos.zip
+            build_cmd: flutter build macos
+            artifact_path: build/macos/Build/Products/Release/atmos_mixer_pro.app
+
+    runs-on: ${{ matrix.os }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+
+      - name: Install dependencies
+        run: flutter pub get
+        working-directory: atmos_mixer_pro
+
+      - name: Build
+        run: ${{ matrix.build_cmd }}
+        working-directory: atmos_mixer_pro
+        
+      - name: Archive Release (Windows)
+        if: matrix.os == 'windows-latest'
+        uses: thedoctor0/zip-release@0.7.6
+        with:
+          type: 'zip'
+          directory: atmos_mixer_pro/build/windows/x64/runner/Release
+          filename: ../../../../../../${{ matrix.artifact_name }}
+
+      - name: Archive Release (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          cd atmos_mixer_pro/build/macos/Build/Products/Release
+          zip -r ../../../../../../${{ matrix.artifact_name }} atmos_mixer_pro.app
+          
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: ${{ matrix.artifact_name }}
+          
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    steps:
+      - name: Download Artifacts
+        uses: actions/download-artifact@v4
+        
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            atmos_mixer_pro_windows.zip/atmos_mixer_pro_windows.zip
+            atmos_mixer_pro_macos.zip/atmos_mixer_pro_macos.zip
