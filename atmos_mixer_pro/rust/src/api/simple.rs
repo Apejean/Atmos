@@ -276,9 +276,23 @@ pub struct OutputDeviceInfo {
     pub channel_names: Vec<String>,
 }
 
+#[cfg(target_os = "windows")]
+fn get_host() -> cpal::Host {
+    use cpal::traits::HostTrait;
+    if let Ok(host) = cpal::host_from_id(cpal::HostId::Asio) {
+        return host;
+    }
+    cpal::default_host()
+}
+
+#[cfg(not(target_os = "windows"))]
+fn get_host() -> cpal::Host {
+    cpal::default_host()
+}
+
 pub fn api_get_output_devices() -> Result<Vec<OutputDeviceInfo>, AtmosError> {
     use cpal::traits::{DeviceTrait, HostTrait};
-    let host = cpal::default_host();
+    let host = get_host();
     let devices = host.output_devices().map_err(|e| AtmosError { message: e.to_string() })?;
     
     let mut device_info_list = Vec::new();
@@ -309,7 +323,7 @@ pub fn api_get_output_devices() -> Result<Vec<OutputDeviceInfo>, AtmosError> {
 
 pub fn api_get_device_channel_count(device_name: String) -> Result<u32, AtmosError> {
     use cpal::traits::{DeviceTrait, HostTrait};
-    let host = cpal::default_host();
+    let host = get_host();
     let devices = host.output_devices().map_err(|e| AtmosError { message: e.to_string() })?;
     
     for device in devices {

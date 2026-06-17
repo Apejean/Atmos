@@ -22,17 +22,58 @@ impl AudioEngine {
     }
 
     pub fn start(&mut self, device_name: Option<String>, cmd_receiver: Receiver<AudioCommand>) {
+        #[cfg(target_os = "windows")]
+        let host = match cpal::host_from_id(cpal::HostId::Asio) {
+            Ok(h) => h,
+            Err(_) => cpal::default_host(),
+        };
+        #[cfg(not(target_os = "windows"))]
         let host = cpal::default_host();
-        let device = if let Some(name) = device_name {
-            host.output_devices().unwrap().find(|d| d.name().unwrap_or_default() == name).unwrap_or(host.default_output_device().unwrap())
+        let device_opt = if let Some(name) = device_name {
+            match host.output_devices() {
+                Ok(mut devices) => {
+                    if let Some(dev) = devices.find(|d| d.name().unwrap_or_default() == name) {
+                        Some(dev)
+                    } else {
+                        host.default_output_device()
+                    }
+                }
+                Err(e) => {
+                    eprintln!("Failed to get output devices: {}", e);
+                    host.default_output_device()
+                }
+            }
         } else {
-            host.default_output_device().unwrap()
+            host.default_output_device()
+        };
+
+        let device = match device_opt {
+            Some(d) => d,
+            None => {
+                crate::core::state::GLOBAL_STATE.log("Audio Engine: No output device found. Engine stopped.".to_string());
+                return;
+            }
         };
 
         println!("Using output device: {}", device.name().unwrap_or_default());
+        crate::core::state::GLOBAL_STATE.log(format!("Audio Engine started with device: {}", device.name().unwrap_or_default()));
 
-        let mut supported_configs_range = device.supported_output_configs().unwrap();
-        let supported_config = supported_configs_range.next().unwrap().with_max_sample_rate();
+        let mut supported_configs_range = match device.supported_output_configs() {
+            Ok(configs) => configs,
+            Err(e) => {
+                crate::core::state::GLOBAL_STATE.log(format!("Audio Engine: Failed to get supported configs: {}", e));
+                return;
+            }
+        };
+
+        let supported_config = match supported_configs_range.next() {
+            Some(config) => config.with_max_sample_rate(),
+            None => {
+                crate::core::state::GLOBAL_STATE.log("Audio Engine: No supported output config found.".to_string());
+                return;
+            }
+        };
+
         let sample_format = supported_config.sample_format();
         let config: StreamConfig = supported_config.into();
 
@@ -48,9 +89,13 @@ impl AudioEngine {
 
         let mut mixer = AudioMixer::new(config.sample_rate.0, gc_tx);
 
-        let err_fn = |err| eprintln!("an error occurred on stream: {}", err);
+        let err_fn = |err| {
+            let msg = format!("Audio stream error: {}", err);
+            eprintln!("{}", msg);
+            crate::core::state::GLOBAL_STATE.log(msg);
+        };
 
-        let stream = match sample_format {
+        let stream_result = match sample_format {
             SampleFormat::F32 => {
                 device.build_output_stream(
                     &config,
@@ -62,10 +107,24 @@ impl AudioEngine {
                     None
                 )
             },
-            _ => panic!("Unsupported format"),
-        }.unwrap();
+            _ => {
+                crate::core::state::GLOBAL_STATE.log(format!("Audio Engine: Unsupported sample format: {:?}", sample_format));
+                return;
+            }
+        };
 
-        stream.play().unwrap();
+        let stream = match stream_result {
+            Ok(s) => s,
+            Err(e) => {
+                crate::core::state::GLOBAL_STATE.log(format!("Audio Engine: Failed to build output stream: {}", e));
+                return;
+            }
+        };
+
+        if let Err(e) = stream.play() {
+            crate::core::state::GLOBAL_STATE.log(format!("Audio Engine: Failed to play stream: {}", e));
+            return;
+        }
         self.stream = Some(stream);
     }
 

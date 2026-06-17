@@ -298,6 +298,7 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal> with Single
               flex: 2,
               child: DropdownButtonFormField<String>(
                 isExpanded: true,
+                menuMaxHeight: 300,
                 initialValue: _tempConfig.deviceName,
                 dropdownColor: AppColors.cardSurfaceSolid,
                 decoration: const InputDecoration(filled: true, fillColor: AppColors.cardSurface, border: OutlineInputBorder()),
@@ -403,6 +404,7 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal> with Single
                       Expanded(
                         flex: 1,
                         child: DropdownButtonFormField<String>(
+                          menuMaxHeight: 300,
                           initialValue: getDropdownValue(track.outputChannel, track.outputStereo),
                           dropdownColor: AppColors.cardSurfaceSolid,
                           isExpanded: true,

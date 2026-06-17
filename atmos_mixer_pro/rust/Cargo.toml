@@ -8,7 +8,7 @@ crate-type = ["cdylib", "staticlib", "rlib"]
 
 [dependencies]
 anyhow = "1.0.102"
-cpal = "0.15.2"
+cpal = { version = "0.15.2", features = ["asio"] }
 crossbeam-channel = "0.5.15"
 flutter_rust_bridge = "=2.12.0"
 lazy_static = "1.5.0"

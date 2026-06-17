@@ -7,6 +7,7 @@ import 'package:atmos_mixer_pro/features/settings/widgets/preferences_modal.dart
 import 'package:atmos_mixer_pro/src/rust/api/simple.dart' as rust_api;
 import 'package:atmos_mixer_pro/src/rust/common/config.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:window_manager/window_manager.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
@@ -26,6 +27,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         children: [
           Column(
             children: [
+              const WindowCaption(
+                backgroundColor: AppColors.headerBackground,
+                brightness: Brightness.dark,
+              ),
               _buildHeader(context),
               Expanded(
                 child: _buildRoomPanels(context),

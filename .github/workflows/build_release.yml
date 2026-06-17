@@ -41,6 +41,15 @@ jobs:
         with:
           channel: 'stable'
 
+      - name: Install ASIO SDK (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          Invoke-WebRequest -Uri "https://www.steinberg.net/asiosdk" -OutFile asiosdk.zip
+          Expand-Archive -Path asiosdk.zip -DestinationPath .
+          echo "CPAL_ASIO_DIR=$((Get-Item .\ASIOSDK).FullName)" >> $env:GITHUB_ENV
+          echo "ASIOSDK_DIR=$((Get-Item .\ASIOSDK).FullName)" >> $env:GITHUB_ENV
+
       - name: Install dependencies
         run: flutter pub get
         working-directory: atmos_mixer_pro
