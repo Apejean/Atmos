@@ -41,6 +41,11 @@ jobs:
         with:
           channel: 'stable'
 
+      - name: Setup Windows LLVM for ASIO
+        if: matrix.os == 'windows-latest'
+        run: |
+          echo "LIBCLANG_PATH=C:\Program Files\LLVM\bin" >> $env:GITHUB_ENV
+
       - name: Install dependencies
         run: flutter pub get
         working-directory: atmos_mixer_pro
