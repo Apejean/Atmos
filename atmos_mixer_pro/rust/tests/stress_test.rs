@@ -17,9 +17,14 @@ fn test_room_clear_spam_no_duplicate() {
     
     // Dummy command receiver consumer
     let rx = GLOBAL_STATE.command_receiver.clone();
+    
+    // Drain any leftover messages in the channel to prevent interference between tests
+    while let Ok(_) = rx.try_recv() {}
+
     let play_count_clone = play_count.clone();
     thread::spawn(move || {
-        while let Ok(cmd) = rx.recv() {
+        // We use a timeout to stop the dummy thread eventually so it doesn't leak
+        while let Ok(cmd) = rx.recv_timeout(Duration::from_millis(500)) {
             if let AudioCommand::PlayTrack { track_id_str, .. } = cmd {
                 if track_id_str == "next_bgm_track" {
                     play_count_clone.fetch_add(1, Ordering::SeqCst);
@@ -76,7 +81,13 @@ fn test_system_reset_theme_start_glitch() {
     
     let rx = GLOBAL_STATE.command_receiver.clone();
     thread::spawn(move || {
-        while let Ok(_) = rx.recv() {} // drain commands
+        while let Ok(cmd) = rx.recv() {
+            if let AudioCommand::PlayTrack { track_id_str, .. } = cmd {
+                if track_id_str == "theme_bgm" {
+                    // Just consume
+                }
+            }
+        } 
     });
 
     let num_iterations = 1000;
