@@ -442,80 +442,7 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
             ),
           ],
         ),
-        const SizedBox(height: 24),
-        const Text(
-          '활성화할 채널 선택 (Active Channels)',
-          style: TextStyle(
-            color: AppColors.primaryNeon,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: AppColors.cardSurface,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: _channelNames.isEmpty
-              ? const Text(
-                  '디바이스를 선택하면 채널 목록이 표시됩니다.',
-                  style: TextStyle(color: Colors.white54),
-                )
-              : Wrap(
-                  spacing: 12.0,
-                  runSpacing: 12.0,
-                  children: List.generate(_channelNames.length, (index) {
-                    final bool isEnabled =
-                        _tempConfig.enabledChannels == null ||
-                        _tempConfig.enabledChannels!.contains(index);
-                    return Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          'CH ${index + 1}',
-                          style: const TextStyle(color: Colors.white),
-                        ),
-                        Switch(
-                          value: isEnabled,
-                          activeThumbColor: AppColors.primaryBlue,
-                          onChanged: (val) {
-                            setState(() {
-                              List<int> currentList =
-                                  _tempConfig.enabledChannels != null
-                                  ? Uint32List.fromList(_tempConfig.enabledChannels!)
-                                  : List.generate(
-                                      _channelNames.length,
-                                      (i) => i,
-                                    );
 
-                              if (val) {
-                                if (!currentList.contains(index)) {
-                                  currentList.add(index);
-                                }
-                              } else {
-                                currentList.remove(index);
-                              }
-
-                              _tempConfig = AppConfig(
-                                oscPort: _tempConfig.oscPort,
-                                deviceName: _tempConfig.deviceName,
-                                bufferSize: _tempConfig.bufferSize,
-                                themeStartOscAddress:
-                                    _tempConfig.themeStartOscAddress,
-                                systemResetOscAddress:
-                                    _tempConfig.systemResetOscAddress,
-                                enabledChannels: Uint32List.fromList(currentList),
-                                rooms: _tempConfig.rooms,
-                              );
-                            });
-                          },
-                        ),
-                      ],
-                    );
-                  }),
-                ),
-        ),
         const SizedBox(height: 24),
         const Text(
           '출력 채널 구성 (Channel Config)',
@@ -540,12 +467,31 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
               ),
               const SizedBox(height: 12),
               ElevatedButton(
-                onPressed: () {
-                  showDialog(
+                onPressed: () async {
+                  await showDialog(
                     context: context,
                     builder: (context) =>
                         OutputConfigDialog(channelCount: _channelNames.length),
                   );
+                  final outputConfig = ref.read(outputConfigProvider);
+                  final Set<int> enabled = {};
+                  enabled.addAll(outputConfig.monoChannels);
+                  for (final ch in outputConfig.stereoChannels) {
+                    enabled.add(ch);
+                    enabled.add(ch + 1);
+                  }
+                  final sortedEnabled = enabled.toList()..sort();
+                  setState(() {
+                    _tempConfig = AppConfig(
+                      oscPort: _tempConfig.oscPort,
+                      deviceName: _tempConfig.deviceName,
+                      bufferSize: _tempConfig.bufferSize,
+                      themeStartOscAddress: _tempConfig.themeStartOscAddress,
+                      systemResetOscAddress: _tempConfig.systemResetOscAddress,
+                      enabledChannels: Uint32List.fromList(sortedEnabled),
+                      rooms: _tempConfig.rooms,
+                    );
+                  });
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primaryBlue,
