@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:atmos_mixer_pro/core/theme/colors.dart';
 import 'package:atmos_mixer_pro/core/state/global_state.dart';
 import 'package:atmos_mixer_pro/src/rust/common/config.dart';
-import 'dart:typed_data';
 import 'package:atmos_mixer_pro/src/rust/api/simple.dart' as rust_api;
 
 class PreferencesModal extends ConsumerStatefulWidget {
@@ -335,11 +334,13 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
 
     String getDropdownValue(int channelIndex, bool isStereo) {
       if (isStereo) {
-        if (outputConfig.stereoChannels.contains(channelIndex))
+        if (outputConfig.stereoChannels.contains(channelIndex)) {
           return '${channelIndex}_stereo';
+        }
       } else {
-        if (outputConfig.monoChannels.contains(channelIndex))
+        if (outputConfig.monoChannels.contains(channelIndex)) {
           return '${channelIndex}_mono';
+        }
       }
       return isStereo ? '${channelIndex}_stereo' : '${channelIndex}_mono';
     }
@@ -1180,8 +1181,9 @@ class _OutputConfigDialogState extends ConsumerState<OutputConfigDialog> {
                             itemCount: (widget.channelCount / 2).ceil(),
                             itemBuilder: (context, index) {
                               final ch = index * 2;
-                              if (ch + 1 >= widget.channelCount)
+                              if (ch + 1 >= widget.channelCount) {
                                 return const SizedBox.shrink();
+                              }
                               final isOn = stereoChannels.contains(ch);
                               return SwitchListTile(
                                 title: Text(
