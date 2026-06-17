@@ -14,7 +14,7 @@ class TrackCard extends ConsumerStatefulWidget {
   final ValueChanged<double>? onVolumeChanged;
   final ValueChanged<bool>? onLoopChanged;
   final ValueChanged<String>? onNameChanged;
-  final ValueChanged<int>? onOutputChanged;
+  final void Function(int channel, bool isStereo)? onOutputChanged;
 
   const TrackCard({
     super.key,
@@ -69,13 +69,52 @@ class _TrackCardState extends ConsumerState<TrackCard> {
     final engineState = ref.watch(engineStateProvider);
     final isPlaying = engineState.playingTrackIds.contains(widget.track.id);
 
-    final chIndex = widget.track.outputChannel;
+    final config = ref.watch(configProvider);
     
-    String outputName;
-    if (widget.track.outputStereo) {
-      outputName = 'Stereo ${chIndex + 1}/${chIndex + 2}';
-    } else {
-      outputName = 'Mono ${chIndex + 1}';
+    final List<DropdownMenuItem<String>> outputItems = [];
+    if (config != null) {
+      final sortedMonoKeys = config.monoConfigs.keys.toList()..sort();
+      for (final key in sortedMonoKeys) {
+        final setting = config.monoConfigs[key]!;
+        if (setting.enabled) {
+          final displayName = setting.customName.isNotEmpty 
+              ? '$key (${setting.customName})' 
+              : '$key';
+          outputItems.add(DropdownMenuItem(
+            value: 'mono_$key',
+            child: Text('Mono $displayName', style: const TextStyle(fontSize: 12, color: Colors.white)),
+          ));
+        }
+      }
+      
+      final sortedStereoKeys = config.stereoConfigs.keys.toList()..sort();
+      for (final key in sortedStereoKeys) {
+        final setting = config.stereoConfigs[key]!;
+        if (setting.enabled) {
+          final displayName = setting.customName.isNotEmpty 
+              ? '$key/${key+1} (${setting.customName})' 
+              : '$key/${key+1}';
+          outputItems.add(DropdownMenuItem(
+            value: 'stereo_$key',
+            child: Text('Stereo $displayName', style: const TextStyle(fontSize: 12, color: Colors.white)),
+          ));
+        }
+      }
+    }
+    
+    // Note: outputChannel in TrackConfig is 0-indexed, but our keys are 1-indexed.
+    final currentKey = widget.track.outputChannel + 1;
+    final currentValue = widget.track.outputStereo ? 'stereo_$currentKey' : 'mono_$currentKey';
+    
+    final bool valueExists = outputItems.any((item) => item.value == currentValue);
+    if (!valueExists && config != null) {
+       outputItems.add(DropdownMenuItem(
+          value: currentValue,
+          child: Text(
+            widget.track.outputStereo ? 'Stereo $currentKey/${currentKey+1} (Disabled)' : 'Mono $currentKey (Disabled)', 
+            style: const TextStyle(fontSize: 12, color: AppColors.danger)
+          ),
+       ));
     }
 
 
@@ -176,9 +215,29 @@ class _TrackCardState extends ConsumerState<TrackCard> {
                 tooltip: '무한 루프 (BGM)',
               ),
               const SizedBox(width: 8),
-              Text(
-                'Ext. Out: $outputName',
-                style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+              const Text(
+                'Ext. Out: ',
+                style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
+              ),
+              DropdownButtonHideUnderline(
+                child: DropdownButton<String>(
+                  value: currentValue,
+                  items: outputItems,
+                  icon: const Icon(Icons.arrow_drop_down, color: AppColors.textSecondary, size: 16),
+                  dropdownColor: AppColors.cardSurface,
+                  style: const TextStyle(color: Colors.white, fontSize: 12),
+                  onChanged: (val) {
+                    if (val != null) {
+                      final isStereo = val.startsWith('stereo_');
+                      final keyStr = val.replaceFirst(isStereo ? 'stereo_' : 'mono_', '');
+                      final key = int.tryParse(keyStr);
+                      if (key != null) {
+                        // pass the 0-indexed channel back
+                        widget.onOutputChanged?.call(key - 1, isStereo);
+                      }
+                    }
+                  },
+                ),
               ),
             ],
           ),

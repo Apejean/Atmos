@@ -761,6 +761,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  Map<int, ChannelSetting> dco_decode_Map_u_32_channel_setting_None(
+    dynamic raw,
+  ) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return Map.fromEntries(
+      dco_decode_list_record_u_32_channel_setting(
+        raw,
+      ).map((e) => MapEntry(e.$1, e.$2)),
+    );
+  }
+
+  @protected
   RustStreamSink<String> dco_decode_StreamSink_String_Sse(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     throw UnimplementedError();
@@ -791,16 +803,17 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   AppConfig dco_decode_app_config(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 7)
-      throw Exception('unexpected arr length: expect 7 but see ${arr.length}');
+    if (arr.length != 8)
+      throw Exception('unexpected arr length: expect 8 but see ${arr.length}');
     return AppConfig(
       oscPort: dco_decode_u_16(arr[0]),
       deviceName: dco_decode_opt_String(arr[1]),
       bufferSize: dco_decode_u_32(arr[2]),
       themeStartOscAddress: dco_decode_String(arr[3]),
       systemResetOscAddress: dco_decode_String(arr[4]),
-      enabledChannels: dco_decode_opt_list_prim_u_32_strict(arr[5]),
-      rooms: dco_decode_list_room_config(arr[6]),
+      monoConfigs: dco_decode_Map_u_32_channel_setting_None(arr[5]),
+      stereoConfigs: dco_decode_Map_u_32_channel_setting_None(arr[6]),
+      rooms: dco_decode_list_room_config(arr[7]),
     );
   }
 
@@ -823,6 +836,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   AppConfig dco_decode_box_autoadd_app_config(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return dco_decode_app_config(raw);
+  }
+
+  @protected
+  ChannelSetting dco_decode_channel_setting(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 2)
+      throw Exception('unexpected arr length: expect 2 but see ${arr.length}');
+    return ChannelSetting(
+      enabled: dco_decode_bool(arr[0]),
+      customName: dco_decode_String(arr[1]),
+    );
   }
 
   @protected
@@ -863,15 +888,19 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  Uint32List dco_decode_list_prim_u_32_strict(dynamic raw) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    return raw as Uint32List;
-  }
-
-  @protected
   Uint8List dco_decode_list_prim_u_8_strict(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw as Uint8List;
+  }
+
+  @protected
+  List<(int, ChannelSetting)> dco_decode_list_record_u_32_channel_setting(
+    dynamic raw,
+  ) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>)
+        .map(dco_decode_record_u_32_channel_setting)
+        .toList();
   }
 
   @protected
@@ -893,12 +922,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  Uint32List? dco_decode_opt_list_prim_u_32_strict(dynamic raw) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    return raw == null ? null : dco_decode_list_prim_u_32_strict(raw);
-  }
-
-  @protected
   OutputDeviceInfo dco_decode_output_device_info(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
@@ -909,6 +932,16 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       maxChannels: dco_decode_u_32(arr[1]),
       channelNames: dco_decode_list_String(arr[2]),
     );
+  }
+
+  @protected
+  (int, ChannelSetting) dco_decode_record_u_32_channel_setting(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 2) {
+      throw Exception('Expected 2 elements, got ${arr.length}');
+    }
+    return (dco_decode_u_32(arr[0]), dco_decode_channel_setting(arr[1]));
   }
 
   @protected
@@ -978,6 +1011,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  Map<int, ChannelSetting> sse_decode_Map_u_32_channel_setting_None(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var inner = sse_decode_list_record_u_32_channel_setting(deserializer);
+    return Map.fromEntries(inner.map((e) => MapEntry(e.$1, e.$2)));
+  }
+
+  @protected
   RustStreamSink<String> sse_decode_StreamSink_String_Sse(
     SseDeserializer deserializer,
   ) {
@@ -1015,7 +1057,10 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_bufferSize = sse_decode_u_32(deserializer);
     var var_themeStartOscAddress = sse_decode_String(deserializer);
     var var_systemResetOscAddress = sse_decode_String(deserializer);
-    var var_enabledChannels = sse_decode_opt_list_prim_u_32_strict(
+    var var_monoConfigs = sse_decode_Map_u_32_channel_setting_None(
+      deserializer,
+    );
+    var var_stereoConfigs = sse_decode_Map_u_32_channel_setting_None(
       deserializer,
     );
     var var_rooms = sse_decode_list_room_config(deserializer);
@@ -1025,7 +1070,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       bufferSize: var_bufferSize,
       themeStartOscAddress: var_themeStartOscAddress,
       systemResetOscAddress: var_systemResetOscAddress,
-      enabledChannels: var_enabledChannels,
+      monoConfigs: var_monoConfigs,
+      stereoConfigs: var_stereoConfigs,
       rooms: var_rooms,
     );
   }
@@ -1047,6 +1093,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   AppConfig sse_decode_box_autoadd_app_config(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     return (sse_decode_app_config(deserializer));
+  }
+
+  @protected
+  ChannelSetting sse_decode_channel_setting(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_enabled = sse_decode_bool(deserializer);
+    var var_customName = sse_decode_String(deserializer);
+    return ChannelSetting(enabled: var_enabled, customName: var_customName);
   }
 
   @protected
@@ -1104,17 +1158,24 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  Uint32List sse_decode_list_prim_u_32_strict(SseDeserializer deserializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    var len_ = sse_decode_i_32(deserializer);
-    return deserializer.buffer.getUint32List(len_);
-  }
-
-  @protected
   Uint8List sse_decode_list_prim_u_8_strict(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var len_ = sse_decode_i_32(deserializer);
     return deserializer.buffer.getUint8List(len_);
+  }
+
+  @protected
+  List<(int, ChannelSetting)> sse_decode_list_record_u_32_channel_setting(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <(int, ChannelSetting)>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_record_u_32_channel_setting(deserializer));
+    }
+    return ans_;
   }
 
   @protected
@@ -1153,19 +1214,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  Uint32List? sse_decode_opt_list_prim_u_32_strict(
-    SseDeserializer deserializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-
-    if (sse_decode_bool(deserializer)) {
-      return (sse_decode_list_prim_u_32_strict(deserializer));
-    } else {
-      return null;
-    }
-  }
-
-  @protected
   OutputDeviceInfo sse_decode_output_device_info(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var var_name = sse_decode_String(deserializer);
@@ -1176,6 +1224,16 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       maxChannels: var_maxChannels,
       channelNames: var_channelNames,
     );
+  }
+
+  @protected
+  (int, ChannelSetting) sse_decode_record_u_32_channel_setting(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_field0 = sse_decode_u_32(deserializer);
+    var var_field1 = sse_decode_channel_setting(deserializer);
+    return (var_field0, var_field1);
   }
 
   @protected
@@ -1261,6 +1319,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_Map_u_32_channel_setting_None(
+    Map<int, ChannelSetting> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_list_record_u_32_channel_setting(
+      self.entries.map((e) => (e.key, e.value)).toList(),
+      serializer,
+    );
+  }
+
+  @protected
   void sse_encode_StreamSink_String_Sse(
     RustStreamSink<String> self,
     SseSerializer serializer,
@@ -1325,7 +1395,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_u_32(self.bufferSize, serializer);
     sse_encode_String(self.themeStartOscAddress, serializer);
     sse_encode_String(self.systemResetOscAddress, serializer);
-    sse_encode_opt_list_prim_u_32_strict(self.enabledChannels, serializer);
+    sse_encode_Map_u_32_channel_setting_None(self.monoConfigs, serializer);
+    sse_encode_Map_u_32_channel_setting_None(self.stereoConfigs, serializer);
     sse_encode_list_room_config(self.rooms, serializer);
   }
 
@@ -1348,6 +1419,16 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_app_config(self, serializer);
+  }
+
+  @protected
+  void sse_encode_channel_setting(
+    ChannelSetting self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_bool(self.enabled, serializer);
+    sse_encode_String(self.customName, serializer);
   }
 
   @protected
@@ -1399,16 +1480,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  void sse_encode_list_prim_u_32_strict(
-    Uint32List self,
-    SseSerializer serializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_i_32(self.length, serializer);
-    serializer.buffer.putUint32List(self);
-  }
-
-  @protected
   void sse_encode_list_prim_u_8_strict(
     Uint8List self,
     SseSerializer serializer,
@@ -1416,6 +1487,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_i_32(self.length, serializer);
     serializer.buffer.putUint8List(self);
+  }
+
+  @protected
+  void sse_encode_list_record_u_32_channel_setting(
+    List<(int, ChannelSetting)> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_record_u_32_channel_setting(item, serializer);
+    }
   }
 
   @protected
@@ -1453,19 +1536,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  void sse_encode_opt_list_prim_u_32_strict(
-    Uint32List? self,
-    SseSerializer serializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-
-    sse_encode_bool(self != null, serializer);
-    if (self != null) {
-      sse_encode_list_prim_u_32_strict(self, serializer);
-    }
-  }
-
-  @protected
   void sse_encode_output_device_info(
     OutputDeviceInfo self,
     SseSerializer serializer,
@@ -1474,6 +1544,16 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_String(self.name, serializer);
     sse_encode_u_32(self.maxChannels, serializer);
     sse_encode_list_String(self.channelNames, serializer);
+  }
+
+  @protected
+  void sse_encode_record_u_32_channel_setting(
+    (int, ChannelSetting) self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_u_32(self.$1, serializer);
+    sse_encode_channel_setting(self.$2, serializer);
   }
 
   @protected

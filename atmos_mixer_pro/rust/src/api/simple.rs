@@ -16,17 +16,24 @@ pub fn api_get_config(path: String) -> AppConfig {
 
 pub fn api_save_config(path: String, config: AppConfig) -> Result<(), AtmosError> {
     config.save_to_file(path)?;
-    let mask = if let Some(enabled) = &config.enabled_channels {
-        let mut m = 0u64;
-        for &ch in enabled {
-            if ch < 64 {
-                m |= 1 << ch;
+    let mut mask = 0u64;
+    if config.mono_configs.is_empty() && config.stereo_configs.is_empty() {
+        mask = !0;
+    } else {
+        for (&ch, setting) in &config.mono_configs {
+            if setting.enabled && ch < 64 {
+                mask |= 1 << ch;
             }
         }
-        m
-    } else {
-        !0
-    };
+        for (&ch, setting) in &config.stereo_configs {
+            if setting.enabled && ch < 64 {
+                mask |= 1 << ch;
+                if ch + 1 < 64 {
+                    mask |= 1 << (ch + 1);
+                }
+            }
+        }
+    }
     GLOBAL_STATE.enabled_channels_mask.store(mask, std::sync::atomic::Ordering::Relaxed);
     {
         let mut global_config = GLOBAL_STATE.config.write().unwrap();
@@ -259,17 +266,24 @@ pub fn api_preload_all_sounds(config: AppConfig) -> Result<(), AtmosError> {
         }
     }
     
-    let mask = if let Some(enabled) = &config.enabled_channels {
-        let mut m = 0u64;
-        for &ch in enabled {
-            if ch < 64 {
-                m |= 1 << ch;
+    let mut mask = 0u64;
+    if config.mono_configs.is_empty() && config.stereo_configs.is_empty() {
+        mask = !0;
+    } else {
+        for (&ch, setting) in &config.mono_configs {
+            if setting.enabled && ch < 64 {
+                mask |= 1 << ch;
             }
         }
-        m
-    } else {
-        !0
-    };
+        for (&ch, setting) in &config.stereo_configs {
+            if setting.enabled && ch < 64 {
+                mask |= 1 << ch;
+                if ch + 1 < 64 {
+                    mask |= 1 << (ch + 1);
+                }
+            }
+        }
+    }
     GLOBAL_STATE.enabled_channels_mask.store(mask, std::sync::atomic::Ordering::Relaxed);
 
     let mut global_config = GLOBAL_STATE.config.write().unwrap();

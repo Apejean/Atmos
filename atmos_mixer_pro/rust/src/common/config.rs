@@ -1,6 +1,13 @@
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ChannelSetting {
+    pub enabled: bool,
+    pub custom_name: String,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppConfig {
@@ -12,7 +19,9 @@ pub struct AppConfig {
     #[serde(default)]
     pub system_reset_osc_address: String,
     #[serde(default)]
-    pub enabled_channels: Option<Vec<u32>>,
+    pub mono_configs: HashMap<u32, ChannelSetting>,
+    #[serde(default)]
+    pub stereo_configs: HashMap<u32, ChannelSetting>,
     #[serde(default)]
     pub rooms: Vec<RoomConfig>,
 }
@@ -25,7 +34,8 @@ impl Default for AppConfig {
             buffer_size: 256,
             theme_start_osc_address: String::new(),
             system_reset_osc_address: String::new(),
-            enabled_channels: None,
+            mono_configs: HashMap::new(),
+            stereo_configs: HashMap::new(),
             rooms: Vec::new(),
         }
     }

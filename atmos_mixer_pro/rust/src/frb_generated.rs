@@ -716,6 +716,15 @@ impl SseDecode for flutter_rust_bridge::for_generated::anyhow::Error {
     }
 }
 
+impl SseDecode for std::collections::HashMap<u32, crate::common::config::ChannelSetting> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut inner =
+            <Vec<(u32, crate::common::config::ChannelSetting)>>::sse_decode(deserializer);
+        return inner.into_iter().collect();
+    }
+}
+
 impl SseDecode for StreamSink<String, flutter_rust_bridge::for_generated::SseCodec> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -761,7 +770,14 @@ impl SseDecode for crate::common::config::AppConfig {
         let mut var_bufferSize = <u32>::sse_decode(deserializer);
         let mut var_themeStartOscAddress = <String>::sse_decode(deserializer);
         let mut var_systemResetOscAddress = <String>::sse_decode(deserializer);
-        let mut var_enabledChannels = <Option<Vec<u32>>>::sse_decode(deserializer);
+        let mut var_monoConfigs = <std::collections::HashMap<
+            u32,
+            crate::common::config::ChannelSetting,
+        >>::sse_decode(deserializer);
+        let mut var_stereoConfigs = <std::collections::HashMap<
+            u32,
+            crate::common::config::ChannelSetting,
+        >>::sse_decode(deserializer);
         let mut var_rooms = <Vec<crate::common::config::RoomConfig>>::sse_decode(deserializer);
         return crate::common::config::AppConfig {
             osc_port: var_oscPort,
@@ -769,7 +785,8 @@ impl SseDecode for crate::common::config::AppConfig {
             buffer_size: var_bufferSize,
             theme_start_osc_address: var_themeStartOscAddress,
             system_reset_osc_address: var_systemResetOscAddress,
-            enabled_channels: var_enabledChannels,
+            mono_configs: var_monoConfigs,
+            stereo_configs: var_stereoConfigs,
             rooms: var_rooms,
         };
     }
@@ -789,6 +806,18 @@ impl SseDecode for bool {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
         deserializer.cursor.read_u8().unwrap() != 0
+    }
+}
+
+impl SseDecode for crate::common::config::ChannelSetting {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_enabled = <bool>::sse_decode(deserializer);
+        let mut var_customName = <String>::sse_decode(deserializer);
+        return crate::common::config::ChannelSetting {
+            enabled: var_enabled,
+            custom_name: var_customName,
+        };
     }
 }
 
@@ -851,18 +880,6 @@ impl SseDecode for Vec<f32> {
     }
 }
 
-impl SseDecode for Vec<u32> {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        let mut len_ = <i32>::sse_decode(deserializer);
-        let mut ans_ = Vec::with_capacity(len_ as usize);
-        for idx_ in 0..len_ {
-            ans_.push(<u32>::sse_decode(deserializer));
-        }
-        return ans_;
-    }
-}
-
 impl SseDecode for Vec<u8> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -870,6 +887,20 @@ impl SseDecode for Vec<u8> {
         let mut ans_ = Vec::with_capacity(len_ as usize);
         for idx_ in 0..len_ {
             ans_.push(<u8>::sse_decode(deserializer));
+        }
+        return ans_;
+    }
+}
+
+impl SseDecode for Vec<(u32, crate::common::config::ChannelSetting)> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = Vec::with_capacity(len_ as usize);
+        for idx_ in 0..len_ {
+            ans_.push(<(u32, crate::common::config::ChannelSetting)>::sse_decode(
+                deserializer,
+            ));
         }
         return ans_;
     }
@@ -914,17 +945,6 @@ impl SseDecode for Option<String> {
     }
 }
 
-impl SseDecode for Option<Vec<u32>> {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        if (<bool>::sse_decode(deserializer)) {
-            return Some(<Vec<u32>>::sse_decode(deserializer));
-        } else {
-            return None;
-        }
-    }
-}
-
 impl SseDecode for crate::api::simple::OutputDeviceInfo {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -936,6 +956,15 @@ impl SseDecode for crate::api::simple::OutputDeviceInfo {
             max_channels: var_maxChannels,
             channel_names: var_channelNames,
         };
+    }
+}
+
+impl SseDecode for (u32, crate::common::config::ChannelSetting) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_field0 = <u32>::sse_decode(deserializer);
+        let mut var_field1 = <crate::common::config::ChannelSetting>::sse_decode(deserializer);
+        return (var_field0, var_field1);
     }
 }
 
@@ -1102,7 +1131,8 @@ impl flutter_rust_bridge::IntoDart for crate::common::config::AppConfig {
             self.buffer_size.into_into_dart().into_dart(),
             self.theme_start_osc_address.into_into_dart().into_dart(),
             self.system_reset_osc_address.into_into_dart().into_dart(),
-            self.enabled_channels.into_into_dart().into_dart(),
+            self.mono_configs.into_into_dart().into_dart(),
+            self.stereo_configs.into_into_dart().into_dart(),
             self.rooms.into_into_dart().into_dart(),
         ]
         .into_dart()
@@ -1130,6 +1160,27 @@ impl flutter_rust_bridge::IntoIntoDart<crate::api::error::AtmosError>
     for crate::api::error::AtmosError
 {
     fn into_into_dart(self) -> crate::api::error::AtmosError {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::common::config::ChannelSetting {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.enabled.into_into_dart().into_dart(),
+            self.custom_name.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::common::config::ChannelSetting
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::common::config::ChannelSetting>
+    for crate::common::config::ChannelSetting
+{
+    fn into_into_dart(self) -> crate::common::config::ChannelSetting {
         self
     }
 }
@@ -1238,6 +1289,16 @@ impl SseEncode for flutter_rust_bridge::for_generated::anyhow::Error {
     }
 }
 
+impl SseEncode for std::collections::HashMap<u32, crate::common::config::ChannelSetting> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <Vec<(u32, crate::common::config::ChannelSetting)>>::sse_encode(
+            self.into_iter().collect(),
+            serializer,
+        );
+    }
+}
+
 impl SseEncode for StreamSink<String, flutter_rust_bridge::for_generated::SseCodec> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -1279,7 +1340,14 @@ impl SseEncode for crate::common::config::AppConfig {
         <u32>::sse_encode(self.buffer_size, serializer);
         <String>::sse_encode(self.theme_start_osc_address, serializer);
         <String>::sse_encode(self.system_reset_osc_address, serializer);
-        <Option<Vec<u32>>>::sse_encode(self.enabled_channels, serializer);
+        <std::collections::HashMap<u32, crate::common::config::ChannelSetting>>::sse_encode(
+            self.mono_configs,
+            serializer,
+        );
+        <std::collections::HashMap<u32, crate::common::config::ChannelSetting>>::sse_encode(
+            self.stereo_configs,
+            serializer,
+        );
         <Vec<crate::common::config::RoomConfig>>::sse_encode(self.rooms, serializer);
     }
 }
@@ -1295,6 +1363,14 @@ impl SseEncode for bool {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
         serializer.cursor.write_u8(self as _).unwrap();
+    }
+}
+
+impl SseEncode for crate::common::config::ChannelSetting {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <bool>::sse_encode(self.enabled, serializer);
+        <String>::sse_encode(self.custom_name, serializer);
     }
 }
 
@@ -1344,22 +1420,22 @@ impl SseEncode for Vec<f32> {
     }
 }
 
-impl SseEncode for Vec<u32> {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        <i32>::sse_encode(self.len() as _, serializer);
-        for item in self {
-            <u32>::sse_encode(item, serializer);
-        }
-    }
-}
-
 impl SseEncode for Vec<u8> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
         <i32>::sse_encode(self.len() as _, serializer);
         for item in self {
             <u8>::sse_encode(item, serializer);
+        }
+    }
+}
+
+impl SseEncode for Vec<(u32, crate::common::config::ChannelSetting)> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <(u32, crate::common::config::ChannelSetting)>::sse_encode(item, serializer);
         }
     }
 }
@@ -1394,22 +1470,20 @@ impl SseEncode for Option<String> {
     }
 }
 
-impl SseEncode for Option<Vec<u32>> {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        <bool>::sse_encode(self.is_some(), serializer);
-        if let Some(value) = self {
-            <Vec<u32>>::sse_encode(value, serializer);
-        }
-    }
-}
-
 impl SseEncode for crate::api::simple::OutputDeviceInfo {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
         <String>::sse_encode(self.name, serializer);
         <u32>::sse_encode(self.max_channels, serializer);
         <Vec<String>>::sse_encode(self.channel_names, serializer);
+    }
+}
+
+impl SseEncode for (u32, crate::common::config::ChannelSetting) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <u32>::sse_encode(self.0, serializer);
+        <crate::common::config::ChannelSetting>::sse_encode(self.1, serializer);
     }
 }
 

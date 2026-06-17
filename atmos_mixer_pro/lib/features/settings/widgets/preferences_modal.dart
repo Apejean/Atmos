@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:atmos_mixer_pro/core/theme/colors.dart';
 import 'package:atmos_mixer_pro/core/state/global_state.dart';
@@ -38,7 +37,8 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
             bufferSize: 256,
             themeStartOscAddress: '/theme/start',
             systemResetOscAddress: '/system/reset',
-            enabledChannels: null,
+            monoConfigs: {},
+            stereoConfigs: {},
             rooms: [],
           );
     _loadDevices();
@@ -98,9 +98,8 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
       bufferSize: config.bufferSize,
       themeStartOscAddress: config.themeStartOscAddress,
       systemResetOscAddress: config.systemResetOscAddress,
-      enabledChannels: config.enabledChannels != null
-          ? Uint32List.fromList(config.enabledChannels!)
-          : null,
+      monoConfigs: Map.from(config.monoConfigs),
+      stereoConfigs: Map.from(config.stereoConfigs),
       rooms: config.rooms
           .map(
             (r) => RoomConfig(
@@ -167,7 +166,8 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
       bufferSize: _tempConfig.bufferSize,
       themeStartOscAddress: _tempConfig.themeStartOscAddress,
       systemResetOscAddress: _tempConfig.systemResetOscAddress,
-      enabledChannels: _tempConfig.enabledChannels,
+      monoConfigs: _tempConfig.monoConfigs,
+      stereoConfigs: _tempConfig.stereoConfigs,
       rooms: newRooms,
     );
     ref.read(configProvider.notifier).saveConfig(finalConfig);
@@ -216,10 +216,9 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
             deviceName: _tempConfig.deviceName,
             bufferSize: _tempConfig.bufferSize,
             themeStartOscAddress: _tempConfig.themeStartOscAddress,
-            systemResetOscAddress: _tempConfig.systemResetOscAddress,
-            enabledChannels: next.enabledChannels != null
-                ? Uint32List.fromList(next.enabledChannels!)
-                : null,
+            systemResetOscAddress: next.systemResetOscAddress,
+            monoConfigs: Map.from(next.monoConfigs),
+            stereoConfigs: Map.from(next.stereoConfigs),
             rooms: updatedRooms,
           );
         });
@@ -319,43 +318,47 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
   }
 
   Widget _buildAudioTab() {
-    final outputConfig = ref.watch(outputConfigProvider);
     final List<DropdownMenuItem<String>> channelItems = [];
 
-    final sortedMono = outputConfig.monoChannels.toList()..sort();
-    for (final ch in sortedMono) {
+    final sortedMono =
+        _tempConfig.monoConfigs.entries.where((e) => e.value.enabled).toList()
+          ..sort((a, b) => a.key.compareTo(b.key));
+    for (final entry in sortedMono) {
+      final ch = entry.key;
+      final setting = entry.value;
       if (ch < _channelNames.length) {
+        final displayName = setting.customName.isNotEmpty
+            ? '${ch + 1} (${setting.customName})'
+            : '${ch + 1}';
         channelItems.add(
           DropdownMenuItem<String>(
             value: '${ch}_mono',
-            child: Text('${ch + 1}'),
+            child: Text(displayName),
           ),
         );
       }
     }
 
-    final sortedStereo = outputConfig.stereoChannels.toList()..sort();
-    for (final ch in sortedStereo) {
+    final sortedStereo =
+        _tempConfig.stereoConfigs.entries.where((e) => e.value.enabled).toList()
+          ..sort((a, b) => a.key.compareTo(b.key));
+    for (final entry in sortedStereo) {
+      final ch = entry.key;
+      final setting = entry.value;
       if (ch + 1 < _channelNames.length) {
+        final displayName = setting.customName.isNotEmpty
+            ? '${ch + 1}/${ch + 2} (${setting.customName})'
+            : '${ch + 1}/${ch + 2}';
         channelItems.add(
           DropdownMenuItem<String>(
             value: '${ch}_stereo',
-            child: Text('${ch + 1}/${ch + 2}'),
+            child: Text(displayName),
           ),
         );
       }
     }
 
     String getDropdownValue(int channelIndex, bool isStereo) {
-      if (isStereo) {
-        if (outputConfig.stereoChannels.contains(channelIndex)) {
-          return '${channelIndex}_stereo';
-        }
-      } else {
-        if (outputConfig.monoChannels.contains(channelIndex)) {
-          return '${channelIndex}_mono';
-        }
-      }
       return isStereo ? '${channelIndex}_stereo' : '${channelIndex}_mono';
     }
 
@@ -410,7 +413,8 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                       bufferSize: _tempConfig.bufferSize,
                       themeStartOscAddress: _tempConfig.themeStartOscAddress,
                       systemResetOscAddress: _tempConfig.systemResetOscAddress,
-                      enabledChannels: _tempConfig.enabledChannels,
+                      monoConfigs: _tempConfig.monoConfigs,
+                      stereoConfigs: _tempConfig.stereoConfigs,
                       rooms: _tempConfig.rooms,
                     );
                   });
@@ -446,7 +450,8 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                         themeStartOscAddress: _tempConfig.themeStartOscAddress,
                         systemResetOscAddress:
                             _tempConfig.systemResetOscAddress,
-                        enabledChannels: _tempConfig.enabledChannels,
+                        monoConfigs: _tempConfig.monoConfigs,
+                        stereoConfigs: _tempConfig.stereoConfigs,
                         rooms: _tempConfig.rooms,
                       );
                     });
@@ -482,30 +487,30 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
               const SizedBox(height: 12),
               ElevatedButton(
                 onPressed: () async {
-                  await showDialog(
-                    context: context,
-                    builder: (context) =>
-                        OutputConfigDialog(channelCount: _channelNames.length),
-                  );
-                  final outputConfig = ref.read(outputConfigProvider);
-                  final Set<int> enabled = {};
-                  enabled.addAll(outputConfig.monoChannels);
-                  for (final ch in outputConfig.stereoChannels) {
-                    enabled.add(ch);
-                    enabled.add(ch + 1);
+                  final result =
+                      await showDialog<Map<String, Map<int, ChannelSetting>>>(
+                        context: context,
+                        builder: (context) => OutputConfigDialog(
+                          channelCount: _channelNames.length,
+                          initialMonoConfigs: _tempConfig.monoConfigs,
+                          initialStereoConfigs: _tempConfig.stereoConfigs,
+                        ),
+                      );
+                  if (result != null) {
+                    setState(() {
+                      _tempConfig = AppConfig(
+                        oscPort: _tempConfig.oscPort,
+                        deviceName: _tempConfig.deviceName,
+                        bufferSize: _tempConfig.bufferSize,
+                        themeStartOscAddress: _tempConfig.themeStartOscAddress,
+                        systemResetOscAddress:
+                            _tempConfig.systemResetOscAddress,
+                        monoConfigs: result['mono']!,
+                        stereoConfigs: result['stereo']!,
+                        rooms: _tempConfig.rooms,
+                      );
+                    });
                   }
-                  final sortedEnabled = enabled.toList()..sort();
-                  setState(() {
-                    _tempConfig = AppConfig(
-                      oscPort: _tempConfig.oscPort,
-                      deviceName: _tempConfig.deviceName,
-                      bufferSize: _tempConfig.bufferSize,
-                      themeStartOscAddress: _tempConfig.themeStartOscAddress,
-                      systemResetOscAddress: _tempConfig.systemResetOscAddress,
-                      enabledChannels: Uint32List.fromList(sortedEnabled),
-                      rooms: _tempConfig.rooms,
-                    );
-                  });
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primaryBlue,
@@ -641,7 +646,8 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                                       _tempConfig.themeStartOscAddress,
                                   systemResetOscAddress:
                                       _tempConfig.systemResetOscAddress,
-                                  enabledChannels: _tempConfig.enabledChannels,
+                                  monoConfigs: _tempConfig.monoConfigs,
+                                  stereoConfigs: _tempConfig.stereoConfigs,
                                   rooms: newRooms,
                                 );
                               });
@@ -708,7 +714,8 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                         themeStartOscAddress: val,
                         systemResetOscAddress:
                             _tempConfig.systemResetOscAddress,
-                        enabledChannels: _tempConfig.enabledChannels,
+                        monoConfigs: _tempConfig.monoConfigs,
+                        stereoConfigs: _tempConfig.stereoConfigs,
                         rooms: _tempConfig.rooms,
                       );
                     });
@@ -753,7 +760,8 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                         bufferSize: _tempConfig.bufferSize,
                         themeStartOscAddress: _tempConfig.themeStartOscAddress,
                         systemResetOscAddress: val,
-                        enabledChannels: _tempConfig.enabledChannels,
+                        monoConfigs: _tempConfig.monoConfigs,
+                        stereoConfigs: _tempConfig.stereoConfigs,
                         rooms: _tempConfig.rooms,
                       );
                     });
@@ -825,7 +833,8 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                                   _tempConfig.themeStartOscAddress,
                               systemResetOscAddress:
                                   _tempConfig.systemResetOscAddress,
-                              enabledChannels: _tempConfig.enabledChannels,
+                              monoConfigs: _tempConfig.monoConfigs,
+                              stereoConfigs: _tempConfig.stereoConfigs,
                               rooms: newRooms,
                             );
                           });
@@ -899,7 +908,8 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                                       _tempConfig.themeStartOscAddress,
                                   systemResetOscAddress:
                                       _tempConfig.systemResetOscAddress,
-                                  enabledChannels: _tempConfig.enabledChannels,
+                                  monoConfigs: _tempConfig.monoConfigs,
+                                  stereoConfigs: _tempConfig.stereoConfigs,
                                   rooms: newRooms,
                                 );
                               });
@@ -955,7 +965,8 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                                       _tempConfig.themeStartOscAddress,
                                   systemResetOscAddress:
                                       _tempConfig.systemResetOscAddress,
-                                  enabledChannels: _tempConfig.enabledChannels,
+                                  monoConfigs: _tempConfig.monoConfigs,
+                                  stereoConfigs: _tempConfig.stereoConfigs,
                                   rooms: newRooms,
                                 );
                               });
@@ -1006,7 +1017,8 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                         themeStartOscAddress: _tempConfig.themeStartOscAddress,
                         systemResetOscAddress:
                             _tempConfig.systemResetOscAddress,
-                        enabledChannels: _tempConfig.enabledChannels,
+                        monoConfigs: _tempConfig.monoConfigs,
+                        stereoConfigs: _tempConfig.stereoConfigs,
                         rooms: _tempConfig.rooms,
                       );
                     });
@@ -1023,22 +1035,101 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
 
 class OutputConfigDialog extends ConsumerStatefulWidget {
   final int channelCount;
-  const OutputConfigDialog({super.key, required this.channelCount});
+  final Map<int, ChannelSetting> initialMonoConfigs;
+  final Map<int, ChannelSetting> initialStereoConfigs;
+
+  const OutputConfigDialog({
+    super.key,
+    required this.channelCount,
+    required this.initialMonoConfigs,
+    required this.initialStereoConfigs,
+  });
 
   @override
   ConsumerState<OutputConfigDialog> createState() => _OutputConfigDialogState();
 }
 
 class _OutputConfigDialogState extends ConsumerState<OutputConfigDialog> {
-  late Set<int> monoChannels;
-  late Set<int> stereoChannels;
+  late Map<int, ChannelSetting> monoConfigs;
+  late Map<int, ChannelSetting> stereoConfigs;
 
   @override
   void initState() {
     super.initState();
-    final state = ref.read(outputConfigProvider);
-    monoChannels = Set.from(state.monoChannels);
-    stereoChannels = Set.from(state.stereoChannels);
+    monoConfigs = Map.from(widget.initialMonoConfigs);
+    stereoConfigs = Map.from(widget.initialStereoConfigs);
+  }
+
+  Widget _buildChannelRow(
+    String label,
+    ChannelSetting setting,
+    ValueChanged<ChannelSetting> onChanged,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 8.0),
+      child: Row(
+        children: [
+          InkWell(
+            onTap: () {
+              onChanged(
+                ChannelSetting(
+                  enabled: !setting.enabled,
+                  customName: setting.customName,
+                ),
+              );
+            },
+            child: Container(
+              width: 80,
+              height: 32,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: setting.enabled ? Colors.orange : AppColors.cardSurface,
+                border: Border.all(color: Colors.black54),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                label,
+                style: TextStyle(
+                  color: setting.enabled ? Colors.black : Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: SizedBox(
+              height: 32,
+              child: TextFormField(
+                initialValue: setting.customName,
+                style: const TextStyle(color: Colors.white, fontSize: 14),
+                decoration: InputDecoration(
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 0,
+                  ),
+                  filled: true,
+                  fillColor: AppColors.cardSurface,
+                  border: OutlineInputBorder(
+                    borderSide: const BorderSide(color: Colors.black54),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderSide: const BorderSide(color: Colors.orange),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+                onChanged: (val) {
+                  onChanged(
+                    ChannelSetting(enabled: setting.enabled, customName: val),
+                  );
+                },
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -1047,8 +1138,8 @@ class _OutputConfigDialogState extends ConsumerState<OutputConfigDialog> {
       backgroundColor: AppColors.background,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: SizedBox(
-        width: 600,
-        height: 500,
+        width: 700,
+        height: 600,
         child: Column(
           children: [
             Container(
@@ -1075,6 +1166,13 @@ class _OutputConfigDialogState extends ConsumerState<OutputConfigDialog> {
                 ],
               ),
             ),
+            const Padding(
+              padding: EdgeInsets.all(16.0),
+              child: Text(
+                'Choose which audio hardware outputs to make available. Every output pair can be used as one stereo out and/or two mono outs.',
+                style: TextStyle(color: Colors.white70),
+              ),
+            ),
             Expanded(
               child: Row(
                 children: [
@@ -1083,35 +1181,42 @@ class _OutputConfigDialogState extends ConsumerState<OutputConfigDialog> {
                     child: Column(
                       children: [
                         const Padding(
-                          padding: EdgeInsets.all(16.0),
-                          child: Text(
-                            'Mono Output',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
+                          padding: EdgeInsets.all(8.0),
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              'Mono Outputs',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ),
                         ),
                         Expanded(
                           child: ListView.builder(
-                            itemCount: widget.channelCount,
+                            itemCount: (widget.channelCount / 2).ceil(),
                             itemBuilder: (context, index) {
-                              final ch = index;
-                              final isOn = monoChannels.contains(ch);
-                              return SwitchListTile(
-                                title: Text(
-                                  '${ch + 1}',
-                                  style: const TextStyle(color: Colors.white),
-                                ),
-                                value: isOn,
-                                activeThumbColor: AppColors.primaryBlue,
-                                onChanged: (val) {
+                              final chStart = index * 2;
+                              if (chStart >= widget.channelCount) {
+                                return const SizedBox.shrink();
+                              }
+                              final displayCh1 = chStart + 1;
+                              final displayCh2 = chStart + 2;
+                              final key = displayCh1;
+                              final setting =
+                                  monoConfigs[key] ??
+                                  const ChannelSetting(
+                                    enabled: false,
+                                    customName: '',
+                                  );
+
+                              return _buildChannelRow(
+                                '$displayCh1 & $displayCh2',
+                                setting,
+                                (newSetting) {
                                   setState(() {
-                                    if (val) {
-                                      monoChannels.add(ch);
-                                    } else {
-                                      monoChannels.remove(ch);
-                                    }
+                                    monoConfigs[key] = newSetting;
                                   });
                                 },
                               );
@@ -1127,12 +1232,15 @@ class _OutputConfigDialogState extends ConsumerState<OutputConfigDialog> {
                     child: Column(
                       children: [
                         const Padding(
-                          padding: EdgeInsets.all(16.0),
-                          child: Text(
-                            'Stereo Output',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
+                          padding: EdgeInsets.all(8.0),
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              'Stereo Outputs',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ),
                         ),
@@ -1140,25 +1248,26 @@ class _OutputConfigDialogState extends ConsumerState<OutputConfigDialog> {
                           child: ListView.builder(
                             itemCount: (widget.channelCount / 2).ceil(),
                             itemBuilder: (context, index) {
-                              final ch = index * 2;
-                              if (ch + 1 >= widget.channelCount) {
+                              final chStart = index * 2;
+                              if (chStart >= widget.channelCount) {
                                 return const SizedBox.shrink();
                               }
-                              final isOn = stereoChannels.contains(ch);
-                              return SwitchListTile(
-                                title: Text(
-                                  '${ch + 1}/${ch + 2}',
-                                  style: const TextStyle(color: Colors.white),
-                                ),
-                                value: isOn,
-                                activeThumbColor: AppColors.primaryBlue,
-                                onChanged: (val) {
+                              final displayCh1 = chStart + 1;
+                              final displayCh2 = chStart + 2;
+                              final key = displayCh1;
+                              final setting =
+                                  stereoConfigs[key] ??
+                                  const ChannelSetting(
+                                    enabled: false,
+                                    customName: '',
+                                  );
+
+                              return _buildChannelRow(
+                                '$displayCh1/$displayCh2',
+                                setting,
+                                (newSetting) {
                                   setState(() {
-                                    if (val) {
-                                      stereoChannels.add(ch);
-                                    } else {
-                                      stereoChannels.remove(ch);
-                                    }
+                                    stereoConfigs[key] = newSetting;
                                   });
                                 },
                               );
@@ -1182,7 +1291,7 @@ class _OutputConfigDialogState extends ConsumerState<OutputConfigDialog> {
                   TextButton(
                     onPressed: () => Navigator.of(context).pop(),
                     child: const Text(
-                      '취소',
+                      'Cancel',
                       style: TextStyle(color: Colors.white70),
                     ),
                   ),
@@ -1192,13 +1301,12 @@ class _OutputConfigDialogState extends ConsumerState<OutputConfigDialog> {
                       backgroundColor: AppColors.primaryBlue,
                     ),
                     onPressed: () {
-                      ref
-                          .read(outputConfigProvider.notifier)
-                          .save(monoChannels, stereoChannels);
-                      Navigator.of(context).pop();
+                      Navigator.of(
+                        context,
+                      ).pop({'mono': monoConfigs, 'stereo': stereoConfigs});
                     },
                     child: const Text(
-                      '확인',
+                      'OK',
                       style: TextStyle(color: Colors.white),
                     ),
                   ),

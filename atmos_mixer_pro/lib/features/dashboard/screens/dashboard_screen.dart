@@ -316,6 +316,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       bufferSize: config.bufferSize,
                       themeStartOscAddress: config.themeStartOscAddress,
                       systemResetOscAddress: config.systemResetOscAddress,
+                      monoConfigs: config.monoConfigs,
+                      stereoConfigs: config.stereoConfigs,
                       rooms: [...config.rooms, newRoom],
                     );
                     ref.read(configProvider.notifier).saveConfig(updated);
@@ -385,10 +387,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  const Text(
-                    '[24 Output]',
-                    style: TextStyle(color: AppColors.primaryNeon),
-                  ),
                   IconButton(
                     icon: const Icon(Icons.refresh, color: Colors.white),
                     tooltip: '스캔',
@@ -414,14 +412,18 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     return Listener(
       onPointerSignal: (pointerSignal) {
         if (pointerSignal is PointerScrollEvent) {
-          final offset = _scrollController.offset;
-          final maxScroll = _scrollController.position.maxScrollExtent;
-          final minScroll = _scrollController.position.minScrollExtent;
-          final newOffset = (offset + pointerSignal.scrollDelta.dy).clamp(
-            minScroll,
-            maxScroll,
-          );
-          _scrollController.jumpTo(newOffset);
+          GestureBinding.instance.pointerSignalResolver.register(pointerSignal, (PointerSignalEvent event) {
+            if (event is PointerScrollEvent) {
+              final offset = _scrollController.offset;
+              final maxScroll = _scrollController.position.maxScrollExtent;
+              final minScroll = _scrollController.position.minScrollExtent;
+              final newOffset = (offset + event.scrollDelta.dy).clamp(
+                minScroll,
+                maxScroll,
+              );
+              _scrollController.jumpTo(newOffset);
+            }
+          });
         }
       },
       child: ListView.builder(

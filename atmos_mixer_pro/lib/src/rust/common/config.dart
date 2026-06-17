@@ -12,7 +12,8 @@ class AppConfig {
   final int bufferSize;
   final String themeStartOscAddress;
   final String systemResetOscAddress;
-  final Uint32List? enabledChannels;
+  final Map<int, ChannelSetting> monoConfigs;
+  final Map<int, ChannelSetting> stereoConfigs;
   final List<RoomConfig> rooms;
 
   const AppConfig({
@@ -21,7 +22,8 @@ class AppConfig {
     required this.bufferSize,
     required this.themeStartOscAddress,
     required this.systemResetOscAddress,
-    this.enabledChannels,
+    required this.monoConfigs,
+    required this.stereoConfigs,
     required this.rooms,
   });
 
@@ -32,7 +34,8 @@ class AppConfig {
       bufferSize.hashCode ^
       themeStartOscAddress.hashCode ^
       systemResetOscAddress.hashCode ^
-      enabledChannels.hashCode ^
+      monoConfigs.hashCode ^
+      stereoConfigs.hashCode ^
       rooms.hashCode;
 
   @override
@@ -45,8 +48,27 @@ class AppConfig {
           bufferSize == other.bufferSize &&
           themeStartOscAddress == other.themeStartOscAddress &&
           systemResetOscAddress == other.systemResetOscAddress &&
-          enabledChannels == other.enabledChannels &&
+          monoConfigs == other.monoConfigs &&
+          stereoConfigs == other.stereoConfigs &&
           rooms == other.rooms;
+}
+
+class ChannelSetting {
+  final bool enabled;
+  final String customName;
+
+  const ChannelSetting({required this.enabled, required this.customName});
+
+  @override
+  int get hashCode => enabled.hashCode ^ customName.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ChannelSetting &&
+          runtimeType == other.runtimeType &&
+          enabled == other.enabled &&
+          customName == other.customName;
 }
 
 class RoomConfig {
