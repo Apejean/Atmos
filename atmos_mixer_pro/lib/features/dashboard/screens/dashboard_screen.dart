@@ -280,7 +280,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   config?.deviceName ?? '기본 오디오 출력',
                   style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                 ),
-                const Text('[24 Output]', style: TextStyle(color: AppColors.primaryNeon)),
                 IconButton(
                   icon: const Icon(Icons.refresh, color: Colors.white),
                   tooltip: '스캔',
