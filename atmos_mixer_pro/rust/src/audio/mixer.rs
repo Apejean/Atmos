@@ -44,6 +44,8 @@ impl AudioMixer {
         if out_channels == 0 || output.is_empty() {
             return;
         }
+        let enabled_mask = GLOBAL_STATE.enabled_channels_mask.load(Ordering::Relaxed);
+
         // Clear output buffer
         for sample in output.iter_mut() {
             *sample = 0.0;
@@ -227,32 +229,37 @@ impl AudioMixer {
 
                 if has_sample {
                     if instance.output_channel < out_channels {
+                        let is_l_enabled = (enabled_mask & (1 << instance.output_channel)) != 0;
+                        
                         if instance.output_stereo {
                             let out_idx_l = frame * out_channels + instance.output_channel;
                             let mut wrote_r = false;
                             
-                            if out_idx_l < output.len() {
+                            if is_l_enabled && out_idx_l < output.len() {
                                 output[out_idx_l] += val_l * current_vol; 
                             }
                             
                             if instance.output_channel + 1 < out_channels {
+                                let is_r_enabled = (enabled_mask & (1 << (instance.output_channel + 1))) != 0;
                                 let out_idx_r = out_idx_l + 1;
-                                if out_idx_r < output.len() {
+                                if is_r_enabled && out_idx_r < output.len() {
                                     output[out_idx_r] += val_r * current_vol;
                                     wrote_r = true;
                                 }
                             }
                             
-                            if !wrote_r && out_idx_l < output.len() {
-                                // Mix right channel into left if right channel is out of bounds for current device
+                            if !wrote_r && is_l_enabled && out_idx_l < output.len() {
+                                // Mix right channel into left if right channel is out of bounds or disabled
                                 output[out_idx_l] += val_r * current_vol;
                             }
                         } else {
                             // Mix down to mono
-                            let mono_val = (val_l + val_r) * 0.5;
-                            let out_idx = frame * out_channels + instance.output_channel;
-                            if out_idx < output.len() {
-                                output[out_idx] += mono_val * current_vol;
+                            if is_l_enabled {
+                                let mono_val = (val_l + val_r) * 0.5;
+                                let out_idx = frame * out_channels + instance.output_channel;
+                                if out_idx < output.len() {
+                                    output[out_idx] += mono_val * current_vol;
+                                }
                             }
                         }
                     }
@@ -268,34 +275,46 @@ impl AudioMixer {
             }
         }
 
-        // Compute VU levels (Peak per channel)
+        // Compute VU levels (Peak per channel) and apply soft clipping
         for ch in 0..out_channels {
             if ch >= 64 { break; }
+            let is_enabled = (enabled_mask & (1 << ch)) != 0;
+            if !is_enabled {
+                GLOBAL_STATE.vu_levels[ch].store(0, Ordering::Relaxed);
+                // Zero out buffer for disabled channels to be absolutely safe
+                for frame in 0..frames {
+                    let sample_idx = frame * out_channels + ch;
+                    if sample_idx < output.len() {
+                        output[sample_idx] = 0.0;
+                    }
+                }
+                continue;
+            }
+
             let mut peak: f32 = 0.0;
             for frame in 0..frames {
                 let sample_idx = frame * out_channels + ch;
                 if sample_idx < output.len() {
-                    let val = output[sample_idx].abs();
-                    if val > peak {
-                        peak = val;
+                    let mut val = output[sample_idx];
+                    
+                    // Soft clipping
+                    if val <= -1.0 {
+                        val = -1.0;
+                    } else if val >= 1.0 {
+                        val = 1.0;
+                    } else {
+                        val = 1.5 * val - 0.5 * val * val * val;
+                    }
+                    output[sample_idx] = val;
+
+                    let abs_val = val.abs();
+                    if abs_val > peak {
+                        peak = abs_val;
                     }
                 }
             }
             
-            // Simple decay or hold (just raw peak for now, flutter side can smooth it)
             GLOBAL_STATE.vu_levels[ch].store(peak.to_bits(), Ordering::Relaxed);
-        }
-
-        // Soft clipping (Cubic) to prevent integer overflow and harsh distortion at DAC
-        for sample in output.iter_mut() {
-            let x = *sample;
-            if x <= -1.0 {
-                *sample = -1.0;
-            } else if x >= 1.0 {
-                *sample = 1.0;
-            } else {
-                *sample = 1.5 * x - 0.5 * x * x * x;
-            }
         }
 
         // Remove stopped instances by moving to GC thread (heap-free drop)

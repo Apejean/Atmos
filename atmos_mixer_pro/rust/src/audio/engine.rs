@@ -14,6 +14,20 @@ impl Default for AudioEngine {
     }
 }
 
+#[cfg(target_os = "windows")]
+pub fn get_host() -> cpal::Host {
+    use cpal::traits::HostTrait;
+    if let Ok(host) = cpal::host_from_id(cpal::HostId::Asio) {
+        return host;
+    }
+    cpal::default_host()
+}
+
+#[cfg(not(target_os = "windows"))]
+pub fn get_host() -> cpal::Host {
+    cpal::default_host()
+}
+
 impl AudioEngine {
     pub fn new() -> Self {
         Self {
@@ -22,7 +36,7 @@ impl AudioEngine {
     }
 
     pub fn start(&mut self, device_name: Option<String>, cmd_receiver: Receiver<AudioCommand>) {
-        let host = cpal::default_host();
+        let host = get_host();
         let device = if let Some(name) = device_name {
             host.output_devices().unwrap().find(|d| d.name().unwrap_or_default() == name).unwrap_or(host.default_output_device().unwrap())
         } else {

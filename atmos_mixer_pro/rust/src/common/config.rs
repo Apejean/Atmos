@@ -12,6 +12,8 @@ pub struct AppConfig {
     #[serde(default)]
     pub system_reset_osc_address: String,
     #[serde(default)]
+    pub enabled_channels: Option<Vec<u32>>,
+    #[serde(default)]
     pub rooms: Vec<RoomConfig>,
 }
 
@@ -23,6 +25,7 @@ impl Default for AppConfig {
             buffer_size: 256,
             theme_start_osc_address: String::new(),
             system_reset_osc_address: String::new(),
+            enabled_channels: None,
             rooms: Vec::new(),
         }
     }

@@ -18,11 +18,12 @@ Future<void> main() async {
   await windowManager.ensureInitialized();
 
   WindowOptions windowOptions = const WindowOptions(
-    size: Size(1280, 800),
+    size: Size(1024, 768),
+    minimumSize: Size(800, 600),
     center: true,
     backgroundColor: Colors.transparent,
     skipTaskbar: false,
-    titleBarStyle: TitleBarStyle.hidden, // Frameless window
+    titleBarStyle: TitleBarStyle.normal,
   );
   
   windowManager.waitUntilReadyToShow(windowOptions, () async {

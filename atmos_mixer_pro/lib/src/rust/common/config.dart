@@ -12,6 +12,7 @@ class AppConfig {
   final int bufferSize;
   final String themeStartOscAddress;
   final String systemResetOscAddress;
+  final Uint32List? enabledChannels;
   final List<RoomConfig> rooms;
 
   const AppConfig({
@@ -20,6 +21,7 @@ class AppConfig {
     required this.bufferSize,
     required this.themeStartOscAddress,
     required this.systemResetOscAddress,
+    this.enabledChannels,
     required this.rooms,
   });
 
@@ -30,6 +32,7 @@ class AppConfig {
       bufferSize.hashCode ^
       themeStartOscAddress.hashCode ^
       systemResetOscAddress.hashCode ^
+      enabledChannels.hashCode ^
       rooms.hashCode;
 
   @override
@@ -42,6 +45,7 @@ class AppConfig {
           bufferSize == other.bufferSize &&
           themeStartOscAddress == other.themeStartOscAddress &&
           systemResetOscAddress == other.systemResetOscAddress &&
+          enabledChannels == other.enabledChannels &&
           rooms == other.rooms;
 }
 

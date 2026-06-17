@@ -1,4 +1,4 @@
-use std::sync::atomic::{AtomicU32, AtomicBool, Ordering};
+use std::sync::atomic::{AtomicU32, AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
 use crossbeam_channel::{Sender, Receiver, bounded};
 use lazy_static::lazy_static;
@@ -30,6 +30,7 @@ pub struct GlobalEngineState {
     
     pub active_room_id: RwLock<Option<String>>,
     pub is_ducking: AtomicBool,
+    pub enabled_channels_mask: AtomicU64,
     // VU levels for up to 64 output channels, stored as f32 bits
     pub vu_levels: Vec<AtomicU32>,
     pub sound_cache: RwLock<HashMap<String, Arc<SoundData>>>,
@@ -60,6 +61,7 @@ impl GlobalEngineState {
             command_receiver: rx,
             active_room_id: RwLock::new(None),
             is_ducking: AtomicBool::new(false),
+            enabled_channels_mask: AtomicU64::new(!0),
             vu_levels: vu,
             sound_cache: RwLock::new(HashMap::new()),
             config: RwLock::new(None),
@@ -126,6 +128,17 @@ impl GlobalEngineState {
         let _lock = self.broadcast_lock.lock().unwrap();
         let mut guard = self.playing_track_ids.write().unwrap();
         if guard.remove(&instance_id).is_some() {
+            drop(guard);
+            self.broadcast_state();
+        }
+    }
+
+    pub fn remove_playing_tracks_by_track_id(&self, track_id: &str) {
+        let _lock = self.broadcast_lock.lock().unwrap();
+        let mut guard = self.playing_track_ids.write().unwrap();
+        let initial_len = guard.len();
+        guard.retain(|_, v| v != track_id);
+        if guard.len() != initial_len {
             drop(guard);
             self.broadcast_state();
         }

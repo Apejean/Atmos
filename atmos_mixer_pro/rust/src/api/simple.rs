@@ -16,6 +16,18 @@ pub fn api_get_config(path: String) -> AppConfig {
 
 pub fn api_save_config(path: String, config: AppConfig) -> Result<(), AtmosError> {
     config.save_to_file(path)?;
+    let mask = if let Some(enabled) = &config.enabled_channels {
+        let mut m = 0u64;
+        for &ch in enabled {
+            if ch < 64 {
+                m |= 1 << ch;
+            }
+        }
+        m
+    } else {
+        !0
+    };
+    GLOBAL_STATE.enabled_channels_mask.store(mask, std::sync::atomic::Ordering::Relaxed);
     {
         let mut global_config = GLOBAL_STATE.config.write().unwrap();
         *global_config = Some(config);
@@ -96,6 +108,7 @@ pub fn api_play_track(room_id: String, track_id: String) -> Result<(), AtmosErro
 }
 
 pub fn api_stop_track(room_id: String, track_id: String) -> Result<(), AtmosError> {
+    GLOBAL_STATE.remove_playing_tracks_by_track_id(&track_id);
     GLOBAL_STATE.command_sender.try_send(AudioCommand::StopTrack { 
         room_id: hash_id(&room_id), 
         track_id: hash_id(&track_id) 
@@ -244,6 +257,20 @@ pub fn api_preload_all_sounds(config: AppConfig) -> Result<(), AtmosError> {
             }
         }
     }
+    
+    let mask = if let Some(enabled) = &config.enabled_channels {
+        let mut m = 0u64;
+        for &ch in enabled {
+            if ch < 64 {
+                m |= 1 << ch;
+            }
+        }
+        m
+    } else {
+        !0
+    };
+    GLOBAL_STATE.enabled_channels_mask.store(mask, std::sync::atomic::Ordering::Relaxed);
+
     let mut global_config = GLOBAL_STATE.config.write().unwrap();
     *global_config = Some(config.clone());
     drop(global_config);
@@ -278,12 +305,13 @@ pub struct OutputDeviceInfo {
 
 pub fn api_get_output_devices() -> Result<Vec<OutputDeviceInfo>, AtmosError> {
     use cpal::traits::{DeviceTrait, HostTrait};
-    let host = cpal::default_host();
+    let host = crate::audio::engine::get_host();
     let devices = host.output_devices().map_err(|e| AtmosError { message: e.to_string() })?;
     
     let mut device_info_list = Vec::new();
     for device in devices {
-        if let Ok(name) = device.name() {
+        if let Ok(name_str) = device.name() {
+            let name = name_str.to_string();
             let mut max_channels = 2; // Default fallback
             if let Ok(supported_configs) = device.supported_output_configs() {
                 for config in supported_configs {
@@ -309,7 +337,7 @@ pub fn api_get_output_devices() -> Result<Vec<OutputDeviceInfo>, AtmosError> {
 
 pub fn api_get_device_channel_count(device_name: String) -> Result<u32, AtmosError> {
     use cpal::traits::{DeviceTrait, HostTrait};
-    let host = cpal::default_host();
+    let host = crate::audio::engine::get_host();
     let devices = host.output_devices().map_err(|e| AtmosError { message: e.to_string() })?;
     
     for device in devices {
