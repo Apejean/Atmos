@@ -17,6 +17,10 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   late AppConfig _tempConfig;
+
+  static List<rust_api.OutputDeviceInfo>? _cachedDeviceInfos;
+  static List<String>? _cachedDevices;
+
   List<rust_api.OutputDeviceInfo> _deviceInfos = [];
   List<String> _devices = [];
   List<String> _channelNames = [];
@@ -41,9 +45,19 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
   }
 
   Future<void> _loadDevices() async {
+    if (_cachedDeviceInfos != null && _cachedDevices != null) {
+      setState(() {
+        _deviceInfos = _cachedDeviceInfos!;
+        _devices = _cachedDevices!;
+      });
+      _loadDeviceChannels(_tempConfig.deviceName);
+      return;
+    }
     try {
       final deviceInfos = await rust_api.apiGetOutputDevices();
       final devices = deviceInfos.map((d) => d.name).toList();
+      _cachedDeviceInfos = deviceInfos;
+      _cachedDevices = devices;
       setState(() {
         _deviceInfos = deviceInfos;
         _devices = devices;
