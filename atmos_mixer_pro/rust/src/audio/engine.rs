@@ -17,9 +17,9 @@ impl Default for AudioEngine {
 #[cfg(target_os = "windows")]
 pub fn get_host() -> Result<cpal::Host, String> {
     use cpal::traits::HostTrait;
-    use windows::Win32::System::Com::{CoInitializeEx, COINIT_APARTMENTTHREADED};
+    use windows::Win32::System::Com::{CoInitializeEx, COINIT_MULTITHREADED};
     unsafe {
-        let _ = CoInitializeEx(None, COINIT_APARTMENTTHREADED);
+        let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
     }
     match cpal::host_from_id(cpal::HostId::Asio) {
         Ok(host) => {
