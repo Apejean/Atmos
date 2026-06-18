@@ -17,14 +17,17 @@ impl Default for AudioEngine {
 #[cfg(target_os = "windows")]
 pub fn get_host() -> cpal::Host {
     use cpal::traits::HostTrait;
+    use windows::Win32::System::Com::{CoInitializeEx, COINIT_MULTITHREADED};
+    unsafe {
+        let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
+    }
     match cpal::host_from_id(cpal::HostId::Asio) {
         Ok(host) => {
             println!("Successfully initialized ASIO host.");
             host
         }
         Err(e) => {
-            println!("Failed to initialize ASIO host: {}. Falling back to default host (WASAPI).", e);
-            cpal::default_host()
+            panic!("Failed to initialize ASIO host: {}. ASIO is strictly required on Windows.", e);
         }
     }
 }

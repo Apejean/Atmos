@@ -337,7 +337,20 @@ pub struct OutputDeviceInfo {
 
 pub fn api_get_output_devices() -> Result<Vec<OutputDeviceInfo>, AtmosError> {
     use cpal::traits::{DeviceTrait, HostTrait};
+    
+    #[cfg(target_os = "windows")]
+    let host = {
+        use windows::Win32::System::Com::{CoInitializeEx, COINIT_MULTITHREADED};
+        unsafe {
+            let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
+        }
+        cpal::host_from_id(cpal::HostId::Asio)
+            .map_err(|e| AtmosError { message: format!("ASIO host is required on Windows: {}", e) })?
+    };
+        
+    #[cfg(not(target_os = "windows"))]
     let host = crate::audio::engine::get_host();
+    
     let devices = host.output_devices().map_err(|e| AtmosError { message: e.to_string() })?;
     
     let mut device_info_list = Vec::new();
