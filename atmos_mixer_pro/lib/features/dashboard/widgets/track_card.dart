@@ -221,7 +221,91 @@ class _TrackCardState extends ConsumerState<TrackCard> {
                       ),
                     ],
                   ),
-                  // Row 2: Volume & Settings
+                  // Row 2: Settings (Loop & Routing)
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          IconButton(
+                            icon: Icon(
+                              Icons.all_inclusive,
+                              shadows: widget.track.isLoop
+                                  ? [
+                                      Shadow(
+                                        color: widget.accentColor,
+                                        blurRadius: 8,
+                                      ),
+                                    ]
+                                  : null,
+                            ),
+                            color: widget.track.isLoop
+                                ? widget.accentColor
+                                : AppColors.darkGrey,
+                            iconSize: 20,
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(
+                              minWidth: 32,
+                              minHeight: 32,
+                            ),
+                            onPressed: () =>
+                                widget.onLoopChanged?.call(!widget.track.isLoop),
+                            tooltip: '무한 루프 (BGM)',
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            '무한 루프',
+                            style: TextStyle(
+                              color: widget.track.isLoop ? widget.accentColor : AppColors.textSecondary,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                      Row(
+                        children: [
+                          const Text(
+                            'Ext. Out: ',
+                            style: TextStyle(
+                              color: AppColors.textSecondary,
+                              fontSize: 12,
+                            ),
+                          ),
+                          DropdownButtonHideUnderline(
+                            child: DropdownButton<String>(
+                              value: currentValue,
+                              items: outputItems,
+                              icon: const Icon(
+                                Icons.arrow_drop_down,
+                                color: AppColors.textSecondary,
+                                size: 16,
+                              ),
+                              dropdownColor: AppColors.cardSurface,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                              ),
+                              onChanged: (val) {
+                                if (val != null) {
+                                  final isStereo = val.startsWith('stereo_');
+                                  final keyStr = val.replaceFirst(
+                                    isStereo ? 'stereo_' : 'mono_',
+                                    '',
+                                  );
+                                  final key = int.tryParse(keyStr);
+                                  if (key != null) {
+                                    widget.onOutputChanged?.call(key, isStereo);
+                                  }
+                                }
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  // Row 3: Volume
                   Row(
                     children: [
                       Expanded(
@@ -243,69 +327,15 @@ class _TrackCardState extends ConsumerState<TrackCard> {
                           ),
                         ),
                       ),
-                      Text(
-                        '${(widget.track.volume * 100).toInt()}%',
-                        style: const TextStyle(
-                          color: AppColors.textSecondary,
-                          fontSize: 12,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      IconButton(
-                        icon: Icon(
-                          Icons.all_inclusive,
-                          shadows: widget.track.isLoop
-                              ? [
-                                  Shadow(
-                                    color: widget.accentColor,
-                                    blurRadius: 8,
-                                  ),
-                                ]
-                              : null,
-                        ),
-                        color: widget.track.isLoop
-                            ? widget.accentColor
-                            : AppColors.darkGrey,
-                        iconSize: 20,
-                        onPressed: () =>
-                            widget.onLoopChanged?.call(!widget.track.isLoop),
-                        tooltip: '무한 루프 (BGM)',
-                      ),
-                      const SizedBox(width: 8),
-                      const Text(
-                        'Ext. Out: ',
-                        style: TextStyle(
-                          color: AppColors.textSecondary,
-                          fontSize: 12,
-                        ),
-                      ),
-                      DropdownButtonHideUnderline(
-                        child: DropdownButton<String>(
-                          value: currentValue,
-                          items: outputItems,
-                          icon: const Icon(
-                            Icons.arrow_drop_down,
-                            color: AppColors.textSecondary,
-                            size: 16,
-                          ),
-                          dropdownColor: AppColors.cardSurface,
+                      SizedBox(
+                        width: 40,
+                        child: Text(
+                          '${(widget.track.volume * 100).toInt()}%',
+                          textAlign: TextAlign.right,
                           style: const TextStyle(
-                            color: Colors.white,
+                            color: AppColors.textSecondary,
                             fontSize: 12,
                           ),
-                          onChanged: (val) {
-                            if (val != null) {
-                              final isStereo = val.startsWith('stereo_');
-                              final keyStr = val.replaceFirst(
-                                isStereo ? 'stereo_' : 'mono_',
-                                '',
-                              );
-                              final key = int.tryParse(keyStr);
-                              if (key != null) {
-                                widget.onOutputChanged?.call(key, isStereo);
-                              }
-                            }
-                          },
                         ),
                       ),
                     ],

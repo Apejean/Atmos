@@ -188,7 +188,6 @@ pub fn api_set_track_volume(room_id: String, track_id: String, volume: f32) -> R
 use std::sync::atomic::AtomicU64;
 lazy_static::lazy_static! {
     static ref VU_THREAD_RUNNING: AtomicU64 = AtomicU64::new(0);
-    static ref CACHED_DEVICES: std::sync::RwLock<Option<Vec<OutputDeviceInfo>>> = std::sync::RwLock::new(None);
 }
 
 pub fn api_create_vu_stream(sink: StreamSink<Vec<f32>>) {
@@ -337,13 +336,6 @@ pub struct OutputDeviceInfo {
 }
 
 pub fn api_get_output_devices() -> Result<Vec<OutputDeviceInfo>, AtmosError> {
-    {
-        let cache = CACHED_DEVICES.read().unwrap();
-        if let Some(devices) = cache.as_ref() {
-            return Ok(devices.clone());
-        }
-    }
-
     use cpal::traits::{DeviceTrait, HostTrait};
     let host = crate::audio::engine::get_host();
     let devices = host.output_devices().map_err(|e| AtmosError { message: e.to_string() })?;
@@ -361,6 +353,13 @@ pub fn api_get_output_devices() -> Result<Vec<OutputDeviceInfo>, AtmosError> {
                     }
                 }
             }
+            // ASIO fallback for max channels
+            if let Ok(default_config) = device.default_output_config() {
+                let channels = default_config.channels() as u32;
+                if channels > max_channels {
+                    max_channels = channels;
+                }
+            }
             
             #[cfg(target_os = "macos")]
             let channel_names = crate::audio::channel_names::get_channel_names_mac(&name, max_channels);
@@ -372,9 +371,6 @@ pub fn api_get_output_devices() -> Result<Vec<OutputDeviceInfo>, AtmosError> {
             device_info_list.push(OutputDeviceInfo { name, max_channels, channel_names });
         }
     }
-    
-    let mut cache = CACHED_DEVICES.write().unwrap();
-    *cache = Some(device_info_list.clone());
     
     Ok(device_info_list)
 }
