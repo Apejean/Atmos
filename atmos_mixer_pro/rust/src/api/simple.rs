@@ -345,9 +345,9 @@ pub fn api_get_output_devices() -> Result<Vec<OutputDeviceInfo>, AtmosError> {
     
     #[cfg(target_os = "windows")]
     let host = {
-        use windows::Win32::System::Com::{CoInitializeEx, COINIT_MULTITHREADED};
+        use windows::Win32::System::Com::{CoInitializeEx, COINIT_APARTMENTTHREADED};
         unsafe {
-            let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
+            let _ = CoInitializeEx(None, COINIT_APARTMENTTHREADED);
         }
         cpal::host_from_id(cpal::HostId::Asio)
             .map_err(|e| AtmosError { message: format!("ASIO host is required on Windows: {}", e) })?
