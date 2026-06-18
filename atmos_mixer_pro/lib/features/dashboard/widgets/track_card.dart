@@ -79,15 +79,26 @@ class _TrackCardState extends ConsumerState<TrackCard> {
       for (final key in sortedMonoKeys) {
         final setting = config.monoConfigs[key]!;
         if (setting.enabled) {
-          final displayCh = key + 1;
-          final displayName = setting.customName.isNotEmpty
-              ? '$displayCh (${setting.customName})'
-              : '$displayCh';
+          final realCh1 = key - 1;
+          final name1 = setting.customName.isNotEmpty ? '$key (${setting.customName} L)' : '$key';
           outputItems.add(
             DropdownMenuItem(
-              value: 'mono_$key',
+              value: 'mono_$realCh1',
               child: Text(
-                'Mono $displayName',
+                'Mono $name1',
+                style: const TextStyle(fontSize: 12, color: Colors.white),
+              ),
+            ),
+          );
+
+          final realCh2 = key;
+          final displayCh2 = key + 1;
+          final name2 = setting.customName.isNotEmpty ? '$displayCh2 (${setting.customName} R)' : '$displayCh2';
+          outputItems.add(
+            DropdownMenuItem(
+              value: 'mono_$realCh2',
+              child: Text(
+                'Mono $name2',
                 style: const TextStyle(fontSize: 12, color: Colors.white),
               ),
             ),
@@ -99,13 +110,14 @@ class _TrackCardState extends ConsumerState<TrackCard> {
       for (final key in sortedStereoKeys) {
         final setting = config.stereoConfigs[key]!;
         if (setting.enabled) {
-          final displayCh = key + 1;
+          final realCh = key - 1;
+          final displayCh2 = key + 1;
           final displayName = setting.customName.isNotEmpty
-              ? '$displayCh/${displayCh + 1} (${setting.customName})'
-              : '$displayCh/${displayCh + 1}';
+              ? '$key/$displayCh2 (${setting.customName})'
+              : '$key/$displayCh2';
           outputItems.add(
             DropdownMenuItem(
-              value: 'stereo_$key',
+              value: 'stereo_$realCh',
               child: Text(
                 'Stereo $displayName',
                 style: const TextStyle(fontSize: 12, color: Colors.white),

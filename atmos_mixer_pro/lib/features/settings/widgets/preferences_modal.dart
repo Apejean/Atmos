@@ -324,18 +324,20 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
         _tempConfig.monoConfigs.entries.where((e) => e.value.enabled).toList()
           ..sort((a, b) => a.key.compareTo(b.key));
     for (final entry in sortedMono) {
-      final ch = entry.key;
+      final key = entry.key;
       final setting = entry.value;
-      if (ch < _channelNames.length) {
-        final displayName = setting.customName.isNotEmpty
-            ? '${ch + 1} (${setting.customName})'
-            : '${ch + 1}';
-        channelItems.add(
-          DropdownMenuItem<String>(
-            value: '${ch}_mono',
-            child: Text(displayName),
-          ),
-        );
+      
+      final realCh1 = key - 1;
+      if (realCh1 < _channelNames.length) {
+        final name1 = setting.customName.isNotEmpty ? '$key (${setting.customName} L)' : '$key';
+        channelItems.add(DropdownMenuItem<String>(value: '${realCh1}_mono', child: Text('Mono $name1')));
+      }
+      
+      final realCh2 = key;
+      final displayCh2 = key + 1;
+      if (realCh2 < _channelNames.length) {
+        final name2 = setting.customName.isNotEmpty ? '$displayCh2 (${setting.customName} R)' : '$displayCh2';
+        channelItems.add(DropdownMenuItem<String>(value: '${realCh2}_mono', child: Text('Mono $name2')));
       }
     }
 
@@ -343,16 +345,18 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
         _tempConfig.stereoConfigs.entries.where((e) => e.value.enabled).toList()
           ..sort((a, b) => a.key.compareTo(b.key));
     for (final entry in sortedStereo) {
-      final ch = entry.key;
+      final key = entry.key;
       final setting = entry.value;
-      if (ch + 1 < _channelNames.length) {
+      final realCh = key - 1;
+      final displayCh2 = key + 1;
+      if (realCh < _channelNames.length) {
         final displayName = setting.customName.isNotEmpty
-            ? '${ch + 1}/${ch + 2} (${setting.customName})'
-            : '${ch + 1}/${ch + 2}';
+            ? '$key/$displayCh2 (${setting.customName})'
+            : '$key/$displayCh2';
         channelItems.add(
           DropdownMenuItem<String>(
-            value: '${ch}_stereo',
-            child: Text(displayName),
+            value: '${realCh}_stereo',
+            child: Text('Stereo $displayName'),
           ),
         );
       }

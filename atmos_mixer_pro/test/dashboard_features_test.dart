@@ -1,11 +1,8 @@
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:atmos_mixer_pro/core/state/global_state.dart';
-import 'package:atmos_mixer_pro/core/theme/colors.dart';
-import 'package:atmos_mixer_pro/features/dashboard/screens/dashboard_screen.dart';
 import 'package:atmos_mixer_pro/features/dashboard/widgets/track_card.dart';
 import 'package:atmos_mixer_pro/src/rust/common/config.dart';
 
