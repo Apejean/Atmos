@@ -210,7 +210,12 @@ pub fn api_start_audio_engine(device_name: Option<String>) {
     let rx = GLOBAL_STATE.command_receiver.clone();
     std::thread::spawn(move || {
         let mut engine = crate::audio::engine::AudioEngine::new();
-        engine.start(device_name, rx);
+        if let Err(e) = engine.start(device_name, rx) {
+            let err_msg = format!("Failed to start audio engine: {}", e);
+            eprintln!("{}", err_msg);
+            GLOBAL_STATE.log(err_msg);
+            return;
+        }
         loop { std::thread::sleep(std::time::Duration::from_secs(1)); }
     });
 }
@@ -349,7 +354,8 @@ pub fn api_get_output_devices() -> Result<Vec<OutputDeviceInfo>, AtmosError> {
     };
         
     #[cfg(not(target_os = "windows"))]
-    let host = crate::audio::engine::get_host();
+    let host = crate::audio::engine::get_host()
+        .map_err(|e| AtmosError { message: e })?;
     
     let devices = host.output_devices().map_err(|e| AtmosError { message: e.to_string() })?;
     

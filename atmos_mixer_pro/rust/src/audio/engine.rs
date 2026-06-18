@@ -15,7 +15,7 @@ impl Default for AudioEngine {
 }
 
 #[cfg(target_os = "windows")]
-pub fn get_host() -> cpal::Host {
+pub fn get_host() -> Result<cpal::Host, String> {
     use cpal::traits::HostTrait;
     use windows::Win32::System::Com::{CoInitializeEx, COINIT_MULTITHREADED};
     unsafe {
@@ -24,17 +24,17 @@ pub fn get_host() -> cpal::Host {
     match cpal::host_from_id(cpal::HostId::Asio) {
         Ok(host) => {
             println!("Successfully initialized ASIO host.");
-            host
+            Ok(host)
         }
         Err(e) => {
-            panic!("Failed to initialize ASIO host: {}. ASIO is strictly required on Windows.", e);
+            Err(format!("Failed to initialize ASIO host: {}. ASIO is strictly required on Windows.", e))
         }
     }
 }
 
 #[cfg(not(target_os = "windows"))]
-pub fn get_host() -> cpal::Host {
-    cpal::default_host()
+pub fn get_host() -> Result<cpal::Host, String> {
+    Ok(cpal::default_host())
 }
 
 impl AudioEngine {
@@ -44,12 +44,15 @@ impl AudioEngine {
         }
     }
 
-    pub fn start(&mut self, device_name: Option<String>, cmd_receiver: Receiver<AudioCommand>) {
-        let host = get_host();
+    pub fn start(&mut self, device_name: Option<String>, cmd_receiver: Receiver<AudioCommand>) -> Result<(), String> {
+        let host = get_host()?;
         let device = if let Some(name) = device_name {
-            host.output_devices().unwrap().find(|d| d.name().unwrap_or_default() == name).unwrap_or(host.default_output_device().unwrap())
+            host.output_devices()
+                .map_err(|e| e.to_string())?
+                .find(|d| d.name().unwrap_or_default() == name)
+                .unwrap_or(host.default_output_device().ok_or("No default output device")?)
         } else {
-            host.default_output_device().unwrap()
+            host.default_output_device().ok_or("No default output device")?
         };
 
         println!("Using output device: {}", device.name().unwrap_or_default());
@@ -85,11 +88,12 @@ impl AudioEngine {
                     None
                 )
             },
-            _ => panic!("Unsupported format"),
-        }.unwrap();
+            _ => return Err("Unsupported format".to_string()),
+        }.map_err(|e| e.to_string())?;
 
-        stream.play().unwrap();
+        stream.play().map_err(|e| e.to_string())?;
         self.stream = Some(stream);
+        Ok(())
     }
 
     fn process_commands(mixer: &mut AudioMixer, rx: &Receiver<AudioCommand>) {
