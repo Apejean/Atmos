@@ -57,8 +57,25 @@ impl AudioEngine {
 
         println!("Using output device: {}", device.name().unwrap_or_default());
 
-        let mut supported_configs_range = device.supported_output_configs().unwrap();
-        let supported_config = supported_configs_range.next().unwrap().with_max_sample_rate();
+        let mut best_config: Option<cpal::SupportedStreamConfig> = None;
+        let mut max_ch = 0;
+
+        if let Ok(supported_configs) = device.supported_output_configs() {
+            for c in supported_configs {
+                if c.channels() > max_ch {
+                    max_ch = c.channels();
+                    best_config = Some(c.with_max_sample_rate());
+                }
+            }
+        }
+
+        if let Ok(default_config) = device.default_output_config() {
+            if default_config.channels() > max_ch {
+                best_config = Some(default_config);
+            }
+        }
+
+        let supported_config = best_config.expect("No output configs found");
         let sample_format = supported_config.sample_format();
         let config: StreamConfig = supported_config.into();
 
