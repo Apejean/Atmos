@@ -44,7 +44,6 @@ impl AudioMixer {
         if out_channels == 0 || output.is_empty() {
             return;
         }
-        let enabled_mask = GLOBAL_STATE.enabled_channels_mask.load(Ordering::Relaxed);
 
         // Clear output buffer
         for sample in output.iter_mut() {
@@ -229,7 +228,10 @@ impl AudioMixer {
 
                 if has_sample {
                     if instance.output_channel < out_channels {
-                        let is_l_enabled = (enabled_mask & (1 << instance.output_channel)) != 0;
+                        let ch_l = instance.output_channel;
+                        let is_l_enabled = if ch_l < 256 {
+                            GLOBAL_STATE.enabled_channels[ch_l].load(Ordering::Relaxed)
+                        } else { false };
                         
                         if instance.output_stereo {
                             let out_idx_l = frame * out_channels + instance.output_channel;
@@ -240,7 +242,11 @@ impl AudioMixer {
                             }
                             
                             if instance.output_channel + 1 < out_channels {
-                                let is_r_enabled = (enabled_mask & (1 << (instance.output_channel + 1))) != 0;
+                                let ch_r = instance.output_channel + 1;
+                                let is_r_enabled = if ch_r < 256 {
+                                    GLOBAL_STATE.enabled_channels[ch_r].load(Ordering::Relaxed)
+                                } else { false };
+                                
                                 let out_idx_r = out_idx_l + 1;
                                 if is_r_enabled && out_idx_r < output.len() {
                                     output[out_idx_r] += val_r * current_vol;
@@ -249,15 +255,13 @@ impl AudioMixer {
                             }
                             
                             if !wrote_r && is_l_enabled && out_idx_l < output.len() {
-                                // Mix right channel into left if right channel is out of bounds or disabled
+                                // mono fallback if r is muted/unavailable
                                 output[out_idx_l] += val_r * current_vol;
                             }
                         } else {
-                            // Mix down to mono
-                            let mono_val = (val_l + val_r) * 0.5;
                             let out_idx = frame * out_channels + instance.output_channel;
                             if is_l_enabled && out_idx < output.len() {
-                                output[out_idx] += mono_val * current_vol;
+                                output[out_idx] += ((val_l + val_r) * 0.5) * current_vol;
                             }
                         }
                     }
@@ -275,8 +279,8 @@ impl AudioMixer {
 
         // Compute VU levels (Peak per channel) and apply soft clipping
         for ch in 0..out_channels {
-            if ch >= 64 { break; }
-            let is_enabled = (enabled_mask & (1 << ch)) != 0;
+            if ch >= 256 { break; }
+            let is_enabled = GLOBAL_STATE.enabled_channels[ch].load(Ordering::Relaxed);
             if !is_enabled {
                 GLOBAL_STATE.vu_levels[ch].store(0, Ordering::Relaxed);
                 // Zero out buffer for disabled channels to be absolutely safe

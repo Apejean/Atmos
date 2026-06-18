@@ -13,34 +13,37 @@ pub fn api_init_app() {
 pub fn api_get_config(path: String) -> AppConfig {
     let config = AppConfig::load_from_file(path).unwrap_or_default();
     
-    let mut mask = 0u64;
+    for b in &GLOBAL_STATE.enabled_channels {
+        b.store(false, std::sync::atomic::Ordering::Relaxed);
+    }
     if config.mono_configs.is_empty() && config.stereo_configs.is_empty() {
-        mask = !0;
+        for b in &GLOBAL_STATE.enabled_channels {
+            b.store(true, std::sync::atomic::Ordering::Relaxed);
+        }
     } else {
         for (&ch, setting) in &config.mono_configs {
             if setting.enabled && ch > 0 {
-                let real_ch = ch - 1;
-                if real_ch < 64 {
-                    mask |= 1 << real_ch;
+                let real_ch = (ch - 1) as usize;
+                if real_ch < 256 {
+                    GLOBAL_STATE.enabled_channels[real_ch].store(true, std::sync::atomic::Ordering::Relaxed);
                 }
-                if real_ch + 1 < 64 {
-                    mask |= 1 << (real_ch + 1);
+                if real_ch + 1 < 256 {
+                    GLOBAL_STATE.enabled_channels[real_ch + 1].store(true, std::sync::atomic::Ordering::Relaxed);
                 }
             }
         }
         for (&ch, setting) in &config.stereo_configs {
             if setting.enabled && ch > 0 {
-                let real_ch = ch - 1;
-                if real_ch < 64 {
-                    mask |= 1 << real_ch;
+                let real_ch = (ch - 1) as usize;
+                if real_ch < 256 {
+                    GLOBAL_STATE.enabled_channels[real_ch].store(true, std::sync::atomic::Ordering::Relaxed);
                 }
-                if real_ch + 1 < 64 {
-                    mask |= 1 << (real_ch + 1);
+                if real_ch + 1 < 256 {
+                    GLOBAL_STATE.enabled_channels[real_ch + 1].store(true, std::sync::atomic::Ordering::Relaxed);
                 }
             }
         }
     }
-    GLOBAL_STATE.enabled_channels_mask.store(mask, std::sync::atomic::Ordering::Relaxed);
     {
         let mut global_config = GLOBAL_STATE.config.write().unwrap();
         *global_config = Some(config.clone());
@@ -51,34 +54,37 @@ pub fn api_get_config(path: String) -> AppConfig {
 
 pub fn api_save_config(path: String, config: AppConfig) -> Result<(), AtmosError> {
     config.save_to_file(path)?;
-    let mut mask = 0u64;
+    for b in &GLOBAL_STATE.enabled_channels {
+        b.store(false, std::sync::atomic::Ordering::Relaxed);
+    }
     if config.mono_configs.is_empty() && config.stereo_configs.is_empty() {
-        mask = !0;
+        for b in &GLOBAL_STATE.enabled_channels {
+            b.store(true, std::sync::atomic::Ordering::Relaxed);
+        }
     } else {
         for (&ch, setting) in &config.mono_configs {
             if setting.enabled && ch > 0 {
-                let real_ch = ch - 1;
-                if real_ch < 64 {
-                    mask |= 1 << real_ch;
+                let real_ch = (ch - 1) as usize;
+                if real_ch < 256 {
+                    GLOBAL_STATE.enabled_channels[real_ch].store(true, std::sync::atomic::Ordering::Relaxed);
                 }
-                if real_ch + 1 < 64 {
-                    mask |= 1 << (real_ch + 1);
+                if real_ch + 1 < 256 {
+                    GLOBAL_STATE.enabled_channels[real_ch + 1].store(true, std::sync::atomic::Ordering::Relaxed);
                 }
             }
         }
         for (&ch, setting) in &config.stereo_configs {
             if setting.enabled && ch > 0 {
-                let real_ch = ch - 1;
-                if real_ch < 64 {
-                    mask |= 1 << real_ch;
+                let real_ch = (ch - 1) as usize;
+                if real_ch < 256 {
+                    GLOBAL_STATE.enabled_channels[real_ch].store(true, std::sync::atomic::Ordering::Relaxed);
                 }
-                if real_ch + 1 < 64 {
-                    mask |= 1 << (real_ch + 1);
+                if real_ch + 1 < 256 {
+                    GLOBAL_STATE.enabled_channels[real_ch + 1].store(true, std::sync::atomic::Ordering::Relaxed);
                 }
             }
         }
     }
-    GLOBAL_STATE.enabled_channels_mask.store(mask, std::sync::atomic::Ordering::Relaxed);
     {
         let mut global_config = GLOBAL_STATE.config.write().unwrap();
         *global_config = Some(config);
@@ -314,34 +320,37 @@ pub fn api_preload_all_sounds(config: AppConfig) -> Result<(), AtmosError> {
         }
     }
     
-    let mut mask = 0u64;
+    for b in &GLOBAL_STATE.enabled_channels {
+        b.store(false, std::sync::atomic::Ordering::Relaxed);
+    }
     if config.mono_configs.is_empty() && config.stereo_configs.is_empty() {
-        mask = !0;
+        for b in &GLOBAL_STATE.enabled_channels {
+            b.store(true, std::sync::atomic::Ordering::Relaxed);
+        }
     } else {
         for (&ch, setting) in &config.mono_configs {
             if setting.enabled && ch > 0 {
-                let real_ch = ch - 1;
-                if real_ch < 64 {
-                    mask |= 1 << real_ch;
+                let real_ch = (ch - 1) as usize;
+                if real_ch < 256 {
+                    GLOBAL_STATE.enabled_channels[real_ch].store(true, std::sync::atomic::Ordering::Relaxed);
                 }
-                if real_ch + 1 < 64 {
-                    mask |= 1 << (real_ch + 1);
+                if real_ch + 1 < 256 {
+                    GLOBAL_STATE.enabled_channels[real_ch + 1].store(true, std::sync::atomic::Ordering::Relaxed);
                 }
             }
         }
         for (&ch, setting) in &config.stereo_configs {
             if setting.enabled && ch > 0 {
-                let real_ch = ch - 1;
-                if real_ch < 64 {
-                    mask |= 1 << real_ch;
+                let real_ch = (ch - 1) as usize;
+                if real_ch < 256 {
+                    GLOBAL_STATE.enabled_channels[real_ch].store(true, std::sync::atomic::Ordering::Relaxed);
                 }
-                if real_ch + 1 < 64 {
-                    mask |= 1 << (real_ch + 1);
+                if real_ch + 1 < 256 {
+                    GLOBAL_STATE.enabled_channels[real_ch + 1].store(true, std::sync::atomic::Ordering::Relaxed);
                 }
             }
         }
     }
-    GLOBAL_STATE.enabled_channels_mask.store(mask, std::sync::atomic::Ordering::Relaxed);
 
     let mut global_config = GLOBAL_STATE.config.write().unwrap();
     *global_config = Some(config.clone());

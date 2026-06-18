@@ -30,8 +30,8 @@ pub struct GlobalEngineState {
     
     pub active_room_id: RwLock<Option<String>>,
     pub is_ducking: AtomicBool,
-    pub enabled_channels_mask: AtomicU64,
-    // VU levels for up to 64 output channels, stored as f32 bits
+    pub enabled_channels: Vec<AtomicBool>,
+    // VU levels for up to 256 output channels, stored as f32 bits
     pub vu_levels: Vec<AtomicU32>,
     pub sound_cache: RwLock<HashMap<String, Arc<SoundData>>>,
     pub config: RwLock<Option<AppConfig>>,
@@ -52,16 +52,18 @@ impl GlobalEngineState {
     pub fn new() -> Self {
         let (tx, rx) = bounded(1024);
         
-        let mut vu = Vec::with_capacity(64);
-        for _ in 0..64 {
+        let mut vu = Vec::with_capacity(256);
+        let mut enabled = Vec::with_capacity(256);
+        for _ in 0..256 {
             vu.push(AtomicU32::new(0));
+            enabled.push(AtomicBool::new(true));
         }
         Self {
             command_sender: tx,
             command_receiver: rx,
             active_room_id: RwLock::new(None),
             is_ducking: AtomicBool::new(false),
-            enabled_channels_mask: AtomicU64::new(!0),
+            enabled_channels: enabled,
             vu_levels: vu,
             sound_cache: RwLock::new(HashMap::new()),
             config: RwLock::new(None),
