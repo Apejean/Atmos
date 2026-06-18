@@ -34,6 +34,7 @@ class ConfigNotifier extends Notifier<AppConfig?> {
   }
 
   void saveConfig(AppConfig newConfig) async {
+    final oldConfig = state;
     // Optimistic UI Update: immediately set state so UI reflects the added track
     state = newConfig;
     
@@ -45,7 +46,10 @@ class ConfigNotifier extends Notifier<AppConfig?> {
       } catch (e) {
         // Ignore preload errors, keep UI responsive
       }
-      await rust_api.apiStartOscListener(port: newConfig.oscPort);
+      
+      if (oldConfig == null || oldConfig.oscPort != newConfig.oscPort) {
+        await rust_api.apiStartOscListener(port: newConfig.oscPort);
+      }
     } catch (e) {
       ref.read(globalErrorProvider.notifier).showError('설정 저장 실패: $e');
     }
