@@ -21,15 +21,24 @@ pub fn api_save_config(path: String, config: AppConfig) -> Result<(), AtmosError
         mask = !0;
     } else {
         for (&ch, setting) in &config.mono_configs {
-            if setting.enabled && ch < 64 {
-                mask |= 1 << ch;
+            if setting.enabled && ch > 0 {
+                let real_ch = ch - 1;
+                if real_ch < 64 {
+                    mask |= 1 << real_ch;
+                }
+                if real_ch + 1 < 64 {
+                    mask |= 1 << (real_ch + 1);
+                }
             }
         }
         for (&ch, setting) in &config.stereo_configs {
-            if setting.enabled && ch < 64 {
-                mask |= 1 << ch;
-                if ch + 1 < 64 {
-                    mask |= 1 << (ch + 1);
+            if setting.enabled && ch > 0 {
+                let real_ch = ch - 1;
+                if real_ch < 64 {
+                    mask |= 1 << real_ch;
+                }
+                if real_ch + 1 < 64 {
+                    mask |= 1 << (real_ch + 1);
                 }
             }
         }
@@ -271,15 +280,24 @@ pub fn api_preload_all_sounds(config: AppConfig) -> Result<(), AtmosError> {
         mask = !0;
     } else {
         for (&ch, setting) in &config.mono_configs {
-            if setting.enabled && ch < 64 {
-                mask |= 1 << ch;
+            if setting.enabled && ch > 0 {
+                let real_ch = ch - 1;
+                if real_ch < 64 {
+                    mask |= 1 << real_ch;
+                }
+                if real_ch + 1 < 64 {
+                    mask |= 1 << (real_ch + 1);
+                }
             }
         }
         for (&ch, setting) in &config.stereo_configs {
-            if setting.enabled && ch < 64 {
-                mask |= 1 << ch;
-                if ch + 1 < 64 {
-                    mask |= 1 << (ch + 1);
+            if setting.enabled && ch > 0 {
+                let real_ch = ch - 1;
+                if real_ch < 64 {
+                    mask |= 1 << real_ch;
+                }
+                if real_ch + 1 < 64 {
+                    mask |= 1 << (real_ch + 1);
                 }
             }
         }
