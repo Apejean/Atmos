@@ -253,18 +253,11 @@ impl AudioMixer {
                                 output[out_idx_l] += val_r * current_vol;
                             }
                         } else {
-                            // Mix down to mono (Dual Mono)
+                            // Mix down to mono
                             let mono_val = (val_l + val_r) * 0.5;
-                            let out_idx_l = frame * out_channels + instance.output_channel;
-                            if is_l_enabled && out_idx_l < output.len() {
-                                output[out_idx_l] += mono_val * current_vol;
-                            }
-                            if instance.output_channel + 1 < out_channels {
-                                let is_r_enabled = (enabled_mask & (1 << (instance.output_channel + 1))) != 0;
-                                let out_idx_r = out_idx_l + 1;
-                                if is_r_enabled && out_idx_r < output.len() {
-                                    output[out_idx_r] += mono_val * current_vol;
-                                }
+                            let out_idx = frame * out_channels + instance.output_channel;
+                            if is_l_enabled && out_idx < output.len() {
+                                output[out_idx] += mono_val * current_vol;
                             }
                         }
                     }

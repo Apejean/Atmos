@@ -322,7 +322,7 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                                 filePath: path,
                                 volume: 1.0,
                                 isLoop: false,
-                                outputChannel: 1,
+                                outputChannel: 0,
                                 outputStereo: true,
                                 playOscAddress: '/play',
                                 stopOscAddress: '/stop',
