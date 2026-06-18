@@ -54,6 +54,15 @@ jobs:
         run: |
           echo "LIBCLANG_PATH=${{ env.LLVM_PATH }}/bin" >> $env:GITHUB_ENV
 
+      - name: Checkout ASIO SDK
+        if: matrix.os == 'windows-latest'
+        run: git clone https://github.com/jhasse/asiosdk.git asiosdk
+
+      - name: Set CPAL_ASIO_DIR
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: echo "CPAL_ASIO_DIR=$((Get-Item asiosdk).FullName)" >> $env:GITHUB_ENV
+
       - name: Install dependencies
         run: flutter pub get
         working-directory: atmos_mixer_pro
