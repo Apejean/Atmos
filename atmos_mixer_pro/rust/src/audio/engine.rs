@@ -15,26 +15,24 @@ impl Default for AudioEngine {
 }
 
 #[cfg(target_os = "windows")]
-pub fn get_host() -> Result<cpal::Host, String> {
+pub fn get_hosts() -> Result<Vec<cpal::Host>, String> {
     use cpal::traits::HostTrait;
     use windows::Win32::System::Com::{CoInitializeEx, COINIT_MULTITHREADED};
     unsafe {
         let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
     }
-    match cpal::host_from_id(cpal::HostId::Asio) {
-        Ok(host) => {
-            println!("Successfully initialized ASIO host.");
-            Ok(host)
-        }
-        Err(e) => {
-            Err(format!("Failed to initialize ASIO host: {}. ASIO is strictly required on Windows.", e))
-        }
+    let mut hosts = Vec::new();
+    if let Ok(host) = cpal::host_from_id(cpal::HostId::Asio) {
+        println!("Successfully initialized ASIO host.");
+        hosts.push(host);
     }
+    hosts.push(cpal::default_host());
+    Ok(hosts)
 }
 
 #[cfg(not(target_os = "windows"))]
-pub fn get_host() -> Result<cpal::Host, String> {
-    Ok(cpal::default_host())
+pub fn get_hosts() -> Result<Vec<cpal::Host>, String> {
+    Ok(vec![cpal::default_host()])
 }
 
 impl AudioEngine {
@@ -45,14 +43,28 @@ impl AudioEngine {
     }
 
     pub fn start(&mut self, device_name: Option<String>, cmd_receiver: Receiver<AudioCommand>) -> Result<(), String> {
-        let host = get_host()?;
+        let hosts = get_hosts()?;
         let device = if let Some(name) = device_name {
-            host.output_devices()
-                .map_err(|e| e.to_string())?
-                .find(|d| d.name().unwrap_or_default() == name)
-                .unwrap_or(host.default_output_device().ok_or("No default output device")?)
+            let mut found_device = None;
+            for host in &hosts {
+                let prefix = format!("[{}] ", host.id().name());
+                if name.starts_with(&prefix) {
+                    let actual_name = name.strip_prefix(&prefix).unwrap_or(&name);
+                    if let Ok(mut devices) = host.output_devices() {
+                        if let Some(d) = devices.find(|d| d.name().unwrap_or_default() == actual_name) {
+                            found_device = Some(d);
+                            break;
+                        }
+                    }
+                }
+            }
+            if let Some(d) = found_device {
+                d
+            } else {
+                hosts.first().and_then(|h| h.default_output_device()).ok_or("No default output device")?
+            }
         } else {
-            host.default_output_device().ok_or("No default output device")?
+            hosts.first().and_then(|h| h.default_output_device()).ok_or("No default output device")?
         };
 
         println!("Using output device: {}", device.name().unwrap_or_default());

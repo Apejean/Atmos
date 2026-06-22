@@ -2,36 +2,27 @@ use rust_lib_atmos_mixer_pro::api::simple::*;
 use rust_lib_atmos_mixer_pro::core::state::GLOBAL_STATE;
 use rust_lib_atmos_mixer_pro::common::commands::AudioCommand;
 use std::thread;
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::Arc;
 use std::time::Duration;
+use std::sync::Mutex;
+
+lazy_static::lazy_static! {
+    static ref TEST_LOCK: Mutex<()> = Mutex::new(());
+}
 
 #[test]
 fn test_room_clear_spam_no_duplicate() {
+    let _guard = TEST_LOCK.lock().unwrap();
     println!("Starting room clear spam stress test...");
     
+    // drain any pending commands
+    let rx = GLOBAL_STATE.command_receiver.clone();
+    while let Ok(_) = rx.try_recv() {}
+
     // Clear global state first
     api_stop_all().unwrap();
     
-    let play_count = Arc::new(AtomicUsize::new(0));
-    
-    // Dummy command receiver consumer
-    let rx = GLOBAL_STATE.command_receiver.clone();
-    let play_count_clone = play_count.clone();
-    thread::spawn(move || {
-        while let Ok(cmd) = rx.recv() {
-            if let AudioCommand::PlayTrack { track_id_str, .. } = cmd {
-                if track_id_str == "next_bgm_track" {
-                    play_count_clone.fetch_add(1, Ordering::SeqCst);
-                }
-            }
-        }
-    });
-
     // Simulate OSC listener loop processing 10 "clear room" messages back-to-back very quickly
-    // In actual app, OSC listener is a single thread reading from socket.
     for _ in 0..10 {
-        // Simulating the exact logic from listener.rs when ClearRoom is received
         let next_track_id = "next_bgm_track".to_string();
         
         let playing = GLOBAL_STATE.playing_track_ids.read().unwrap();
@@ -61,10 +52,15 @@ fn test_room_clear_spam_no_duplicate() {
         }
     }
     
-    // Give consumer a little time
-    thread::sleep(Duration::from_millis(50));
+    let mut count = 0;
+    while let Ok(cmd) = rx.try_recv() {
+        if let AudioCommand::PlayTrack { track_id_str, .. } = cmd {
+            if track_id_str == "next_bgm_track" {
+                count += 1;
+            }
+        }
+    }
     
-    let count = play_count.load(Ordering::SeqCst);
     println!("BGM Play Track count after 10 clear room spams: {}", count);
     assert_eq!(count, 1, "Duplicate BGM playback detected! Expected 1, got {}", count);
     println!("Room clear spam stress test PASSED.");
@@ -72,20 +68,18 @@ fn test_room_clear_spam_no_duplicate() {
 
 #[test]
 fn test_system_reset_theme_start_glitch() {
+    let _guard = TEST_LOCK.lock().unwrap();
     println!("Starting system reset vs theme start glitch stress test...");
     
+    // drain any pending commands
     let rx = GLOBAL_STATE.command_receiver.clone();
-    thread::spawn(move || {
-        while let Ok(_) = rx.recv() {} // drain commands
-    });
+    while let Ok(_) = rx.try_recv() {}
 
     let num_iterations = 1000;
     
     let t1 = thread::spawn(move || {
         for i in 0..num_iterations {
-            // Theme Start simulation: Set active room + Play Track
             let _ = api_set_active_room(Some("room_1".to_string()));
-            // In real scenario, it plays bgm
             let instance_id = i as u64;
             GLOBAL_STATE.add_playing_track(instance_id, "theme_bgm".to_string());
             let _ = GLOBAL_STATE.command_sender.try_send(AudioCommand::PlayTrack {
@@ -107,13 +101,14 @@ fn test_system_reset_theme_start_glitch() {
 
     let t2 = thread::spawn(move || {
         for _ in 0..num_iterations {
-            // System Reset simulation
             let _ = api_stop_all();
         }
     });
 
     t1.join().unwrap();
     t2.join().unwrap();
+    
+    while let Ok(_) = rx.try_recv() {} // drain commands
     
     println!("System reset vs theme start glitch stress test PASSED.");
 }
