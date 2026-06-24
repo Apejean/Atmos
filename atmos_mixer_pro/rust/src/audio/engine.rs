@@ -14,6 +14,17 @@ impl Default for AudioEngine {
     }
 }
 
+impl Drop for AudioEngine {
+    fn drop(&mut self) {
+        if let Some(stream) = self.stream.take() {
+            println!("🔥 [디버깅] 오디오 스트림 명시적 Pause 및 Drop 수행...");
+            let _ = stream.pause();
+            drop(stream);
+            println!("✅ [디버깅] 오디오 스트림 Drop 완료!");
+        }
+    }
+}
+
 #[cfg(target_os = "windows")]
 pub fn get_hosts(target_prefix: Option<&str>) -> Result<Vec<cpal::Host>, String> {
     let mut hosts = Vec::new();

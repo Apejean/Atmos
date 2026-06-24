@@ -23,20 +23,40 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
   List<String> _devices = [];
   List<String> _channelNames = [];
   String _selectedDriverType = 'WASAPI';
+  bool _isDeviceManuallyChanged = false;
 
   String _getDriverType(String? deviceName) {
     if (deviceName == null) return 'WASAPI';
+    deviceName = deviceName.trim();
     if (deviceName.startsWith('[ASIO]')) return 'ASIO';
     if (deviceName.startsWith('[WASAPI]')) return 'WASAPI';
     if (deviceName.startsWith('[CoreAudio]')) return 'CoreAudio';
+    
+    if (_cachedDevices != null) {
+      final cleanTarget = _getCleanDeviceName(deviceName).trim();
+      for (final d in _cachedDevices!) {
+        if (_getCleanDeviceName(d).trim() == cleanTarget) {
+          if (d.startsWith('[ASIO]')) return 'ASIO';
+          if (d.startsWith('[WASAPI]')) return 'WASAPI';
+          if (d.startsWith('[CoreAudio]')) return 'CoreAudio';
+        }
+      }
+    }
     return 'WASAPI';
   }
 
   String _getCleanDeviceName(String? deviceName) {
     if (deviceName == null) return '';
-    if (deviceName.startsWith('[ASIO] ')) return deviceName.substring(7);
-    if (deviceName.startsWith('[WASAPI] ')) return deviceName.substring(9);
-    if (deviceName.startsWith('[CoreAudio] ')) return deviceName.substring(12);
+    deviceName = deviceName.trim();
+    if (deviceName.startsWith('[ASIO]')) {
+      return deviceName.replaceFirst(RegExp(r'^\[ASIO\]\s*'), '');
+    }
+    if (deviceName.startsWith('[WASAPI]')) {
+      return deviceName.replaceFirst(RegExp(r'^\[WASAPI\]\s*'), '');
+    }
+    if (deviceName.startsWith('[CoreAudio]')) {
+      return deviceName.replaceFirst(RegExp(r'^\[CoreAudio\]\s*'), '');
+    }
     return deviceName;
   }
 
@@ -63,25 +83,61 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
 
   Future<void> _loadDevices() async {
     if (_cachedDevices != null) {
-      setState(() {
-        _devices = _cachedDevices!;
-      });
-      _loadDeviceChannels(_tempConfig.deviceName);
+      _applyLoadedDevices(_cachedDevices!);
       return;
     }
     try {
       final deviceInfos = await rust_api.apiGetOutputDevices();
       final devices = deviceInfos.map((d) => d.name).toList();
       _cachedDevices = devices;
-      setState(() {
-        _devices = devices;
-      });
-      _loadDeviceChannels(_tempConfig.deviceName);
+      _applyLoadedDevices(devices);
     } catch (e) {
       if (mounted) {
         ref.read(globalErrorProvider.notifier).showError('장치 스캔 실패: $e');
       }
     }
+  }
+
+  void _applyLoadedDevices(List<String> devices) {
+    if (!mounted) return;
+    setState(() {
+      _devices = devices;
+      if (_tempConfig.deviceName != null) {
+        final exactMatch = _devices.where((d) => d == _tempConfig.deviceName).firstOrNull;
+        if (exactMatch == null) {
+          final spaceMatch = _devices.where((d) => d.trim() == _tempConfig.deviceName!.trim()).firstOrNull;
+          if (spaceMatch != null) {
+            _tempConfig = AppConfig(
+              oscPort: _tempConfig.oscPort,
+              deviceName: spaceMatch,
+              bufferSize: _tempConfig.bufferSize,
+              themeStartOscAddress: _tempConfig.themeStartOscAddress,
+              systemResetOscAddress: _tempConfig.systemResetOscAddress,
+              monoConfigs: _tempConfig.monoConfigs,
+              stereoConfigs: _tempConfig.stereoConfigs,
+              rooms: _tempConfig.rooms,
+            );
+          } else {
+            final cleanTarget = _getCleanDeviceName(_tempConfig.deviceName).trim();
+            final prefixMatch = _devices.where((d) => _getCleanDeviceName(d).trim() == cleanTarget).firstOrNull;
+            if (prefixMatch != null && !_tempConfig.deviceName!.startsWith('[')) {
+              _tempConfig = AppConfig(
+                oscPort: _tempConfig.oscPort,
+                deviceName: prefixMatch,
+                bufferSize: _tempConfig.bufferSize,
+                themeStartOscAddress: _tempConfig.themeStartOscAddress,
+                systemResetOscAddress: _tempConfig.systemResetOscAddress,
+                monoConfigs: _tempConfig.monoConfigs,
+                stereoConfigs: _tempConfig.stereoConfigs,
+                rooms: _tempConfig.rooms,
+              );
+            }
+          }
+        }
+      }
+      _selectedDriverType = _getDriverType(_tempConfig.deviceName);
+    });
+    _loadDeviceChannels(_tempConfig.deviceName);
   }
 
   Future<void> _loadDeviceChannels(String? deviceName) async {
@@ -171,9 +227,10 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
       );
     }).toList();
 
+    final currentConfig = ref.read(configProvider);
     final finalConfig = AppConfig(
       oscPort: _tempConfig.oscPort,
-      deviceName: _tempConfig.deviceName,
+      deviceName: _isDeviceManuallyChanged ? _tempConfig.deviceName : (currentConfig?.deviceName ?? _tempConfig.deviceName),
       bufferSize: _tempConfig.bufferSize,
       themeStartOscAddress: _tempConfig.themeStartOscAddress,
       systemResetOscAddress: _tempConfig.systemResetOscAddress,
@@ -499,6 +556,7 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                     ),
                 ],
                 onChanged: (val) {
+                  _isDeviceManuallyChanged = true;
                   setState(() {
                     _tempConfig = AppConfig(
                       oscPort: _tempConfig.oscPort,

@@ -258,12 +258,15 @@ pub fn api_start_audio_engine(device_name: Option<String>) {
     
     std::thread::spawn(move || {
         // Wait for previous engine to fully drop to release ASIO locks
-        for _ in 0..40 {
+        for _ in 0..60 {
             if !ENGINE_ACTIVE.load(std::sync::atomic::Ordering::SeqCst) {
                 break;
             }
             std::thread::sleep(std::time::Duration::from_millis(50));
         }
+        
+        // Give ASIO driver extra time to fully release hardware locks
+        std::thread::sleep(std::time::Duration::from_millis(500));
         
         ENGINE_ACTIVE.store(true, std::sync::atomic::Ordering::SeqCst);
 
@@ -294,6 +297,17 @@ pub fn api_start_audio_engine(device_name: Option<String>) {
         drop(engine);
         ENGINE_ACTIVE.store(false, std::sync::atomic::Ordering::SeqCst);
     });
+}
+
+pub fn api_stop_audio_engine() {
+    let _ = ENGINE_GENERATION.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+    for _ in 0..40 {
+        if !ENGINE_ACTIVE.load(std::sync::atomic::Ordering::SeqCst) {
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(50));
+    }
+    println!("✅ [디버깅] 백엔드 오디오 엔진 명시적 종료 완료.");
 }
 
 pub fn api_start_osc_listener(port: u16) {
@@ -430,21 +444,73 @@ pub fn api_get_output_devices() -> Result<Vec<OutputDeviceInfo>, AtmosError> {
         }
         
         use cpal::traits::{DeviceTrait, HostTrait};
-        let hosts = crate::audio::engine::get_hosts(None)
+        
+        let is_engine_active = ENGINE_ACTIVE.load(std::sync::atomic::Ordering::SeqCst);
+        let mut skip_asio_scan = false;
+        let mut active_asio_device = None;
+        
+        if is_engine_active {
+            if let Some(config) = crate::core::state::GLOBAL_STATE.config.read().unwrap().as_ref() {
+                if let Some(ref saved_name) = config.device_name {
+                    if saved_name.starts_with("[ASIO]") {
+                        skip_asio_scan = true;
+                        active_asio_device = Some(saved_name.clone());
+                    }
+                }
+            }
+        }
+
+        let target_prefix = if skip_asio_scan { Some("[WASAPI]") } else { None };
+        let hosts = crate::audio::engine::get_hosts(target_prefix)
             .map_err(|e| AtmosError { message: e })?;
         
         let mut device_info_list = Vec::new();
+        
+        if let Some(saved_name) = active_asio_device {
+            let max_channels = 2; // Fallback
+            let actual_name = saved_name.replace("[ASIO] ", "").trim().to_string();
+            #[cfg(target_os = "macos")]
+            let channel_names = crate::audio::channel_names::get_channel_names_mac(&actual_name, max_channels);
+            #[cfg(target_os = "windows")]
+            let channel_names = crate::audio::channel_names::get_channel_names_win(&actual_name, max_channels);
+            #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+            let channel_names = crate::audio::channel_names::get_channel_names_fallback(max_channels);
+
+            device_info_list.push(OutputDeviceInfo { name: saved_name, max_channels, channel_names });
+        }
         
         for host in hosts {
             let prefix = format!("[{}] ", host.id().name());
             let devices = match host.output_devices() {
                 Ok(d) => d,
-                Err(e) => { eprintln!("Failed to get output devices for host {}: {:?}", host.id().name(), e); continue },
+                Err(e) => { 
+                    eprintln!("Failed to get output devices for host {}: {:?}", host.id().name(), e);
+                    // If ASIO is locked, we can fallback to checking if the saved device was ASIO
+                    if host.id().name() == "ASIO" {
+                        if let Some(config) = crate::core::state::GLOBAL_STATE.config.read().unwrap().as_ref() {
+                            if let Some(ref saved_name) = config.device_name {
+                                if saved_name.starts_with("[ASIO]") {
+                                    let max_channels = 2; // Fallback
+                                    let actual_name = saved_name.replace("[ASIO] ", "").trim().to_string();
+                                    #[cfg(target_os = "macos")]
+                                    let channel_names = crate::audio::channel_names::get_channel_names_mac(&actual_name, max_channels);
+                                    #[cfg(target_os = "windows")]
+                                    let channel_names = crate::audio::channel_names::get_channel_names_win(&actual_name, max_channels);
+                                    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+                                    let channel_names = crate::audio::channel_names::get_channel_names_fallback(max_channels);
+
+                                    device_info_list.push(OutputDeviceInfo { name: saved_name.clone(), max_channels, channel_names });
+                                }
+                            }
+                        }
+                    }
+                    continue; 
+                },
             };
             
             for device in devices {
                 if let Ok(name_str) = device.name() {
-                    let actual_name = name_str.trim_matches(char::from(0)).trim().to_string();
+                    let actual_name = name_str.replace('\0', "").trim().to_string();
                     let name = format!("{}{}", prefix, actual_name);
                     let mut max_channels = 2; // Default fallback
                     if let Ok(supported_configs) = device.supported_output_configs() {
@@ -490,7 +556,25 @@ pub fn api_get_device_channel_count(device_name: Option<String>) -> Result<u32, 
         }
         use cpal::traits::{DeviceTrait, HostTrait};
         
+        let is_engine_active = ENGINE_ACTIVE.load(std::sync::atomic::Ordering::SeqCst);
+        let mut active_asio_device = None;
+        if is_engine_active {
+            if let Some(config) = crate::core::state::GLOBAL_STATE.config.read().unwrap().as_ref() {
+                if let Some(ref saved_name) = config.device_name {
+                    if saved_name.starts_with("[ASIO]") {
+                        active_asio_device = Some(saved_name.clone());
+                    }
+                }
+            }
+        }
+
         let device = if let Some(ref name) = device_name {
+            if let Some(ref active_name) = active_asio_device {
+                if name == active_name {
+                    return Ok(2); // Fallback to 2 channels to avoid querying locked ASIO device
+                }
+            }
+            
             let target_prefix = if name.starts_with("[ASIO]") { Some("[ASIO]") } 
                 else if name.starts_with("[WASAPI]") { Some("[WASAPI]") } 
                 else if name.starts_with("[CoreAudio]") { Some("[CoreAudio]") }
@@ -500,20 +584,22 @@ pub fn api_get_device_channel_count(device_name: Option<String>) -> Result<u32, 
                 .map_err(|e| AtmosError { message: e })?;
                 
             let mut found_device = None;
+            let target_name = name.replace("[ASIO] ", "").replace("[WASAPI] ", "").replace("[CoreAudio] ", "");
+            let target_name = target_name.replace('\0', "").trim().to_string();
+
             for host in &hosts {
-                let prefix = format!("[{}] ", host.id().name());
-                if name.starts_with(&prefix) {
-                    let actual_name = name.strip_prefix(&prefix).unwrap_or(name).trim_matches(char::from(0)).trim();
-                    if let Ok(devices) = host.output_devices() {
-                        for d in devices {
-                            if let Ok(d_name) = d.name() {
-                                if d_name.trim_matches(char::from(0)).trim() == actual_name {
-                                    found_device = Some(d);
-                                    break;
-                                }
+                if let Ok(devices) = host.output_devices() {
+                    for d in devices {
+                        if let Ok(d_name) = d.name() {
+                            if d_name.replace('\0', "").trim() == target_name {
+                                found_device = Some(d);
+                                break;
                             }
                         }
                     }
+                }
+                if found_device.is_some() {
+                    break;
                 }
             }
             found_device.ok_or_else(|| AtmosError { message: format!("Device not found: {}", name) })?

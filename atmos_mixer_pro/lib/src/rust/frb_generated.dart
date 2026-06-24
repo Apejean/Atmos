@@ -68,7 +68,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.12.0';
 
   @override
-  int get rustContentHash => 1631619565;
+  int get rustContentHash => -675061485;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -130,6 +130,8 @@ abstract class RustLibApi extends BaseApi {
   Future<void> crateApiSimpleApiStartOscListener({required int port});
 
   Future<void> crateApiSimpleApiStopAll();
+
+  Future<void> crateApiSimpleApiStopAudioEngine();
 
   Future<void> crateApiSimpleApiStopTrack({
     required String roomId,
@@ -717,6 +719,33 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(debugName: "api_stop_all", argNames: []);
 
   @override
+  Future<void> crateApiSimpleApiStopAudioEngine() {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 19,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiSimpleApiStopAudioEngineConstMeta,
+        argValues: [],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiSimpleApiStopAudioEngineConstMeta =>
+      const TaskConstMeta(debugName: "api_stop_audio_engine", argNames: []);
+
+  @override
   Future<void> crateApiSimpleApiStopTrack({
     required String roomId,
     required String trackId,
@@ -730,7 +759,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 19,
+            funcId: 20,
             port: port_,
           );
         },

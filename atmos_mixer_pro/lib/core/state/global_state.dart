@@ -64,7 +64,30 @@ class ConfigNotifier extends Notifier<AppConfig?> {
           // Ignore preload errors, keep UI responsive
         }
         
-        if (oldConfig == null || oldConfig.deviceName != configToSave.deviceName) {
+        bool deviceChanged = oldConfig == null || oldConfig.deviceName != configToSave.deviceName;
+        
+        if (deviceChanged && oldConfig != null && oldConfig.deviceName != null && configToSave.deviceName != null) {
+          final oldName = oldConfig.deviceName!.trim();
+          final newName = configToSave.deviceName!.trim();
+          
+          String stripPrefix(String name) {
+            return name.replaceFirst(RegExp(r'^\[.*?\]\s*'), '');
+          }
+          
+          if (stripPrefix(oldName) == stripPrefix(newName)) {
+            final oldHasPrefix = oldName.startsWith('[');
+            final newHasPrefix = newName.startsWith('[');
+            
+            // If they are literally the same after stripping prefix,
+            // we only consider it a change if BOTH had different prefixes (e.g. WASAPI -> ASIO).
+            // If one simply gained the correct prefix due to auto-correction, we don't restart.
+            if (!oldHasPrefix || !newHasPrefix || oldName.split(']').first == newName.split(']').first) {
+              deviceChanged = false;
+            }
+          }
+        }
+        
+        if (deviceChanged) {
           rust_api.apiStartAudioEngine(deviceName: configToSave.deviceName);
         }
         
