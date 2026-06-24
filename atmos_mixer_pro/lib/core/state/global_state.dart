@@ -18,7 +18,8 @@ class GlobalDeviceCache {
 class _SaveTask {
   final AppConfig config;
   final bool forceRestart;
-  _SaveTask(this.config, this.forceRestart);
+  final bool skipPreload;
+  _SaveTask(this.config, this.forceRestart, this.skipPreload);
 }
 
 class ConfigNotifier extends Notifier<AppConfig?> {
@@ -65,11 +66,11 @@ class ConfigNotifier extends Notifier<AppConfig?> {
     }
   }
 
-  void saveConfig(AppConfig newConfig, {bool forceRestart = false}) {
+  void saveConfig(AppConfig newConfig, {bool forceRestart = false, bool skipPreload = false}) {
     // Optimistic UI Update: immediately set state so UI reflects the added track
     state = newConfig;
     
-    _saveQueue.add(_SaveTask(newConfig, forceRestart));
+    _saveQueue.add(_SaveTask(newConfig, forceRestart, skipPreload));
     _processQueue();
   }
 
@@ -85,10 +86,12 @@ class ConfigNotifier extends Notifier<AppConfig?> {
       try {
         final path = await _getConfigPath();
         await rust_api.apiSaveConfig(path: path, config: configToSave);
-        try {
-          await rust_api.apiPreloadAllSounds(config: configToSave);
-        } catch (e) {
-          // Ignore preload errors, keep UI responsive
+        if (!task.skipPreload) {
+          try {
+            await rust_api.apiPreloadAllSounds(config: configToSave);
+          } catch (e) {
+            // Ignore preload errors, keep UI responsive
+          }
         }
         
         bool engineNeedsRestart = oldConfig == null || oldConfig.deviceName != configToSave.deviceName || oldConfig.bufferSize != configToSave.bufferSize || task.forceRestart;

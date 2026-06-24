@@ -491,19 +491,21 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           ),
           const Divider(color: AppColors.darkGrey),
           Expanded(
-            child: ListView.builder(
-              reverse: true,
-              itemCount: logs.length,
-              itemBuilder: (context, index) {
-                return SelectableText(
-                  logs[logs.length - 1 - index],
-                  style: const TextStyle(
-                    color: AppColors.logText,
-                    fontFamily: 'monospace',
-                    fontSize: 12,
-                  ),
-                );
-              },
+            child: SelectionArea(
+              child: ListView.builder(
+                reverse: true,
+                itemCount: logs.length,
+                itemBuilder: (context, index) {
+                  return Text(
+                    logs[logs.length - 1 - index],
+                    style: const TextStyle(
+                      color: AppColors.logText,
+                      fontFamily: 'monospace',
+                      fontSize: 12,
+                    ),
+                  );
+                },
+              ),
             ),
           ),
         ],

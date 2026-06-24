@@ -322,7 +322,7 @@ pub fn api_stop_audio_engine() {
         }
         std::thread::sleep(std::time::Duration::from_millis(50));
     }
-    crate::core::state::GLOBAL_STATE.active_device_channels.store(0, std::sync::atomic::Ordering::SeqCst);
+    // Do not reset active_device_channels to 0 here to prevent UI cache poisoning during restart
     println!("✅ [디버깅] 백엔드 오디오 엔진 명시적 종료 완료.");
 }
 
@@ -563,7 +563,7 @@ pub fn api_get_output_devices() -> Result<Vec<OutputDeviceInfo>, AtmosError> {
                         let mut is_the_active_device = false;
                         if let Some(config) = crate::core::state::GLOBAL_STATE.config.read().unwrap().as_ref() {
                             if let Some(ref saved_name) = config.device_name {
-                                if saved_name == &name {
+                                if saved_name.trim() == name.trim() {
                                     is_the_active_device = true;
                                 }
                             }
@@ -635,7 +635,7 @@ pub fn api_get_device_channel_count(device_name: Option<String>) -> Result<u32, 
         let device = if let Some(ref name) = device_name {
             if is_engine_active && name.starts_with("[ASIO]") {
                 if let Some(ref active_name) = active_asio_device {
-                    if name == active_name {
+                    if name.trim() == active_name.trim() {
                         let active_ch = crate::core::state::GLOBAL_STATE.active_device_channels.load(std::sync::atomic::Ordering::SeqCst);
                         return Ok(if active_ch > 0 { active_ch } else { 2 });
                     }

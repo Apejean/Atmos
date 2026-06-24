@@ -155,28 +155,42 @@ class _TrackCardState extends ConsumerState<TrackCard> {
       }
     }
 
-    final currentKey = widget.track.outputChannel;
-    final currentValue = widget.track.outputStereo
+    int currentKey = widget.track.outputChannel;
+    String currentValue = widget.track.outputStereo
         ? 'stereo_$currentKey'
         : 'mono_$currentKey';
 
-    final bool valueExists = outputItems.any(
+    bool valueExists = outputItems.any(
       (item) => item.value == currentValue,
     );
 
     if (!valueExists && config != null) {
-      final displayCh = currentKey + 1;
-      outputItems.add(
-        DropdownMenuItem(
-          value: currentValue,
-          child: Text(
-            widget.track.outputStereo
-                ? 'Stereo $displayCh/${displayCh + 1} (Disabled)'
-                : 'Mono $displayCh (Disabled)',
-            style: const TextStyle(fontSize: 12, color: AppColors.danger),
+      if (currentKey >= maxChannels && outputItems.isNotEmpty) {
+        final firstVal = outputItems.first.value;
+        if (firstVal != null) {
+          currentValue = firstVal;
+          final isStereo = firstVal.startsWith('stereo_');
+          final keyStr = firstVal.replaceFirst(isStereo ? 'stereo_' : 'mono_', '');
+          currentKey = int.tryParse(keyStr) ?? 0;
+          
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            widget.onOutputChanged?.call(currentKey, isStereo);
+          });
+        }
+      } else {
+        final displayCh = currentKey + 1;
+        outputItems.add(
+          DropdownMenuItem(
+            value: currentValue,
+            child: Text(
+              widget.track.outputStereo
+                  ? 'Stereo $displayCh/${displayCh + 1} (Disabled)'
+                  : 'Mono $displayCh (Disabled)',
+              style: const TextStyle(fontSize: 12, color: AppColors.danger),
+            ),
           ),
-        ),
-      );
+        );
+      }
     }
 
     return Container(

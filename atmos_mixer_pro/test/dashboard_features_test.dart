@@ -17,7 +17,9 @@ class MockConfigNotifier extends ConfigNotifier {
   void loadConfig() {}
 
   @override
-  void saveConfig(AppConfig newConfig, {bool forceRestart = false}) {}
+  void saveConfig(AppConfig newConfig, {bool forceRestart = false, bool skipPreload = false}) {
+    state = newConfig;
+  }
 }
 
 class MockEngineStateNotifier extends EngineStateNotifier {
