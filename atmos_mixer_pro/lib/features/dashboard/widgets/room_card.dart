@@ -11,8 +11,9 @@ import 'track_card.dart';
 Future<bool?> _showDeleteConfirmDialog(BuildContext context, String title, String content) {
   return showDialog<bool>(
     context: context,
+    barrierColor: Colors.black87,
     builder: (context) => AlertDialog(
-      backgroundColor: AppColors.cardSurface,
+      backgroundColor: AppColors.cardSurfaceSolid,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       title: Row(
         children: [

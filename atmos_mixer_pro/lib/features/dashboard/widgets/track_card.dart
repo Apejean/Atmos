@@ -72,6 +72,10 @@ class _TrackCardState extends ConsumerState<TrackCard> {
     final isPlaying = engineState.playingTrackIds.contains(widget.track.id);
 
     final config = ref.watch(configProvider);
+    final hwChannelsAsync = ref.watch(hardwareChannelsProvider);
+    final int maxChannels = (hwChannelsAsync.value != null && hwChannelsAsync.value!.isNotEmpty)
+        ? hwChannelsAsync.value!.length
+        : 30;
 
     final List<DropdownMenuItem<String>> outputItems = [];
     if (config != null) {
@@ -80,6 +84,7 @@ class _TrackCardState extends ConsumerState<TrackCard> {
         final setting = config.monoConfigs[key]!;
         if (setting.enabled) {
           final realCh1 = key - 1;
+          if (realCh1 >= maxChannels) continue;
           final name1 = setting.customName.isNotEmpty ? '$key (${setting.customName} L)' : '$key';
           outputItems.add(
             DropdownMenuItem(
@@ -92,17 +97,19 @@ class _TrackCardState extends ConsumerState<TrackCard> {
           );
 
           final realCh2 = key;
-          final displayCh2 = key + 1;
-          final name2 = setting.customName.isNotEmpty ? '$displayCh2 (${setting.customName} R)' : '$displayCh2';
-          outputItems.add(
-            DropdownMenuItem(
-              value: 'mono_$realCh2',
-              child: Text(
-                'Mono $name2',
-                style: const TextStyle(fontSize: 12, color: Colors.white),
+          if (realCh2 < maxChannels) {
+            final displayCh2 = key + 1;
+            final name2 = setting.customName.isNotEmpty ? '$displayCh2 (${setting.customName} R)' : '$displayCh2';
+            outputItems.add(
+              DropdownMenuItem(
+                value: 'mono_$realCh2',
+                child: Text(
+                  'Mono $name2',
+                  style: const TextStyle(fontSize: 12, color: Colors.white),
+                ),
               ),
-            ),
-          );
+            );
+          }
         }
       }
 
@@ -111,6 +118,7 @@ class _TrackCardState extends ConsumerState<TrackCard> {
         final setting = config.stereoConfigs[key]!;
         if (setting.enabled) {
           final realCh = key - 1;
+          if (realCh >= maxChannels) continue;
           final displayCh2 = key + 1;
           final displayName = setting.customName.isNotEmpty
               ? '$key/$displayCh2 (${setting.customName})'
@@ -280,7 +288,7 @@ class _TrackCardState extends ConsumerState<TrackCard> {
                                 color: AppColors.textSecondary,
                                 size: 16,
                               ),
-                              dropdownColor: AppColors.cardSurface,
+                              dropdownColor: AppColors.cardSurfaceSolid,
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 12,

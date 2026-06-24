@@ -86,8 +86,7 @@ impl AudioEngine {
                 return Err(error_msg);
             }
         } else {
-            // Find the first host that actually has a default output device (ASIO often returns None)
-            hosts.iter().find_map(|h| h.default_output_device()).ok_or("No default output device".to_string())?
+            cpal::default_host().default_output_device().ok_or("No default output device".to_string())?
         };
 
         println!("Using output device: {}", device.name().unwrap_or_default());
@@ -141,12 +140,16 @@ impl AudioEngine {
                 )
             },
             SampleFormat::I16 => {
+                let mut temp_buf: Vec<f32> = Vec::new();
                 device.build_output_stream(
                     &config,
                     move |data: &mut [i16], _: &OutputCallbackInfo| {
                         Self::process_commands(&mut mixer, &cmd_receiver);
-                        let mut temp = vec![0.0; data.len()];
-                        mixer.process(&mut temp, config.channels as usize);
+                        if temp_buf.len() < data.len() {
+                            temp_buf.resize(data.len(), 0.0);
+                        }
+                        let temp = &mut temp_buf[..data.len()];
+                        mixer.process(temp, config.channels as usize);
                         for (dst, src) in data.iter_mut().zip(temp.iter()) {
                             *dst = cpal::Sample::from_sample(*src);
                         }
@@ -156,12 +159,16 @@ impl AudioEngine {
                 )
             },
             SampleFormat::I32 => {
+                let mut temp_buf: Vec<f32> = Vec::new();
                 device.build_output_stream(
                     &config,
                     move |data: &mut [i32], _: &OutputCallbackInfo| {
                         Self::process_commands(&mut mixer, &cmd_receiver);
-                        let mut temp = vec![0.0; data.len()];
-                        mixer.process(&mut temp, config.channels as usize);
+                        if temp_buf.len() < data.len() {
+                            temp_buf.resize(data.len(), 0.0);
+                        }
+                        let temp = &mut temp_buf[..data.len()];
+                        mixer.process(temp, config.channels as usize);
                         for (dst, src) in data.iter_mut().zip(temp.iter()) {
                             *dst = cpal::Sample::from_sample(*src);
                         }
@@ -171,12 +178,16 @@ impl AudioEngine {
                 )
             },
             SampleFormat::U16 => {
+                let mut temp_buf: Vec<f32> = Vec::new();
                 device.build_output_stream(
                     &config,
                     move |data: &mut [u16], _: &OutputCallbackInfo| {
                         Self::process_commands(&mut mixer, &cmd_receiver);
-                        let mut temp = vec![0.0; data.len()];
-                        mixer.process(&mut temp, config.channels as usize);
+                        if temp_buf.len() < data.len() {
+                            temp_buf.resize(data.len(), 0.0);
+                        }
+                        let temp = &mut temp_buf[..data.len()];
+                        mixer.process(temp, config.channels as usize);
                         for (dst, src) in data.iter_mut().zip(temp.iter()) {
                             *dst = cpal::Sample::from_sample(*src);
                         }

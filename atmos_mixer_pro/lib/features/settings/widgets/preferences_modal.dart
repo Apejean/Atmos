@@ -23,6 +23,23 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
   List<rust_api.OutputDeviceInfo> _deviceInfos = [];
   List<String> _devices = [];
   List<String> _channelNames = [];
+  String _selectedDriverType = 'WASAPI';
+
+  String _getDriverType(String? deviceName) {
+    if (deviceName == null) return 'WASAPI';
+    if (deviceName.startsWith('[ASIO]')) return 'ASIO';
+    if (deviceName.startsWith('[WASAPI]')) return 'WASAPI';
+    if (deviceName.startsWith('[CoreAudio]')) return 'CoreAudio';
+    return 'WASAPI';
+  }
+
+  String _getCleanDeviceName(String? deviceName) {
+    if (deviceName == null) return '';
+    if (deviceName.startsWith('[ASIO] ')) return deviceName.substring(7);
+    if (deviceName.startsWith('[WASAPI] ')) return deviceName.substring(9);
+    if (deviceName.startsWith('[CoreAudio] ')) return deviceName.substring(12);
+    return deviceName;
+  }
 
   @override
   void initState() {
@@ -41,6 +58,7 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
             stereoConfigs: {},
             rooms: [],
           );
+    _selectedDriverType = _getDriverType(_tempConfig.deviceName);
     _loadDevices();
   }
 
@@ -366,6 +384,13 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
       return isStereo ? '${channelIndex}_stereo' : '${channelIndex}_mono';
     }
 
+    final uniqueDriverTypes = _devices.map((d) => _getDriverType(d)).toSet().toList();
+    if (uniqueDriverTypes.isEmpty) {
+      uniqueDriverTypes.add('WASAPI');
+    }
+    
+    final filteredDevices = _devices.where((d) => _getDriverType(d) == _selectedDriverType).toList();
+
     return ListView(
       padding: const EdgeInsets.all(16.0),
       children: [
@@ -380,8 +405,53 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
         Row(
           children: [
             Expanded(
+              flex: 1,
+              child: DropdownButtonFormField<String>(
+                key: ValueKey(_selectedDriverType),
+                isExpanded: true,
+                initialValue: _selectedDriverType,
+                dropdownColor: AppColors.cardSurfaceSolid,
+                decoration: const InputDecoration(
+                  filled: true,
+                  fillColor: AppColors.cardSurface,
+                  border: OutlineInputBorder(),
+                ),
+                hint: const Text(
+                  '드라이버 타입',
+                  style: TextStyle(color: Colors.white54),
+                ),
+                items: uniqueDriverTypes.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
+                onChanged: (val) {
+                  if (val != null) {
+                    setState(() {
+                      _selectedDriverType = val;
+                      final newFilteredDevices = _devices.where((d) => _getDriverType(d) == val).toList();
+                      String? newDeviceName;
+                      if (newFilteredDevices.isNotEmpty) {
+                        newDeviceName = newFilteredDevices.first;
+                      }
+                      
+                      _tempConfig = AppConfig(
+                        oscPort: _tempConfig.oscPort,
+                        deviceName: newDeviceName,
+                        bufferSize: _tempConfig.bufferSize,
+                        themeStartOscAddress: _tempConfig.themeStartOscAddress,
+                        systemResetOscAddress: _tempConfig.systemResetOscAddress,
+                        monoConfigs: _tempConfig.monoConfigs,
+                        stereoConfigs: _tempConfig.stereoConfigs,
+                        rooms: _tempConfig.rooms,
+                      );
+                    });
+                    _loadDeviceChannels(_tempConfig.deviceName);
+                  }
+                },
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
               flex: 2,
               child: DropdownButtonFormField<String>(
+                key: ValueKey(_tempConfig.deviceName),
                 isExpanded: true,
                 initialValue: _tempConfig.deviceName,
                 dropdownColor: AppColors.cardSurfaceSolid,
@@ -399,14 +469,14 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                     value: null,
                     child: Text('기본 오디오 출력 (Default)'),
                   ),
-                  ..._devices.map(
-                    (d) => DropdownMenuItem(value: d, child: Text(d)),
+                  ...filteredDevices.map(
+                    (d) => DropdownMenuItem(value: d, child: Text(_getCleanDeviceName(d))),
                   ),
                   if (_tempConfig.deviceName != null &&
                       !_devices.contains(_tempConfig.deviceName))
                     DropdownMenuItem(
                       value: _tempConfig.deviceName,
-                      child: Text('${_tempConfig.deviceName} (Disconnected)'),
+                      child: Text('${_getCleanDeviceName(_tempConfig.deviceName)} (Disconnected)'),
                     ),
                 ],
                 onChanged: (val) {
