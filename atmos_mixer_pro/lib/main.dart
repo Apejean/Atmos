@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:atmos_mixer_pro/src/rust/frb_generated.dart';
-import 'package:atmos_mixer_pro/src/rust/api/simple.dart' as rust_api;
 import 'package:atmos_mixer_pro/features/dashboard/screens/dashboard_screen.dart';
 
 Future<void> main() async {
@@ -10,9 +9,6 @@ Future<void> main() async {
   
   // Initialize rust bridge
   await RustLib.init();
-  
-  // Start the background rust threads
-  rust_api.apiStartAudioEngine(deviceName: null);
   
   // Initialize window_manager for frameless kiosk mode
   await windowManager.ensureInitialized();

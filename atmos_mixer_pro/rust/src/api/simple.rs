@@ -247,7 +247,14 @@ pub fn api_create_vu_stream(sink: StreamSink<Vec<f32>>) {
     });
 }
 
+lazy_static::lazy_static! {
+    static ref AUDIO_ENGINE_SESSION: AtomicU64 = AtomicU64::new(0);
+}
+
 pub fn api_start_audio_engine(device_name: Option<String>) {
+    let session_id = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis() as u64;
+    AUDIO_ENGINE_SESSION.store(session_id, std::sync::atomic::Ordering::Relaxed);
+
     let rx = GLOBAL_STATE.command_receiver.clone();
     std::thread::spawn(move || {
         #[cfg(target_os = "windows")]
@@ -264,7 +271,12 @@ pub fn api_start_audio_engine(device_name: Option<String>) {
             GLOBAL_STATE.log(err_msg);
             return;
         }
-        loop { std::thread::sleep(std::time::Duration::from_secs(1)); }
+        loop {
+            if AUDIO_ENGINE_SESSION.load(std::sync::atomic::Ordering::Relaxed) != session_id {
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(500));
+        }
     });
 }
 

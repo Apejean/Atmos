@@ -1,4 +1,4 @@
-use std::sync::atomic::{AtomicU32, AtomicBool, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicU32, AtomicBool, Ordering};
 use std::sync::Arc;
 use crossbeam_channel::{Sender, Receiver, bounded};
 use lazy_static::lazy_static;
@@ -31,7 +31,7 @@ pub struct GlobalEngineState {
     pub active_room_id: RwLock<Option<String>>,
     pub is_ducking: AtomicBool,
     pub enabled_channels: Vec<AtomicBool>,
-    // VU levels for up to 256 output channels, stored as f32 bits
+    // VU levels for up to 4096 output channels, stored as f32 bits
     pub vu_levels: Vec<AtomicU32>,
     pub sound_cache: RwLock<HashMap<String, Arc<SoundData>>>,
     pub config: RwLock<Option<AppConfig>>,
@@ -52,9 +52,9 @@ impl GlobalEngineState {
     pub fn new() -> Self {
         let (tx, rx) = bounded(1024);
         
-        let mut vu = Vec::with_capacity(256);
-        let mut enabled = Vec::with_capacity(256);
-        for _ in 0..256 {
+        let mut vu = Vec::with_capacity(4096);
+        let mut enabled = Vec::with_capacity(4096);
+        for _ in 0..4096 {
             vu.push(AtomicU32::new(0));
             enabled.push(AtomicBool::new(true));
         }

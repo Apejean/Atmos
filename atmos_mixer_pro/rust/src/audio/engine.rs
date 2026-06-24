@@ -70,14 +70,20 @@ impl AudioEngine {
 
         println!("Using output device: {}", device.name().unwrap_or_default());
 
-        let mut best_config = device.default_output_config().ok();
+        let default_config_result = device.default_output_config().ok();
+        let mut best_config = default_config_result.clone();
         let mut max_ch = best_config.as_ref().map(|c| c.channels()).unwrap_or(0);
+        let default_sample_rate = best_config.as_ref().map(|c| c.sample_rate()).unwrap_or(cpal::SampleRate(48000));
 
         if let Ok(supported_configs) = device.supported_output_configs() {
             for c in supported_configs {
                 if c.channels() > max_ch {
                     max_ch = c.channels();
-                    best_config = Some(c.with_max_sample_rate());
+                    if c.min_sample_rate() <= default_sample_rate && c.max_sample_rate() >= default_sample_rate {
+                        best_config = Some(c.with_sample_rate(default_sample_rate));
+                    } else {
+                        best_config = Some(c.with_max_sample_rate());
+                    }
                 }
             }
         }

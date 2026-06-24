@@ -2,7 +2,6 @@ use rust_lib_atmos_mixer_pro::api::simple::*;
 use rust_lib_atmos_mixer_pro::core::state::GLOBAL_STATE;
 use rust_lib_atmos_mixer_pro::common::commands::AudioCommand;
 use std::thread;
-use std::time::Duration;
 use std::sync::Mutex;
 
 lazy_static::lazy_static! {

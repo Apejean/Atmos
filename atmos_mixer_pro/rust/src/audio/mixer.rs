@@ -24,8 +24,8 @@ impl AudioMixer {
             }
         });
 
-        let mut instances = Vec::with_capacity(256);
-        for _ in 0..256 {
+        let mut instances = Vec::with_capacity(4096);
+        for _ in 0..4096 {
             instances.push(None);
         }
         Self {
@@ -229,7 +229,7 @@ impl AudioMixer {
                 if has_sample {
                     if instance.output_channel < out_channels {
                         let ch_l = instance.output_channel;
-                        let is_l_enabled = if ch_l < 256 {
+                        let is_l_enabled = if ch_l < GLOBAL_STATE.enabled_channels.len() {
                             GLOBAL_STATE.enabled_channels[ch_l].load(Ordering::Relaxed)
                         } else { false };
                         
@@ -243,7 +243,7 @@ impl AudioMixer {
                             
                             if instance.output_channel + 1 < out_channels {
                                 let ch_r = instance.output_channel + 1;
-                                let is_r_enabled = if ch_r < 256 {
+                                let is_r_enabled = if ch_r < GLOBAL_STATE.enabled_channels.len() {
                                     GLOBAL_STATE.enabled_channels[ch_r].load(Ordering::Relaxed)
                                 } else { false };
                                 
@@ -279,7 +279,7 @@ impl AudioMixer {
 
         // Compute VU levels (Peak per channel) and apply soft clipping
         for ch in 0..out_channels {
-            if ch >= 256 { break; }
+            if ch >= GLOBAL_STATE.enabled_channels.len() { break; }
             let is_enabled = GLOBAL_STATE.enabled_channels[ch].load(Ordering::Relaxed);
             if !is_enabled {
                 GLOBAL_STATE.vu_levels[ch].store(0, Ordering::Relaxed);

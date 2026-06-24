@@ -27,6 +27,7 @@ class ConfigNotifier extends Notifier<AppConfig?> {
         // Ignore initial preload errors
       }
       state = config;
+      rust_api.apiStartAudioEngine(deviceName: config.deviceName);
       await rust_api.apiStartOscListener(port: config.oscPort);
     } catch (e) {
       ref.read(globalErrorProvider.notifier).showError('설정 로드 실패: $e');
@@ -45,6 +46,10 @@ class ConfigNotifier extends Notifier<AppConfig?> {
         await rust_api.apiPreloadAllSounds(config: newConfig);
       } catch (e) {
         // Ignore preload errors, keep UI responsive
+      }
+      
+      if (oldConfig == null || oldConfig.deviceName != newConfig.deviceName) {
+        rust_api.apiStartAudioEngine(deviceName: newConfig.deviceName);
       }
       
       if (oldConfig == null || oldConfig.oscPort != newConfig.oscPort) {
