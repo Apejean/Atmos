@@ -24,6 +24,7 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
   List<String> _channelNames = [];
   String _selectedDriverType = 'WASAPI';
   bool _isDeviceManuallyChanged = false;
+  bool _isScanning = false;
 
   String _getDriverType(String? deviceName) {
     if (deviceName == null) return 'WASAPI';
@@ -99,6 +100,12 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
   }
 
   Future<void> _rescanDevices() async {
+    if (_isScanning) return;
+    
+    setState(() {
+      _isScanning = true;
+    });
+
     // 1. Stop engine to release COM lock
     rust_api.apiStopAudioEngine();
     
@@ -129,12 +136,20 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
     // 5. Deep Scan
     try {
       final deviceInfos = await rust_api.apiGetOutputDevices();
+      if (!mounted) return;
+      
       final devices = deviceInfos.map((d) => d.name).toList();
       _cachedDevices = devices;
       _applyLoadedDevices(devices);
     } catch (e) {
       if (mounted) {
         ref.read(globalErrorProvider.notifier).showError('장치 스캔 실패: $e');
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isScanning = false;
+        });
       }
     }
   }
@@ -620,16 +635,28 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
               height: 48,
               child: ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blueAccent.withOpacity(0.2),
+                  backgroundColor: Colors.blueAccent.withValues(alpha: 0.2),
                   foregroundColor: Colors.blueAccent,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(4),
                     side: const BorderSide(color: Colors.blueAccent),
                   ),
                 ),
-                onPressed: _rescanDevices,
-                icon: const Icon(Icons.refresh, size: 18),
-                label: const Text('Rescan', style: TextStyle(fontWeight: FontWeight.bold)),
+                onPressed: _isScanning ? null : _rescanDevices,
+                icon: _isScanning
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.blueAccent,
+                        ),
+                      )
+                    : const Icon(Icons.refresh, size: 18),
+                label: Text(
+                  _isScanning ? 'Scanning...' : 'Rescan', 
+                  style: const TextStyle(fontWeight: FontWeight.bold)
+                ),
               ),
             ),
           ],
