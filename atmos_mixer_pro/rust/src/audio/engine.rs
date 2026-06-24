@@ -17,14 +17,15 @@ impl Default for AudioEngine {
 #[cfg(target_os = "windows")]
 pub fn get_hosts() -> Result<Vec<cpal::Host>, String> {
     use cpal::traits::HostTrait;
-    use windows::Win32::System::Com::{CoInitializeEx, COINIT_MULTITHREADED};
-    unsafe {
-        let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
-    }
     let mut hosts = Vec::new();
-    if let Ok(host) = cpal::host_from_id(cpal::HostId::Asio) {
-        println!("Successfully initialized ASIO host.");
-        hosts.push(host);
+    match cpal::host_from_id(cpal::HostId::Asio) {
+        Ok(host) => {
+            println!("Successfully initialized ASIO host.");
+            hosts.push(host);
+        }
+        Err(e) => {
+            eprintln!("ASIO Load Error: {:?}", e);
+        }
     }
     hosts.push(cpal::default_host());
     Ok(hosts)
@@ -69,8 +70,8 @@ impl AudioEngine {
 
         println!("Using output device: {}", device.name().unwrap_or_default());
 
-        let mut best_config: Option<cpal::SupportedStreamConfig> = None;
-        let mut max_ch = 0;
+        let mut best_config = device.default_output_config().ok();
+        let mut max_ch = best_config.as_ref().map(|c| c.channels()).unwrap_or(0);
 
         if let Ok(supported_configs) = device.supported_output_configs() {
             for c in supported_configs {
@@ -78,12 +79,6 @@ impl AudioEngine {
                     max_ch = c.channels();
                     best_config = Some(c.with_max_sample_rate());
                 }
-            }
-        }
-
-        if let Ok(default_config) = device.default_output_config() {
-            if default_config.channels() > max_ch {
-                best_config = Some(default_config);
             }
         }
 
@@ -112,6 +107,51 @@ impl AudioEngine {
                     move |data: &mut [f32], _: &OutputCallbackInfo| {
                         Self::process_commands(&mut mixer, &cmd_receiver);
                         mixer.process(data, config.channels as usize);
+                    },
+                    err_fn,
+                    None
+                )
+            },
+            SampleFormat::I16 => {
+                device.build_output_stream(
+                    &config,
+                    move |data: &mut [i16], _: &OutputCallbackInfo| {
+                        Self::process_commands(&mut mixer, &cmd_receiver);
+                        let mut temp = vec![0.0; data.len()];
+                        mixer.process(&mut temp, config.channels as usize);
+                        for (dst, src) in data.iter_mut().zip(temp.iter()) {
+                            *dst = cpal::Sample::from_sample(*src);
+                        }
+                    },
+                    err_fn,
+                    None
+                )
+            },
+            SampleFormat::I32 => {
+                device.build_output_stream(
+                    &config,
+                    move |data: &mut [i32], _: &OutputCallbackInfo| {
+                        Self::process_commands(&mut mixer, &cmd_receiver);
+                        let mut temp = vec![0.0; data.len()];
+                        mixer.process(&mut temp, config.channels as usize);
+                        for (dst, src) in data.iter_mut().zip(temp.iter()) {
+                            *dst = cpal::Sample::from_sample(*src);
+                        }
+                    },
+                    err_fn,
+                    None
+                )
+            },
+            SampleFormat::U16 => {
+                device.build_output_stream(
+                    &config,
+                    move |data: &mut [u16], _: &OutputCallbackInfo| {
+                        Self::process_commands(&mut mixer, &cmd_receiver);
+                        let mut temp = vec![0.0; data.len()];
+                        mixer.process(&mut temp, config.channels as usize);
+                        for (dst, src) in data.iter_mut().zip(temp.iter()) {
+                            *dst = cpal::Sample::from_sample(*src);
+                        }
                     },
                     err_fn,
                     None

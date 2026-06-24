@@ -24,10 +24,10 @@ pub fn api_get_config(path: String) -> AppConfig {
         for (&ch, setting) in &config.mono_configs {
             if setting.enabled && ch > 0 {
                 let real_ch = (ch - 1) as usize;
-                if real_ch < 256 {
+                if real_ch < GLOBAL_STATE.enabled_channels.len() {
                     GLOBAL_STATE.enabled_channels[real_ch].store(true, std::sync::atomic::Ordering::Relaxed);
                 }
-                if real_ch + 1 < 256 {
+                if real_ch + 1 < GLOBAL_STATE.enabled_channels.len() {
                     GLOBAL_STATE.enabled_channels[real_ch + 1].store(true, std::sync::atomic::Ordering::Relaxed);
                 }
             }
@@ -35,10 +35,10 @@ pub fn api_get_config(path: String) -> AppConfig {
         for (&ch, setting) in &config.stereo_configs {
             if setting.enabled && ch > 0 {
                 let real_ch = (ch - 1) as usize;
-                if real_ch < 256 {
+                if real_ch < GLOBAL_STATE.enabled_channels.len() {
                     GLOBAL_STATE.enabled_channels[real_ch].store(true, std::sync::atomic::Ordering::Relaxed);
                 }
-                if real_ch + 1 < 256 {
+                if real_ch + 1 < GLOBAL_STATE.enabled_channels.len() {
                     GLOBAL_STATE.enabled_channels[real_ch + 1].store(true, std::sync::atomic::Ordering::Relaxed);
                 }
             }
@@ -65,10 +65,10 @@ pub fn api_save_config(path: String, config: AppConfig) -> Result<(), AtmosError
         for (&ch, setting) in &config.mono_configs {
             if setting.enabled && ch > 0 {
                 let real_ch = (ch - 1) as usize;
-                if real_ch < 256 {
+                if real_ch < GLOBAL_STATE.enabled_channels.len() {
                     GLOBAL_STATE.enabled_channels[real_ch].store(true, std::sync::atomic::Ordering::Relaxed);
                 }
-                if real_ch + 1 < 256 {
+                if real_ch + 1 < GLOBAL_STATE.enabled_channels.len() {
                     GLOBAL_STATE.enabled_channels[real_ch + 1].store(true, std::sync::atomic::Ordering::Relaxed);
                 }
             }
@@ -76,10 +76,10 @@ pub fn api_save_config(path: String, config: AppConfig) -> Result<(), AtmosError
         for (&ch, setting) in &config.stereo_configs {
             if setting.enabled && ch > 0 {
                 let real_ch = (ch - 1) as usize;
-                if real_ch < 256 {
+                if real_ch < GLOBAL_STATE.enabled_channels.len() {
                     GLOBAL_STATE.enabled_channels[real_ch].store(true, std::sync::atomic::Ordering::Relaxed);
                 }
-                if real_ch + 1 < 256 {
+                if real_ch + 1 < GLOBAL_STATE.enabled_channels.len() {
                     GLOBAL_STATE.enabled_channels[real_ch + 1].store(true, std::sync::atomic::Ordering::Relaxed);
                 }
             }
@@ -250,6 +250,13 @@ pub fn api_create_vu_stream(sink: StreamSink<Vec<f32>>) {
 pub fn api_start_audio_engine(device_name: Option<String>) {
     let rx = GLOBAL_STATE.command_receiver.clone();
     std::thread::spawn(move || {
+        #[cfg(target_os = "windows")]
+        {
+            use windows::Win32::System::Com::{CoInitializeEx, COINIT_MULTITHREADED};
+            unsafe {
+                let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
+            }
+        }
         let mut engine = crate::audio::engine::AudioEngine::new();
         if let Err(e) = engine.start(device_name, rx) {
             let err_msg = format!("Failed to start audio engine: {}", e);
@@ -331,10 +338,10 @@ pub fn api_preload_all_sounds(config: AppConfig) -> Result<(), AtmosError> {
         for (&ch, setting) in &config.mono_configs {
             if setting.enabled && ch > 0 {
                 let real_ch = (ch - 1) as usize;
-                if real_ch < 256 {
+                if real_ch < GLOBAL_STATE.enabled_channels.len() {
                     GLOBAL_STATE.enabled_channels[real_ch].store(true, std::sync::atomic::Ordering::Relaxed);
                 }
-                if real_ch + 1 < 256 {
+                if real_ch + 1 < GLOBAL_STATE.enabled_channels.len() {
                     GLOBAL_STATE.enabled_channels[real_ch + 1].store(true, std::sync::atomic::Ordering::Relaxed);
                 }
             }
@@ -342,10 +349,10 @@ pub fn api_preload_all_sounds(config: AppConfig) -> Result<(), AtmosError> {
         for (&ch, setting) in &config.stereo_configs {
             if setting.enabled && ch > 0 {
                 let real_ch = (ch - 1) as usize;
-                if real_ch < 256 {
+                if real_ch < GLOBAL_STATE.enabled_channels.len() {
                     GLOBAL_STATE.enabled_channels[real_ch].store(true, std::sync::atomic::Ordering::Relaxed);
                 }
-                if real_ch + 1 < 256 {
+                if real_ch + 1 < GLOBAL_STATE.enabled_channels.len() {
                     GLOBAL_STATE.enabled_channels[real_ch + 1].store(true, std::sync::atomic::Ordering::Relaxed);
                 }
             }
