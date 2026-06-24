@@ -248,14 +248,13 @@ pub fn api_create_vu_stream(sink: StreamSink<Vec<f32>>) {
 }
 
 lazy_static::lazy_static! {
-    static ref AUDIO_ENGINE_SESSION: AtomicU64 = AtomicU64::new(0);
+    static ref ENGINE_GENERATION: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
 }
 
 pub fn api_start_audio_engine(device_name: Option<String>) {
-    let session_id = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis() as u64;
-    AUDIO_ENGINE_SESSION.store(session_id, std::sync::atomic::Ordering::Relaxed);
-
     let rx = GLOBAL_STATE.command_receiver.clone();
+    let gen = ENGINE_GENERATION.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1;
+    
     std::thread::spawn(move || {
         #[cfg(target_os = "windows")]
         {
@@ -264,6 +263,7 @@ pub fn api_start_audio_engine(device_name: Option<String>) {
                 let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
             }
         }
+        
         let mut engine = crate::audio::engine::AudioEngine::new();
         if let Err(e) = engine.start(device_name, rx) {
             let err_msg = format!("Failed to start audio engine: {}", e);
@@ -271,11 +271,12 @@ pub fn api_start_audio_engine(device_name: Option<String>) {
             GLOBAL_STATE.log(err_msg);
             return;
         }
-        loop {
-            if AUDIO_ENGINE_SESSION.load(std::sync::atomic::Ordering::Relaxed) != session_id {
+        
+        loop { 
+            if ENGINE_GENERATION.load(std::sync::atomic::Ordering::SeqCst) != gen {
                 break;
             }
-            std::thread::sleep(std::time::Duration::from_millis(500));
+            std::thread::sleep(std::time::Duration::from_millis(100)); 
         }
     });
 }
@@ -414,7 +415,7 @@ pub fn api_get_output_devices() -> Result<Vec<OutputDeviceInfo>, AtmosError> {
         }
         
         use cpal::traits::{DeviceTrait, HostTrait};
-        let hosts = crate::audio::engine::get_hosts()
+        let hosts = crate::audio::engine::get_hosts(None)
             .map_err(|e| AtmosError { message: e })?;
         
         let mut device_info_list = Vec::new();
@@ -428,7 +429,7 @@ pub fn api_get_output_devices() -> Result<Vec<OutputDeviceInfo>, AtmosError> {
             
             for device in devices {
                 if let Ok(name_str) = device.name() {
-                    let actual_name = name_str.to_string();
+                    let actual_name = name_str.trim_matches(char::from(0)).trim().to_string();
                     let name = format!("{}{}", prefix, actual_name);
                     let mut max_channels = 2; // Default fallback
                     if let Ok(supported_configs) = device.supported_output_configs() {

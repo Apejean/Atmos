@@ -15,24 +15,32 @@ impl Default for AudioEngine {
 }
 
 #[cfg(target_os = "windows")]
-pub fn get_hosts() -> Result<Vec<cpal::Host>, String> {
-    use cpal::traits::HostTrait;
+pub fn get_hosts(target_prefix: Option<&str>) -> Result<Vec<cpal::Host>, String> {
     let mut hosts = Vec::new();
-    match cpal::host_from_id(cpal::HostId::Asio) {
-        Ok(host) => {
-            println!("Successfully initialized ASIO host.");
-            hosts.push(host);
-        }
-        Err(e) => {
-            eprintln!("ASIO Load Error: {:?}", e);
+
+    let req_asio = target_prefix.map_or(true, |p| p == "[ASIO]");
+    let req_wasapi = target_prefix.map_or(true, |p| p == "[WASAPI]");
+    
+    if req_asio {
+        match cpal::host_from_id(cpal::HostId::Asio) {
+            Ok(host) => hosts.push(host),
+            Err(e) => eprintln!("ASIO Load Error: {:?}", e),
         }
     }
-    hosts.push(cpal::default_host());
+
+    if req_wasapi {
+        hosts.push(cpal::default_host()); // WASAPI is default on Windows
+    }
+
+    if hosts.is_empty() {
+        hosts.push(cpal::default_host());
+    }
+
     Ok(hosts)
 }
 
 #[cfg(not(target_os = "windows"))]
-pub fn get_hosts() -> Result<Vec<cpal::Host>, String> {
+pub fn get_hosts(_target_prefix: Option<&str>) -> Result<Vec<cpal::Host>, String> {
     Ok(vec![cpal::default_host()])
 }
 
@@ -44,17 +52,28 @@ impl AudioEngine {
     }
 
     pub fn start(&mut self, device_name: Option<String>, cmd_receiver: Receiver<AudioCommand>) -> Result<(), String> {
-        let hosts = get_hosts()?;
-        let device = if let Some(name) = device_name {
+        let target_prefix = device_name.as_ref().and_then(|n| {
+            if n.starts_with("[ASIO]") { Some("[ASIO]") } 
+            else if n.starts_with("[WASAPI]") { Some("[WASAPI]") } 
+            else { None }
+        });
+        
+        let hosts = get_hosts(target_prefix)?;
+        
+        let device = if let Some(ref name) = device_name {
             let mut found_device = None;
             for host in &hosts {
                 let prefix = format!("[{}] ", host.id().name());
                 if name.starts_with(&prefix) {
-                    let actual_name = name.strip_prefix(&prefix).unwrap_or(&name);
-                    if let Ok(mut devices) = host.output_devices() {
-                        if let Some(d) = devices.find(|d| d.name().unwrap_or_default() == actual_name) {
-                            found_device = Some(d);
-                            break;
+                    let actual_name = name.strip_prefix(&prefix).unwrap_or(name).trim_matches(char::from(0)).trim();
+                    if let Ok(devices) = host.output_devices() {
+                        for d in devices {
+                            if let Ok(d_name) = d.name() {
+                                if d_name.trim_matches(char::from(0)).trim() == actual_name {
+                                    found_device = Some(d);
+                                    break;
+                                }
+                            }
                         }
                     }
                 }
@@ -62,10 +81,13 @@ impl AudioEngine {
             if let Some(d) = found_device {
                 d
             } else {
-                hosts.first().and_then(|h| h.default_output_device()).ok_or("No default output device")?
+                let error_msg = format!("Requested device '{}' not found. Available devices were not matched.", name);
+                eprintln!("{}", error_msg);
+                return Err(error_msg);
             }
         } else {
-            hosts.first().and_then(|h| h.default_output_device()).ok_or("No default output device")?
+            // Find the first host that actually has a default output device (ASIO often returns None)
+            hosts.iter().find_map(|h| h.default_output_device()).ok_or("No default output device".to_string())?
         };
 
         println!("Using output device: {}", device.name().unwrap_or_default());

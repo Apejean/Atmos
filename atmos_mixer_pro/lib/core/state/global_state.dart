@@ -11,6 +11,10 @@ Future<String> _getConfigPath() async {
 }
 
 class ConfigNotifier extends Notifier<AppConfig?> {
+  bool _isSaving = false;
+  final List<AppConfig> _saveQueue = [];
+  AppConfig? _lastProcessedConfig;
+
   @override
   AppConfig? build() {
     loadConfig();
@@ -26,6 +30,7 @@ class ConfigNotifier extends Notifier<AppConfig?> {
       } catch (e) {
         // Ignore initial preload errors
       }
+      _lastProcessedConfig = config;
       state = config;
       rust_api.apiStartAudioEngine(deviceName: config.deviceName);
       await rust_api.apiStartOscListener(port: config.oscPort);
@@ -34,30 +39,46 @@ class ConfigNotifier extends Notifier<AppConfig?> {
     }
   }
 
-  void saveConfig(AppConfig newConfig) async {
-    final oldConfig = state;
+  void saveConfig(AppConfig newConfig) {
     // Optimistic UI Update: immediately set state so UI reflects the added track
     state = newConfig;
     
-    try {
-      final path = await _getConfigPath();
-      await rust_api.apiSaveConfig(path: path, config: newConfig);
+    _saveQueue.add(newConfig);
+    _processQueue();
+  }
+
+  Future<void> _processQueue() async {
+    if (_isSaving) return;
+    _isSaving = true;
+
+    while (_saveQueue.isNotEmpty) {
+      final configToSave = _saveQueue.removeAt(0);
+      final oldConfig = _lastProcessedConfig;
+      
       try {
-        await rust_api.apiPreloadAllSounds(config: newConfig);
+        final path = await _getConfigPath();
+        await rust_api.apiSaveConfig(path: path, config: configToSave);
+        try {
+          await rust_api.apiPreloadAllSounds(config: configToSave);
+        } catch (e) {
+          // Ignore preload errors, keep UI responsive
+        }
+        
+        if (oldConfig == null || oldConfig.deviceName != configToSave.deviceName) {
+          rust_api.apiStartAudioEngine(deviceName: configToSave.deviceName);
+        }
+        
+        if (oldConfig == null || oldConfig.oscPort != configToSave.oscPort) {
+          await rust_api.apiStartOscListener(port: configToSave.oscPort);
+        }
+
+        _lastProcessedConfig = configToSave;
       } catch (e) {
-        // Ignore preload errors, keep UI responsive
+        ref.read(globalErrorProvider.notifier).showError('설정 저장 실패: $e');
       }
-      
-      if (oldConfig == null || oldConfig.deviceName != newConfig.deviceName) {
-        rust_api.apiStartAudioEngine(deviceName: newConfig.deviceName);
-      }
-      
-      if (oldConfig == null || oldConfig.oscPort != newConfig.oscPort) {
-        await rust_api.apiStartOscListener(port: newConfig.oscPort);
-      }
-    } catch (e) {
-      ref.read(globalErrorProvider.notifier).showError('설정 저장 실패: $e');
     }
+
+    _isSaving = false;
   }
 }
 
