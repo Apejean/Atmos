@@ -70,26 +70,38 @@ impl AudioEngine {
         
         let device = if let Some(ref name) = device_name {
             let mut found_device = None;
+            let target_name = name.replace("[ASIO] ", "").replace("[WASAPI] ", "").replace("[CoreAudio] ", "");
+            let target_name = target_name.trim_matches(char::from(0)).trim();
+
+            println!("🔥 [디버깅] 플러터 원본 요청: '{}'", name);
+            println!("🔥 [디버깅] 공백 제거 후 타겟: '{}'", target_name);
+
             for host in &hosts {
-                let prefix = format!("[{}] ", host.id().name());
-                if name.starts_with(&prefix) {
-                    let actual_name = name.strip_prefix(&prefix).unwrap_or(name).trim_matches(char::from(0)).trim();
-                    if let Ok(devices) = host.output_devices() {
-                        for d in devices {
-                            if let Ok(d_name) = d.name() {
-                                if d_name.trim_matches(char::from(0)).trim() == actual_name {
-                                    found_device = Some(d);
-                                    break;
-                                }
+                if let Ok(devices) = host.output_devices() {
+                    println!("🔥 [디버깅] 현재 호스트 '{:?}'에서 찾은 장치 목록:", host.id());
+                    for d in devices {
+                        if let Ok(d_name) = d.name() {
+                            let clean_d_name = d_name.trim_matches(char::from(0)).trim();
+                            println!("  - 발견된 기기: '{}'", clean_d_name);
+                            if clean_d_name == target_name {
+                                found_device = Some(d);
+                                break;
                             }
                         }
                     }
+                } else {
+                    println!("🔥 [디버깅] 호스트 '{:?}'에서 기기 목록을 가져오지 못했습니다! (빈 배열 혹은 에러)", host.id());
+                }
+                if found_device.is_some() {
+                    println!("✅ [디버깅] 장치를 찾았습니다! 스트림 오픈 진행.");
+                    break;
                 }
             }
+            
             if let Some(d) = found_device {
                 d
             } else {
-                let error_msg = format!("Requested device '{}' not found. Available devices were not matched.", name);
+                let error_msg = format!("Requested device '{}' not found. Available devices were not matched. (Target name was: '{}')", name, target_name);
                 eprintln!("{}", error_msg);
                 return Err(error_msg);
             }
