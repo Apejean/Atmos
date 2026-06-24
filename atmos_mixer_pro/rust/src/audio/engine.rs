@@ -54,9 +54,9 @@ impl AudioEngine {
     pub fn start(&mut self, device_name: Option<String>, cmd_receiver: Receiver<AudioCommand>) -> Result<(), String> {
         #[cfg(target_os = "windows")]
         {
-            use windows::Win32::System::Com::{CoInitializeEx, COINIT_MULTITHREADED};
+            use windows::Win32::System::Com::{CoInitializeEx, COINIT_APARTMENTTHREADED};
             unsafe {
-                let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
+                let _ = CoInitializeEx(None, COINIT_APARTMENTTHREADED);
             }
         }
 
@@ -119,7 +119,16 @@ impl AudioEngine {
 
         let supported_config = best_config.expect("No output configs found");
         let sample_format = supported_config.sample_format();
-        let config: StreamConfig = supported_config.into();
+        let mut config: StreamConfig = supported_config.clone().into();
+
+        if let Some(app_config) = crate::core::state::GLOBAL_STATE.config.read().unwrap().as_ref() {
+            let buffer_size = app_config.buffer_size as u32;
+            if buffer_size > 0 {
+                config.buffer_size = cpal::BufferSize::Fixed(buffer_size);
+            }
+        }
+        
+        config.sample_rate = supported_config.sample_rate();
 
         println!("Stream config: {:?}", config);
 

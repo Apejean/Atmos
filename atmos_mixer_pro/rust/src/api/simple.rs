@@ -269,9 +269,9 @@ pub fn api_start_audio_engine(device_name: Option<String>) {
 
         #[cfg(target_os = "windows")]
         {
-            use windows::Win32::System::Com::{CoInitializeEx, COINIT_MULTITHREADED};
+            use windows::Win32::System::Com::{CoInitializeEx, COINIT_APARTMENTTHREADED};
             unsafe {
-                let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
+                let _ = CoInitializeEx(None, COINIT_APARTMENTTHREADED);
             }
         }
         
@@ -423,9 +423,9 @@ pub fn api_get_output_devices() -> Result<Vec<OutputDeviceInfo>, AtmosError> {
     std::thread::spawn(|| {
         #[cfg(target_os = "windows")]
         {
-            use windows::Win32::System::Com::{CoInitializeEx, COINIT_MULTITHREADED};
+            use windows::Win32::System::Com::{CoInitializeEx, COINIT_APARTMENTTHREADED};
             unsafe {
-                let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
+                let _ = CoInitializeEx(None, COINIT_APARTMENTTHREADED);
             }
         }
         
@@ -439,7 +439,7 @@ pub fn api_get_output_devices() -> Result<Vec<OutputDeviceInfo>, AtmosError> {
             let prefix = format!("[{}] ", host.id().name());
             let devices = match host.output_devices() {
                 Ok(d) => d,
-                Err(_) => continue,
+                Err(e) => { eprintln!("Failed to get output devices for host {}: {:?}", host.id().name(), e); continue },
             };
             
             for device in devices {
@@ -480,64 +480,66 @@ pub fn api_get_output_devices() -> Result<Vec<OutputDeviceInfo>, AtmosError> {
 }
 
 pub fn api_get_device_channel_count(device_name: Option<String>) -> Result<u32, AtmosError> {
-    #[cfg(target_os = "windows")]
-    {
-        use windows::Win32::System::Com::{CoInitializeEx, COINIT_MULTITHREADED};
-        unsafe {
-            let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
+    std::thread::spawn(move || {
+        #[cfg(target_os = "windows")]
+        {
+            use windows::Win32::System::Com::{CoInitializeEx, COINIT_APARTMENTTHREADED};
+            unsafe {
+                let _ = CoInitializeEx(None, COINIT_APARTMENTTHREADED);
+            }
         }
-    }
-    use cpal::traits::{DeviceTrait, HostTrait};
-    
-    let device = if let Some(ref name) = device_name {
-        let target_prefix = if name.starts_with("[ASIO]") { Some("[ASIO]") } 
-            else if name.starts_with("[WASAPI]") { Some("[WASAPI]") } 
-            else if name.starts_with("[CoreAudio]") { Some("[CoreAudio]") }
-            else { None };
-            
-        let hosts = crate::audio::engine::get_hosts(target_prefix)
-            .map_err(|e| AtmosError { message: e })?;
-            
-        let mut found_device = None;
-        for host in &hosts {
-            let prefix = format!("[{}] ", host.id().name());
-            if name.starts_with(&prefix) {
-                let actual_name = name.strip_prefix(&prefix).unwrap_or(name).trim_matches(char::from(0)).trim();
-                if let Ok(devices) = host.output_devices() {
-                    for d in devices {
-                        if let Ok(d_name) = d.name() {
-                            if d_name.trim_matches(char::from(0)).trim() == actual_name {
-                                found_device = Some(d);
-                                break;
+        use cpal::traits::{DeviceTrait, HostTrait};
+        
+        let device = if let Some(ref name) = device_name {
+            let target_prefix = if name.starts_with("[ASIO]") { Some("[ASIO]") } 
+                else if name.starts_with("[WASAPI]") { Some("[WASAPI]") } 
+                else if name.starts_with("[CoreAudio]") { Some("[CoreAudio]") }
+                else { None };
+                
+            let hosts = crate::audio::engine::get_hosts(target_prefix)
+                .map_err(|e| AtmosError { message: e })?;
+                
+            let mut found_device = None;
+            for host in &hosts {
+                let prefix = format!("[{}] ", host.id().name());
+                if name.starts_with(&prefix) {
+                    let actual_name = name.strip_prefix(&prefix).unwrap_or(name).trim_matches(char::from(0)).trim();
+                    if let Ok(devices) = host.output_devices() {
+                        for d in devices {
+                            if let Ok(d_name) = d.name() {
+                                if d_name.trim_matches(char::from(0)).trim() == actual_name {
+                                    found_device = Some(d);
+                                    break;
+                                }
                             }
                         }
                     }
                 }
             }
-        }
-        found_device.ok_or_else(|| AtmosError { message: format!("Device not found: {}", name) })?
-    } else {
-        cpal::default_host().default_output_device().ok_or_else(|| AtmosError { message: "No default output device".to_string() })?
-    };
+            found_device.ok_or_else(|| AtmosError { message: format!("Device not found: {}", name) })?
+        } else {
+            cpal::default_host().default_output_device().ok_or_else(|| AtmosError { message: "No default output device".to_string() })?
+        };
 
-    let mut max_channels = 0;
-    if let Ok(supported_configs) = device.supported_output_configs() {
-        for config in supported_configs {
-            let channels = config.channels() as u32;
+        let mut max_channels = 0;
+        if let Ok(supported_configs) = device.supported_output_configs() {
+            for config in supported_configs {
+                let channels = config.channels() as u32;
+                if channels > max_channels {
+                    max_channels = channels;
+                }
+            }
+        }
+        
+        if let Ok(default_config) = device.default_output_config() {
+            let channels = default_config.channels() as u32;
             if channels > max_channels {
                 max_channels = channels;
             }
         }
-    }
-    
-    if let Ok(default_config) = device.default_output_config() {
-        let channels = default_config.channels() as u32;
-        if channels > max_channels {
-            max_channels = channels;
-        }
-    }
 
-    Ok(max_channels)
+        Ok(max_channels)
+    }).join().unwrap_or_else(|_| Err(AtmosError { message: "Thread panicked during channel count".to_string() }))
 }
 
 pub fn api_get_device_channel_names(device_name: Option<String>) -> Result<Vec<String>, AtmosError> {
