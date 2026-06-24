@@ -127,6 +127,7 @@ class _RoomCardState extends ConsumerState<RoomCard> {
   late TextEditingController _nameController;
   late FocusNode _nameFocusNode;
   bool _isProcessing = false;
+  double? _localVolume;
 
   @override
   void initState() {
@@ -255,14 +256,16 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                           thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5.0),
                         ),
                         child: Slider(
-                          value: room.volume,
+                          value: _localVolume ?? room.volume,
                           min: 0.0,
                           max: 1.0,
                           onChanged: (v) {
+                            setState(() => _localVolume = v);
                             rust_api.apiSetMasterVolume(roomId: room.id, volume: v);
                             // We don't save config here to prevent rapid UI freezing & I/O bottleneck
                           },
                           onChangeEnd: (v) {
+                            setState(() => _localVolume = null);
                             final currentConfig = ref.read(configProvider);
                             if (currentConfig != null) {
                               final newRooms = List<RoomConfig>.from(currentConfig.rooms);

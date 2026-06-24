@@ -38,6 +38,7 @@ class TrackCard extends ConsumerStatefulWidget {
 class _TrackCardState extends ConsumerState<TrackCard> {
   late TextEditingController _nameController;
   late FocusNode _nameFocusNode;
+  double? _localVolume;
 
   @override
   void initState() {
@@ -362,18 +363,24 @@ class _TrackCardState extends ConsumerState<TrackCard> {
                             ),
                           ),
                           child: Slider(
-                            value: widget.track.volume,
+                            value: _localVolume ?? widget.track.volume,
                             min: 0.0,
                             max: 1.0,
-                            onChanged: widget.onVolumeChanged,
-                            onChangeEnd: widget.onVolumeChangeEnd,
+                            onChanged: (v) {
+                              setState(() => _localVolume = v);
+                              widget.onVolumeChanged?.call(v);
+                            },
+                            onChangeEnd: (v) {
+                              setState(() => _localVolume = null);
+                              widget.onVolumeChangeEnd?.call(v);
+                            },
                           ),
                         ),
                       ),
                       SizedBox(
                         width: 40,
                         child: Text(
-                          '${(widget.track.volume * 100).toInt()}%',
+                          '${((_localVolume ?? widget.track.volume) * 100).toInt()}%',
                           textAlign: TextAlign.right,
                           style: const TextStyle(
                             color: AppColors.textSecondary,
