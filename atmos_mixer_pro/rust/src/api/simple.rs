@@ -446,64 +446,19 @@ pub fn api_get_output_devices() -> Result<Vec<OutputDeviceInfo>, AtmosError> {
         use cpal::traits::{DeviceTrait, HostTrait};
         
         let is_engine_active = ENGINE_ACTIVE.load(std::sync::atomic::Ordering::SeqCst);
-        let mut skip_asio_scan = false;
-        let mut active_asio_device = None;
         
-        if is_engine_active {
-            if let Some(config) = crate::core::state::GLOBAL_STATE.config.read().unwrap().as_ref() {
-                if let Some(ref saved_name) = config.device_name {
-                    if saved_name.starts_with("[ASIO]") {
-                        skip_asio_scan = true;
-                        active_asio_device = Some(saved_name.clone());
-                    }
-                }
-            }
-        }
-
-        let target_prefix = if skip_asio_scan { Some("[WASAPI]") } else { None };
-        let hosts = crate::audio::engine::get_hosts(target_prefix)
+        let hosts = crate::audio::engine::get_hosts(None)
             .map_err(|e| AtmosError { message: e })?;
         
         let mut device_info_list = Vec::new();
         
-        if let Some(saved_name) = active_asio_device {
-            let max_channels = 128; // Fallback to 128 to cover MADIface USB (68 channels) and other large ASIO interfaces
-            let actual_name = saved_name.replace("[ASIO] ", "").trim().to_string();
-            #[cfg(target_os = "macos")]
-            let channel_names = crate::audio::channel_names::get_channel_names_mac(&actual_name, max_channels);
-            #[cfg(target_os = "windows")]
-            let channel_names = crate::audio::channel_names::get_channel_names_win(&actual_name, max_channels);
-            #[cfg(not(any(target_os = "macos", target_os = "windows")))]
-            let channel_names = crate::audio::channel_names::get_channel_names_fallback(max_channels);
-
-            device_info_list.push(OutputDeviceInfo { name: saved_name, max_channels, channel_names });
-        }
-        
         for host in hosts {
             let prefix = format!("[{}] ", host.id().name());
+            let is_asio_host = host.id().name() == "ASIO";
             let devices = match host.output_devices() {
                 Ok(d) => d,
                 Err(e) => { 
                     eprintln!("Failed to get output devices for host {}: {:?}", host.id().name(), e);
-                    // If ASIO is locked, we can fallback to checking if the saved device was ASIO
-                    if host.id().name() == "ASIO" {
-                        if let Some(config) = crate::core::state::GLOBAL_STATE.config.read().unwrap().as_ref() {
-                            if let Some(ref saved_name) = config.device_name {
-                                if saved_name.starts_with("[ASIO]") {
-                                    let max_channels = 2; // Fallback
-                                    let actual_name = saved_name.replace("[ASIO] ", "").trim().to_string();
-                                    #[cfg(target_os = "macos")]
-                                    let channel_names = crate::audio::channel_names::get_channel_names_mac(&actual_name, max_channels);
-                                    #[cfg(target_os = "windows")]
-                                    let channel_names = crate::audio::channel_names::get_channel_names_win(&actual_name, max_channels);
-                                    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
-                                    let channel_names = crate::audio::channel_names::get_channel_names_fallback(max_channels);
-
-                                    device_info_list.push(OutputDeviceInfo { name: saved_name.clone(), max_channels, channel_names });
-                                }
-                            }
-                        }
-                    }
                     continue; 
                 },
             };
@@ -513,19 +468,24 @@ pub fn api_get_output_devices() -> Result<Vec<OutputDeviceInfo>, AtmosError> {
                     let actual_name = name_str.replace('\0', "").trim().to_string();
                     let name = format!("{}{}", prefix, actual_name);
                     let mut max_channels = 2; // Default fallback
-                    if let Ok(supported_configs) = device.supported_output_configs() {
-                        for config in supported_configs {
-                            let channels = config.channels() as u32;
+
+                    // Avoid querying ASIO drivers when engine is active, because querying configs loads the DLL and breaks the COM lock!
+                    if is_asio_host && is_engine_active {
+                        max_channels = 128; // Fallback to 128 to cover MADIface USB and large interfaces without querying
+                    } else {
+                        if let Ok(supported_configs) = device.supported_output_configs() {
+                            for config in supported_configs {
+                                let channels = config.channels() as u32;
+                                if channels > max_channels {
+                                    max_channels = channels;
+                                }
+                            }
+                        }
+                        if let Ok(default_config) = device.default_output_config() {
+                            let channels = default_config.channels() as u32;
                             if channels > max_channels {
                                 max_channels = channels;
                             }
-                        }
-                    }
-                    // ASIO fallback for max channels
-                    if let Ok(default_config) = device.default_output_config() {
-                        let channels = default_config.channels() as u32;
-                        if channels > max_channels {
-                            max_channels = channels;
                         }
                     }
                     
