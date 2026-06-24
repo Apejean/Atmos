@@ -174,9 +174,6 @@ class _RoomCardState extends ConsumerState<RoomCard> {
     if (oldWidget.room.name != widget.room.name && _nameController.text != widget.room.name) {
       _nameController.text = widget.room.name;
     }
-    if (oldWidget.room.volume != widget.room.volume) {
-      _localVolume = widget.room.volume;
-    }
   }
 
   @override
