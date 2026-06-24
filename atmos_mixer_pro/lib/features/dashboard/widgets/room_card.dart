@@ -190,7 +190,6 @@ class _RoomCardState extends ConsumerState<RoomCard> {
     final isActive = widget.isActive;
     final isCleared = widget.isCleared;
     final accentColor = widget.accentColor;
-    final AppConfig? config = ref.watch(configProvider);
     
     final canInteract = !isThemeStarted || isActive;
 
@@ -443,19 +442,17 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                       },
                       onVolumeChanged: (v) {
                         rust_api.apiSetTrackVolume(roomId: room.id, trackId: track.id, volume: v);
-                        if (config != null) {
-                          final currentConfig = ref.read(configProvider);
-                          if (currentConfig != null) {
-                            final newRooms = List<RoomConfig>.from(currentConfig.rooms);
-                            final idx = newRooms.indexWhere((r) => r.id == room.id);
-                            if (idx != -1) {
-                              final newTracks = List<TrackConfig>.from(newRooms[idx].tracks);
-                              final tIdx = newTracks.indexWhere((t) => t.id == track.id);
-                              if (tIdx != -1) {
-                                newTracks[tIdx] = TrackConfig(id: track.id, name: track.name, filePath: track.filePath, volume: v, isLoop: track.isLoop, outputChannel: track.outputChannel, outputStereo: track.outputStereo, playOscAddress: track.playOscAddress, stopOscAddress: track.stopOscAddress);
-                                newRooms[idx] = RoomConfig(id: room.id, name: room.name, colorHex: room.colorHex, volume: room.volume, clearOscAddress: room.clearOscAddress, tracks: newTracks);
-                                ref.read(configProvider.notifier).saveConfig(AppConfig(oscPort: currentConfig.oscPort, deviceName: currentConfig.deviceName, bufferSize: currentConfig.bufferSize, themeStartOscAddress: currentConfig.themeStartOscAddress, systemResetOscAddress: currentConfig.systemResetOscAddress, monoConfigs: currentConfig.monoConfigs, stereoConfigs: currentConfig.stereoConfigs, rooms: newRooms));
-                              }
+                        final currentConfig = ref.read(configProvider);
+                        if (currentConfig != null) {
+                          final newRooms = List<RoomConfig>.from(currentConfig.rooms);
+                          final idx = newRooms.indexWhere((r) => r.id == room.id);
+                          if (idx != -1) {
+                            final newTracks = List<TrackConfig>.from(newRooms[idx].tracks);
+                            final tIdx = newTracks.indexWhere((t) => t.id == track.id);
+                            if (tIdx != -1) {
+                              newTracks[tIdx] = TrackConfig(id: track.id, name: track.name, filePath: track.filePath, volume: v, isLoop: track.isLoop, outputChannel: track.outputChannel, outputStereo: track.outputStereo, playOscAddress: track.playOscAddress, stopOscAddress: track.stopOscAddress);
+                              newRooms[idx] = RoomConfig(id: room.id, name: room.name, colorHex: room.colorHex, volume: room.volume, clearOscAddress: room.clearOscAddress, tracks: newTracks);
+                              ref.read(configProvider.notifier).saveConfig(AppConfig(oscPort: currentConfig.oscPort, deviceName: currentConfig.deviceName, bufferSize: currentConfig.bufferSize, themeStartOscAddress: currentConfig.themeStartOscAddress, systemResetOscAddress: currentConfig.systemResetOscAddress, monoConfigs: currentConfig.monoConfigs, stereoConfigs: currentConfig.stereoConfigs, rooms: newRooms));
                             }
                           }
                         }
