@@ -223,6 +223,15 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
   }
 
   Future<void> _loadDeviceChannels(String? deviceName) async {
+    if (deviceName != null && GlobalDeviceCache.channels.containsKey(deviceName)) {
+      if (mounted) {
+        setState(() {
+          _channelNames = GlobalDeviceCache.channels[deviceName]!;
+        });
+      }
+      return;
+    }
+
     try {
       final names = await rust_api.apiGetDeviceChannelNames(deviceName: deviceName);
       if (mounted) {
@@ -499,7 +508,7 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
       final setting = entry.value;
       final realCh = key - 1;
       final displayCh2 = key + 1;
-      if (realCh < _channelNames.length) {
+      if (realCh + 1 < _channelNames.length) {
         final displayName = setting.customName.isNotEmpty
             ? '$key/$displayCh2 (${setting.customName})'
             : '$key/$displayCh2';

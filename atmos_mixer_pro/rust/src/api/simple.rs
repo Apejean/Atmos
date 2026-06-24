@@ -311,6 +311,7 @@ pub fn api_stop_audio_engine() {
         }
         std::thread::sleep(std::time::Duration::from_millis(50));
     }
+    crate::core::state::GLOBAL_STATE.active_device_channels.store(0, std::sync::atomic::Ordering::SeqCst);
     println!("✅ [디버깅] 백엔드 오디오 엔진 명시적 종료 완료.");
 }
 
@@ -482,7 +483,7 @@ pub fn api_get_output_devices() -> Result<Vec<OutputDeviceInfo>, AtmosError> {
         if skip_asio_scan {
             if let Some(saved_name) = active_asio_device {
                 let active_ch = crate::core::state::GLOBAL_STATE.active_device_channels.load(std::sync::atomic::Ordering::SeqCst);
-                let max_channels = if active_ch > 0 { active_ch } else { 256 };
+                let max_channels = if active_ch > 0 { active_ch } else { 2 };
                 let actual_name = saved_name.replace("[ASIO] ", "").trim().to_string();
                 #[cfg(target_os = "macos")]
                 let channel_names = crate::audio::channel_names::get_channel_names_mac(&actual_name, max_channels);
@@ -530,9 +531,9 @@ pub fn api_get_output_devices() -> Result<Vec<OutputDeviceInfo>, AtmosError> {
 
                         if is_the_active_device {
                             let active_ch = crate::core::state::GLOBAL_STATE.active_device_channels.load(std::sync::atomic::Ordering::SeqCst);
-                            max_channels = if active_ch > 0 { active_ch } else { 256 };
+                            max_channels = if active_ch > 0 { active_ch } else { 2 };
                         } else {
-                            max_channels = 256;
+                            max_channels = 2;
                         }
                     } else {
                         if let Ok(supported_configs) = device.supported_output_configs() {
@@ -596,10 +597,10 @@ pub fn api_get_device_channel_count(device_name: Option<String>) -> Result<u32, 
                 if let Some(ref active_name) = active_asio_device {
                     if name == active_name {
                         let active_ch = crate::core::state::GLOBAL_STATE.active_device_channels.load(std::sync::atomic::Ordering::SeqCst);
-                        return Ok(if active_ch > 0 { active_ch } else { 256 });
+                        return Ok(if active_ch > 0 { active_ch } else { 2 });
                     }
                 }
-                return Ok(256); // Any inactive ASIO device defaults to 256 while engine is running
+                return Ok(2); // Any inactive ASIO device defaults to 2 (stereo) while engine is running
             }
             
             let target_prefix = if name.starts_with("[ASIO]") { Some("[ASIO]") } 
