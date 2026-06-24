@@ -480,31 +480,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              Row(
-                children: [
-                  TextButton(
-                    onPressed: () {
-                      final logText = ref.read(logProvider).join('\n');
-                      if (logText.isNotEmpty) {
-                        Clipboard.setData(ClipboardData(text: logText));
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('로그가 클립보드에 복사되었습니다.'), duration: Duration(seconds: 2)),
-                        );
-                      }
-                    },
-                    child: const Text(
-                      '복사',
-                      style: TextStyle(color: AppColors.textPrimary),
-                    ),
-                  ),
-                  TextButton(
-                    onPressed: () => ref.read(logProvider.notifier).clearLogs(),
-                    child: const Text(
-                      '지우기',
-                      style: TextStyle(color: AppColors.textPrimary),
-                    ),
-                  ),
-                ],
+              TextButton.icon(
+                onPressed: () => ref.read(logProvider.notifier).clearLogs(),
+                icon: const Icon(Icons.delete_outline, size: 16, color: AppColors.textPrimary),
+                label: const Text(
+                  '지우기',
+                  style: TextStyle(color: AppColors.textPrimary),
+                ),
               ),
             ],
           ),
@@ -514,7 +496,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               reverse: true,
               itemCount: logs.length,
               itemBuilder: (context, index) {
-                return Text(
+                return SelectableText(
                   logs[logs.length - 1 - index],
                   style: const TextStyle(
                     color: AppColors.logText,
