@@ -13,6 +13,7 @@ pub struct AudioMixer {
     pub ducking: DuckingState,
     pub gc_sender: crossbeam_channel::Sender<SoundInstance>,
     pub buf_gc_tx: crossbeam_channel::Sender<Vec<f32>>,
+    pub room_volumes: std::collections::HashMap<u32, f32>,
 }
 
 impl AudioMixer {
@@ -37,6 +38,7 @@ impl AudioMixer {
             },
             gc_sender,
             buf_gc_tx,
+            room_volumes: std::collections::HashMap::new(),
         }
     }
 
@@ -238,7 +240,11 @@ impl AudioMixer {
                             let mut wrote_r = false;
                             
                             if is_l_enabled && out_idx_l < output.len() {
-                                output[out_idx_l] += val_l * current_vol; 
+                                let mut final_vol = current_vol;
+                                if let Some(&rv) = self.room_volumes.get(&instance.room_id) {
+                                    final_vol *= rv;
+                                }
+                                output[out_idx_l] += val_l * final_vol; 
                             }
                             
                             if instance.output_channel + 1 < out_channels {
@@ -249,19 +255,31 @@ impl AudioMixer {
                                 
                                 let out_idx_r = out_idx_l + 1;
                                 if is_r_enabled && out_idx_r < output.len() {
-                                    output[out_idx_r] += val_r * current_vol;
+                                    let mut final_vol = current_vol;
+                                    if let Some(&rv) = self.room_volumes.get(&instance.room_id) {
+                                        final_vol *= rv;
+                                    }
+                                    output[out_idx_r] += val_r * final_vol;
                                     wrote_r = true;
                                 }
                             }
                             
                             if !wrote_r && is_l_enabled && out_idx_l < output.len() {
                                 // mono fallback if r is muted/unavailable
-                                output[out_idx_l] += val_r * current_vol;
+                                let mut final_vol = current_vol;
+                                if let Some(&rv) = self.room_volumes.get(&instance.room_id) {
+                                    final_vol *= rv;
+                                }
+                                output[out_idx_l] += val_r * final_vol;
                             }
                         } else {
                             let out_idx = frame * out_channels + instance.output_channel;
                             if is_l_enabled && out_idx < output.len() {
-                                output[out_idx] += ((val_l + val_r) * 0.5) * current_vol;
+                                let mut final_vol = current_vol;
+                                if let Some(&rv) = self.room_volumes.get(&instance.room_id) {
+                                    final_vol *= rv;
+                                }
+                                output[out_idx] += ((val_l + val_r) * 0.5) * final_vol;
                             }
                         }
                     }

@@ -21,5 +21,6 @@ pub enum AudioCommand {
     StopAll,
     SetMasterVolume { room_id: u32, volume: f32 },
     SetTrackVolume { room_id: u32, track_id: u32, volume: f32 },
+    SetTrackOutput { room_id: u32, track_id: u32, output_channel: usize, output_stereo: bool },
     ClearRoom { room_id: u32 },
 }

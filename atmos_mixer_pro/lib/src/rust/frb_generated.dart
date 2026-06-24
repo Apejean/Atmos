@@ -68,7 +68,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.12.0';
 
   @override
-  int get rustContentHash => -687523634;
+  int get rustContentHash => 2143760714;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -119,6 +119,13 @@ abstract class RustLibApi extends BaseApi {
   Future<void> crateApiSimpleApiSetMasterVolume({
     required String roomId,
     required double volume,
+  });
+
+  Future<void> crateApiSimpleApiSetTrackOutput({
+    required String roomId,
+    required String trackId,
+    required BigInt outputChannel,
+    required bool outputStereo,
   });
 
   Future<void> crateApiSimpleApiSetTrackVolume({
@@ -626,6 +633,45 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
+  Future<void> crateApiSimpleApiSetTrackOutput({
+    required String roomId,
+    required String trackId,
+    required BigInt outputChannel,
+    required bool outputStereo,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_String(roomId, serializer);
+          sse_encode_String(trackId, serializer);
+          sse_encode_usize(outputChannel, serializer);
+          sse_encode_bool(outputStereo, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 16,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: sse_decode_atmos_error,
+        ),
+        constMeta: kCrateApiSimpleApiSetTrackOutputConstMeta,
+        argValues: [roomId, trackId, outputChannel, outputStereo],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiSimpleApiSetTrackOutputConstMeta =>
+      const TaskConstMeta(
+        debugName: "api_set_track_output",
+        argNames: ["roomId", "trackId", "outputChannel", "outputStereo"],
+      );
+
+  @override
   Future<void> crateApiSimpleApiSetTrackVolume({
     required String roomId,
     required String trackId,
@@ -641,7 +687,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 16,
+            funcId: 17,
             port: port_,
           );
         },
@@ -672,7 +718,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 17,
+            funcId: 18,
             port: port_,
           );
         },
@@ -703,7 +749,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 18,
+            funcId: 19,
             port: port_,
           );
         },
@@ -733,7 +779,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 19,
+            funcId: 20,
             port: port_,
           );
         },
@@ -760,7 +806,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 20,
+            funcId: 21,
             port: port_,
           );
         },
@@ -792,7 +838,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 21,
+            funcId: 22,
             port: port_,
           );
         },
@@ -1059,6 +1105,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   void dco_decode_unit(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return;
+  }
+
+  @protected
+  BigInt dco_decode_usize(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return dcoDecodeU64(raw);
   }
 
   @protected
@@ -1362,6 +1414,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  BigInt sse_decode_usize(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return deserializer.buffer.getBigUint64();
+  }
+
+  @protected
   int sse_decode_i_32(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     return deserializer.buffer.getInt32();
@@ -1660,6 +1718,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   @protected
   void sse_encode_unit(void self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
+  }
+
+  @protected
+  void sse_encode_usize(BigInt self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    serializer.buffer.putBigUint64(self);
   }
 
   @protected

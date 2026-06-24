@@ -38,7 +38,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueMoi,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.12.0";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -687523634;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = 2143760714;
 
 // Section: executor
 
@@ -559,6 +559,47 @@ fn wire__crate__api__simple__api_set_master_volume_impl(
                 transform_result_sse::<_, crate::api::error::AtmosError>((move || {
                     let output_ok =
                         crate::api::simple::api_set_master_volume(api_room_id, api_volume)?;
+                    Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
+fn wire__crate__api__simple__api_set_track_output_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "api_set_track_output",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_room_id = <String>::sse_decode(&mut deserializer);
+            let api_track_id = <String>::sse_decode(&mut deserializer);
+            let api_output_channel = <usize>::sse_decode(&mut deserializer);
+            let api_output_stereo = <bool>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, crate::api::error::AtmosError>((move || {
+                    let output_ok = crate::api::simple::api_set_track_output(
+                        api_room_id,
+                        api_track_id,
+                        api_output_channel,
+                        api_output_stereo,
+                    )?;
                     Ok(output_ok)
                 })())
             }
@@ -1109,6 +1150,13 @@ impl SseDecode for () {
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {}
 }
 
+impl SseDecode for usize {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        deserializer.cursor.read_u64::<NativeEndian>().unwrap() as _
+    }
+}
+
 impl SseDecode for i32 {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -1169,19 +1217,22 @@ fn pde_ffi_dispatcher_primary_impl(
             wire__crate__api__simple__api_set_master_volume_impl(port, ptr, rust_vec_len, data_len)
         }
         16 => {
-            wire__crate__api__simple__api_set_track_volume_impl(port, ptr, rust_vec_len, data_len)
+            wire__crate__api__simple__api_set_track_output_impl(port, ptr, rust_vec_len, data_len)
         }
         17 => {
-            wire__crate__api__simple__api_start_audio_engine_impl(port, ptr, rust_vec_len, data_len)
+            wire__crate__api__simple__api_set_track_volume_impl(port, ptr, rust_vec_len, data_len)
         }
         18 => {
+            wire__crate__api__simple__api_start_audio_engine_impl(port, ptr, rust_vec_len, data_len)
+        }
+        19 => {
             wire__crate__api__simple__api_start_osc_listener_impl(port, ptr, rust_vec_len, data_len)
         }
-        19 => wire__crate__api__simple__api_stop_all_impl(port, ptr, rust_vec_len, data_len),
-        20 => {
+        20 => wire__crate__api__simple__api_stop_all_impl(port, ptr, rust_vec_len, data_len),
+        21 => {
             wire__crate__api__simple__api_stop_audio_engine_impl(port, ptr, rust_vec_len, data_len)
         }
-        21 => wire__crate__api__simple__api_stop_track_impl(port, ptr, rust_vec_len, data_len),
+        22 => wire__crate__api__simple__api_stop_track_impl(port, ptr, rust_vec_len, data_len),
         _ => unreachable!(),
     }
 }
@@ -1616,6 +1667,16 @@ impl SseEncode for u8 {
 impl SseEncode for () {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {}
+}
+
+impl SseEncode for usize {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        serializer
+            .cursor
+            .write_u64::<NativeEndian>(self as _)
+            .unwrap();
+    }
 }
 
 impl SseEncode for i32 {

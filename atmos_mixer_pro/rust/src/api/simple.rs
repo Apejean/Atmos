@@ -101,6 +101,11 @@ pub fn api_play_track(room_id: String, track_id: String) -> Result<(), AtmosErro
                     .duration_since(std::time::UNIX_EPOCH)
                     .unwrap()
                     .as_nanos() as u64;
+                    
+                let _ = GLOBAL_STATE.command_sender.try_send(AudioCommand::SetMasterVolume {
+                    room_id: hash_id(&room_id),
+                    volume: room.volume,
+                });
                 if track.is_loop {
                     // Prevent duplicate playback of the same looping track
                     let is_playing = {
@@ -222,6 +227,12 @@ pub fn api_set_master_volume(room_id: String, volume: f32) -> Result<(), AtmosEr
 
 pub fn api_set_track_volume(room_id: String, track_id: String, volume: f32) -> Result<(), AtmosError> {
     GLOBAL_STATE.command_sender.try_send(AudioCommand::SetTrackVolume { room_id: hash_id(&room_id), track_id: hash_id(&track_id), volume })
+        .map_err(|e| AtmosError { message: e.to_string() })?;
+    Ok(())
+}
+
+pub fn api_set_track_output(room_id: String, track_id: String, output_channel: usize, output_stereo: bool) -> Result<(), AtmosError> {
+    GLOBAL_STATE.command_sender.try_send(AudioCommand::SetTrackOutput { room_id: hash_id(&room_id), track_id: hash_id(&track_id), output_channel, output_stereo })
         .map_err(|e| AtmosError { message: e.to_string() })?;
     Ok(())
 }

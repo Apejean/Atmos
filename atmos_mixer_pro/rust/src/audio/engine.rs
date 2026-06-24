@@ -293,10 +293,21 @@ impl AudioEngine {
                         }
                     }
                 }
+                AudioCommand::SetMasterVolume { room_id, volume } => {
+                    mixer.room_volumes.insert(room_id, volume);
+                }
                 AudioCommand::SetTrackVolume { room_id, track_id, volume } => {
                     for inst in mixer.instances.iter_mut().flatten() {
                         if inst.room_id == room_id && inst.id == track_id {
                             inst.volume = volume;
+                        }
+                    }
+                }
+                AudioCommand::SetTrackOutput { room_id, track_id, output_channel, output_stereo } => {
+                    for inst in mixer.instances.iter_mut().flatten() {
+                        if inst.room_id == room_id && inst.id == track_id {
+                            inst.output_channel = output_channel;
+                            inst.output_stereo = output_stereo;
                         }
                     }
                 }

@@ -174,6 +174,9 @@ class _RoomCardState extends ConsumerState<RoomCard> {
     if (oldWidget.room.name != widget.room.name && _nameController.text != widget.room.name) {
       _nameController.text = widget.room.name;
     }
+    if (oldWidget.room.volume != widget.room.volume) {
+      _localVolume = widget.room.volume;
+    }
   }
 
   @override
@@ -260,14 +263,15 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                           min: 0.0,
                           max: 1.0,
                           onChanged: (v) {
-                            if (config != null) {
-                              final newRooms = List<RoomConfig>.from(config.rooms);
+                            rust_api.apiSetMasterVolume(roomId: room.id, volume: v);
+                            final currentConfig = ref.read(configProvider);
+                            if (currentConfig != null) {
+                              final newRooms = List<RoomConfig>.from(currentConfig.rooms);
                               final idx = newRooms.indexWhere((r) => r.id == room.id);
                               if (idx != -1) {
                                 newRooms[idx] = RoomConfig(id: room.id, name: room.name, colorHex: room.colorHex, volume: v, clearOscAddress: room.clearOscAddress, tracks: room.tracks);
-                                ref.read(configProvider.notifier).saveConfig(AppConfig(oscPort: config.oscPort, deviceName: config.deviceName, bufferSize: config.bufferSize, themeStartOscAddress: config.themeStartOscAddress, systemResetOscAddress: config.systemResetOscAddress, monoConfigs: config.monoConfigs, stereoConfigs: config.stereoConfigs, rooms: newRooms));
+                                ref.read(configProvider.notifier).saveConfig(AppConfig(oscPort: currentConfig.oscPort, deviceName: currentConfig.deviceName, bufferSize: currentConfig.bufferSize, themeStartOscAddress: currentConfig.themeStartOscAddress, systemResetOscAddress: currentConfig.systemResetOscAddress, monoConfigs: currentConfig.monoConfigs, stereoConfigs: currentConfig.stereoConfigs, rooms: newRooms));
                               }
-                              rust_api.apiSetMasterVolume(roomId: room.id, volume: v);
                             }
                           },
                         ),
@@ -497,6 +501,7 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                             if (tIdx != -1) {
                               newTracks[tIdx] = TrackConfig(id: track.id, name: track.name, filePath: track.filePath, volume: track.volume, isLoop: track.isLoop, outputChannel: ch, outputStereo: isStereo, playOscAddress: track.playOscAddress, stopOscAddress: track.stopOscAddress);
                               newRooms[idx] = RoomConfig(id: room.id, name: room.name, colorHex: room.colorHex, volume: room.volume, clearOscAddress: room.clearOscAddress, tracks: newTracks);
+                              rust_api.apiSetTrackOutput(roomId: room.id, trackId: track.id, outputChannel: BigInt.from(ch), outputStereo: isStereo);
                               ref.read(configProvider.notifier).saveConfig(AppConfig(oscPort: config.oscPort, deviceName: config.deviceName, bufferSize: config.bufferSize, themeStartOscAddress: config.themeStartOscAddress, systemResetOscAddress: config.systemResetOscAddress, monoConfigs: config.monoConfigs, stereoConfigs: config.stereoConfigs, rooms: newRooms));
                             }
                           }

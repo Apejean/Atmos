@@ -58,6 +58,18 @@ Future<void> apiSetTrackVolume({
   volume: volume,
 );
 
+Future<void> apiSetTrackOutput({
+  required String roomId,
+  required String trackId,
+  required BigInt outputChannel,
+  required bool outputStereo,
+}) => RustLib.instance.api.crateApiSimpleApiSetTrackOutput(
+  roomId: roomId,
+  trackId: trackId,
+  outputChannel: outputChannel,
+  outputStereo: outputStereo,
+);
+
 Stream<Float32List> apiCreateVuStream() =>
     RustLib.instance.api.crateApiSimpleApiCreateVuStream();
 
