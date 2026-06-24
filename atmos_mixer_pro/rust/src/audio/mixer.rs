@@ -18,7 +18,7 @@ pub struct AudioMixer {
 
 impl AudioMixer {
     pub fn new(sample_rate: u32, gc_sender: crossbeam_channel::Sender<SoundInstance>) -> Self {
-        let (buf_gc_tx, buf_gc_rx) = crossbeam_channel::bounded::<Vec<f32>>(1024);
+        let (buf_gc_tx, buf_gc_rx) = crossbeam_channel::bounded::<Vec<f32>>(4096);
         std::thread::spawn(move || {
             while let Ok(_buf) = buf_gc_rx.recv() {
                 // Buffer is dropped here in a background thread, preventing heap deallocation in the audio thread
@@ -38,7 +38,7 @@ impl AudioMixer {
             },
             gc_sender,
             buf_gc_tx,
-            room_volumes: std::collections::HashMap::new(),
+            room_volumes: std::collections::HashMap::with_capacity(128),
         }
     }
 

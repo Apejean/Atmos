@@ -154,13 +154,14 @@ class LogNotifier extends Notifier<List<String>> {
 
   void _initStream() {
     final stream = rust_api.apiCreateLogStream();
-    stream.listen((log) {
+    final sub = stream.listen((log) {
       final newList = List<String>.from(state)..add(log);
       if (newList.length > 100) {
         newList.removeAt(0);
       }
       state = newList;
     });
+    ref.onDispose(() => sub.cancel());
   }
 
   void clearLogs() {
@@ -207,7 +208,8 @@ class EngineStateNotifier extends Notifier<EngineState> {
   @override
   EngineState build() {
     // Subscribe to rust_api.apiCreateEngineStateStream()
-    rust_api.apiCreateEngineStateStream().listen((update) {
+    final stream = rust_api.apiCreateEngineStateStream();
+    final sub = stream.listen((update) {
       state = state.copyWith(
         activeRoomId: update.activeRoomId,
         forceNullActiveRoom: update.activeRoomId == null,
@@ -215,6 +217,7 @@ class EngineStateNotifier extends Notifier<EngineState> {
         playingTrackIds: update.playingTrackIds,
       );
     });
+    ref.onDispose(() => sub.cancel());
 
     return EngineState();
   }

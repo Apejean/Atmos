@@ -278,15 +278,16 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                         icon: const Icon(Icons.close, size: 16),
                         color: AppColors.danger,
                         onPressed: () async {
-                          if (config != null) {
-                            bool? confirm = await _showDeleteConfirmDialog(
-                              context, 
-                              '룸 삭제 경고', 
-                              '정말 삭제하시겠습니까?\n(현재 룸에 ${room.tracks.length}개의 오디오 트랙이 포함되어 있습니다.)'
-                            );
-                            if (confirm == true) {
-                              final newRooms = config.rooms.where((r) => r.id != room.id).toList();
-                              ref.read(configProvider.notifier).saveConfig(AppConfig(oscPort: config.oscPort, deviceName: config.deviceName, bufferSize: config.bufferSize, themeStartOscAddress: config.themeStartOscAddress, systemResetOscAddress: config.systemResetOscAddress, monoConfigs: config.monoConfigs, stereoConfigs: config.stereoConfigs, rooms: newRooms));
+                          bool? confirm = await _showDeleteConfirmDialog(
+                            context, 
+                            '룸 삭제 경고', 
+                            '정말 삭제하시겠습니까?\n(현재 룸에 ${room.tracks.length}개의 오디오 트랙이 포함되어 있습니다.)'
+                          );
+                          if (confirm == true) {
+                            final currentConfig = ref.read(configProvider);
+                            if (currentConfig != null) {
+                              final newRooms = currentConfig.rooms.where((r) => r.id != room.id).toList();
+                              ref.read(configProvider.notifier).saveConfig(AppConfig(oscPort: currentConfig.oscPort, deviceName: currentConfig.deviceName, bufferSize: currentConfig.bufferSize, themeStartOscAddress: currentConfig.themeStartOscAddress, systemResetOscAddress: currentConfig.systemResetOscAddress, monoConfigs: currentConfig.monoConfigs, stereoConfigs: currentConfig.stereoConfigs, rooms: newRooms));
                             }
                           }
                         },
@@ -364,10 +365,11 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                             ref.read(engineStateProvider.notifier).clearRoom(room.id);
                             
                             // Automatically activate next room if possible
-                            if (config != null) {
-                              final idx = config.rooms.indexWhere((r) => r.id == room.id);
-                              if (idx != -1 && idx + 1 < config.rooms.length) {
-                                final nextRoom = config.rooms[idx + 1];
+                            final currentConfig = ref.read(configProvider);
+                            if (currentConfig != null) {
+                              final idx = currentConfig.rooms.indexWhere((r) => r.id == room.id);
+                              if (idx != -1 && idx + 1 < currentConfig.rooms.length) {
+                                final nextRoom = currentConfig.rooms[idx + 1];
                                 ref.read(engineStateProvider.notifier).setActiveRoom(nextRoom.id);
                                 // Auto play loop tracks of next room
                                 for (final track in nextRoom.tracks) {
@@ -459,8 +461,9 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                         }
                       },
                       onLoopChanged: (v) {
-                        if (config != null) {
-                          final newRooms = List<RoomConfig>.from(config.rooms);
+                        final currentConfig = ref.read(configProvider);
+                        if (currentConfig != null) {
+                          final newRooms = List<RoomConfig>.from(currentConfig.rooms);
                           final idx = newRooms.indexWhere((r) => r.id == room.id);
                           if (idx != -1) {
                             final newTracks = List<TrackConfig>.from(newRooms[idx].tracks);
@@ -468,14 +471,15 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                             if (tIdx != -1) {
                               newTracks[tIdx] = TrackConfig(id: track.id, name: track.name, filePath: track.filePath, volume: track.volume, isLoop: v, outputChannel: track.outputChannel, outputStereo: track.outputStereo, playOscAddress: track.playOscAddress, stopOscAddress: track.stopOscAddress);
                               newRooms[idx] = RoomConfig(id: room.id, name: room.name, colorHex: room.colorHex, volume: room.volume, clearOscAddress: room.clearOscAddress, tracks: newTracks);
-                              ref.read(configProvider.notifier).saveConfig(AppConfig(oscPort: config.oscPort, deviceName: config.deviceName, bufferSize: config.bufferSize, themeStartOscAddress: config.themeStartOscAddress, systemResetOscAddress: config.systemResetOscAddress, monoConfigs: config.monoConfigs, stereoConfigs: config.stereoConfigs, rooms: newRooms));
+                              ref.read(configProvider.notifier).saveConfig(AppConfig(oscPort: currentConfig.oscPort, deviceName: currentConfig.deviceName, bufferSize: currentConfig.bufferSize, themeStartOscAddress: currentConfig.themeStartOscAddress, systemResetOscAddress: currentConfig.systemResetOscAddress, monoConfigs: currentConfig.monoConfigs, stereoConfigs: currentConfig.stereoConfigs, rooms: newRooms));
                             }
                           }
                         }
                       },
                       onNameChanged: (v) {
-                        if (config != null) {
-                          final newRooms = List<RoomConfig>.from(config.rooms);
+                        final currentConfig = ref.read(configProvider);
+                        if (currentConfig != null) {
+                          final newRooms = List<RoomConfig>.from(currentConfig.rooms);
                           final idx = newRooms.indexWhere((r) => r.id == room.id);
                           if (idx != -1) {
                             final newTracks = List<TrackConfig>.from(newRooms[idx].tracks);
@@ -483,14 +487,15 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                             if (tIdx != -1) {
                               newTracks[tIdx] = TrackConfig(id: track.id, name: v, filePath: track.filePath, volume: track.volume, isLoop: track.isLoop, outputChannel: track.outputChannel, outputStereo: track.outputStereo, playOscAddress: track.playOscAddress, stopOscAddress: track.stopOscAddress);
                               newRooms[idx] = RoomConfig(id: room.id, name: room.name, colorHex: room.colorHex, volume: room.volume, clearOscAddress: room.clearOscAddress, tracks: newTracks);
-                              ref.read(configProvider.notifier).saveConfig(AppConfig(oscPort: config.oscPort, deviceName: config.deviceName, bufferSize: config.bufferSize, themeStartOscAddress: config.themeStartOscAddress, systemResetOscAddress: config.systemResetOscAddress, monoConfigs: config.monoConfigs, stereoConfigs: config.stereoConfigs, rooms: newRooms));
+                              ref.read(configProvider.notifier).saveConfig(AppConfig(oscPort: currentConfig.oscPort, deviceName: currentConfig.deviceName, bufferSize: currentConfig.bufferSize, themeStartOscAddress: currentConfig.themeStartOscAddress, systemResetOscAddress: currentConfig.systemResetOscAddress, monoConfigs: currentConfig.monoConfigs, stereoConfigs: currentConfig.stereoConfigs, rooms: newRooms));
                             }
                           }
                         }
                       },
                       onOutputChanged: (ch, isStereo) {
-                        if (config != null) {
-                          final newRooms = List<RoomConfig>.from(config.rooms);
+                        final currentConfig = ref.read(configProvider);
+                        if (currentConfig != null) {
+                          final newRooms = List<RoomConfig>.from(currentConfig.rooms);
                           final idx = newRooms.indexWhere((r) => r.id == room.id);
                           if (idx != -1) {
                             final newTracks = List<TrackConfig>.from(newRooms[idx].tracks);
@@ -499,7 +504,7 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                               newTracks[tIdx] = TrackConfig(id: track.id, name: track.name, filePath: track.filePath, volume: track.volume, isLoop: track.isLoop, outputChannel: ch, outputStereo: isStereo, playOscAddress: track.playOscAddress, stopOscAddress: track.stopOscAddress);
                               newRooms[idx] = RoomConfig(id: room.id, name: room.name, colorHex: room.colorHex, volume: room.volume, clearOscAddress: room.clearOscAddress, tracks: newTracks);
                               rust_api.apiSetTrackOutput(roomId: room.id, trackId: track.id, outputChannel: BigInt.from(ch), outputStereo: isStereo);
-                              ref.read(configProvider.notifier).saveConfig(AppConfig(oscPort: config.oscPort, deviceName: config.deviceName, bufferSize: config.bufferSize, themeStartOscAddress: config.themeStartOscAddress, systemResetOscAddress: config.systemResetOscAddress, monoConfigs: config.monoConfigs, stereoConfigs: config.stereoConfigs, rooms: newRooms));
+                              ref.read(configProvider.notifier).saveConfig(AppConfig(oscPort: currentConfig.oscPort, deviceName: currentConfig.deviceName, bufferSize: currentConfig.bufferSize, themeStartOscAddress: currentConfig.themeStartOscAddress, systemResetOscAddress: currentConfig.systemResetOscAddress, monoConfigs: currentConfig.monoConfigs, stereoConfigs: currentConfig.stereoConfigs, rooms: newRooms));
                             }
                           }
                         }

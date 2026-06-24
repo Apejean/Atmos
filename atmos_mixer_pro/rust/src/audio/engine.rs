@@ -157,7 +157,7 @@ impl AudioEngine {
         
         crate::core::state::GLOBAL_STATE.active_device_channels.store(config.channels as u32, std::sync::atomic::Ordering::SeqCst);
 
-        let (gc_tx, gc_rx) = crossbeam_channel::bounded::<crate::audio::player::SoundInstance>(256);
+        let (gc_tx, gc_rx) = crossbeam_channel::bounded::<crate::audio::player::SoundInstance>(4096);
         std::thread::spawn(move || {
             while let Ok(dropped) = gc_rx.recv() {
                 // Instance is dropped here in a background thread, preventing GC in audio thread.
@@ -311,7 +311,6 @@ impl AudioEngine {
                         }
                     }
                 }
-                _ => {}
             }
         }
     }
