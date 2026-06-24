@@ -471,7 +471,7 @@ pub fn api_get_output_devices() -> Result<Vec<OutputDeviceInfo>, AtmosError> {
 
                     // Avoid querying ASIO drivers when engine is active, because querying configs loads the DLL and breaks the COM lock!
                     if is_asio_host && is_engine_active {
-                        max_channels = 128; // Fallback to 128 to cover MADIface USB and large interfaces without querying
+                        max_channels = 256; // Fallback to 256 to cover large interfaces without querying
                     } else {
                         if let Ok(supported_configs) = device.supported_output_configs() {
                             for config in supported_configs {
@@ -531,7 +531,7 @@ pub fn api_get_device_channel_count(device_name: Option<String>) -> Result<u32, 
         let device = if let Some(ref name) = device_name {
             if let Some(ref active_name) = active_asio_device {
                 if name == active_name {
-                    return Ok(128); // Fallback to 128 channels to cover MADIface USB and other large ASIO interfaces without querying
+                    return Ok(256); // Fallback to 256 channels to cover MADIface USB and other large ASIO interfaces without querying
                 }
             }
             

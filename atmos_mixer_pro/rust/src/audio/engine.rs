@@ -145,7 +145,7 @@ impl AudioEngine {
         let mut config: StreamConfig = supported_config.clone().into();
 
         if let Some(app_config) = crate::core::state::GLOBAL_STATE.config.read().unwrap().as_ref() {
-            let buffer_size = app_config.buffer_size as u32;
+            let buffer_size = app_config.buffer_size;
             if buffer_size > 0 {
                 config.buffer_size = cpal::BufferSize::Fixed(buffer_size);
             }

@@ -480,6 +480,7 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                 items: uniqueDriverTypes.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
                 onChanged: (val) {
                   if (val != null) {
+                    _isDeviceManuallyChanged = true;
                     setState(() {
                       _selectedDriverType = val;
                       final newFilteredDevices = _devices.where((d) => _getDriverType(d) == val).toList();
