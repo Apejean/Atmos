@@ -467,7 +467,7 @@ pub fn api_get_output_devices() -> Result<Vec<OutputDeviceInfo>, AtmosError> {
         let mut device_info_list = Vec::new();
         
         if let Some(saved_name) = active_asio_device {
-            let max_channels = 2; // Fallback
+            let max_channels = 128; // Fallback to 128 to cover MADIface USB (68 channels) and other large ASIO interfaces
             let actual_name = saved_name.replace("[ASIO] ", "").trim().to_string();
             #[cfg(target_os = "macos")]
             let channel_names = crate::audio::channel_names::get_channel_names_mac(&actual_name, max_channels);
@@ -571,7 +571,7 @@ pub fn api_get_device_channel_count(device_name: Option<String>) -> Result<u32, 
         let device = if let Some(ref name) = device_name {
             if let Some(ref active_name) = active_asio_device {
                 if name == active_name {
-                    return Ok(2); // Fallback to 2 channels to avoid querying locked ASIO device
+                    return Ok(128); // Fallback to 128 channels to cover MADIface USB and other large ASIO interfaces without querying
                 }
             }
             
