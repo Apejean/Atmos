@@ -52,6 +52,14 @@ impl AudioEngine {
     }
 
     pub fn start(&mut self, device_name: Option<String>, cmd_receiver: Receiver<AudioCommand>) -> Result<(), String> {
+        #[cfg(target_os = "windows")]
+        {
+            use windows::Win32::System::Com::{CoInitializeEx, COINIT_MULTITHREADED};
+            unsafe {
+                let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
+            }
+        }
+
         let target_prefix = device_name.as_ref().and_then(|n| {
             if n.starts_with("[ASIO]") { Some("[ASIO]") } 
             else if n.starts_with("[WASAPI]") { Some("[WASAPI]") } 

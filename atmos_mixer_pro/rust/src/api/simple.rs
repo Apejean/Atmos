@@ -480,6 +480,13 @@ pub fn api_get_output_devices() -> Result<Vec<OutputDeviceInfo>, AtmosError> {
 }
 
 pub fn api_get_device_channel_count(device_name: Option<String>) -> Result<u32, AtmosError> {
+    #[cfg(target_os = "windows")]
+    {
+        use windows::Win32::System::Com::{CoInitializeEx, COINIT_MULTITHREADED};
+        unsafe {
+            let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
+        }
+    }
     use cpal::traits::{DeviceTrait, HostTrait};
     
     let device = if let Some(ref name) = device_name {
