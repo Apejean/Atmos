@@ -371,26 +371,55 @@ pub fn api_create_engine_state_stream(sink: StreamSink<EngineStateUpdate>) {
 }
 
 pub fn api_preload_all_sounds(config: AppConfig) -> Result<(), AtmosError> {
-    let mut cache = GLOBAL_STATE.sound_cache.write().unwrap();
-    cache.clear();
-    let mut errors = Vec::new();
+    let mut needed_files = std::collections::HashSet::new();
     for room in &config.rooms {
         for track in &room.tracks {
-            // Only preload SFX (not loops) to save RAM
-            if !track.is_loop && !cache.contains_key(&track.file_path) {
-                let path = std::path::Path::new(&track.file_path);
-                match crate::audio::player::SoundData::load_from_file(path) {
-                    Ok(data) => {
-                        GLOBAL_STATE.log(format!("Loaded sound file: {}", track.file_path));
-                        cache.insert(track.file_path.clone(), std::sync::Arc::new(data));
-                    }
-                    Err(e) => {
-                        let err_msg = format!("Failed to load sound file {}: {}", track.file_path, e);
-                        GLOBAL_STATE.log(err_msg.clone());
-                        errors.push(err_msg);
-                    }
-                }
+            if !track.is_loop {
+                needed_files.insert(track.file_path.clone());
             }
+        }
+    }
+
+    let mut missing_files = Vec::new();
+    {
+        let cache = GLOBAL_STATE.sound_cache.read().unwrap();
+        for file in &needed_files {
+            if !cache.contains_key(file) {
+                missing_files.push(file.clone());
+            }
+        }
+    }
+
+    let mut newly_loaded = Vec::new();
+    let mut errors = Vec::new();
+    for file in missing_files {
+        let path = std::path::Path::new(&file);
+        match crate::audio::player::SoundData::load_from_file(path) {
+            Ok(data) => {
+                GLOBAL_STATE.log(format!("Loaded sound file: {}", file));
+                newly_loaded.push((file, std::sync::Arc::new(data)));
+            }
+            Err(e) => {
+                let err_msg = format!("Failed to load sound file {}: {}", file, e);
+                GLOBAL_STATE.log(err_msg.clone());
+                errors.push(err_msg);
+                
+                // Negative cache to prevent disk spam on every UI tick
+                let empty_data = crate::audio::player::SoundData {
+                    sample_rate: 48000,
+                    channels: 2,
+                    samples: vec![],
+                };
+                newly_loaded.push((file, std::sync::Arc::new(empty_data)));
+            }
+        }
+    }
+
+    {
+        let mut cache = GLOBAL_STATE.sound_cache.write().unwrap();
+        cache.retain(|path, _| needed_files.contains(path));
+        for (path, data) in newly_loaded {
+            cache.insert(path, data);
         }
     }
     

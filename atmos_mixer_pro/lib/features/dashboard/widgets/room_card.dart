@@ -260,6 +260,9 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                           max: 1.0,
                           onChanged: (v) {
                             rust_api.apiSetMasterVolume(roomId: room.id, volume: v);
+                            // We don't save config here to prevent rapid UI freezing & I/O bottleneck
+                          },
+                          onChangeEnd: (v) {
                             final currentConfig = ref.read(configProvider);
                             if (currentConfig != null) {
                               final newRooms = List<RoomConfig>.from(currentConfig.rooms);
@@ -442,6 +445,8 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                       },
                       onVolumeChanged: (v) {
                         rust_api.apiSetTrackVolume(roomId: room.id, trackId: track.id, volume: v);
+                      },
+                      onVolumeChangeEnd: (v) {
                         final currentConfig = ref.read(configProvider);
                         if (currentConfig != null) {
                           final newRooms = List<RoomConfig>.from(currentConfig.rooms);

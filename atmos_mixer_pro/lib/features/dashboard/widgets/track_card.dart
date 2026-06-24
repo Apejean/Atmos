@@ -12,6 +12,7 @@ class TrackCard extends ConsumerStatefulWidget {
   final VoidChannel? onStop;
   final VoidChannel? onDelete;
   final ValueChanged<double>? onVolumeChanged;
+  final ValueChanged<double>? onVolumeChangeEnd;
   final ValueChanged<bool>? onLoopChanged;
   final ValueChanged<String>? onNameChanged;
   final void Function(int channel, bool isStereo)? onOutputChanged;
@@ -24,6 +25,7 @@ class TrackCard extends ConsumerStatefulWidget {
     this.onStop,
     this.onDelete,
     this.onVolumeChanged,
+    this.onVolumeChangeEnd,
     this.onLoopChanged,
     this.onNameChanged,
     this.onOutputChanged,
@@ -350,6 +352,7 @@ class _TrackCardState extends ConsumerState<TrackCard> {
                             min: 0.0,
                             max: 1.0,
                             onChanged: widget.onVolumeChanged,
+                            onChangeEnd: widget.onVolumeChangeEnd,
                           ),
                         ),
                       ),
