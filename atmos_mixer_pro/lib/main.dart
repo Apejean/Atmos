@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:atmos_mixer_pro/src/rust/frb_generated.dart';
+import 'package:atmos_mixer_pro/src/rust/api/simple.dart';
 import 'package:atmos_mixer_pro/features/dashboard/screens/dashboard_screen.dart';
 
 Future<void> main() async {
@@ -23,6 +24,7 @@ Future<void> main() async {
   );
   
   windowManager.waitUntilReadyToShow(windowOptions, () async {
+    await windowManager.setPreventClose(true);
     await windowManager.show();
     await windowManager.focus();
   });
@@ -34,8 +36,32 @@ Future<void> main() async {
   );
 }
 
-class AtmosMixerProApp extends StatelessWidget {
+class AtmosMixerProApp extends StatefulWidget {
   const AtmosMixerProApp({super.key});
+
+  @override
+  State<AtmosMixerProApp> createState() => _AtmosMixerProAppState();
+}
+
+class _AtmosMixerProAppState extends State<AtmosMixerProApp> with WindowListener {
+  @override
+  void initState() {
+    super.initState();
+    windowManager.addListener(this);
+  }
+
+  @override
+  void dispose() {
+    windowManager.removeListener(this);
+    super.dispose();
+  }
+
+  @override
+  void onWindowClose() async {
+    // Explicitly release ASIO hardware locks and cleanly stop audio engine
+    await apiStopAudioEngine();
+    await windowManager.destroy();
+  }
 
   @override
   Widget build(BuildContext context) {
