@@ -18,10 +18,8 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
   late TabController _tabController;
   late AppConfig _tempConfig;
 
-  static List<rust_api.OutputDeviceInfo>? _cachedDeviceInfos;
   static List<String>? _cachedDevices;
 
-  List<rust_api.OutputDeviceInfo> _deviceInfos = [];
   List<String> _devices = [];
   List<String> _channelNames = [];
   String _selectedDriverType = 'WASAPI';
@@ -64,9 +62,8 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
   }
 
   Future<void> _loadDevices() async {
-    if (_cachedDeviceInfos != null && _cachedDevices != null) {
+    if (_cachedDevices != null) {
       setState(() {
-        _deviceInfos = _cachedDeviceInfos!;
         _devices = _cachedDevices!;
       });
       _loadDeviceChannels(_tempConfig.deviceName);
@@ -75,10 +72,8 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
     try {
       final deviceInfos = await rust_api.apiGetOutputDevices();
       final devices = deviceInfos.map((d) => d.name).toList();
-      _cachedDeviceInfos = deviceInfos;
       _cachedDevices = devices;
       setState(() {
-        _deviceInfos = deviceInfos;
         _devices = devices;
       });
       _loadDeviceChannels(_tempConfig.deviceName);
@@ -89,23 +84,20 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
     }
   }
 
-  void _loadDeviceChannels(String? deviceName) {
-    if (deviceName == null) {
-      setState(() {
-        _channelNames = [];
-      });
-      return;
-    }
+  Future<void> _loadDeviceChannels(String? deviceName) async {
     try {
-      final info = _deviceInfos.firstWhere((d) => d.name == deviceName);
-      setState(() {
-        _channelNames = info.channelNames;
-      });
+      final names = await rust_api.apiGetDeviceChannelNames(deviceName: deviceName);
+      if (mounted) {
+        setState(() {
+          _channelNames = names;
+        });
+      }
     } catch (e) {
-      // Device not found in the cached list (e.g. disconnected)
-      setState(() {
-        _channelNames = [];
-      });
+      if (mounted) {
+        setState(() {
+          _channelNames = [];
+        });
+      }
     }
   }
 
