@@ -131,6 +131,9 @@ final configProvider = NotifierProvider<ConfigNotifier, AppConfig?>(ConfigNotifi
 
 final hardwareChannelsProvider = FutureProvider<List<String>>((ref) async {
   final deviceName = ref.watch(configProvider.select((c) => c?.deviceName));
+  if (deviceName != null && GlobalDeviceCache.channels.containsKey(deviceName)) {
+    return GlobalDeviceCache.channels[deviceName]!;
+  }
   try {
     return await rust_api.apiGetDeviceChannelNames(deviceName: deviceName);
   } catch (e) {

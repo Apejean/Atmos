@@ -73,9 +73,26 @@ class _TrackCardState extends ConsumerState<TrackCard> {
 
     final config = ref.watch(configProvider);
     final hwChannelsAsync = ref.watch(hardwareChannelsProvider);
-    final int maxChannels = (hwChannelsAsync.value != null && hwChannelsAsync.value!.isNotEmpty)
-        ? hwChannelsAsync.value!.length
-        : 30;
+    int maxChannels = 30;
+    if (config != null) {
+      if (config.deviceName != null && GlobalDeviceCache.channels.containsKey(config.deviceName)) {
+        maxChannels = GlobalDeviceCache.channels[config.deviceName]!.length;
+      } else if (hwChannelsAsync.value != null && hwChannelsAsync.value!.isNotEmpty) {
+        maxChannels = hwChannelsAsync.value!.length;
+      }
+
+      int maxConfigured = 0;
+      if (config.monoConfigs.isNotEmpty) {
+        maxConfigured = config.monoConfigs.keys.reduce((a, b) => a > b ? a : b) + 1;
+      }
+      if (config.stereoConfigs.isNotEmpty) {
+        final maxStereo = config.stereoConfigs.keys.reduce((a, b) => a > b ? a : b) + 1;
+        if (maxStereo > maxConfigured) maxConfigured = maxStereo;
+      }
+      if (maxConfigured > maxChannels) {
+        maxChannels = maxConfigured;
+      }
+    }
 
     final List<DropdownMenuItem<String>> outputItems = [];
     if (config != null) {
