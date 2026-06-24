@@ -161,6 +161,12 @@ class _TrackCardState extends ConsumerState<TrackCard> {
     final bool valueExists = outputItems.any(
       (item) => item.value == currentValue,
     );
+    
+    print('track_card debug: maxChannels=$maxChannels, currentValue=$currentValue, valueExists=$valueExists');
+    if (!valueExists) {
+      print('track_card debug: outputItems are: ${outputItems.map((e) => e.value).join(', ')}');
+    }
+
     if (!valueExists && config != null) {
       final displayCh = currentKey + 1;
       outputItems.add(

@@ -42,6 +42,15 @@ class ConfigNotifier extends Notifier<AppConfig?> {
         // Ignore initial preload errors
       }
       
+      _lastProcessedConfig = config;
+      state = config;
+      rust_api.apiStartAudioEngine(deviceName: config.deviceName);
+      await rust_api.apiStartOscListener(port: config.oscPort);
+
+      // Wait a moment for the audio engine to initialize and lock the ASIO device.
+      // This allows the backend to skip the slow ASIO scan and instantly return the correct physical channel count (e.g. 94) instead of a default fallback.
+      await Future.delayed(const Duration(milliseconds: 500));
+
       try {
         final deviceInfos = await rust_api.apiGetOutputDevices();
         GlobalDeviceCache.devices = deviceInfos.map((d) => d.name).toList();
@@ -51,11 +60,6 @@ class ConfigNotifier extends Notifier<AppConfig?> {
       } catch (e) {
         // Ignore background scan errors
       }
-
-      _lastProcessedConfig = config;
-      state = config;
-      rust_api.apiStartAudioEngine(deviceName: config.deviceName);
-      await rust_api.apiStartOscListener(port: config.oscPort);
     } catch (e) {
       ref.read(globalErrorProvider.notifier).showError('설정 로드 실패: $e');
     }
