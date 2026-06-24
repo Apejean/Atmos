@@ -249,6 +249,7 @@ pub fn api_create_vu_stream(sink: StreamSink<Vec<f32>>) {
 
 lazy_static::lazy_static! {
     static ref ENGINE_GENERATION: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+    static ref ENGINE_ACTIVE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 }
 
 pub fn api_start_audio_engine(device_name: Option<String>) {
@@ -256,6 +257,16 @@ pub fn api_start_audio_engine(device_name: Option<String>) {
     let gen = ENGINE_GENERATION.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1;
     
     std::thread::spawn(move || {
+        // Wait for previous engine to fully drop to release ASIO locks
+        for _ in 0..40 {
+            if !ENGINE_ACTIVE.load(std::sync::atomic::Ordering::SeqCst) {
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(50));
+        }
+        
+        ENGINE_ACTIVE.store(true, std::sync::atomic::Ordering::SeqCst);
+
         #[cfg(target_os = "windows")]
         {
             use windows::Win32::System::Com::{CoInitializeEx, COINIT_MULTITHREADED};
@@ -269,6 +280,7 @@ pub fn api_start_audio_engine(device_name: Option<String>) {
             let err_msg = format!("Failed to start audio engine: {}", e);
             eprintln!("{}", err_msg);
             GLOBAL_STATE.log(err_msg);
+            ENGINE_ACTIVE.store(false, std::sync::atomic::Ordering::SeqCst);
             return;
         }
         
@@ -278,6 +290,9 @@ pub fn api_start_audio_engine(device_name: Option<String>) {
             }
             std::thread::sleep(std::time::Duration::from_millis(100)); 
         }
+        
+        drop(engine);
+        ENGINE_ACTIVE.store(false, std::sync::atomic::Ordering::SeqCst);
     });
 }
 
