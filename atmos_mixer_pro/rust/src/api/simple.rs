@@ -250,11 +250,13 @@ pub fn api_create_vu_stream(sink: StreamSink<Vec<f32>>) {
 lazy_static::lazy_static! {
     static ref ENGINE_GENERATION: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
     static ref ENGINE_ACTIVE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+    static ref ENGINE_RESTARTING: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 }
 
 pub fn api_start_audio_engine(device_name: Option<String>) {
     let rx = GLOBAL_STATE.command_receiver.clone();
     let gen = ENGINE_GENERATION.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1;
+    ENGINE_RESTARTING.store(true, std::sync::atomic::Ordering::SeqCst);
     
     std::thread::spawn(move || {
         // Wait for previous engine to fully drop to release ASIO locks
@@ -269,6 +271,7 @@ pub fn api_start_audio_engine(device_name: Option<String>) {
         std::thread::sleep(std::time::Duration::from_millis(500));
         
         ENGINE_ACTIVE.store(true, std::sync::atomic::Ordering::SeqCst);
+        ENGINE_RESTARTING.store(false, std::sync::atomic::Ordering::SeqCst);
 
         #[cfg(target_os = "windows")]
         {
@@ -284,6 +287,7 @@ pub fn api_start_audio_engine(device_name: Option<String>) {
             eprintln!("{}", err_msg);
             GLOBAL_STATE.log(err_msg);
             ENGINE_ACTIVE.store(false, std::sync::atomic::Ordering::SeqCst);
+            ENGINE_RESTARTING.store(false, std::sync::atomic::Ordering::SeqCst);
             return;
         }
         
@@ -445,16 +449,51 @@ pub fn api_get_output_devices() -> Result<Vec<OutputDeviceInfo>, AtmosError> {
         
         use cpal::traits::{DeviceTrait, HostTrait};
         
-        let is_engine_active = ENGINE_ACTIVE.load(std::sync::atomic::Ordering::SeqCst);
+        let is_engine_active = ENGINE_ACTIVE.load(std::sync::atomic::Ordering::SeqCst) 
+            || ENGINE_RESTARTING.load(std::sync::atomic::Ordering::SeqCst);
         
+        let mut skip_asio_scan = false;
+        let mut active_asio_device = None;
+        if is_engine_active {
+            if let Some(config) = crate::core::state::GLOBAL_STATE.config.read().unwrap().as_ref() {
+                if let Some(ref saved_name) = config.device_name {
+                    if saved_name.starts_with("[ASIO]") {
+                        skip_asio_scan = true;
+                        active_asio_device = Some(saved_name.clone());
+                    }
+                }
+            }
+        }
+
         let hosts = crate::audio::engine::get_hosts(None)
             .map_err(|e| AtmosError { message: e })?;
         
         let mut device_info_list = Vec::new();
         
+        if skip_asio_scan {
+            if let Some(saved_name) = active_asio_device {
+                let active_ch = crate::core::state::GLOBAL_STATE.active_device_channels.load(std::sync::atomic::Ordering::SeqCst);
+                let max_channels = if active_ch > 0 { active_ch } else { 256 };
+                let actual_name = saved_name.replace("[ASIO] ", "").trim().to_string();
+                #[cfg(target_os = "macos")]
+                let channel_names = crate::audio::channel_names::get_channel_names_mac(&actual_name, max_channels);
+                #[cfg(target_os = "windows")]
+                let channel_names = crate::audio::channel_names::get_channel_names_win(&actual_name, max_channels);
+                #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+                let channel_names = crate::audio::channel_names::get_channel_names_fallback(max_channels);
+
+                device_info_list.push(OutputDeviceInfo { name: saved_name, max_channels, channel_names });
+            }
+        }
+        
         for host in hosts {
             let prefix = format!("[{}] ", host.id().name());
             let is_asio_host = host.id().name() == "ASIO";
+            
+            if is_asio_host && skip_asio_scan {
+                continue; // Do not call host.output_devices() because querying ASIO devices breaks the COM lock!
+            }
+            
             let devices = match host.output_devices() {
                 Ok(d) => d,
                 Err(e) => { 
@@ -469,9 +508,23 @@ pub fn api_get_output_devices() -> Result<Vec<OutputDeviceInfo>, AtmosError> {
                     let name = format!("{}{}", prefix, actual_name);
                     let mut max_channels = 2; // Default fallback
 
-                    // Avoid querying ASIO drivers when engine is active, because querying configs loads the DLL and breaks the COM lock!
+                    // Avoid querying configs if it's ASIO (though skip_asio_scan handles active ASIO lock already)
                     if is_asio_host && is_engine_active {
-                        max_channels = 256; // Fallback to 256 to cover large interfaces without querying
+                        let mut is_the_active_device = false;
+                        if let Some(config) = crate::core::state::GLOBAL_STATE.config.read().unwrap().as_ref() {
+                            if let Some(ref saved_name) = config.device_name {
+                                if saved_name == &name {
+                                    is_the_active_device = true;
+                                }
+                            }
+                        }
+
+                        if is_the_active_device {
+                            let active_ch = crate::core::state::GLOBAL_STATE.active_device_channels.load(std::sync::atomic::Ordering::SeqCst);
+                            max_channels = if active_ch > 0 { active_ch } else { 256 };
+                        } else {
+                            max_channels = 256;
+                        }
                     } else {
                         if let Ok(supported_configs) = device.supported_output_configs() {
                             for config in supported_configs {
@@ -516,7 +569,8 @@ pub fn api_get_device_channel_count(device_name: Option<String>) -> Result<u32, 
         }
         use cpal::traits::{DeviceTrait, HostTrait};
         
-        let is_engine_active = ENGINE_ACTIVE.load(std::sync::atomic::Ordering::SeqCst);
+        let is_engine_active = ENGINE_ACTIVE.load(std::sync::atomic::Ordering::SeqCst)
+            || ENGINE_RESTARTING.load(std::sync::atomic::Ordering::SeqCst);
         let mut active_asio_device = None;
         if is_engine_active {
             if let Some(config) = crate::core::state::GLOBAL_STATE.config.read().unwrap().as_ref() {
@@ -529,10 +583,14 @@ pub fn api_get_device_channel_count(device_name: Option<String>) -> Result<u32, 
         }
 
         let device = if let Some(ref name) = device_name {
-            if let Some(ref active_name) = active_asio_device {
-                if name == active_name {
-                    return Ok(256); // Fallback to 256 channels to cover MADIface USB and other large ASIO interfaces without querying
+            if is_engine_active && name.starts_with("[ASIO]") {
+                if let Some(ref active_name) = active_asio_device {
+                    if name == active_name {
+                        let active_ch = crate::core::state::GLOBAL_STATE.active_device_channels.load(std::sync::atomic::Ordering::SeqCst);
+                        return Ok(if active_ch > 0 { active_ch } else { 256 });
+                    }
                 }
+                return Ok(256); // Any inactive ASIO device defaults to 256 while engine is running
             }
             
             let target_prefix = if name.starts_with("[ASIO]") { Some("[ASIO]") } 

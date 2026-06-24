@@ -98,6 +98,47 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
     }
   }
 
+  Future<void> _rescanDevices() async {
+    // 1. Stop engine to release COM lock
+    rust_api.apiStopAudioEngine();
+    
+    // 2. Clear cache to force deep scan
+    _cachedDevices = null;
+    
+    // 3. Clear UI list and channel list while scanning
+    if (mounted) {
+      setState(() {
+        _devices = [];
+        _channelNames = [];
+        _tempConfig = AppConfig(
+          oscPort: _tempConfig.oscPort,
+          deviceName: null,
+          bufferSize: _tempConfig.bufferSize,
+          themeStartOscAddress: _tempConfig.themeStartOscAddress,
+          systemResetOscAddress: _tempConfig.systemResetOscAddress,
+          monoConfigs: _tempConfig.monoConfigs,
+          stereoConfigs: _tempConfig.stereoConfigs,
+          rooms: _tempConfig.rooms,
+        );
+      });
+    }
+
+    // 4. Force a short delay to ensure ASIO driver unloads completely
+    await Future.delayed(const Duration(milliseconds: 1000));
+    
+    // 5. Deep Scan
+    try {
+      final deviceInfos = await rust_api.apiGetOutputDevices();
+      final devices = deviceInfos.map((d) => d.name).toList();
+      _cachedDevices = devices;
+      _applyLoadedDevices(devices);
+    } catch (e) {
+      if (mounted) {
+        ref.read(globalErrorProvider.notifier).showError('장치 스캔 실패: $e');
+      }
+    }
+  }
+
   void _applyLoadedDevices(List<String> devices) {
     if (!mounted) return;
     setState(() {
@@ -572,6 +613,23 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                   });
                   _loadDeviceChannels(val);
                 },
+              ),
+            ),
+            const SizedBox(width: 8),
+            SizedBox(
+              height: 48,
+              child: ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blueAccent.withOpacity(0.2),
+                  foregroundColor: Colors.blueAccent,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(4),
+                    side: const BorderSide(color: Colors.blueAccent),
+                  ),
+                ),
+                onPressed: _rescanDevices,
+                icon: const Icon(Icons.refresh, size: 18),
+                label: const Text('Rescan', style: TextStyle(fontWeight: FontWeight.bold)),
               ),
             ),
           ],

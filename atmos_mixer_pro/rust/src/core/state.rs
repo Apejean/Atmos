@@ -40,6 +40,8 @@ pub struct GlobalEngineState {
     
     pub log_sink: RwLock<Option<StreamSink<String>>>,
     pub state_sink: RwLock<Option<StreamSink<EngineStateUpdate>>>,
+    
+    pub active_device_channels: AtomicU32,
 }
 
 impl Default for GlobalEngineState {
@@ -71,6 +73,7 @@ impl GlobalEngineState {
             broadcast_lock: std::sync::Mutex::new(()),
             log_sink: RwLock::new(None),
             state_sink: RwLock::new(None),
+            active_device_channels: AtomicU32::new(0),
         }
     }
 

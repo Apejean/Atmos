@@ -154,6 +154,8 @@ impl AudioEngine {
         config.sample_rate = supported_config.sample_rate();
 
         println!("Stream config: {:?}", config);
+        
+        crate::core::state::GLOBAL_STATE.active_device_channels.store(config.channels as u32, std::sync::atomic::Ordering::SeqCst);
 
         let (gc_tx, gc_rx) = crossbeam_channel::bounded::<crate::audio::player::SoundInstance>(256);
         std::thread::spawn(move || {
