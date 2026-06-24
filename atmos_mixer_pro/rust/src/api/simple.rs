@@ -392,54 +392,63 @@ pub struct OutputDeviceInfo {
 }
 
 pub fn api_get_output_devices() -> Result<Vec<OutputDeviceInfo>, AtmosError> {
-    use cpal::traits::{DeviceTrait, HostTrait};
-    
-    let hosts = crate::audio::engine::get_hosts()
-        .map_err(|e| AtmosError { message: e })?;
-    
-    let mut device_info_list = Vec::new();
-    
-    for host in hosts {
-        let prefix = format!("[{}] ", host.id().name());
-        let devices = match host.output_devices() {
-            Ok(d) => d,
-            Err(_) => continue,
-        };
+    std::thread::spawn(|| {
+        #[cfg(target_os = "windows")]
+        {
+            use windows::Win32::System::Com::{CoInitializeEx, COINIT_MULTITHREADED};
+            unsafe {
+                let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
+            }
+        }
         
-        for device in devices {
-            if let Ok(name_str) = device.name() {
-                let actual_name = name_str.to_string();
-                let name = format!("{}{}", prefix, actual_name);
-                let mut max_channels = 2; // Default fallback
-                if let Ok(supported_configs) = device.supported_output_configs() {
-                    for config in supported_configs {
-                        let channels = config.channels() as u32;
+        use cpal::traits::{DeviceTrait, HostTrait};
+        let hosts = crate::audio::engine::get_hosts()
+            .map_err(|e| AtmosError { message: e })?;
+        
+        let mut device_info_list = Vec::new();
+        
+        for host in hosts {
+            let prefix = format!("[{}] ", host.id().name());
+            let devices = match host.output_devices() {
+                Ok(d) => d,
+                Err(_) => continue,
+            };
+            
+            for device in devices {
+                if let Ok(name_str) = device.name() {
+                    let actual_name = name_str.to_string();
+                    let name = format!("{}{}", prefix, actual_name);
+                    let mut max_channels = 2; // Default fallback
+                    if let Ok(supported_configs) = device.supported_output_configs() {
+                        for config in supported_configs {
+                            let channels = config.channels() as u32;
+                            if channels > max_channels {
+                                max_channels = channels;
+                            }
+                        }
+                    }
+                    // ASIO fallback for max channels
+                    if let Ok(default_config) = device.default_output_config() {
+                        let channels = default_config.channels() as u32;
                         if channels > max_channels {
                             max_channels = channels;
                         }
                     }
-                }
-                // ASIO fallback for max channels
-                if let Ok(default_config) = device.default_output_config() {
-                    let channels = default_config.channels() as u32;
-                    if channels > max_channels {
-                        max_channels = channels;
-                    }
-                }
-                
-                #[cfg(target_os = "macos")]
-                let channel_names = crate::audio::channel_names::get_channel_names_mac(&actual_name, max_channels);
-                #[cfg(target_os = "windows")]
-                let channel_names = crate::audio::channel_names::get_channel_names_win(&actual_name, max_channels);
-                #[cfg(not(any(target_os = "macos", target_os = "windows")))]
-                let channel_names = crate::audio::channel_names::get_channel_names_fallback(max_channels);
+                    
+                    #[cfg(target_os = "macos")]
+                    let channel_names = crate::audio::channel_names::get_channel_names_mac(&actual_name, max_channels);
+                    #[cfg(target_os = "windows")]
+                    let channel_names = crate::audio::channel_names::get_channel_names_win(&actual_name, max_channels);
+                    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+                    let channel_names = crate::audio::channel_names::get_channel_names_fallback(max_channels);
 
-                device_info_list.push(OutputDeviceInfo { name, max_channels, channel_names });
+                    device_info_list.push(OutputDeviceInfo { name, max_channels, channel_names });
+                }
             }
         }
-    }
-    
-    Ok(device_info_list)
+        
+        Ok(device_info_list)
+    }).join().unwrap_or_else(|_| Err(AtmosError { message: "Thread panicked during device lookup".to_string() }))
 }
 
 pub fn api_get_device_channel_count(device_name: String) -> Result<u32, AtmosError> {
