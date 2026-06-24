@@ -479,23 +479,71 @@ pub fn api_get_output_devices() -> Result<Vec<OutputDeviceInfo>, AtmosError> {
     }).join().unwrap_or_else(|_| Err(AtmosError { message: "Thread panicked during device lookup".to_string() }))
 }
 
-pub fn api_get_device_channel_count(device_name: String) -> Result<u32, AtmosError> {
-    let devices = api_get_output_devices()?;
-    for device in devices {
-        if device.name == device_name {
-            return Ok(device.max_channels);
+pub fn api_get_device_channel_count(device_name: Option<String>) -> Result<u32, AtmosError> {
+    use cpal::traits::{DeviceTrait, HostTrait};
+    
+    let device = if let Some(ref name) = device_name {
+        let target_prefix = if name.starts_with("[ASIO]") { Some("[ASIO]") } 
+            else if name.starts_with("[WASAPI]") { Some("[WASAPI]") } 
+            else if name.starts_with("[CoreAudio]") { Some("[CoreAudio]") }
+            else { None };
+            
+        let hosts = crate::audio::engine::get_hosts(target_prefix)
+            .map_err(|e| AtmosError { message: e })?;
+            
+        let mut found_device = None;
+        for host in &hosts {
+            let prefix = format!("[{}] ", host.id().name());
+            if name.starts_with(&prefix) {
+                let actual_name = name.strip_prefix(&prefix).unwrap_or(name).trim_matches(char::from(0)).trim();
+                if let Ok(devices) = host.output_devices() {
+                    for d in devices {
+                        if let Ok(d_name) = d.name() {
+                            if d_name.trim_matches(char::from(0)).trim() == actual_name {
+                                found_device = Some(d);
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        found_device.ok_or_else(|| AtmosError { message: format!("Device not found: {}", name) })?
+    } else {
+        cpal::default_host().default_output_device().ok_or_else(|| AtmosError { message: "No default output device".to_string() })?
+    };
+
+    let mut max_channels = 0;
+    if let Ok(supported_configs) = device.supported_output_configs() {
+        for config in supported_configs {
+            let channels = config.channels() as u32;
+            if channels > max_channels {
+                max_channels = channels;
+            }
         }
     }
-    Err(AtmosError { message: format!("Device not found: {}", device_name) })
+    
+    if let Ok(default_config) = device.default_output_config() {
+        let channels = default_config.channels() as u32;
+        if channels > max_channels {
+            max_channels = channels;
+        }
+    }
+
+    Ok(max_channels)
 }
 
-pub fn api_get_device_channel_names(device_name: String) -> Result<Vec<String>, AtmosError> {
+pub fn api_get_device_channel_names(device_name: Option<String>) -> Result<Vec<String>, AtmosError> {
     let max_channels = api_get_device_channel_count(device_name.clone())?;
     
-    let actual_name = if let Some(idx) = device_name.find("] ") {
-        device_name[idx + 2..].to_string()
+    let actual_name = if let Some(ref name) = device_name {
+        if let Some(idx) = name.find("] ") {
+            name[idx + 2..].to_string()
+        } else {
+            name.clone()
+        }
     } else {
-        device_name.clone()
+        "Default".to_string()
     };
 
     #[cfg(target_os = "macos")]

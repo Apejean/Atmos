@@ -22,3 +22,8 @@
 - **`@check`** (Code Reviewer & Quality Supervisor): `4420f854-6f64-433b-a32a-d398478e82dd`
 
 When a task requires delegation or QA, use `send_message` to send instructions to the exact Conversation ID mapped to the respective role.
+
+## Pre-Build / Pre-Upload Protocol
+**CRITICAL RULE:** Before pushing code to GitHub, creating a release tag, or running a build, the `@Main` operator MUST command `@check` and `@sub` to perform a final, comprehensive deep-debugging sweep. 
+- You MUST ensure there are absolutely no remaining bugs, memory leaks, or unhandled edge cases.
+- GitHub upload and building are strictly blocked until `@check` officially reports a 100% flawlessness rate.

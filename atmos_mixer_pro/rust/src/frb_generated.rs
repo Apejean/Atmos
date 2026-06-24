@@ -249,7 +249,7 @@ fn wire__crate__api__simple__api_get_device_channel_count_impl(
             };
             let mut deserializer =
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
-            let api_device_name = <String>::sse_decode(&mut deserializer);
+            let api_device_name = <Option<String>>::sse_decode(&mut deserializer);
             deserializer.end();
             move |context| {
                 transform_result_sse::<_, crate::api::error::AtmosError>((move || {
@@ -283,7 +283,7 @@ fn wire__crate__api__simple__api_get_device_channel_names_impl(
             };
             let mut deserializer =
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
-            let api_device_name = <String>::sse_decode(&mut deserializer);
+            let api_device_name = <Option<String>>::sse_decode(&mut deserializer);
             deserializer.end();
             move |context| {
                 transform_result_sse::<_, crate::api::error::AtmosError>((move || {

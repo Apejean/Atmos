@@ -15,7 +15,7 @@ fn test_room_clear_spam_no_duplicate() {
     
     // drain any pending commands
     let rx = GLOBAL_STATE.command_receiver.clone();
-    while let Ok(_) = rx.try_recv() {}
+    while rx.try_recv().is_ok() {}
 
     // Clear global state first
     api_stop_all().unwrap();
@@ -72,7 +72,7 @@ fn test_system_reset_theme_start_glitch() {
     
     // drain any pending commands
     let rx = GLOBAL_STATE.command_receiver.clone();
-    while let Ok(_) = rx.try_recv() {}
+    while rx.try_recv().is_ok() {}
 
     let num_iterations = 1000;
     
@@ -107,7 +107,7 @@ fn test_system_reset_theme_start_glitch() {
     t1.join().unwrap();
     t2.join().unwrap();
     
-    while let Ok(_) = rx.try_recv() {} // drain commands
+    while rx.try_recv().is_ok() {} // drain commands
     
     println!("System reset vs theme start glitch stress test PASSED.");
 }

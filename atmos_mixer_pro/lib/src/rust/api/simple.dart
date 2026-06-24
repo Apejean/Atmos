@@ -8,8 +8,8 @@ import '../frb_generated.dart';
 import 'error.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `CACHED_DEVICES`, `VU_THREAD_RUNNING`
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `deref`, `deref`, `fmt`, `fmt`, `initialize`, `initialize`
+// These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `ENGINE_ACTIVE`, `ENGINE_GENERATION`, `VU_THREAD_RUNNING`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `deref`, `deref`, `deref`, `fmt`, `fmt`, `initialize`, `initialize`, `initialize`
 
 Future<AppConfig> apiGetConfig({required String path}) =>
     RustLib.instance.api.crateApiSimpleApiGetConfig(path: path);
@@ -79,15 +79,15 @@ Future<void> apiPreloadAllSounds({required AppConfig config}) =>
 Future<List<OutputDeviceInfo>> apiGetOutputDevices() =>
     RustLib.instance.api.crateApiSimpleApiGetOutputDevices();
 
-Future<int> apiGetDeviceChannelCount({required String deviceName}) => RustLib
+Future<int> apiGetDeviceChannelCount({String? deviceName}) => RustLib
     .instance
     .api
     .crateApiSimpleApiGetDeviceChannelCount(deviceName: deviceName);
 
-Future<List<String>> apiGetDeviceChannelNames({required String deviceName}) =>
-    RustLib.instance.api.crateApiSimpleApiGetDeviceChannelNames(
-      deviceName: deviceName,
-    );
+Future<List<String>> apiGetDeviceChannelNames({String? deviceName}) => RustLib
+    .instance
+    .api
+    .crateApiSimpleApiGetDeviceChannelNames(deviceName: deviceName);
 
 class EngineStateUpdate {
   final String? activeRoomId;

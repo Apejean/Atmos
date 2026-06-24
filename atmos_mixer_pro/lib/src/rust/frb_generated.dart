@@ -90,12 +90,10 @@ abstract class RustLibApi extends BaseApi {
 
   Future<AppConfig> crateApiSimpleApiGetConfig({required String path});
 
-  Future<int> crateApiSimpleApiGetDeviceChannelCount({
-    required String deviceName,
-  });
+  Future<int> crateApiSimpleApiGetDeviceChannelCount({String? deviceName});
 
   Future<List<String>> crateApiSimpleApiGetDeviceChannelNames({
-    required String deviceName,
+    String? deviceName,
   });
 
   Future<List<OutputDeviceInfo>> crateApiSimpleApiGetOutputDevices();
@@ -309,14 +307,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(debugName: "api_get_config", argNames: ["path"]);
 
   @override
-  Future<int> crateApiSimpleApiGetDeviceChannelCount({
-    required String deviceName,
-  }) {
+  Future<int> crateApiSimpleApiGetDeviceChannelCount({String? deviceName}) {
     return handler.executeNormal(
       NormalTask(
         callFfi: (port_) {
           final serializer = SseSerializer(generalizedFrbRustBinding);
-          sse_encode_String(deviceName, serializer);
+          sse_encode_opt_String(deviceName, serializer);
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
@@ -343,13 +339,13 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   @override
   Future<List<String>> crateApiSimpleApiGetDeviceChannelNames({
-    required String deviceName,
+    String? deviceName,
   }) {
     return handler.executeNormal(
       NormalTask(
         callFfi: (port_) {
           final serializer = SseSerializer(generalizedFrbRustBinding);
-          sse_encode_String(deviceName, serializer);
+          sse_encode_opt_String(deviceName, serializer);
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,

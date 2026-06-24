@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:atmos_mixer_pro/core/theme/colors.dart';
@@ -384,9 +385,9 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
       return isStereo ? '${channelIndex}_stereo' : '${channelIndex}_mono';
     }
 
-    final uniqueDriverTypes = _devices.map((d) => _getDriverType(d)).toSet().toList();
-    if (uniqueDriverTypes.isEmpty) {
-      uniqueDriverTypes.add('WASAPI');
+    final uniqueDriverTypes = Platform.isMacOS ? ['CoreAudio'] : ['WASAPI', 'ASIO'];
+    if (!uniqueDriverTypes.contains(_selectedDriverType)) {
+      _selectedDriverType = uniqueDriverTypes.first;
     }
     
     final filteredDevices = _devices.where((d) => _getDriverType(d) == _selectedDriverType).toList();
@@ -401,11 +402,21 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
             fontWeight: FontWeight.bold,
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 16),
         Row(
           children: [
+            const SizedBox(
+              width: 120,
+              child: Text(
+                'Driver type',
+                style: TextStyle(
+                  color: Colors.white70,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
+              ),
+            ),
             Expanded(
-              flex: 1,
               child: DropdownButtonFormField<String>(
                 key: ValueKey(_selectedDriverType),
                 isExpanded: true,
@@ -415,10 +426,7 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                   filled: true,
                   fillColor: AppColors.cardSurface,
                   border: OutlineInputBorder(),
-                ),
-                hint: const Text(
-                  '드라이버 타입',
-                  style: TextStyle(color: Colors.white54),
+                  contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                 ),
                 items: uniqueDriverTypes.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
                 onChanged: (val) {
@@ -429,6 +437,8 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                       String? newDeviceName;
                       if (newFilteredDevices.isNotEmpty) {
                         newDeviceName = newFilteredDevices.first;
+                      } else {
+                        newDeviceName = null;
                       }
                       
                       _tempConfig = AppConfig(
@@ -447,9 +457,23 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                 },
               ),
             ),
-            const SizedBox(width: 16),
+          ],
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            const SizedBox(
+              width: 120,
+              child: Text(
+                'Audio Device',
+                style: TextStyle(
+                  color: Colors.white70,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
+              ),
+            ),
             Expanded(
-              flex: 2,
               child: DropdownButtonFormField<String>(
                 key: ValueKey(_tempConfig.deviceName),
                 isExpanded: true,
@@ -459,16 +483,19 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                   filled: true,
                   fillColor: AppColors.cardSurface,
                   border: OutlineInputBorder(),
-                ),
-                hint: const Text(
-                  '디바이스 선택 (Select Device)',
-                  style: TextStyle(color: Colors.white54),
+                  contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                 ),
                 items: [
-                  const DropdownMenuItem(
-                    value: null,
-                    child: Text('기본 오디오 출력 (Default)'),
-                  ),
+                  if (filteredDevices.isEmpty)
+                    const DropdownMenuItem<String>(
+                      value: null,
+                      child: Text('장치 없음', style: TextStyle(color: Colors.white54)),
+                    )
+                  else
+                    const DropdownMenuItem<String>(
+                      value: null,
+                      child: Text('기본 오디오 출력 (Default)'),
+                    ),
                   ...filteredDevices.map(
                     (d) => DropdownMenuItem(value: d, child: Text(_getCleanDeviceName(d))),
                   ),
@@ -476,7 +503,7 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                       !_devices.contains(_tempConfig.deviceName))
                     DropdownMenuItem(
                       value: _tempConfig.deviceName,
-                      child: Text('${_getCleanDeviceName(_tempConfig.deviceName)} (Disconnected)'),
+                      child: Text('${_getCleanDeviceName(_tempConfig.deviceName!)} (Disconnected)'),
                     ),
                 ],
                 onChanged: (val) {
@@ -496,9 +523,23 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                 },
               ),
             ),
-            const SizedBox(width: 16),
+          ],
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            const SizedBox(
+              width: 120,
+              child: Text(
+                'Buffer Size',
+                style: TextStyle(
+                  color: Colors.white70,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
+              ),
+            ),
             Expanded(
-              flex: 1,
               child: DropdownButtonFormField<int>(
                 isExpanded: true,
                 initialValue: _tempConfig.bufferSize,

@@ -85,10 +85,9 @@ class ConfigNotifier extends Notifier<AppConfig?> {
 final configProvider = NotifierProvider<ConfigNotifier, AppConfig?>(ConfigNotifier.new);
 
 final hardwareChannelsProvider = FutureProvider<List<String>>((ref) async {
-  final config = ref.watch(configProvider);
-  if (config == null || config.deviceName == null || config.deviceName!.isEmpty) return [];
+  final deviceName = ref.watch(configProvider.select((c) => c?.deviceName));
   try {
-    return await rust_api.apiGetDeviceChannelNames(deviceName: config.deviceName!);
+    return await rust_api.apiGetDeviceChannelNames(deviceName: deviceName);
   } catch (e) {
     return [];
   }
