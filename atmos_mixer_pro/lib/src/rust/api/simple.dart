@@ -8,8 +8,8 @@ import '../frb_generated.dart';
 import 'error.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `ENGINE_ACTIVE`, `ENGINE_GENERATION`, `VU_THREAD_RUNNING`
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `deref`, `deref`, `deref`, `fmt`, `fmt`, `initialize`, `initialize`, `initialize`
+// These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `ENGINE_ACTIVE`, `ENGINE_GENERATION`, `ENGINE_RESTARTING`, `VU_THREAD_RUNNING`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `deref`, `deref`, `deref`, `deref`, `fmt`, `fmt`, `initialize`, `initialize`, `initialize`, `initialize`
 
 Future<AppConfig> apiGetConfig({required String path}) =>
     RustLib.instance.api.crateApiSimpleApiGetConfig(path: path);
@@ -66,6 +66,9 @@ Future<void> apiStartAudioEngine({String? deviceName}) => RustLib.instance.api
 
 Future<void> apiStopAudioEngine() =>
     RustLib.instance.api.crateApiSimpleApiStopAudioEngine();
+
+Future<void> apiForceRestartEngine({String? deviceName}) => RustLib.instance.api
+    .crateApiSimpleApiForceRestartEngine(deviceName: deviceName);
 
 Future<void> apiStartOscListener({required int port}) =>
     RustLib.instance.api.crateApiSimpleApiStartOscListener(port: port);

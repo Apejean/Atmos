@@ -18,8 +18,6 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
   late TabController _tabController;
   late AppConfig _tempConfig;
 
-  static List<String>? _cachedDevices;
-
   List<String> _devices = [];
   List<String> _channelNames = [];
   String _selectedDriverType = 'WASAPI';
@@ -33,9 +31,9 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
     if (deviceName.startsWith('[WASAPI]')) return 'WASAPI';
     if (deviceName.startsWith('[CoreAudio]')) return 'CoreAudio';
     
-    if (_cachedDevices != null) {
+    if (GlobalDeviceCache.devices != null) {
       final cleanTarget = _getCleanDeviceName(deviceName).trim();
-      for (final d in _cachedDevices!) {
+      for (final d in GlobalDeviceCache.devices!) {
         if (_getCleanDeviceName(d).trim() == cleanTarget) {
           if (d.startsWith('[ASIO]')) return 'ASIO';
           if (d.startsWith('[WASAPI]')) return 'WASAPI';
@@ -78,19 +76,34 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
             stereoConfigs: {},
             rooms: [],
           );
+          
+    if (_tempConfig.deviceName != null && GlobalDeviceCache.devices == null) {
+      _devices = [_tempConfig.deviceName!];
+    }
+    
+    if (GlobalDeviceCache.devices != null) {
+      _devices = GlobalDeviceCache.devices!;
+      if (_tempConfig.deviceName != null && GlobalDeviceCache.channels.containsKey(_tempConfig.deviceName)) {
+        _channelNames = GlobalDeviceCache.channels[_tempConfig.deviceName]!;
+      }
+      _applyLoadedDevices(_devices);
+    } else {
+      if (_tempConfig.deviceName != null) {
+        _devices = [_tempConfig.deviceName!];
+      }
+      _loadDevices();
+    }
     _selectedDriverType = _getDriverType(_tempConfig.deviceName);
-    _loadDevices();
   }
 
   Future<void> _loadDevices() async {
-    if (_cachedDevices != null) {
-      _applyLoadedDevices(_cachedDevices!);
-      return;
-    }
     try {
       final deviceInfos = await rust_api.apiGetOutputDevices();
       final devices = deviceInfos.map((d) => d.name).toList();
-      _cachedDevices = devices;
+      GlobalDeviceCache.devices = devices;
+      for (final info in deviceInfos) {
+        GlobalDeviceCache.channels[info.name] = info.channelNames;
+      }
       _applyLoadedDevices(devices);
     } catch (e) {
       if (mounted) {
@@ -110,7 +123,8 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
     rust_api.apiStopAudioEngine();
     
     // 2. Clear cache to force deep scan
-    _cachedDevices = null;
+    GlobalDeviceCache.devices = null;
+    GlobalDeviceCache.channels.clear();
     
     // 3. Clear UI list and channel list while scanning
     if (mounted) {
@@ -139,8 +153,14 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
       if (!mounted) return;
       
       final devices = deviceInfos.map((d) => d.name).toList();
-      _cachedDevices = devices;
+      GlobalDeviceCache.devices = devices;
+      for (final info in deviceInfos) {
+        GlobalDeviceCache.channels[info.name] = info.channelNames;
+      }
       _applyLoadedDevices(devices);
+      
+      // 6. Restart engine using the new force restart API
+      rust_api.apiForceRestartEngine(deviceName: _tempConfig.deviceName);
     } catch (e) {
       if (mounted) {
         ref.read(globalErrorProvider.notifier).showError('장치 스캔 실패: $e');
@@ -193,7 +213,13 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
       }
       _selectedDriverType = _getDriverType(_tempConfig.deviceName);
     });
-    _loadDeviceChannels(_tempConfig.deviceName);
+    
+    // Only load channels if not already cached
+    if (_channelNames.isEmpty || _tempConfig.deviceName == null || !GlobalDeviceCache.channels.containsKey(_tempConfig.deviceName)) {
+      _loadDeviceChannels(_tempConfig.deviceName);
+    } else {
+      _channelNames = GlobalDeviceCache.channels[_tempConfig.deviceName!]!;
+    }
   }
 
   Future<void> _loadDeviceChannels(String? deviceName) async {

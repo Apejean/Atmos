@@ -314,6 +314,15 @@ pub fn api_stop_audio_engine() {
     println!("✅ [디버깅] 백엔드 오디오 엔진 명시적 종료 완료.");
 }
 
+pub fn api_force_restart_engine(device_name: Option<String>) {
+    println!("🔄 [디버깅] 백엔드 오디오 엔진 강제 재시작 요청됨.");
+    api_stop_audio_engine();
+    
+    // api_start_audio_engine automatically sets ENGINE_RESTARTING = true,
+    // waits 500ms, and sets ENGINE_ACTIVE = true.
+    api_start_audio_engine(device_name);
+}
+
 pub fn api_start_osc_listener(port: u16) {
     let listener = crate::osc::listener::OscListener::new();
     listener.start(port);

@@ -10,9 +10,20 @@ Future<String> _getConfigPath() async {
   return '${dir.path}/config.json';
 }
 
+class GlobalDeviceCache {
+  static List<String>? devices;
+  static Map<String, List<String>> channels = {};
+}
+
+class _SaveTask {
+  final AppConfig config;
+  final bool forceRestart;
+  _SaveTask(this.config, this.forceRestart);
+}
+
 class ConfigNotifier extends Notifier<AppConfig?> {
   bool _isSaving = false;
-  final List<AppConfig> _saveQueue = [];
+  final List<_SaveTask> _saveQueue = [];
   AppConfig? _lastProcessedConfig;
 
   @override
@@ -30,6 +41,17 @@ class ConfigNotifier extends Notifier<AppConfig?> {
       } catch (e) {
         // Ignore initial preload errors
       }
+      
+      try {
+        final deviceInfos = await rust_api.apiGetOutputDevices();
+        GlobalDeviceCache.devices = deviceInfos.map((d) => d.name).toList();
+        for (final info in deviceInfos) {
+          GlobalDeviceCache.channels[info.name] = info.channelNames;
+        }
+      } catch (e) {
+        // Ignore background scan errors
+      }
+
       _lastProcessedConfig = config;
       state = config;
       rust_api.apiStartAudioEngine(deviceName: config.deviceName);
@@ -39,11 +61,11 @@ class ConfigNotifier extends Notifier<AppConfig?> {
     }
   }
 
-  void saveConfig(AppConfig newConfig) {
+  void saveConfig(AppConfig newConfig, {bool forceRestart = false}) {
     // Optimistic UI Update: immediately set state so UI reflects the added track
     state = newConfig;
     
-    _saveQueue.add(newConfig);
+    _saveQueue.add(_SaveTask(newConfig, forceRestart));
     _processQueue();
   }
 
@@ -52,7 +74,8 @@ class ConfigNotifier extends Notifier<AppConfig?> {
     _isSaving = true;
 
     while (_saveQueue.isNotEmpty) {
-      final configToSave = _saveQueue.removeAt(0);
+      final task = _saveQueue.removeAt(0);
+      final configToSave = task.config;
       final oldConfig = _lastProcessedConfig;
       
       try {
@@ -64,9 +87,9 @@ class ConfigNotifier extends Notifier<AppConfig?> {
           // Ignore preload errors, keep UI responsive
         }
         
-        bool engineNeedsRestart = oldConfig == null || oldConfig.deviceName != configToSave.deviceName || oldConfig.bufferSize != configToSave.bufferSize;
+        bool engineNeedsRestart = oldConfig == null || oldConfig.deviceName != configToSave.deviceName || oldConfig.bufferSize != configToSave.bufferSize || task.forceRestart;
         
-        if (engineNeedsRestart && oldConfig != null && oldConfig.deviceName != null && configToSave.deviceName != null) {
+        if (!task.forceRestart && engineNeedsRestart && oldConfig != null && oldConfig.deviceName != null && configToSave.deviceName != null) {
           final oldName = oldConfig.deviceName!.trim();
           final newName = configToSave.deviceName!.trim();
           
