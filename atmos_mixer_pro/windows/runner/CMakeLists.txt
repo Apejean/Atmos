@@ -38,3 +38,10 @@ target_include_directories(${BINARY_NAME} PRIVATE "${CMAKE_SOURCE_DIR}")
 
 # Run the Flutter tool portions of the build. This must not be removed.
 add_dependencies(${BINARY_NAME} flutter_assemble)
+
+# --- WORKAROUND FOR MT.EXE LINKER ERROR IN GITHUB ACTIONS ---
+# Disable Manifest Generation for the executable to bypass the LNK1327 fatal error
+# caused by Windows Defender / GitHub Actions filesystem locks on mt.exe.
+set_target_properties(${BINARY_NAME} PROPERTIES
+  LINK_FLAGS "/MANIFEST:NO"
+)
