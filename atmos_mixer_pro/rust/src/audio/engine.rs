@@ -82,7 +82,7 @@ impl AudioEngine {
         let device = if let Some(ref name) = device_name {
             let mut found_device = None;
             let target_name = name.replace("[ASIO] ", "").replace("[WASAPI] ", "").replace("[CoreAudio] ", "");
-            let target_name = target_name.trim_matches(char::from(0)).trim();
+            let target_name = target_name.replace('\0', "").trim().to_string();
 
             println!("🔥 [디버깅] 플러터 원본 요청: '{}'", name);
             println!("🔥 [디버깅] 공백 제거 후 타겟: '{}'", target_name);
@@ -92,7 +92,7 @@ impl AudioEngine {
                     println!("🔥 [디버깅] 현재 호스트 '{:?}'에서 찾은 장치 목록:", host.id());
                     for d in devices {
                         if let Ok(d_name) = d.name() {
-                            let clean_d_name = d_name.trim_matches(char::from(0)).trim();
+                            let clean_d_name = d_name.replace('\0', "").trim().to_string();
                             println!("  - 발견된 기기: '{}'", clean_d_name);
                             if clean_d_name == target_name {
                                 found_device = Some(d);
