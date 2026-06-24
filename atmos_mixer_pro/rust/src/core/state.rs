@@ -114,7 +114,19 @@ impl GlobalEngineState {
     pub fn log(&self, msg: String) {
         println!("{}", msg);
         if let Some(sink) = self.log_sink.read().unwrap().as_ref() {
-            let _ = sink.add(msg);
+            let _ = sink.add(msg.clone());
+        }
+        
+        // Write to log file
+        if let Ok(mut dir) = std::env::current_exe() {
+            dir.pop();
+            dir.push("Logs");
+            let _ = std::fs::create_dir_all(&dir);
+            dir.push("atmos_mixer_pro.log");
+            if let Ok(mut file) = std::fs::OpenOptions::new().create(true).append(true).open(&dir) {
+                let time = chrono::Local::now().format("%Y-%m-%d %H:%M:%S");
+                let _ = std::io::Write::write_fmt(&mut file, format_args!("[{}] {}\n", time, msg));
+            }
         }
     }
 

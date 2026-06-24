@@ -8,6 +8,7 @@ import 'package:atmos_mixer_pro/features/settings/widgets/preferences_modal.dart
 import 'package:atmos_mixer_pro/src/rust/api/simple.dart' as rust_api;
 import 'package:atmos_mixer_pro/src/rust/common/config.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/services.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
@@ -479,12 +480,31 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              TextButton(
-                onPressed: () => ref.read(logProvider.notifier).clearLogs(),
-                child: const Text(
-                  '지우기',
-                  style: TextStyle(color: AppColors.textPrimary),
-                ),
+              Row(
+                children: [
+                  TextButton(
+                    onPressed: () {
+                      final logText = ref.read(logProvider).join('\n');
+                      if (logText.isNotEmpty) {
+                        Clipboard.setData(ClipboardData(text: logText));
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('로그가 클립보드에 복사되었습니다.'), duration: Duration(seconds: 2)),
+                        );
+                      }
+                    },
+                    child: const Text(
+                      '복사',
+                      style: TextStyle(color: AppColors.textPrimary),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () => ref.read(logProvider.notifier).clearLogs(),
+                    child: const Text(
+                      '지우기',
+                      style: TextStyle(color: AppColors.textPrimary),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
