@@ -115,6 +115,9 @@ Future<void> apiPlayAllLoopTracks() =>
 Future<void> apiLoadPreset({required AppConfig config}) =>
     RustLib.instance.api.crateApiSimpleApiLoadPreset(config: config);
 
+Future<void> apiTriggerTestError({required String message}) =>
+    RustLib.instance.api.crateApiSimpleApiTriggerTestError(message: message);
+
 class EngineStateUpdate {
   final String? activeRoomId;
   final bool duckingActive;

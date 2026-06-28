@@ -68,7 +68,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.12.0';
 
   @override
-  int get rustContentHash => -69591540;
+  int get rustContentHash => 495074389;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -150,6 +150,8 @@ abstract class RustLibApi extends BaseApi {
     required String roomId,
     required String trackId,
   });
+
+  Future<void> crateApiSimpleApiTriggerTestError({required String message});
 }
 
 class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
@@ -912,6 +914,37 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     debugName: "api_stop_track",
     argNames: ["roomId", "trackId"],
   );
+
+  @override
+  Future<void> crateApiSimpleApiTriggerTestError({required String message}) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_String(message, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 25,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: sse_decode_atmos_error,
+        ),
+        constMeta: kCrateApiSimpleApiTriggerTestErrorConstMeta,
+        argValues: [message],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiSimpleApiTriggerTestErrorConstMeta =>
+      const TaskConstMeta(
+        debugName: "api_trigger_test_error",
+        argNames: ["message"],
+      );
 
   @protected
   AnyhowException dco_decode_AnyhowException(dynamic raw) {

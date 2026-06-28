@@ -5,7 +5,9 @@ class AppColors {
   static const Color headerBackground = Color(0xFF0A0C16);
   static const Color cardSurface = Color(0xFF151726);
   static const Color cardSurfaceSolid = Color(0xFF1A1D30);
-  static const Color primaryNeon = Color(0xFF00D18A); // Renamed visually to flat accent, but keeping variable name for compatibility
+  static const Color primaryNeon = Color(
+    0xFF00D18A,
+  ); // Renamed visually to flat accent, but keeping variable name for compatibility
   static const Color danger = Color(0xFFD32F2F);
   static const Color dangerHover = Color(0xFFB71C1C);
   static const Color success = Color(0xFF2E7D32);

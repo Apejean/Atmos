@@ -42,7 +42,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 Expanded(child: _buildRoomPanels(context)),
               ],
             ),
-            _buildErrorBanner(),
+            _buildErrorModal(),
           ],
         ),
       ),
@@ -219,117 +219,114 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     ];
   }
 
-  Widget _buildErrorBanner() {
+  Widget _buildErrorModal() {
     return Consumer(
       builder: (context, ref, child) {
         final error = ref.watch(globalErrorProvider);
-        return AnimatedPositioned(
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeInOut,
-          top: error != null ? 0 : -400,
-          left: 0,
-          right: 0,
-          child: Material(
-            elevation: 8,
-            color: Colors.transparent,
-            child: Container(
-              color: AppColors.danger.withValues(alpha: 0.95),
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              child: SafeArea(
-                bottom: false,
-                child: Row(
+        if (error == null) return const SizedBox.shrink();
+
+        return Positioned.fill(
+          child: Container(
+            color: Colors.black87,
+            child: Center(
+              child: Container(
+                constraints: const BoxConstraints(maxWidth: 500),
+                padding: const EdgeInsets.all(32),
+                decoration: BoxDecoration(
+                  color: AppColors.background,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AppColors.danger, width: 2),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.danger.withValues(alpha: 0.3),
+                      blurRadius: 20,
+                      spreadRadius: 5,
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     const Icon(
-                      Icons.error_outline,
-                      color: Colors.white,
-                      size: 28,
+                      Icons.warning_rounded,
+                      color: AppColors.danger,
+                      size: 64,
                     ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            error ?? '',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          const Text(
-                            '해결 방법: 케이블을 확인하고 상단 설정(Preferences)에서 오디오 장치를 다시 선택하거나 아래 복구 버튼을 누르세요.',
-                            style: TextStyle(
-                              color: Colors.white70,
-                              fontSize: 14,
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          ElevatedButton.icon(
-                            onPressed: _isRecovering
-                                ? null
-                                : () async {
-                                    final config = ref.read(configProvider);
-                                    if (config != null) {
-                                      setState(() {
-                                        _isRecovering = true;
-                                      });
-                                      try {
-                                        await rust_api.apiForceRestartEngine(
-                                          deviceName: config.deviceName,
-                                        );
-                                        if (context.mounted) {
-                                          ref
-                                              .read(
-                                                globalErrorProvider.notifier,
-                                              )
-                                              .clearError();
-                                        }
-                                      } finally {
-                                        if (context.mounted) {
-                                          setState(() {
-                                            _isRecovering = false;
-                                          });
-                                        }
-                                      }
-                                    }
-                                  },
-                            icon: _isRecovering
-                                ? const SizedBox(
-                                    width: 16,
-                                    height: 16,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                    ),
-                                  )
-                                : const Icon(Icons.refresh),
-                            label: Text(
-                              _isRecovering ? '복구 중...' : '엔진 리셋 (원클릭 복구)',
-                            ),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.white,
-                              foregroundColor: AppColors.danger,
-                              disabledBackgroundColor: Colors.white70,
-                              disabledForegroundColor: AppColors.danger
-                                  .withValues(alpha: 0.5),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 12,
-                              ),
-                              textStyle: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ],
+                    const SizedBox(height: 24),
+                    const Text(
+                      '치명적 시스템 오류 발생',
+                      style: TextStyle(
+                        color: AppColors.danger,
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.close, color: Colors.white),
-                      onPressed: () =>
-                          ref.read(globalErrorProvider.notifier).clearError(),
+                    const SizedBox(height: 16),
+                    Text(
+                      error,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(color: Colors.white, fontSize: 16),
+                    ),
+                    const SizedBox(height: 24),
+                    const Text(
+                      '오디오 장치 케이블 연결을 확인하고\n아래의 복구 버튼을 눌러 엔진을 재시작하세요.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.white70, fontSize: 14),
+                    ),
+                    const SizedBox(height: 32),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 56,
+                      child: ElevatedButton.icon(
+                        onPressed: _isRecovering
+                            ? null
+                            : () async {
+                                final config = ref.read(configProvider);
+                                if (config != null) {
+                                  setState(() {
+                                    _isRecovering = true;
+                                  });
+                                  try {
+                                    await rust_api.apiForceRestartEngine(
+                                      deviceName: config.deviceName,
+                                    );
+                                    if (context.mounted) {
+                                      ref
+                                          .read(globalErrorProvider.notifier)
+                                          .clearError();
+                                    }
+                                  } finally {
+                                    if (context.mounted) {
+                                      setState(() {
+                                        _isRecovering = false;
+                                      });
+                                    }
+                                  }
+                                }
+                              },
+                        icon: _isRecovering
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : const Icon(Icons.refresh, size: 24),
+                        label: Text(
+                          _isRecovering ? '복구 중...' : '엔진 리셋 (원클릭 복구)',
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.danger,
+                          foregroundColor: Colors.white,
+                          disabledBackgroundColor: Colors.white24,
+                        ),
+                      ),
                     ),
                   ],
                 ),

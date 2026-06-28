@@ -553,7 +553,7 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
         channelItems.add(
           DropdownMenuItem<String>(
             value: '${realCh}_stereo',
-            child: Text('Stereo $displayName'),
+            child: Text('N-Ch (다채널) $displayName'),
           ),
         );
       }
@@ -1530,8 +1530,8 @@ class _OutputConfigDialogState extends ConsumerState<OutputConfigDialog> {
             const Padding(
               padding: EdgeInsets.all(16.0),
               child: Text(
-                'Choose which audio hardware outputs to make available. Every output pair can be used as one stereo out and/or two mono outs.',
-                style: TextStyle(color: Colors.white70),
+                'Choose which audio hardware outputs to make available. Each channel can be used as a 1-Ch (Mono) output or the start of an N-Ch (Multi-Channel) output array.',
+                style: TextStyle(color: Colors.white70, fontSize: 13),
               ),
             ),
             Expanded(
@@ -1546,7 +1546,7 @@ class _OutputConfigDialogState extends ConsumerState<OutputConfigDialog> {
                           child: Align(
                             alignment: Alignment.centerLeft,
                             child: Text(
-                              'Mono Outputs',
+                              '1-Ch (Mono) Outputs',
                               style: TextStyle(
                                 color: Colors.white,
                                 fontWeight: FontWeight.bold,
@@ -1597,7 +1597,7 @@ class _OutputConfigDialogState extends ConsumerState<OutputConfigDialog> {
                           child: Align(
                             alignment: Alignment.centerLeft,
                             child: Text(
-                              'Stereo Outputs',
+                              'N-Ch (Multi-Channel) Outputs',
                               style: TextStyle(
                                 color: Colors.white,
                                 fontWeight: FontWeight.bold,

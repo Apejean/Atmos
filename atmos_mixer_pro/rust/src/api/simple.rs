@@ -981,3 +981,9 @@ pub fn api_load_preset(config: AppConfig) -> Result<(), AtmosError> {
     api_preload_all_sounds(config)?;
     Ok(())
 }
+
+pub fn api_trigger_test_error(message: String) -> Result<(), AtmosError> {
+    *GLOBAL_STATE.engine_error.write().unwrap() = Some(message);
+    GLOBAL_STATE.broadcast_state();
+    Ok(())
+}

@@ -128,7 +128,7 @@ class _TrackCardState extends ConsumerState<TrackCard> {
             DropdownMenuItem(
               value: 'mono_$realCh1',
               child: Text(
-                'Mono $name1',
+                '1-Ch (모노) $name1',
                 style: const TextStyle(fontSize: 12, color: Colors.white),
               ),
             ),
@@ -144,7 +144,7 @@ class _TrackCardState extends ConsumerState<TrackCard> {
               DropdownMenuItem(
                 value: 'mono_$realCh2',
                 child: Text(
-                  'Mono $name2',
+                  '1-Ch (모노) $name2',
                   style: const TextStyle(fontSize: 12, color: Colors.white),
                 ),
               ),
@@ -167,7 +167,7 @@ class _TrackCardState extends ConsumerState<TrackCard> {
             DropdownMenuItem(
               value: 'stereo_$realCh',
               child: Text(
-                'Stereo $displayName',
+                'N-Ch (다채널) $displayName',
                 style: const TextStyle(fontSize: 12, color: Colors.white),
               ),
             ),
@@ -206,8 +206,8 @@ class _TrackCardState extends ConsumerState<TrackCard> {
             value: currentValue,
             child: Text(
               widget.track.outputStereo
-                  ? 'Stereo $displayCh/${displayCh + 1} (Disabled)'
-                  : 'Mono $displayCh (Disabled)',
+                  ? 'N-Ch $displayCh~ (Disabled)'
+                  : '1-Ch $displayCh (Disabled)',
               style: const TextStyle(fontSize: 12, color: AppColors.danger),
             ),
           ),
@@ -294,10 +294,14 @@ class _TrackCardState extends ConsumerState<TrackCard> {
                         children: [
                           Container(
                             decoration: BoxDecoration(
-                              color: widget.track.isLoop ? widget.accentColor.withValues(alpha: 0.15) : Colors.transparent,
+                              color: widget.track.isLoop
+                                  ? widget.accentColor.withValues(alpha: 0.15)
+                                  : Colors.transparent,
                               borderRadius: BorderRadius.circular(8),
                               border: Border.all(
-                                color: widget.track.isLoop ? widget.accentColor : Colors.transparent,
+                                color: widget.track.isLoop
+                                    ? widget.accentColor
+                                    : Colors.transparent,
                                 width: 1.5,
                               ),
                             ),
@@ -306,17 +310,17 @@ class _TrackCardState extends ConsumerState<TrackCard> {
                               color: widget.track.isLoop
                                   ? widget.accentColor
                                   : AppColors.darkGrey,
-                            iconSize: 20,
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(
-                              minWidth: 32,
-                              minHeight: 32,
+                              iconSize: 20,
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(
+                                minWidth: 32,
+                                minHeight: 32,
+                              ),
+                              onPressed: () => widget.onLoopChanged?.call(
+                                !widget.track.isLoop,
+                              ),
+                              tooltip: '무한 루프 (BGM)',
                             ),
-                            onPressed: () => widget.onLoopChanged?.call(
-                              !widget.track.isLoop,
-                            ),
-                            tooltip: '무한 루프 (BGM)',
-                          ),
                           ),
                           const SizedBox(width: 4),
                           Text(
