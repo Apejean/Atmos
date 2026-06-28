@@ -15,6 +15,7 @@ class AppConfig {
   final Map<int, ChannelSetting> monoConfigs;
   final Map<int, ChannelSetting> stereoConfigs;
   final List<RoomConfig> rooms;
+  final bool isExhibitionMode;
 
   const AppConfig({
     required this.oscPort,
@@ -25,6 +26,7 @@ class AppConfig {
     required this.monoConfigs,
     required this.stereoConfigs,
     required this.rooms,
+    required this.isExhibitionMode,
   });
 
   @override
@@ -36,7 +38,8 @@ class AppConfig {
       systemResetOscAddress.hashCode ^
       monoConfigs.hashCode ^
       stereoConfigs.hashCode ^
-      rooms.hashCode;
+      rooms.hashCode ^
+      isExhibitionMode.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -50,7 +53,8 @@ class AppConfig {
           systemResetOscAddress == other.systemResetOscAddress &&
           monoConfigs == other.monoConfigs &&
           stereoConfigs == other.stereoConfigs &&
-          rooms == other.rooms;
+          rooms == other.rooms &&
+          isExhibitionMode == other.isExhibitionMode;
 }
 
 class ChannelSetting {

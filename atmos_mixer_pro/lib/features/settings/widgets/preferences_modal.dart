@@ -30,7 +30,7 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
     if (deviceName.startsWith('[ASIO]')) return 'ASIO';
     if (deviceName.startsWith('[WASAPI]')) return 'WASAPI';
     if (deviceName.startsWith('[CoreAudio]')) return 'CoreAudio';
-    
+
     if (GlobalDeviceCache.devices != null) {
       final cleanTarget = _getCleanDeviceName(deviceName).trim();
       for (final d in GlobalDeviceCache.devices!) {
@@ -75,15 +75,17 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
             monoConfigs: {},
             stereoConfigs: {},
             rooms: [],
+            isExhibitionMode: _tempConfig.isExhibitionMode,
           );
-          
+
     if (_tempConfig.deviceName != null && GlobalDeviceCache.devices == null) {
       _devices = [_tempConfig.deviceName!];
     }
-    
+
     if (GlobalDeviceCache.devices != null) {
       _devices = GlobalDeviceCache.devices!;
-      if (_tempConfig.deviceName != null && GlobalDeviceCache.channels.containsKey(_tempConfig.deviceName)) {
+      if (_tempConfig.deviceName != null &&
+          GlobalDeviceCache.channels.containsKey(_tempConfig.deviceName)) {
         _channelNames = GlobalDeviceCache.channels[_tempConfig.deviceName]!;
       }
       _applyLoadedDevices(_devices);
@@ -114,18 +116,18 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
 
   Future<void> _rescanDevices() async {
     if (_isScanning) return;
-    
+
     setState(() {
       _isScanning = true;
     });
 
     // 1. Stop engine to release COM lock
     rust_api.apiStopAudioEngine();
-    
+
     // 2. Clear cache to force deep scan
     GlobalDeviceCache.devices = null;
     GlobalDeviceCache.channels.clear();
-    
+
     // 3. Clear UI list and channel list while scanning
     if (mounted) {
       setState(() {
@@ -140,25 +142,26 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
           monoConfigs: _tempConfig.monoConfigs,
           stereoConfigs: _tempConfig.stereoConfigs,
           rooms: _tempConfig.rooms,
+          isExhibitionMode: _tempConfig.isExhibitionMode,
         );
       });
     }
 
     // 4. Force a short delay to ensure ASIO driver unloads completely
     await Future.delayed(const Duration(milliseconds: 1000));
-    
+
     // 5. Deep Scan
     try {
       final deviceInfos = await rust_api.apiGetOutputDevices();
       if (!mounted) return;
-      
+
       final devices = deviceInfos.map((d) => d.name).toList();
       GlobalDeviceCache.devices = devices;
       for (final info in deviceInfos) {
         GlobalDeviceCache.channels[info.name] = info.channelNames;
       }
       _applyLoadedDevices(devices);
-      
+
       // 6. Restart engine using the new force restart API
       rust_api.apiForceRestartEngine(deviceName: _tempConfig.deviceName);
     } catch (e) {
@@ -179,9 +182,13 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
     setState(() {
       _devices = devices;
       if (_tempConfig.deviceName != null) {
-        final exactMatch = _devices.where((d) => d == _tempConfig.deviceName).firstOrNull;
+        final exactMatch = _devices
+            .where((d) => d == _tempConfig.deviceName)
+            .firstOrNull;
         if (exactMatch == null) {
-          final spaceMatch = _devices.where((d) => d.trim() == _tempConfig.deviceName!.trim()).firstOrNull;
+          final spaceMatch = _devices
+              .where((d) => d.trim() == _tempConfig.deviceName!.trim())
+              .firstOrNull;
           if (spaceMatch != null) {
             _tempConfig = AppConfig(
               oscPort: _tempConfig.oscPort,
@@ -192,11 +199,17 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
               monoConfigs: _tempConfig.monoConfigs,
               stereoConfigs: _tempConfig.stereoConfigs,
               rooms: _tempConfig.rooms,
+              isExhibitionMode: _tempConfig.isExhibitionMode,
             );
           } else {
-            final cleanTarget = _getCleanDeviceName(_tempConfig.deviceName).trim();
-            final prefixMatch = _devices.where((d) => _getCleanDeviceName(d).trim() == cleanTarget).firstOrNull;
-            if (prefixMatch != null && !_tempConfig.deviceName!.startsWith('[')) {
+            final cleanTarget = _getCleanDeviceName(
+              _tempConfig.deviceName,
+            ).trim();
+            final prefixMatch = _devices
+                .where((d) => _getCleanDeviceName(d).trim() == cleanTarget)
+                .firstOrNull;
+            if (prefixMatch != null &&
+                !_tempConfig.deviceName!.startsWith('[')) {
               _tempConfig = AppConfig(
                 oscPort: _tempConfig.oscPort,
                 deviceName: prefixMatch,
@@ -206,6 +219,7 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                 monoConfigs: _tempConfig.monoConfigs,
                 stereoConfigs: _tempConfig.stereoConfigs,
                 rooms: _tempConfig.rooms,
+                isExhibitionMode: _tempConfig.isExhibitionMode,
               );
             }
           }
@@ -213,9 +227,11 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
       }
       _selectedDriverType = _getDriverType(_tempConfig.deviceName);
     });
-    
+
     // Only load channels if not already cached
-    if (_channelNames.isEmpty || _tempConfig.deviceName == null || !GlobalDeviceCache.channels.containsKey(_tempConfig.deviceName)) {
+    if (_channelNames.isEmpty ||
+        _tempConfig.deviceName == null ||
+        !GlobalDeviceCache.channels.containsKey(_tempConfig.deviceName)) {
       _loadDeviceChannels(_tempConfig.deviceName);
     } else {
       _channelNames = GlobalDeviceCache.channels[_tempConfig.deviceName!]!;
@@ -223,7 +239,8 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
   }
 
   Future<void> _loadDeviceChannels(String? deviceName) async {
-    if (deviceName != null && GlobalDeviceCache.channels.containsKey(deviceName)) {
+    if (deviceName != null &&
+        GlobalDeviceCache.channels.containsKey(deviceName)) {
       if (mounted) {
         setState(() {
           _channelNames = GlobalDeviceCache.channels[deviceName]!;
@@ -233,7 +250,9 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
     }
 
     try {
-      final names = await rust_api.apiGetDeviceChannelNames(deviceName: deviceName);
+      final names = await rust_api.apiGetDeviceChannelNames(
+        deviceName: deviceName,
+      );
       if (mounted) {
         setState(() {
           _channelNames = names;
@@ -258,6 +277,7 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
       systemResetOscAddress: config.systemResetOscAddress,
       monoConfigs: Map.from(config.monoConfigs),
       stereoConfigs: Map.from(config.stereoConfigs),
+      isExhibitionMode: config.isExhibitionMode,
       rooms: config.rooms
           .map(
             (r) => RoomConfig(
@@ -321,13 +341,16 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
     final currentConfig = ref.read(configProvider);
     final finalConfig = AppConfig(
       oscPort: _tempConfig.oscPort,
-      deviceName: _isDeviceManuallyChanged ? _tempConfig.deviceName : (currentConfig?.deviceName ?? _tempConfig.deviceName),
+      deviceName: _isDeviceManuallyChanged
+          ? _tempConfig.deviceName
+          : (currentConfig?.deviceName ?? _tempConfig.deviceName),
       bufferSize: _tempConfig.bufferSize,
       themeStartOscAddress: _tempConfig.themeStartOscAddress,
       systemResetOscAddress: _tempConfig.systemResetOscAddress,
       monoConfigs: _tempConfig.monoConfigs,
       stereoConfigs: _tempConfig.stereoConfigs,
       rooms: newRooms,
+      isExhibitionMode: _tempConfig.isExhibitionMode,
     );
     ref.read(configProvider.notifier).saveConfig(finalConfig);
     Navigator.of(context).pop();
@@ -379,6 +402,7 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
             monoConfigs: Map.from(next.monoConfigs),
             stereoConfigs: Map.from(next.stereoConfigs),
             rooms: updatedRooms,
+            isExhibitionMode: _tempConfig.isExhibitionMode,
           );
         });
       }
@@ -485,18 +509,32 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
     for (final entry in sortedMono) {
       final key = entry.key;
       final setting = entry.value;
-      
+
       final realCh1 = key - 1;
       if (realCh1 < _channelNames.length) {
-        final name1 = setting.customName.isNotEmpty ? '$key (${setting.customName} L)' : '$key';
-        channelItems.add(DropdownMenuItem<String>(value: '${realCh1}_mono', child: Text('Mono $name1')));
+        final name1 = setting.customName.isNotEmpty
+            ? '$key (${setting.customName} L)'
+            : '$key';
+        channelItems.add(
+          DropdownMenuItem<String>(
+            value: '${realCh1}_mono',
+            child: Text('Mono $name1'),
+          ),
+        );
       }
-      
+
       final realCh2 = key;
       final displayCh2 = key + 1;
       if (realCh2 < _channelNames.length) {
-        final name2 = setting.customName.isNotEmpty ? '$displayCh2 (${setting.customName} R)' : '$displayCh2';
-        channelItems.add(DropdownMenuItem<String>(value: '${realCh2}_mono', child: Text('Mono $name2')));
+        final name2 = setting.customName.isNotEmpty
+            ? '$displayCh2 (${setting.customName} R)'
+            : '$displayCh2';
+        channelItems.add(
+          DropdownMenuItem<String>(
+            value: '${realCh2}_mono',
+            child: Text('Mono $name2'),
+          ),
+        );
       }
     }
 
@@ -525,12 +563,16 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
       return isStereo ? '${channelIndex}_stereo' : '${channelIndex}_mono';
     }
 
-    final uniqueDriverTypes = Platform.isMacOS ? ['CoreAudio'] : ['WASAPI', 'ASIO'];
+    final uniqueDriverTypes = Platform.isMacOS
+        ? ['CoreAudio']
+        : ['WASAPI', 'ASIO'];
     if (!uniqueDriverTypes.contains(_selectedDriverType)) {
       _selectedDriverType = uniqueDriverTypes.first;
     }
-    
-    final filteredDevices = _devices.where((d) => _getDriverType(d) == _selectedDriverType).toList();
+
+    final filteredDevices = _devices
+        .where((d) => _getDriverType(d) == _selectedDriverType)
+        .toList();
 
     return ListView(
       padding: const EdgeInsets.all(16.0),
@@ -566,31 +608,40 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                   filled: true,
                   fillColor: AppColors.cardSurface,
                   border: OutlineInputBorder(),
-                  contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                  contentPadding: EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 12,
+                  ),
                 ),
-                items: uniqueDriverTypes.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
+                items: uniqueDriverTypes
+                    .map((t) => DropdownMenuItem(value: t, child: Text(t)))
+                    .toList(),
                 onChanged: (val) {
                   if (val != null) {
                     _isDeviceManuallyChanged = true;
                     setState(() {
                       _selectedDriverType = val;
-                      final newFilteredDevices = _devices.where((d) => _getDriverType(d) == val).toList();
+                      final newFilteredDevices = _devices
+                          .where((d) => _getDriverType(d) == val)
+                          .toList();
                       String? newDeviceName;
                       if (newFilteredDevices.isNotEmpty) {
                         newDeviceName = newFilteredDevices.first;
                       } else {
                         newDeviceName = null;
                       }
-                      
+
                       _tempConfig = AppConfig(
                         oscPort: _tempConfig.oscPort,
                         deviceName: newDeviceName,
                         bufferSize: _tempConfig.bufferSize,
                         themeStartOscAddress: _tempConfig.themeStartOscAddress,
-                        systemResetOscAddress: _tempConfig.systemResetOscAddress,
+                        systemResetOscAddress:
+                            _tempConfig.systemResetOscAddress,
                         monoConfigs: _tempConfig.monoConfigs,
                         stereoConfigs: _tempConfig.stereoConfigs,
                         rooms: _tempConfig.rooms,
+                        isExhibitionMode: _tempConfig.isExhibitionMode,
                       );
                     });
                     _loadDeviceChannels(_tempConfig.deviceName);
@@ -624,13 +675,19 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                   filled: true,
                   fillColor: AppColors.cardSurface,
                   border: OutlineInputBorder(),
-                  contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                  contentPadding: EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 12,
+                  ),
                 ),
                 items: [
                   if (filteredDevices.isEmpty)
                     const DropdownMenuItem<String>(
                       value: null,
-                      child: Text('장치 없음', style: TextStyle(color: Colors.white54)),
+                      child: Text(
+                        '장치 없음',
+                        style: TextStyle(color: Colors.white54),
+                      ),
                     )
                   else
                     const DropdownMenuItem<String>(
@@ -638,13 +695,18 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                       child: Text('기본 오디오 출력 (Default)'),
                     ),
                   ...filteredDevices.map(
-                    (d) => DropdownMenuItem(value: d, child: Text(_getCleanDeviceName(d))),
+                    (d) => DropdownMenuItem(
+                      value: d,
+                      child: Text(_getCleanDeviceName(d)),
+                    ),
                   ),
                   if (_tempConfig.deviceName != null &&
                       !_devices.contains(_tempConfig.deviceName))
                     DropdownMenuItem(
                       value: _tempConfig.deviceName,
-                      child: Text('${_getCleanDeviceName(_tempConfig.deviceName!)} (Disconnected)'),
+                      child: Text(
+                        '${_getCleanDeviceName(_tempConfig.deviceName!)} (Disconnected)',
+                      ),
                     ),
                 ],
                 onChanged: (val) {
@@ -659,6 +721,7 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                       monoConfigs: _tempConfig.monoConfigs,
                       stereoConfigs: _tempConfig.stereoConfigs,
                       rooms: _tempConfig.rooms,
+                      isExhibitionMode: _tempConfig.isExhibitionMode,
                     );
                   });
                   _loadDeviceChannels(val);
@@ -689,8 +752,8 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                       )
                     : const Icon(Icons.refresh, size: 18),
                 label: Text(
-                  _isScanning ? 'Scanning...' : 'Rescan', 
-                  style: const TextStyle(fontWeight: FontWeight.bold)
+                  _isScanning ? 'Scanning...' : 'Rescan',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
               ),
             ),
@@ -739,6 +802,7 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                         monoConfigs: _tempConfig.monoConfigs,
                         stereoConfigs: _tempConfig.stereoConfigs,
                         rooms: _tempConfig.rooms,
+                        isExhibitionMode: _tempConfig.isExhibitionMode,
                       );
                     });
                   }
@@ -794,6 +858,7 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                         monoConfigs: result['mono']!,
                         stereoConfigs: result['stereo']!,
                         rooms: _tempConfig.rooms,
+                        isExhibitionMode: _tempConfig.isExhibitionMode,
                       );
                     });
                   }
@@ -935,6 +1000,8 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                                   monoConfigs: _tempConfig.monoConfigs,
                                   stereoConfigs: _tempConfig.stereoConfigs,
                                   rooms: newRooms,
+                                  isExhibitionMode:
+                                      _tempConfig.isExhibitionMode,
                                 );
                               });
                             }
@@ -1003,6 +1070,7 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                         monoConfigs: _tempConfig.monoConfigs,
                         stereoConfigs: _tempConfig.stereoConfigs,
                         rooms: _tempConfig.rooms,
+                        isExhibitionMode: _tempConfig.isExhibitionMode,
                       );
                     });
                   },
@@ -1049,6 +1117,7 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                         monoConfigs: _tempConfig.monoConfigs,
                         stereoConfigs: _tempConfig.stereoConfigs,
                         rooms: _tempConfig.rooms,
+                        isExhibitionMode: _tempConfig.isExhibitionMode,
                       );
                     });
                   },
@@ -1122,6 +1191,7 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                               monoConfigs: _tempConfig.monoConfigs,
                               stereoConfigs: _tempConfig.stereoConfigs,
                               rooms: newRooms,
+                              isExhibitionMode: _tempConfig.isExhibitionMode,
                             );
                           });
                         },
@@ -1197,6 +1267,8 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                                   monoConfigs: _tempConfig.monoConfigs,
                                   stereoConfigs: _tempConfig.stereoConfigs,
                                   rooms: newRooms,
+                                  isExhibitionMode:
+                                      _tempConfig.isExhibitionMode,
                                 );
                               });
                             },
@@ -1254,6 +1326,8 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                                   monoConfigs: _tempConfig.monoConfigs,
                                   stereoConfigs: _tempConfig.stereoConfigs,
                                   rooms: newRooms,
+                                  isExhibitionMode:
+                                      _tempConfig.isExhibitionMode,
                                 );
                               });
                             },
@@ -1306,6 +1380,7 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                         monoConfigs: _tempConfig.monoConfigs,
                         stereoConfigs: _tempConfig.stereoConfigs,
                         rooms: _tempConfig.rooms,
+                        isExhibitionMode: _tempConfig.isExhibitionMode,
                       );
                     });
                   }

@@ -7,10 +7,10 @@ import 'package:atmos_mixer_pro/features/dashboard/screens/dashboard_screen.dart
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   // Initialize rust bridge
   await RustLib.init();
-  
+
   // Initialize window_manager for frameless kiosk mode
   await windowManager.ensureInitialized();
 
@@ -22,18 +22,14 @@ Future<void> main() async {
     skipTaskbar: false,
     titleBarStyle: TitleBarStyle.normal,
   );
-  
+
   windowManager.waitUntilReadyToShow(windowOptions, () async {
     await windowManager.setPreventClose(true);
     await windowManager.show();
     await windowManager.focus();
   });
 
-  runApp(
-    const ProviderScope(
-      child: AtmosMixerProApp(),
-    ),
-  );
+  runApp(const ProviderScope(child: AtmosMixerProApp()));
 }
 
 class AtmosMixerProApp extends StatefulWidget {
@@ -43,7 +39,8 @@ class AtmosMixerProApp extends StatefulWidget {
   State<AtmosMixerProApp> createState() => _AtmosMixerProAppState();
 }
 
-class _AtmosMixerProAppState extends State<AtmosMixerProApp> with WindowListener {
+class _AtmosMixerProAppState extends State<AtmosMixerProApp>
+    with WindowListener {
   @override
   void initState() {
     super.initState();

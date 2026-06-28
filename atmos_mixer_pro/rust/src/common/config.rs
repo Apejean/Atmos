@@ -24,6 +24,8 @@ pub struct AppConfig {
     pub stereo_configs: HashMap<u32, ChannelSetting>,
     #[serde(default)]
     pub rooms: Vec<RoomConfig>,
+    #[serde(default)]
+    pub is_exhibition_mode: bool,
 }
 
 impl Default for AppConfig {
@@ -37,6 +39,7 @@ impl Default for AppConfig {
             mono_configs: HashMap::new(),
             stereo_configs: HashMap::new(),
             rooms: Vec::new(),
+            is_exhibition_mode: false,
         }
     }
 }

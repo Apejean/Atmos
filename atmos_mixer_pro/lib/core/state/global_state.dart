@@ -42,7 +42,7 @@ class ConfigNotifier extends Notifier<AppConfig?> {
       } catch (e) {
         // Ignore initial preload errors
       }
-      
+
       _lastProcessedConfig = config;
       state = config;
       rust_api.apiStartAudioEngine(deviceName: config.deviceName);
@@ -66,10 +66,14 @@ class ConfigNotifier extends Notifier<AppConfig?> {
     }
   }
 
-  void saveConfig(AppConfig newConfig, {bool forceRestart = false, bool skipPreload = false}) {
+  void saveConfig(
+    AppConfig newConfig, {
+    bool forceRestart = false,
+    bool skipPreload = false,
+  }) {
     // Optimistic UI Update: immediately set state so UI reflects the added track
     state = newConfig;
-    
+
     _saveQueue.add(_SaveTask(newConfig, forceRestart, skipPreload));
     _processQueue();
   }
@@ -82,7 +86,7 @@ class ConfigNotifier extends Notifier<AppConfig?> {
       final task = _saveQueue.removeAt(0);
       final configToSave = task.config;
       final oldConfig = _lastProcessedConfig;
-      
+
       try {
         final path = await _getConfigPath();
         await rust_api.apiSaveConfig(path: path, config: configToSave);
@@ -93,33 +97,44 @@ class ConfigNotifier extends Notifier<AppConfig?> {
             // Ignore preload errors, keep UI responsive
           }
         }
-        
-        bool engineNeedsRestart = oldConfig == null || oldConfig.deviceName != configToSave.deviceName || oldConfig.bufferSize != configToSave.bufferSize || task.forceRestart;
-        
-        if (!task.forceRestart && engineNeedsRestart && oldConfig != null && oldConfig.deviceName != null && configToSave.deviceName != null) {
+
+        bool engineNeedsRestart =
+            oldConfig == null ||
+            oldConfig.deviceName != configToSave.deviceName ||
+            oldConfig.bufferSize != configToSave.bufferSize ||
+            task.forceRestart;
+
+        if (!task.forceRestart &&
+            engineNeedsRestart &&
+            oldConfig != null &&
+            oldConfig.deviceName != null &&
+            configToSave.deviceName != null) {
           final oldName = oldConfig.deviceName!.trim();
           final newName = configToSave.deviceName!.trim();
-          
+
           if (oldName != newName) {
             String stripPrefix(String name) {
               return name.replaceFirst(RegExp(r'^\[.*?\]\s*'), '');
             }
-            
+
             if (stripPrefix(oldName) == stripPrefix(newName)) {
               final oldHasPrefix = oldName.startsWith('[');
               final newHasPrefix = newName.startsWith('[');
-              
-              if (!oldHasPrefix || !newHasPrefix || oldName.split(']').first == newName.split(']').first) {
-                engineNeedsRestart = oldConfig.bufferSize != configToSave.bufferSize;
+
+              if (!oldHasPrefix ||
+                  !newHasPrefix ||
+                  oldName.split(']').first == newName.split(']').first) {
+                engineNeedsRestart =
+                    oldConfig.bufferSize != configToSave.bufferSize;
               }
             }
           }
         }
-        
+
         if (engineNeedsRestart) {
           rust_api.apiStartAudioEngine(deviceName: configToSave.deviceName);
         }
-        
+
         if (oldConfig == null || oldConfig.oscPort != configToSave.oscPort) {
           await rust_api.apiStartOscListener(port: configToSave.oscPort);
         }
@@ -134,11 +149,14 @@ class ConfigNotifier extends Notifier<AppConfig?> {
   }
 }
 
-final configProvider = NotifierProvider<ConfigNotifier, AppConfig?>(ConfigNotifier.new);
+final configProvider = NotifierProvider<ConfigNotifier, AppConfig?>(
+  ConfigNotifier.new,
+);
 
 final hardwareChannelsProvider = FutureProvider<List<String>>((ref) async {
   final deviceName = ref.watch(configProvider.select((c) => c?.deviceName));
-  if (deviceName != null && GlobalDeviceCache.channels.containsKey(deviceName)) {
+  if (deviceName != null &&
+      GlobalDeviceCache.channels.containsKey(deviceName)) {
     return GlobalDeviceCache.channels[deviceName]!;
   }
   try {
@@ -147,8 +165,6 @@ final hardwareChannelsProvider = FutureProvider<List<String>>((ref) async {
     return [];
   }
 });
-
-
 
 class EngineState {
   final String? activeRoomId;
@@ -174,7 +190,9 @@ class EngineState {
     List<String>? playingTrackIds,
   }) {
     return EngineState(
-      activeRoomId: forceNullActiveRoom ? null : (activeRoomId ?? this.activeRoomId),
+      activeRoomId: forceNullActiveRoom
+          ? null
+          : (activeRoomId ?? this.activeRoomId),
       clearedRoomIds: clearedRoomIds ?? this.clearedRoomIds,
       duckingActive: duckingActive ?? this.duckingActive,
       themeStarted: themeStarted ?? this.themeStarted,
@@ -221,7 +239,7 @@ class EngineStateNotifier extends Notifier<EngineState> {
     final newCleared = Set<String>.from(state.clearedRoomIds)..add(roomId);
     state = state.copyWith(clearedRoomIds: newCleared);
   }
-  
+
   Future<void> startTheme(String firstRoomId) async {
     state = state.copyWith(themeStarted: true, clearedRoomIds: {});
     try {
@@ -236,7 +254,9 @@ class EngineStateNotifier extends Notifier<EngineState> {
   }
 }
 
-final engineStateProvider = NotifierProvider<EngineStateNotifier, EngineState>(EngineStateNotifier.new);
+final engineStateProvider = NotifierProvider<EngineStateNotifier, EngineState>(
+  EngineStateNotifier.new,
+);
 
 class GlobalErrorNotifier extends Notifier<String?> {
   @override
@@ -251,7 +271,9 @@ class GlobalErrorNotifier extends Notifier<String?> {
   }
 }
 
-final globalErrorProvider = NotifierProvider<GlobalErrorNotifier, String?>(GlobalErrorNotifier.new);
+final globalErrorProvider = NotifierProvider<GlobalErrorNotifier, String?>(
+  GlobalErrorNotifier.new,
+);
 
 class OutputConfigState {
   final Set<int> monoChannels;
@@ -284,7 +306,7 @@ class OutputConfigNotifier extends Notifier<OutputConfigState> {
     final prefs = await SharedPreferences.getInstance();
     final monoList = prefs.getStringList('output_config_mono') ?? [];
     final stereoList = prefs.getStringList('output_config_stereo') ?? [];
-    
+
     state = OutputConfigState(
       monoChannels: monoList.map(int.parse).toSet(),
       stereoChannels: stereoList.map(int.parse).toSet(),
@@ -294,9 +316,18 @@ class OutputConfigNotifier extends Notifier<OutputConfigState> {
   Future<void> save(Set<int> mono, Set<int> stereo) async {
     state = OutputConfigState(monoChannels: mono, stereoChannels: stereo);
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setStringList('output_config_mono', mono.map((e) => e.toString()).toList());
-    await prefs.setStringList('output_config_stereo', stereo.map((e) => e.toString()).toList());
+    await prefs.setStringList(
+      'output_config_mono',
+      mono.map((e) => e.toString()).toList(),
+    );
+    await prefs.setStringList(
+      'output_config_stereo',
+      stereo.map((e) => e.toString()).toList(),
+    );
   }
 }
 
-final outputConfigProvider = NotifierProvider<OutputConfigNotifier, OutputConfigState>(OutputConfigNotifier.new);
+final outputConfigProvider =
+    NotifierProvider<OutputConfigNotifier, OutputConfigState>(
+      OutputConfigNotifier.new,
+    );

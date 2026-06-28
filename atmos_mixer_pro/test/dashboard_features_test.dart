@@ -17,7 +17,11 @@ class MockConfigNotifier extends ConfigNotifier {
   void loadConfig() {}
 
   @override
-  void saveConfig(AppConfig newConfig, {bool forceRestart = false, bool skipPreload = false}) {
+  void saveConfig(
+    AppConfig newConfig, {
+    bool forceRestart = false,
+    bool skipPreload = false,
+  }) {
     state = newConfig;
   }
 }
@@ -48,7 +52,9 @@ class MockLogNotifier extends Notifier<List<String>> {
 }
 
 void main() {
-  testWidgets('TrackCard dropdown parses output properly', (WidgetTester tester) async {
+  testWidgets('TrackCard dropdown parses output properly', (
+    WidgetTester tester,
+  ) async {
     int? parsedChannel;
     bool? parsedIsStereo;
 
@@ -61,10 +67,9 @@ void main() {
         1: ChannelSetting(enabled: true, customName: 'Mono1'),
         2: ChannelSetting(enabled: true, customName: 'Mono2'),
       },
-      stereoConfigs: {
-        3: ChannelSetting(enabled: true, customName: 'Stereo3'),
-      },
+      stereoConfigs: {3: ChannelSetting(enabled: true, customName: 'Stereo3')},
       rooms: [],
+      isExhibitionMode: false,
     );
 
     final track = const TrackConfig(

@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -30,18 +31,168 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: Stack(
-        children: [
-          Column(
-            children: [
-              _buildHeader(context),
-              Expanded(child: _buildRoomPanels(context)),
-            ],
-          ),
-          _buildErrorBanner(),
-        ],
+      body: PlatformMenuBar(
+        menus: _buildMenus(context),
+        child: Stack(
+          children: [
+            Column(
+              children: [
+                _buildHeader(context),
+                Expanded(child: _buildRoomPanels(context)),
+              ],
+            ),
+            _buildErrorBanner(),
+          ],
+        ),
       ),
     );
+  }
+
+  List<PlatformMenuItem> _buildMenus(BuildContext context) {
+    return [
+      PlatformMenu(
+        label: 'File',
+        menus: [
+          PlatformMenuItemGroup(
+            members: [
+              PlatformMenuItem(
+                label: 'Load Preset',
+                onSelected: () async {
+                  FilePickerResult? result = await FilePicker.pickFiles(
+                    type: FileType.custom,
+                    allowedExtensions: ['json'],
+                  );
+                  if (result != null && result.files.single.path != null) {
+                    try {
+                      final importedConfig = await rust_api.apiGetConfig(
+                        path: result.files.single.path!,
+                      );
+                      await rust_api.apiStopAll();
+                      if (context.mounted) {
+                        ref.read(engineStateProvider.notifier).reset();
+                        ref.read(configProvider.notifier).saveConfig(importedConfig);
+                        await rust_api.apiLoadPreset(config: importedConfig);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('프리셋이 성공적으로 로드되었습니다.'), backgroundColor: AppColors.success),
+                        );
+                      }
+                    } catch (e) {
+                      if (context.mounted) {
+                        ref.read(globalErrorProvider.notifier).showError('설정 불러오기 실패: $e');
+                      }
+                    }
+                  }
+                },
+              ),
+              PlatformMenuItem(
+                label: 'Save Preset',
+                onSelected: () async {
+                  final config = ref.read(configProvider);
+                  if (config == null) return;
+                  String? outputFile = await FilePicker.saveFile(
+                    dialogTitle: '설정 저장',
+                    fileName: 'atmos_config_backup.json',
+                    allowedExtensions: ['json'],
+                    type: FileType.custom,
+                  );
+                  if (outputFile != null) {
+                    try {
+                      await rust_api.apiSaveConfig(
+                        path: outputFile,
+                        config: config,
+                      );
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('설정이 저장되었습니다.'), backgroundColor: AppColors.success),
+                        );
+                      }
+                    } catch (e) {
+                      if (context.mounted) {
+                        ref.read(globalErrorProvider.notifier).showError('설정 저장 실패: $e');
+                      }
+                    }
+                  }
+                },
+              ),
+            ],
+          ),
+          PlatformMenuItemGroup(
+            members: [
+              PlatformMenuItem(
+                label: 'Export Log',
+                onSelected: () async {
+                  try {
+                    String dest = '';
+                    if (Platform.isWindows) {
+                      dest = '${Platform.environment['USERPROFILE']}\\Desktop';
+                    } else {
+                      dest = '${Platform.environment['HOME']}/Desktop';
+                    }
+                    await rust_api.apiExportLogs(destinationDir: dest);
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('바탕화면에 로그가 저장되었습니다.'), backgroundColor: AppColors.success),
+                      );
+                    }
+                  } catch (e) {
+                    if (context.mounted) {
+                      ref.read(globalErrorProvider.notifier).showError('로그 저장 실패: $e');
+                    }
+                  }
+                },
+              ),
+            ],
+          ),
+        ],
+      ),
+      PlatformMenu(
+        label: 'View',
+        menus: [
+          PlatformMenuItem(
+            label: 'Toggle Exhibition Mode',
+            onSelected: () {
+              final config = ref.read(configProvider);
+              if (config != null) {
+                final updated = AppConfig(
+                  oscPort: config.oscPort,
+                  deviceName: config.deviceName,
+                  bufferSize: config.bufferSize,
+                  themeStartOscAddress: config.themeStartOscAddress,
+                  systemResetOscAddress: config.systemResetOscAddress,
+                  monoConfigs: config.monoConfigs,
+                  stereoConfigs: config.stereoConfigs,
+                  rooms: config.rooms,
+                  isExhibitionMode: !config.isExhibitionMode,
+                );
+                ref.read(configProvider.notifier).saveConfig(updated);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(updated.isExhibitionMode ? '전시 모드가 켜졌습니다.' : '전시 모드가 꺼졌습니다.'),
+                    backgroundColor: AppColors.primaryNeon,
+                  ),
+                );
+              }
+            },
+          ),
+        ],
+      ),
+      PlatformMenu(
+        label: 'Settings',
+        menus: [
+          PlatformMenuItem(
+            label: 'Preferences',
+            onSelected: () {
+              if (context.mounted) {
+                showDialog(
+                  context: context,
+                  builder: (context) => const PreferencesModal(),
+                );
+              }
+            },
+          ),
+        ],
+      ),
+    ];
   }
 
   Widget _buildErrorBanner() {
@@ -137,21 +288,31 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     }
                     final config = ref.read(configProvider);
                     if (config != null && config.rooms.isNotEmpty) {
-                      final firstRoom = config.rooms.first;
-                      await ref
-                          .read(engineStateProvider.notifier)
-                          .startTheme(firstRoom.id);
-                      for (final track in firstRoom.tracks) {
-                        if (track.isLoop) {
-                          try {
-                            await rust_api.apiPlayTrack(
-                              roomId: firstRoom.id,
-                              trackId: track.id,
-                            );
-                          } catch (e) {
-                            ref
-                                .read(globalErrorProvider.notifier)
-                                .showError('트랙 재생 실패: $e');
+                      if (config.isExhibitionMode) {
+                        try {
+                          await rust_api.apiPlayAllLoopTracks();
+                        } catch (e) {
+                          ref
+                              .read(globalErrorProvider.notifier)
+                              .showError('전시 모드 트랙 재생 실패: $e');
+                        }
+                      } else {
+                        final firstRoom = config.rooms.first;
+                        await ref
+                            .read(engineStateProvider.notifier)
+                            .startTheme(firstRoom.id);
+                        for (final track in firstRoom.tracks) {
+                          if (track.isLoop) {
+                            try {
+                              await rust_api.apiPlayTrack(
+                                roomId: firstRoom.id,
+                                trackId: track.id,
+                              );
+                            } catch (e) {
+                              ref
+                                  .read(globalErrorProvider.notifier)
+                                  .showError('트랙 재생 실패: $e');
+                            }
                           }
                         }
                       }
@@ -224,69 +385,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               ),
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF6A1B9A),
-                ),
-                onPressed: () async {
-                  FocusManager.instance.primaryFocus?.unfocus();
-                  await Future.delayed(const Duration(milliseconds: 50));
-                  if (!context.mounted) return;
-                  final config = ref.read(configProvider);
-                  if (config == null) return;
-                  String? outputFile = await FilePicker.saveFile(
-                    dialogTitle: '설정 저장',
-                    fileName: 'atmos_config_backup.json',
-                    allowedExtensions: ['json'],
-                    type: FileType.custom,
-                  );
-                  if (outputFile != null) {
-                    try {
-                      await rust_api.apiSaveConfig(
-                        path: outputFile,
-                        config: config,
-                      );
-                    } catch (e) {
-                      ref
-                          .read(globalErrorProvider.notifier)
-                          .showError('설정 저장 실패: $e');
-                    }
-                  }
-                },
-                child: const Text(
-                  '💾 설정 저장',
-                  style: TextStyle(color: Colors.white),
-                ),
-              ),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF00838F),
-                ),
-                onPressed: () async {
-                  FilePickerResult? result = await FilePicker.pickFiles(
-                    type: FileType.custom,
-                    allowedExtensions: ['json'],
-                  );
-                  if (result != null && result.files.single.path != null) {
-                    try {
-                      final importedConfig = await rust_api.apiGetConfig(
-                        path: result.files.single.path!,
-                      );
-                      ref
-                          .read(configProvider.notifier)
-                          .saveConfig(importedConfig);
-                    } catch (e) {
-                      ref
-                          .read(globalErrorProvider.notifier)
-                          .showError('설정 불러오기 실패: $e');
-                    }
-                  }
-                },
-                child: const Text(
-                  '📂 설정 불러오기',
-                  style: TextStyle(color: Colors.white),
-                ),
-              ),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.success,
                 ),
                 onPressed: () {
@@ -317,32 +415,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       monoConfigs: config.monoConfigs,
                       stereoConfigs: config.stereoConfigs,
                       rooms: [...config.rooms, newRoom],
+                      isExhibitionMode: config.isExhibitionMode,
                     );
                     ref.read(configProvider.notifier).saveConfig(updated);
                   }
                 },
                 child: const Text(
                   '➕ 룸 추가',
-                  style: TextStyle(color: Colors.white),
-                ),
-              ),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.lightGrey,
-                ),
-                onPressed: () {
-                  FocusManager.instance.primaryFocus?.unfocus();
-                  Future.delayed(const Duration(milliseconds: 50), () {
-                    if (context.mounted) {
-                      showDialog(
-                        context: context,
-                        builder: (context) => const PreferencesModal(),
-                      );
-                    }
-                  });
-                },
-                child: const Text(
-                  '⚙️ 환경설정',
                   style: TextStyle(color: Colors.white),
                 ),
               ),
@@ -410,18 +489,21 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     return Listener(
       onPointerSignal: (pointerSignal) {
         if (pointerSignal is PointerScrollEvent) {
-          GestureBinding.instance.pointerSignalResolver.register(pointerSignal, (PointerSignalEvent event) {
-            if (event is PointerScrollEvent) {
-              final offset = _scrollController.offset;
-              final maxScroll = _scrollController.position.maxScrollExtent;
-              final minScroll = _scrollController.position.minScrollExtent;
-              final newOffset = (offset + event.scrollDelta.dy).clamp(
-                minScroll,
-                maxScroll,
-              );
-              _scrollController.jumpTo(newOffset);
-            }
-          });
+          GestureBinding.instance.pointerSignalResolver.register(
+            pointerSignal,
+            (PointerSignalEvent event) {
+              if (event is PointerScrollEvent) {
+                final offset = _scrollController.offset;
+                final maxScroll = _scrollController.position.maxScrollExtent;
+                final minScroll = _scrollController.position.minScrollExtent;
+                final newOffset = (offset + event.scrollDelta.dy).clamp(
+                  minScroll,
+                  maxScroll,
+                );
+                _scrollController.jumpTo(newOffset);
+              }
+            },
+          );
         }
       },
       child: ListView.builder(
@@ -446,15 +528,16 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           final isCleared = engineState.clearedRoomIds.contains(room.id);
 
           return RoomCard(
+            key: ValueKey(room.id),
             room: room,
             isThemeStarted: isThemeStarted,
             isActive: isActive,
             isCleared: isCleared,
             accentColor: accentColor,
+            isExhibitionMode: config.isExhibitionMode,
           );
         },
       ),
     );
   }
-
 }

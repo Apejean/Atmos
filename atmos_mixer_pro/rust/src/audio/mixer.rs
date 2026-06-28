@@ -67,10 +67,15 @@ impl AudioMixer {
             }
         });
 
-        if has_sfx && !self.ducking.is_ducking {
-            self.ducking.is_ducking = true;
-        } else if !has_sfx && self.ducking.is_ducking && self.ducking.ducking_weight <= 0.3 {
-            self.ducking.is_ducking = false; // Start unducking
+        let is_exhib = GLOBAL_STATE.is_exhibition_mode.load(Ordering::Relaxed);
+        if is_exhib {
+            self.ducking.is_ducking = false;
+        } else {
+            if has_sfx && !self.ducking.is_ducking {
+                self.ducking.is_ducking = true;
+            } else if !has_sfx && self.ducking.is_ducking && self.ducking.ducking_weight <= 0.3 {
+                self.ducking.is_ducking = false; // Start unducking
+            }
         }
 
         for frame in 0..frames {

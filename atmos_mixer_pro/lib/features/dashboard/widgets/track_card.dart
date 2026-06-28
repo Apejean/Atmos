@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:atmos_mixer_pro/core/theme/colors.dart';
 import 'package:atmos_mixer_pro/src/rust/common/config.dart';
@@ -39,6 +40,7 @@ class _TrackCardState extends ConsumerState<TrackCard> {
   late TextEditingController _nameController;
   late FocusNode _nameFocusNode;
   double? _localVolume;
+  Timer? _debounce;
 
   @override
   void initState() {
@@ -48,6 +50,15 @@ class _TrackCardState extends ConsumerState<TrackCard> {
     _nameFocusNode.addListener(() {
       if (!_nameFocusNode.hasFocus &&
           _nameController.text != widget.track.name) {
+        widget.onNameChanged?.call(_nameController.text);
+      }
+    });
+  }
+
+  void _onNameChanged(String value) {
+    if (_debounce?.isActive ?? false) _debounce!.cancel();
+    _debounce = Timer(const Duration(milliseconds: 500), () {
+      if (_nameController.text != widget.track.name) {
         widget.onNameChanged?.call(_nameController.text);
       }
     });
@@ -64,6 +75,7 @@ class _TrackCardState extends ConsumerState<TrackCard> {
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _nameFocusNode.dispose();
     _nameController.dispose();
     super.dispose();
@@ -78,18 +90,22 @@ class _TrackCardState extends ConsumerState<TrackCard> {
     final hwChannelsAsync = ref.watch(hardwareChannelsProvider);
     int maxChannels = 30;
     if (config != null) {
-      if (config.deviceName != null && GlobalDeviceCache.channels.containsKey(config.deviceName)) {
+      if (config.deviceName != null &&
+          GlobalDeviceCache.channels.containsKey(config.deviceName)) {
         maxChannels = GlobalDeviceCache.channels[config.deviceName]!.length;
-      } else if (hwChannelsAsync.value != null && hwChannelsAsync.value!.isNotEmpty) {
+      } else if (hwChannelsAsync.value != null &&
+          hwChannelsAsync.value!.isNotEmpty) {
         maxChannels = hwChannelsAsync.value!.length;
       }
 
       int maxConfigured = 0;
       if (config.monoConfigs.isNotEmpty) {
-        maxConfigured = config.monoConfigs.keys.reduce((a, b) => a > b ? a : b) + 1;
+        maxConfigured =
+            config.monoConfigs.keys.reduce((a, b) => a > b ? a : b) + 1;
       }
       if (config.stereoConfigs.isNotEmpty) {
-        final maxStereo = config.stereoConfigs.keys.reduce((a, b) => a > b ? a : b) + 1;
+        final maxStereo =
+            config.stereoConfigs.keys.reduce((a, b) => a > b ? a : b) + 1;
         if (maxStereo > maxConfigured) maxConfigured = maxStereo;
       }
       if (maxConfigured > maxChannels) {
@@ -105,7 +121,9 @@ class _TrackCardState extends ConsumerState<TrackCard> {
         if (setting.enabled) {
           final realCh1 = key - 1;
           if (realCh1 >= maxChannels) continue;
-          final name1 = setting.customName.isNotEmpty ? '$key (${setting.customName} L)' : '$key';
+          final name1 = setting.customName.isNotEmpty
+              ? '$key (${setting.customName} L)'
+              : '$key';
           outputItems.add(
             DropdownMenuItem(
               value: 'mono_$realCh1',
@@ -119,7 +137,9 @@ class _TrackCardState extends ConsumerState<TrackCard> {
           final realCh2 = key;
           if (realCh2 < maxChannels) {
             final displayCh2 = key + 1;
-            final name2 = setting.customName.isNotEmpty ? '$displayCh2 (${setting.customName} R)' : '$displayCh2';
+            final name2 = setting.customName.isNotEmpty
+                ? '$displayCh2 (${setting.customName} R)'
+                : '$displayCh2';
             outputItems.add(
               DropdownMenuItem(
                 value: 'mono_$realCh2',
@@ -161,9 +181,7 @@ class _TrackCardState extends ConsumerState<TrackCard> {
         ? 'stereo_$currentKey'
         : 'mono_$currentKey';
 
-    bool valueExists = outputItems.any(
-      (item) => item.value == currentValue,
-    );
+    bool valueExists = outputItems.any((item) => item.value == currentValue);
 
     if (!valueExists && config != null) {
       if (currentKey >= maxChannels && outputItems.isNotEmpty) {
@@ -171,9 +189,12 @@ class _TrackCardState extends ConsumerState<TrackCard> {
         if (firstVal != null) {
           currentValue = firstVal;
           final isStereo = firstVal.startsWith('stereo_');
-          final keyStr = firstVal.replaceFirst(isStereo ? 'stereo_' : 'mono_', '');
+          final keyStr = firstVal.replaceFirst(
+            isStereo ? 'stereo_' : 'mono_',
+            '',
+          );
           currentKey = int.tryParse(keyStr) ?? 0;
-          
+
           WidgetsBinding.instance.addPostFrameCallback((_) {
             widget.onOutputChanged?.call(currentKey, isStereo);
           });
@@ -252,6 +273,7 @@ class _TrackCardState extends ConsumerState<TrackCard> {
                             ),
                             border: InputBorder.none,
                           ),
+                          onChanged: _onNameChanged,
                           onSubmitted: widget.onNameChanged,
                         ),
                       ),
@@ -291,15 +313,18 @@ class _TrackCardState extends ConsumerState<TrackCard> {
                               minWidth: 32,
                               minHeight: 32,
                             ),
-                            onPressed: () =>
-                                widget.onLoopChanged?.call(!widget.track.isLoop),
+                            onPressed: () => widget.onLoopChanged?.call(
+                              !widget.track.isLoop,
+                            ),
                             tooltip: '무한 루프 (BGM)',
                           ),
                           const SizedBox(width: 4),
                           Text(
                             '무한 루프',
                             style: TextStyle(
-                              color: widget.track.isLoop ? widget.accentColor : AppColors.textSecondary,
+                              color: widget.track.isLoop
+                                  ? widget.accentColor
+                                  : AppColors.textSecondary,
                               fontSize: 12,
                             ),
                           ),

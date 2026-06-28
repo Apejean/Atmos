@@ -52,6 +52,7 @@ pub fn api_get_config(path: String) -> AppConfig {
         let mut global_config = GLOBAL_STATE.config.write().unwrap();
         *global_config = Some(config.clone());
     }
+    GLOBAL_STATE.is_exhibition_mode.store(config.is_exhibition_mode, std::sync::atomic::Ordering::Relaxed);
 
     config
 }
@@ -95,8 +96,9 @@ pub fn api_save_config(path: String, config: AppConfig) -> Result<(), AtmosError
     }
     {
         let mut global_config = GLOBAL_STATE.config.write().unwrap();
-        *global_config = Some(config);
+        *global_config = Some(config.clone());
     }
+    GLOBAL_STATE.is_exhibition_mode.store(config.is_exhibition_mode, std::sync::atomic::Ordering::Relaxed);
     Ok(())
 }
 
@@ -873,4 +875,55 @@ pub fn api_get_device_channel_names(
     let channel_names = crate::audio::channel_names::get_channel_names_fallback(max_channels);
 
     Ok(channel_names)
+}
+
+pub fn api_export_logs(destination_dir: String) -> Result<(), AtmosError> {
+    if let Ok(mut dir) = std::env::current_exe() {
+        dir.pop();
+        dir.push("Logs");
+        dir.push("atmos_mixer_pro.log");
+        if dir.exists() {
+            let dest_path = std::path::Path::new(&destination_dir).join("atmos_mixer_pro.log");
+            std::fs::copy(&dir, &dest_path).map_err(|e| AtmosError {
+                message: format!("Failed to copy log file: {}", e),
+            })?;
+            Ok(())
+        } else {
+            Err(AtmosError {
+                message: "Log file does not exist".to_string(),
+            })
+        }
+    } else {
+        Err(AtmosError {
+            message: "Failed to get current executable path".to_string(),
+        })
+    }
+}
+
+pub fn api_play_all_loop_tracks() -> Result<(), AtmosError> {
+    let config = {
+        let guard = GLOBAL_STATE.config.read().unwrap();
+        guard.as_ref().cloned()
+    };
+    
+    if let Some(config) = config {
+        for room in config.rooms {
+            for track in room.tracks {
+                if track.is_loop {
+                    let _ = api_play_track(room.id.clone(), track.id.clone());
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+pub fn api_load_preset(config: AppConfig) -> Result<(), AtmosError> {
+    api_stop_all()?;
+    
+    GLOBAL_STATE.is_exhibition_mode.store(config.is_exhibition_mode, std::sync::atomic::Ordering::Relaxed);
+    
+    // This will sync GLOBAL_STATE config, enabled_channels, and manage the cache
+    api_preload_all_sounds(config)?;
+    Ok(())
 }

@@ -17,7 +17,7 @@ class AppColors {
   static const Color purple = Color(0xFF6A1B9A);
   static const Color cyan = Color(0xFF00838F);
   static const Color brown = Color(0xFF5C4A00);
-  
+
   static const Color logBackground = Color(0xFF000000);
   static const Color logText = Color(0xFF22DD88);
   static const Color textPrimary = Colors.white;

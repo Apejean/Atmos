@@ -11,12 +11,12 @@ class VUMeterPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     double level = levelNotifier.value;
-    final paint = Paint()
-      ..style = PaintingStyle.fill;
+    final paint = Paint()..style = PaintingStyle.fill;
 
     // Draw background segments
     int totalSegments = 20;
-    double segmentHeight = (size.height - (totalSegments - 1) * 2) / totalSegments;
+    double segmentHeight =
+        (size.height - (totalSegments - 1) * 2) / totalSegments;
 
     for (int i = 0; i < totalSegments; i++) {
       double y = size.height - (i * (segmentHeight + 2)) - segmentHeight;
@@ -97,9 +97,7 @@ class _NeonVUMeterState extends State<NeonVUMeter> {
       width: 12,
       height: double.infinity,
       child: RepaintBoundary(
-        child: CustomPaint(
-          painter: VUMeterPainter(_levelNotifier),
-        ),
+        child: CustomPaint(painter: VUMeterPainter(_levelNotifier)),
       ),
     );
   }

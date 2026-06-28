@@ -104,6 +104,17 @@ Future<List<String>> apiGetDeviceChannelNames({String? deviceName}) => RustLib
     .api
     .crateApiSimpleApiGetDeviceChannelNames(deviceName: deviceName);
 
+Future<void> apiExportLogs({required String destinationDir}) => RustLib
+    .instance
+    .api
+    .crateApiSimpleApiExportLogs(destinationDir: destinationDir);
+
+Future<void> apiPlayAllLoopTracks() =>
+    RustLib.instance.api.crateApiSimpleApiPlayAllLoopTracks();
+
+Future<void> apiLoadPreset({required AppConfig config}) =>
+    RustLib.instance.api.crateApiSimpleApiLoadPreset(config: config);
+
 class EngineStateUpdate {
   final String? activeRoomId;
   final bool duckingActive;
