@@ -149,58 +149,56 @@ impl AudioMixer {
                 };
 
                 if let Some(stream_rx) = &instance.stream_receiver {
-                    if instance.is_loop {
-                        if idx_i >= instance.stream_buffer.len() {
-                            match stream_rx.try_recv() {
-                                Ok(new_chunk) => {
-                                    let frames_in_chunk = if instance.stream_buffer.is_empty() {
-                                        0.0
-                                    } else {
-                                        (instance.stream_buffer.len() / channels) as f64
-                                    };
-                                    let old_chunk =
-                                        std::mem::replace(&mut instance.stream_buffer, new_chunk);
-                                    let _ = self.buf_gc_tx.try_send(old_chunk);
+                    if idx_i >= instance.stream_buffer.len() {
+                        match stream_rx.try_recv() {
+                            Ok(new_chunk) => {
+                                let frames_in_chunk = if instance.stream_buffer.is_empty() {
+                                    0.0
+                                } else {
+                                    (instance.stream_buffer.len() / channels) as f64
+                                };
+                                let old_chunk =
+                                    std::mem::replace(&mut instance.stream_buffer, new_chunk);
+                                let _ = self.buf_gc_tx.try_send(old_chunk);
 
-                                    instance.cursor -= frames_in_chunk;
-                                    if instance.cursor < 0.0 {
-                                        instance.cursor = 0.0;
-                                    } // safety bound
-                                    idx_f = instance.cursor;
-                                    idx_base = idx_f as usize;
-                                    frac = (idx_f - (idx_base as f64)) as f32;
-                                    idx_i = idx_base * channels;
-                                }
-                                Err(crossbeam_channel::TryRecvError::Disconnected) => {
-                                    // Stream finished or errored permanently
-                                    instance.is_stopping = true;
-                                }
-                                Err(crossbeam_channel::TryRecvError::Empty) => {
-                                    // Stream is lagging, just output silence and don't advance cursor
-                                }
+                                instance.cursor -= frames_in_chunk;
+                                if instance.cursor < 0.0 {
+                                    instance.cursor = 0.0;
+                                } // safety bound
+                                idx_f = instance.cursor;
+                                idx_base = idx_f as usize;
+                                frac = (idx_f - (idx_base as f64)) as f32;
+                                idx_i = idx_base * channels;
+                            }
+                            Err(crossbeam_channel::TryRecvError::Disconnected) => {
+                                // Stream finished or errored permanently
+                                instance.is_stopping = true;
+                            }
+                            Err(crossbeam_channel::TryRecvError::Empty) => {
+                                // Stream is lagging, just output silence and don't advance cursor
                             }
                         }
+                    }
 
-                        if idx_i < instance.stream_buffer.len() {
-                            let (l1, r1) = get_sample(&instance.stream_buffer, idx_i, channels);
-                            let (l2, r2) = if idx_i + channels < instance.stream_buffer.len() {
-                                get_sample(&instance.stream_buffer, idx_i + channels, channels)
-                            } else {
-                                (l1, r1) // In future, peek into next chunk. For now, flat end.
-                            };
-
-                            val_l = l1 + frac * (l2 - l1);
-                            val_r = r1 + frac * (r2 - r1);
-                            has_sample = true;
+                    if idx_i < instance.stream_buffer.len() {
+                        let (l1, r1) = get_sample(&instance.stream_buffer, idx_i, channels);
+                        let (l2, r2) = if idx_i + channels < instance.stream_buffer.len() {
+                            get_sample(&instance.stream_buffer, idx_i + channels, channels)
                         } else {
-                            // Buffer is empty but stream is not disconnected.
-                            // We treat it as having a silent sample to keep the track alive.
-                            val_l = 0.0;
-                            val_r = 0.0;
-                            has_sample = true;
-                            // But we shouldn't advance the cursor! So we need a way to tell the mixer not to advance.
-                            // We'll set a flag or just handle it below.
-                        }
+                            (l1, r1) // In future, peek into next chunk. For now, flat end.
+                        };
+
+                        val_l = l1 + frac * (l2 - l1);
+                        val_r = r1 + frac * (r2 - r1);
+                        has_sample = true;
+                    } else {
+                        // Buffer is empty but stream is not disconnected.
+                        // We treat it as having a silent sample to keep the track alive.
+                        val_l = 0.0;
+                        val_r = 0.0;
+                        has_sample = true;
+                        // But we shouldn't advance the cursor! So we need a way to tell the mixer not to advance.
+                        // We'll set a flag or just handle it below.
                     }
                 } else if let Some(data) = &instance.data {
                     if idx_i < data.samples.len() {
