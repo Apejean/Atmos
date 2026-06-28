@@ -72,9 +72,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                         ref.read(engineStateProvider.notifier).reset();
                         ref.read(configProvider.notifier).saveConfig(importedConfig);
                         await rust_api.apiLoadPreset(config: importedConfig);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('프리셋이 성공적으로 로드되었습니다.'), backgroundColor: AppColors.success),
-                        );
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('프리셋이 성공적으로 로드되었습니다.'), backgroundColor: AppColors.success),
+                          );
+                        }
                       }
                     } catch (e) {
                       if (context.mounted) {
