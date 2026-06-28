@@ -129,7 +129,7 @@ pub fn api_play_track(room_id: String, track_id: String) -> Result<(), AtmosErro
                     }
 
                     // Start DiskStreamer for BGM
-                    match crate::audio::streaming::DiskStreamer::new(track.file_path.clone()) {
+                    match crate::audio::streaming::DiskStreamer::new(track.file_path.clone(), true) {
                         Ok(streamer) => {
                             GLOBAL_STATE.add_playing_track(instance_id, track_id.clone());
                             GLOBAL_STATE
@@ -184,9 +184,37 @@ pub fn api_play_track(room_id: String, track_id: String) -> Result<(), AtmosErro
                             })?;
                         return Ok(());
                     } else {
-                        return Err(AtmosError {
-                            message: format!("Cache miss for {}", track.file_path),
-                        });
+                        // Cache miss or skipped due to size -> fallback to DiskStreamer
+                        match crate::audio::streaming::DiskStreamer::new(track.file_path.clone(), false) {
+                            Ok(streamer) => {
+                                GLOBAL_STATE.add_playing_track(instance_id, track_id.clone());
+                                GLOBAL_STATE
+                                    .command_sender
+                                    .try_send(AudioCommand::PlayTrack {
+                                        instance_id,
+                                        room_id: hash_id(&room_id),
+                                        track_id: hash_id(&track_id),
+                                        track_id_str: track_id.clone(),
+                                        data: None,
+                                        stream_receiver: Some(streamer.chunk_receiver),
+                                        stream_sample_rate: streamer.sample_rate,
+                                        stream_channels: streamer.channels,
+                                        is_loop: false,
+                                        volume: track.volume,
+                                        output_channel: track.output_channel as usize,
+                                        output_stereo: track.output_stereo,
+                                    })
+                                    .map_err(|e| AtmosError {
+                                        message: e.to_string(),
+                                    })?;
+                                return Ok(());
+                            }
+                            Err(e) => {
+                                return Err(AtmosError {
+                                    message: format!("Cache miss and streamer fallback failed for {}: {}", track.file_path, e),
+                                });
+                            }
+                        }
                     }
                 }
             }
@@ -474,6 +502,15 @@ pub fn api_preload_all_sounds(config: AppConfig) -> Result<(), AtmosError> {
     let mut errors = Vec::new();
     for file in missing_files {
         let path = std::path::Path::new(&file);
+        
+        // Skip caching large files to prevent OOM
+        if let Ok(metadata) = std::fs::metadata(path) {
+            if metadata.len() > 20 * 1024 * 1024 {
+                GLOBAL_STATE.log(format!("Skipping cache for large file (will stream): {}", file));
+                continue;
+            }
+        }
+
         match crate::audio::player::SoundData::load_from_file(path) {
             Ok(data) => {
                 GLOBAL_STATE.log(format!("Loaded sound file: {}", file));
