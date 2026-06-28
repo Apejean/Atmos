@@ -153,6 +153,7 @@ impl DiskStreamer {
                     Ok(audio_buf) => {
                         if sample_buf.is_none() {
                             let spec = *audio_buf.spec();
+                            // Update actual channels dynamically (note: consumer might need to adapt if it reads `channels` field before first chunk, but mixer relies on chunk size if possible)
                             let duration = std::cmp::max(audio_buf.capacity() as u64, max_frames);
                             sample_buf = Some(symphonia::core::audio::SampleBuffer::<f32>::new(
                                 duration, spec,

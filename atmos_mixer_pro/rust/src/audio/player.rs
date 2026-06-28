@@ -48,6 +48,7 @@ impl SoundData {
 
         let mut sample_buf = None;
         let mut all_samples = Vec::new();
+        let mut actual_channels = channels;
 
         loop {
             let packet = match format.next_packet() {
@@ -73,6 +74,7 @@ impl SoundData {
                 Ok(audio_buf) => {
                     if sample_buf.is_none() {
                         let spec = *audio_buf.spec();
+                        actual_channels = spec.channels.count() as u16;
                         let duration = std::cmp::max(audio_buf.capacity() as u64, max_frames);
                         sample_buf = Some(SampleBuffer::<f32>::new(duration, spec));
                     }
@@ -89,7 +91,7 @@ impl SoundData {
 
         Ok(Self {
             samples: all_samples,
-            channels,
+            channels: actual_channels,
             sample_rate,
         })
     }

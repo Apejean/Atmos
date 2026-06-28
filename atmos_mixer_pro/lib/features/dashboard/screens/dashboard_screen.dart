@@ -19,6 +19,7 @@ class DashboardScreen extends ConsumerStatefulWidget {
 
 class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   bool _isProcessing = false;
+  bool _isRecovering = false;
   final ScrollController _scrollController = ScrollController();
 
   @override
@@ -70,17 +71,24 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       await rust_api.apiStopAll();
                       if (context.mounted) {
                         ref.read(engineStateProvider.notifier).reset();
-                        ref.read(configProvider.notifier).saveConfig(importedConfig);
+                        ref
+                            .read(configProvider.notifier)
+                            .saveConfig(importedConfig);
                         await rust_api.apiLoadPreset(config: importedConfig);
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('프리셋이 성공적으로 로드되었습니다.'), backgroundColor: AppColors.success),
+                            const SnackBar(
+                              content: Text('프리셋이 성공적으로 로드되었습니다.'),
+                              backgroundColor: AppColors.success,
+                            ),
                           );
                         }
                       }
                     } catch (e) {
                       if (context.mounted) {
-                        ref.read(globalErrorProvider.notifier).showError('설정 불러오기 실패: $e');
+                        ref
+                            .read(globalErrorProvider.notifier)
+                            .showError('설정 불러오기 실패: $e');
                       }
                     }
                   }
@@ -105,12 +113,17 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       );
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('설정이 저장되었습니다.'), backgroundColor: AppColors.success),
+                          const SnackBar(
+                            content: Text('설정이 저장되었습니다.'),
+                            backgroundColor: AppColors.success,
+                          ),
                         );
                       }
                     } catch (e) {
                       if (context.mounted) {
-                        ref.read(globalErrorProvider.notifier).showError('설정 저장 실패: $e');
+                        ref
+                            .read(globalErrorProvider.notifier)
+                            .showError('설정 저장 실패: $e');
                       }
                     }
                   }
@@ -133,12 +146,17 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     await rust_api.apiExportLogs(destinationDir: dest);
                     if (context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('바탕화면에 로그가 저장되었습니다.'), backgroundColor: AppColors.success),
+                        const SnackBar(
+                          content: Text('바탕화면에 로그가 저장되었습니다.'),
+                          backgroundColor: AppColors.success,
+                        ),
                       );
                     }
                   } catch (e) {
                     if (context.mounted) {
-                      ref.read(globalErrorProvider.notifier).showError('로그 저장 실패: $e');
+                      ref
+                          .read(globalErrorProvider.notifier)
+                          .showError('로그 저장 실패: $e');
                     }
                   }
                 },
@@ -169,7 +187,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 ref.read(configProvider.notifier).saveConfig(updated);
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text(updated.isExhibitionMode ? '전시 모드가 켜졌습니다.' : '전시 모드가 꺼졌습니다.'),
+                    content: Text(
+                      updated.isExhibitionMode
+                          ? '전시 모드가 켜졌습니다.'
+                          : '전시 모드가 꺼졌습니다.',
+                    ),
                     backgroundColor: AppColors.primaryNeon,
                   ),
                 );
@@ -238,10 +260,67 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                           ),
                           const SizedBox(height: 4),
                           const Text(
-                            '해결 방법: 케이블을 확인하고 상단 설정(Preferences)에서 오디오 장치를 다시 선택하세요.',
+                            '해결 방법: 케이블을 확인하고 상단 설정(Preferences)에서 오디오 장치를 다시 선택하거나 아래 복구 버튼을 누르세요.',
                             style: TextStyle(
                               color: Colors.white70,
                               fontSize: 14,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          ElevatedButton.icon(
+                            onPressed: _isRecovering
+                                ? null
+                                : () async {
+                                    final config = ref.read(configProvider);
+                                    if (config != null) {
+                                      setState(() {
+                                        _isRecovering = true;
+                                      });
+                                      try {
+                                        await rust_api.apiForceRestartEngine(
+                                          deviceName: config.deviceName,
+                                        );
+                                        if (context.mounted) {
+                                          ref
+                                              .read(
+                                                globalErrorProvider.notifier,
+                                              )
+                                              .clearError();
+                                        }
+                                      } finally {
+                                        if (context.mounted) {
+                                          setState(() {
+                                            _isRecovering = false;
+                                          });
+                                        }
+                                      }
+                                    }
+                                  },
+                            icon: _isRecovering
+                                ? const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const Icon(Icons.refresh),
+                            label: Text(
+                              _isRecovering ? '복구 중...' : '엔진 리셋 (원클릭 복구)',
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.white,
+                              foregroundColor: AppColors.danger,
+                              disabledBackgroundColor: Colors.white70,
+                              disabledForegroundColor: AppColors.danger
+                                  .withValues(alpha: 0.5),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 12,
+                              ),
+                              textStyle: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ),
                         ],

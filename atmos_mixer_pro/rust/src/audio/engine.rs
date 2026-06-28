@@ -182,6 +182,8 @@ impl AudioEngine {
         crate::core::state::GLOBAL_STATE
             .active_device_channels
             .store(config.channels as u32, std::sync::atomic::Ordering::SeqCst);
+        
+        *crate::core::state::GLOBAL_STATE.engine_error.write().unwrap() = None;
 
         let (gc_tx, gc_rx) =
             crossbeam_channel::bounded::<crate::audio::player::SoundInstance>(4096);
@@ -194,7 +196,11 @@ impl AudioEngine {
 
         let mut mixer = AudioMixer::new(config.sample_rate.0, gc_tx);
 
-        let err_fn = |err| eprintln!("an error occurred on stream: {}", err);
+        let err_fn = |err: cpal::StreamError| {
+            eprintln!("an error occurred on stream: {}", err);
+            *crate::core::state::GLOBAL_STATE.engine_error.write().unwrap() = Some(err.to_string());
+            crate::core::state::GLOBAL_STATE.broadcast_state();
+        };
 
         let stream = match sample_format {
             SampleFormat::F32 => device.build_output_stream(

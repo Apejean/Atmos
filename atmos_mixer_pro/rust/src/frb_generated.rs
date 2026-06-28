@@ -991,10 +991,12 @@ impl SseDecode for crate::api::simple::EngineStateUpdate {
         let mut var_activeRoomId = <Option<String>>::sse_decode(deserializer);
         let mut var_duckingActive = <bool>::sse_decode(deserializer);
         let mut var_playingTrackIds = <Vec<String>>::sse_decode(deserializer);
+        let mut var_engineError = <Option<String>>::sse_decode(deserializer);
         return crate::api::simple::EngineStateUpdate {
             active_room_id: var_activeRoomId,
             ducking_active: var_duckingActive,
             playing_track_ids: var_playingTrackIds,
+            engine_error: var_engineError,
         };
     }
 }
@@ -1380,6 +1382,7 @@ impl flutter_rust_bridge::IntoDart for crate::api::simple::EngineStateUpdate {
             self.active_room_id.into_into_dart().into_dart(),
             self.ducking_active.into_into_dart().into_dart(),
             self.playing_track_ids.into_into_dart().into_dart(),
+            self.engine_error.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
@@ -1563,6 +1566,7 @@ impl SseEncode for crate::api::simple::EngineStateUpdate {
         <Option<String>>::sse_encode(self.active_room_id, serializer);
         <bool>::sse_encode(self.ducking_active, serializer);
         <Vec<String>>::sse_encode(self.playing_track_ids, serializer);
+        <Option<String>>::sse_encode(self.engine_error, serializer);
     }
 }
 

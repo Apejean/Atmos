@@ -184,9 +184,15 @@ pub fn api_play_track(room_id: String, track_id: String) -> Result<(), AtmosErro
                             })?;
                         return Ok(());
                     } else {
-                        // Cache miss or skipped due to size -> fallback to DiskStreamer
-                        match crate::audio::streaming::DiskStreamer::new(track.file_path.clone(), false) {
-                            Ok(streamer) => {
+                        // Cache miss -> Load into RAM dynamically (obeys 100% RAM rule for SFX)
+                        let path = std::path::Path::new(&track.file_path);
+                        match crate::audio::player::SoundData::load_from_file(path) {
+                            Ok(data) => {
+                                let arc_data = std::sync::Arc::new(data);
+                                {
+                                    let mut cache = GLOBAL_STATE.sound_cache.write().unwrap();
+                                    cache.insert(track.file_path.clone(), arc_data.clone());
+                                }
                                 GLOBAL_STATE.add_playing_track(instance_id, track_id.clone());
                                 GLOBAL_STATE
                                     .command_sender
@@ -195,10 +201,10 @@ pub fn api_play_track(room_id: String, track_id: String) -> Result<(), AtmosErro
                                         room_id: hash_id(&room_id),
                                         track_id: hash_id(&track_id),
                                         track_id_str: track_id.clone(),
-                                        data: None,
-                                        stream_receiver: Some(streamer.chunk_receiver),
-                                        stream_sample_rate: streamer.sample_rate,
-                                        stream_channels: streamer.channels,
+                                        data: Some(arc_data.clone()),
+                                        stream_receiver: None,
+                                        stream_sample_rate: arc_data.sample_rate,
+                                        stream_channels: arc_data.channels,
                                         is_loop: false,
                                         volume: track.volume,
                                         output_channel: track.output_channel as usize,
@@ -211,7 +217,7 @@ pub fn api_play_track(room_id: String, track_id: String) -> Result<(), AtmosErro
                             }
                             Err(e) => {
                                 return Err(AtmosError {
-                                    message: format!("Cache miss and streamer fallback failed for {}: {}", track.file_path, e),
+                                    message: format!("Cache miss and dynamic RAM loading failed for {}: {}", track.file_path, e),
                                 });
                             }
                         }
@@ -456,6 +462,7 @@ pub struct EngineStateUpdate {
     pub active_room_id: Option<String>,
     pub ducking_active: bool,
     pub playing_track_ids: Vec<String>,
+    pub engine_error: Option<String>,
 }
 
 pub fn api_create_engine_state_stream(sink: StreamSink<EngineStateUpdate>) {
@@ -473,6 +480,7 @@ pub fn api_create_engine_state_stream(sink: StreamSink<EngineStateUpdate>) {
             .is_ducking
             .load(std::sync::atomic::Ordering::Relaxed),
         playing_track_ids,
+        engine_error: GLOBAL_STATE.engine_error.read().unwrap().clone(),
     };
     let _ = sink.add(initial_state);
     *GLOBAL_STATE.state_sink.write().unwrap() = Some(sink);
@@ -503,14 +511,7 @@ pub fn api_preload_all_sounds(config: AppConfig) -> Result<(), AtmosError> {
     for file in missing_files {
         let path = std::path::Path::new(&file);
         
-        // Skip caching large files to prevent OOM
-        if let Ok(metadata) = std::fs::metadata(path) {
-            if metadata.len() > 20 * 1024 * 1024 {
-                GLOBAL_STATE.log(format!("Skipping cache for large file (will stream): {}", file));
-                continue;
-            }
-        }
-
+        // Load into RAM regardless of size (SFX only, loop=false)
         match crate::audio::player::SoundData::load_from_file(path) {
             Ok(data) => {
                 GLOBAL_STATE.log(format!("Loaded sound file: {}", file));

@@ -119,16 +119,21 @@ class EngineStateUpdate {
   final String? activeRoomId;
   final bool duckingActive;
   final List<String> playingTrackIds;
+  final String? engineError;
 
   const EngineStateUpdate({
     this.activeRoomId,
     required this.duckingActive,
     required this.playingTrackIds,
+    this.engineError,
   });
 
   @override
   int get hashCode =>
-      activeRoomId.hashCode ^ duckingActive.hashCode ^ playingTrackIds.hashCode;
+      activeRoomId.hashCode ^
+      duckingActive.hashCode ^
+      playingTrackIds.hashCode ^
+      engineError.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -137,7 +142,8 @@ class EngineStateUpdate {
           runtimeType == other.runtimeType &&
           activeRoomId == other.activeRoomId &&
           duckingActive == other.duckingActive &&
-          playingTrackIds == other.playingTrackIds;
+          playingTrackIds == other.playingTrackIds &&
+          engineError == other.engineError;
 }
 
 class OutputDeviceInfo {

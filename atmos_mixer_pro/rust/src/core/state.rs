@@ -42,6 +42,7 @@ pub struct GlobalEngineState {
 
     pub active_device_channels: AtomicU32,
     pub is_exhibition_mode: AtomicBool,
+    pub engine_error: RwLock<Option<String>>,
 }
 
 impl Default for GlobalEngineState {
@@ -74,6 +75,7 @@ impl GlobalEngineState {
             state_sink: RwLock::new(None),
             active_device_channels: AtomicU32::new(0),
             is_exhibition_mode: AtomicBool::new(false),
+            engine_error: RwLock::new(None),
         }
     }
 
@@ -92,6 +94,7 @@ impl GlobalEngineState {
             active_room_id: room_id,
             ducking_active: ducking,
             playing_track_ids,
+            engine_error: self.engine_error.read().unwrap().clone(),
         };
 
         if let Some(sink) = self.state_sink.read().unwrap().as_ref() {
