@@ -35,13 +35,10 @@ class VUMeterPainter extends CustomPainter {
       paint.color = color.withValues(alpha: 0.2);
       canvas.drawRect(Rect.fromLTWH(0, y, size.width, segmentHeight), paint);
 
-      // Draw active foreground with Neon Glow if level > threshold
+      // Draw active foreground if level > threshold
       if (level >= (i / totalSegments)) {
         paint.color = color;
-        // Neon glow effect
-        paint.maskFilter = const MaskFilter.blur(BlurStyle.solid, 3.0);
         canvas.drawRect(Rect.fromLTWH(0, y, size.width, segmentHeight), paint);
-        paint.maskFilter = null; // Reset
       }
     }
   }

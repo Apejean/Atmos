@@ -292,21 +292,20 @@ class _TrackCardState extends ConsumerState<TrackCard> {
                     children: [
                       Row(
                         children: [
-                          IconButton(
-                            icon: Icon(
-                              Icons.all_inclusive,
-                              shadows: widget.track.isLoop
-                                  ? [
-                                      Shadow(
-                                        color: widget.accentColor,
-                                        blurRadius: 8,
-                                      ),
-                                    ]
-                                  : null,
+                          Container(
+                            decoration: BoxDecoration(
+                              color: widget.track.isLoop ? widget.accentColor.withValues(alpha: 0.15) : Colors.transparent,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: widget.track.isLoop ? widget.accentColor : Colors.transparent,
+                                width: 1.5,
+                              ),
                             ),
-                            color: widget.track.isLoop
-                                ? widget.accentColor
-                                : AppColors.darkGrey,
+                            child: IconButton(
+                              icon: const Icon(Icons.all_inclusive),
+                              color: widget.track.isLoop
+                                  ? widget.accentColor
+                                  : AppColors.darkGrey,
                             iconSize: 20,
                             padding: EdgeInsets.zero,
                             constraints: const BoxConstraints(
@@ -317,6 +316,7 @@ class _TrackCardState extends ConsumerState<TrackCard> {
                               !widget.track.isLoop,
                             ),
                             tooltip: '무한 루프 (BGM)',
+                          ),
                           ),
                           const SizedBox(width: 4),
                           Text(

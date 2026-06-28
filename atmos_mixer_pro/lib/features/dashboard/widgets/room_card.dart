@@ -94,15 +94,10 @@ class _HoverGlowButtonState extends State<HoverGlowButton> {
                 ? bgColor.withValues(alpha: 0.85)
                 : bgColor,
             borderRadius: BorderRadius.circular(24),
-            boxShadow: _isHovered && !isDisabled
-                ? [
-                    BoxShadow(
-                      color: widget.glowColor.withValues(alpha: 0.5),
-                      blurRadius: 10,
-                      spreadRadius: 1,
-                    ),
-                  ]
-                : [],
+            border: Border.all(
+              color: _isHovered && !isDisabled ? widget.glowColor : Colors.transparent,
+              width: 1,
+            ),
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
