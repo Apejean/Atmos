@@ -148,31 +148,7 @@ final hardwareChannelsProvider = FutureProvider<List<String>>((ref) async {
   }
 });
 
-class LogNotifier extends Notifier<List<String>> {
-  @override
-  List<String> build() {
-    _initStream();
-    return [];
-  }
 
-  void _initStream() {
-    final stream = rust_api.apiCreateLogStream();
-    final sub = stream.listen((log) {
-      final newList = List<String>.from(state)..add(log);
-      if (newList.length > 100) {
-        newList.removeAt(0);
-      }
-      state = newList;
-    });
-    ref.onDispose(() => sub.cancel());
-  }
-
-  void clearLogs() {
-    state = [];
-  }
-}
-
-final logProvider = NotifierProvider<LogNotifier, List<String>>(LogNotifier.new);
 
 class EngineState {
   final String? activeRoomId;

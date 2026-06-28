@@ -36,7 +36,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             children: [
               _buildHeader(context),
               Expanded(child: _buildRoomPanels(context)),
-              _buildSystemLog(context),
             ],
           ),
           _buildErrorBanner(),
@@ -211,7 +210,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                           .read(globalErrorProvider.notifier)
                           .showError('시스템 리셋 실패: $e');
                     }
-                    ref.read(logProvider.notifier).clearLogs();
                     ref.read(engineStateProvider.notifier).reset();
                   } finally {
                     setState(() {
@@ -459,57 +457,4 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     );
   }
 
-  Widget _buildSystemLog(BuildContext context) {
-    final logs = ref.watch(logProvider);
-
-    return Container(
-      height: 155,
-      color: AppColors.logBackground,
-      padding: const EdgeInsets.all(8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                'System Log',
-                style: TextStyle(
-                  color: AppColors.textPrimary,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              TextButton.icon(
-                onPressed: () => ref.read(logProvider.notifier).clearLogs(),
-                icon: const Icon(Icons.delete_outline, size: 16, color: AppColors.textPrimary),
-                label: const Text(
-                  '지우기',
-                  style: TextStyle(color: AppColors.textPrimary),
-                ),
-              ),
-            ],
-          ),
-          const Divider(color: AppColors.darkGrey),
-          Expanded(
-            child: SelectionArea(
-              child: ListView.builder(
-                reverse: true,
-                itemCount: logs.length,
-                itemBuilder: (context, index) {
-                  return Text(
-                    logs[logs.length - 1 - index],
-                    style: const TextStyle(
-                      color: AppColors.logText,
-                      fontFamily: 'monospace',
-                      fontSize: 12,
-                    ),
-                  );
-                },
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }

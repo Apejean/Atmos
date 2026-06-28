@@ -53,7 +53,7 @@ impl AudioMixer {
         }
 
         let frames = output.len() / out_channels;
-        
+
         let fade_frames = (self.sample_rate as f32 * 0.3) as usize; // 300ms fade
         let duck_down_frames = (self.sample_rate as f32 * 0.15) as usize; // 150ms duck down
         let duck_up_frames = (self.sample_rate as f32 * 0.3) as usize; // 300ms duck up
@@ -117,7 +117,7 @@ impl AudioMixer {
                 }
 
                 let step = instance.stream_sample_rate as f64 / self.sample_rate as f64;
-                
+
                 let channels = (instance.stream_channels as usize).max(1);
 
                 let mut idx_f = instance.cursor;
@@ -132,7 +132,11 @@ impl AudioMixer {
                 let get_sample = |buf: &[f32], idx: usize, chs: usize| -> (f32, f32) {
                     if idx < buf.len() {
                         let l = buf[idx];
-                        let r = if chs > 1 && idx + 1 < buf.len() { buf[idx + 1] } else { l };
+                        let r = if chs > 1 && idx + 1 < buf.len() {
+                            buf[idx + 1]
+                        } else {
+                            l
+                        };
                         (l, r)
                     } else {
                         (0.0, 0.0)
@@ -149,11 +153,14 @@ impl AudioMixer {
                                     } else {
                                         (instance.stream_buffer.len() / channels) as f64
                                     };
-                                    let old_chunk = std::mem::replace(&mut instance.stream_buffer, new_chunk);
+                                    let old_chunk =
+                                        std::mem::replace(&mut instance.stream_buffer, new_chunk);
                                     let _ = self.buf_gc_tx.try_send(old_chunk);
-                                    
+
                                     instance.cursor -= frames_in_chunk;
-                                    if instance.cursor < 0.0 { instance.cursor = 0.0; } // safety bound
+                                    if instance.cursor < 0.0 {
+                                        instance.cursor = 0.0;
+                                    } // safety bound
                                     idx_f = instance.cursor;
                                     idx_base = idx_f as usize;
                                     frac = (idx_f - (idx_base as f64)) as f32;
@@ -168,7 +175,7 @@ impl AudioMixer {
                                 }
                             }
                         }
-                        
+
                         if idx_i < instance.stream_buffer.len() {
                             let (l1, r1) = get_sample(&instance.stream_buffer, idx_i, channels);
                             let (l2, r2) = if idx_i + channels < instance.stream_buffer.len() {
@@ -176,7 +183,7 @@ impl AudioMixer {
                             } else {
                                 (l1, r1) // In future, peek into next chunk. For now, flat end.
                             };
-                            
+
                             val_l = l1 + frac * (l2 - l1);
                             val_r = r1 + frac * (r2 - r1);
                             has_sample = true;
@@ -185,7 +192,7 @@ impl AudioMixer {
                             // We treat it as having a silent sample to keep the track alive.
                             val_l = 0.0;
                             val_r = 0.0;
-                            has_sample = true; 
+                            has_sample = true;
                             // But we shouldn't advance the cursor! So we need a way to tell the mixer not to advance.
                             // We'll set a flag or just handle it below.
                         }
@@ -197,17 +204,19 @@ impl AudioMixer {
                         if next_idx >= data.samples.len() && instance.is_loop {
                             next_idx = 0;
                         }
-                        
+
                         let (l2, r2) = get_sample(&data.samples, next_idx, channels);
-                        
+
                         val_l = l1 + frac * (l2 - l1);
                         val_r = r1 + frac * (r2 - r1);
                         has_sample = true;
                     } else if instance.is_loop {
                         let frames_in_data = (data.samples.len() / channels) as f64;
                         instance.cursor -= frames_in_data;
-                        if instance.cursor < 0.0 { instance.cursor = 0.0; }
-                        
+                        if instance.cursor < 0.0 {
+                            instance.cursor = 0.0;
+                        }
+
                         idx_f = instance.cursor;
                         idx_base = idx_f as usize;
                         frac = (idx_f - (idx_base as f64)) as f32;
@@ -220,7 +229,7 @@ impl AudioMixer {
                                 next_idx = 0;
                             }
                             let (l2, r2) = get_sample(&data.samples, next_idx, channels);
-                            
+
                             val_l = l1 + frac * (l2 - l1);
                             val_r = r1 + frac * (r2 - r1);
                             has_sample = true;
@@ -233,26 +242,30 @@ impl AudioMixer {
                         let ch_l = instance.output_channel;
                         let is_l_enabled = if ch_l < GLOBAL_STATE.enabled_channels.len() {
                             GLOBAL_STATE.enabled_channels[ch_l].load(Ordering::Relaxed)
-                        } else { false };
-                        
+                        } else {
+                            false
+                        };
+
                         if instance.output_stereo {
                             let out_idx_l = frame * out_channels + instance.output_channel;
                             let mut wrote_r = false;
-                            
+
                             if is_l_enabled && out_idx_l < output.len() {
                                 let mut final_vol = current_vol;
                                 if let Some(&rv) = self.room_volumes.get(&instance.room_id) {
                                     final_vol *= rv;
                                 }
-                                output[out_idx_l] += val_l * final_vol; 
+                                output[out_idx_l] += val_l * final_vol;
                             }
-                            
+
                             if instance.output_channel + 1 < out_channels {
                                 let ch_r = instance.output_channel + 1;
                                 let is_r_enabled = if ch_r < GLOBAL_STATE.enabled_channels.len() {
                                     GLOBAL_STATE.enabled_channels[ch_r].load(Ordering::Relaxed)
-                                } else { false };
-                                
+                                } else {
+                                    false
+                                };
+
                                 let out_idx_r = out_idx_l + 1;
                                 if is_r_enabled && out_idx_r < output.len() {
                                     let mut final_vol = current_vol;
@@ -263,7 +276,7 @@ impl AudioMixer {
                                     wrote_r = true;
                                 }
                             }
-                            
+
                             if !wrote_r && is_l_enabled && out_idx_l < output.len() {
                                 // mono fallback if r is muted/unavailable
                                 let mut final_vol = current_vol;
@@ -297,7 +310,9 @@ impl AudioMixer {
 
         // Compute VU levels (Peak per channel) and apply soft clipping
         for ch in 0..out_channels {
-            if ch >= GLOBAL_STATE.enabled_channels.len() { break; }
+            if ch >= GLOBAL_STATE.enabled_channels.len() {
+                break;
+            }
             let is_enabled = GLOBAL_STATE.enabled_channels[ch].load(Ordering::Relaxed);
             if !is_enabled {
                 GLOBAL_STATE.vu_levels[ch].store(0, Ordering::Relaxed);
@@ -316,7 +331,7 @@ impl AudioMixer {
                 let sample_idx = frame * out_channels + ch;
                 if sample_idx < output.len() {
                     let mut val = output[sample_idx];
-                    
+
                     // Soft clipping
                     if val <= -1.0 {
                         val = -1.0;
@@ -333,7 +348,7 @@ impl AudioMixer {
                     }
                 }
             }
-            
+
             GLOBAL_STATE.vu_levels[ch].store(peak.to_bits(), Ordering::Relaxed);
         }
 

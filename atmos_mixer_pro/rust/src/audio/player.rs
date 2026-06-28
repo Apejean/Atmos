@@ -1,12 +1,12 @@
 use std::sync::Arc;
 
-use symphonia::core::io::MediaSourceStream;
-use symphonia::core::probe::Hint;
-use symphonia::core::formats::FormatOptions;
-use symphonia::core::meta::MetadataOptions;
-use symphonia::core::codecs::DecoderOptions;
-use symphonia::core::audio::SampleBuffer;
 use std::fs::File;
+use symphonia::core::audio::SampleBuffer;
+use symphonia::core::codecs::DecoderOptions;
+use symphonia::core::formats::FormatOptions;
+use symphonia::core::io::MediaSourceStream;
+use symphonia::core::meta::MetadataOptions;
+use symphonia::core::probe::Hint;
 
 pub struct SoundData {
     pub samples: Vec<f32>,
@@ -27,17 +27,23 @@ impl SoundData {
         let metadata_opts = MetadataOptions::default();
         let decoder_opts = DecoderOptions::default();
 
-        let probed = symphonia::default::get_probe()
-            .format(&hint, mss, &format_opts, &metadata_opts)?;
+        let probed =
+            symphonia::default::get_probe().format(&hint, mss, &format_opts, &metadata_opts)?;
 
         let mut format = probed.format;
-        let track = format.default_track().ok_or_else(|| anyhow::anyhow!("No default track"))?;
-        let mut decoder = symphonia::default::get_codecs()
-            .make(&track.codec_params, &decoder_opts)?;
+        let track = format
+            .default_track()
+            .ok_or_else(|| anyhow::anyhow!("No default track"))?;
+        let mut decoder =
+            symphonia::default::get_codecs().make(&track.codec_params, &decoder_opts)?;
 
         let track_id = track.id;
         let sample_rate = track.codec_params.sample_rate.unwrap_or(48000);
-        let channels = track.codec_params.channels.map(|c| c.count() as u16).unwrap_or(2);
+        let channels = track
+            .codec_params
+            .channels
+            .map(|c| c.count() as u16)
+            .unwrap_or(2);
         let max_frames = track.codec_params.max_frames_per_packet.unwrap_or(4096);
 
         let mut sample_buf = None;
@@ -113,17 +119,17 @@ impl SoundInstance {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         instance_id: u64,
-        id: u32, 
-        room_id: u32, 
+        id: u32,
+        room_id: u32,
         track_id_str: String,
-        data: Option<Arc<SoundData>>, 
+        data: Option<Arc<SoundData>>,
         stream_receiver: Option<crossbeam_channel::Receiver<Vec<f32>>>,
         stream_sample_rate: u32,
         stream_channels: u16,
-        is_loop: bool, 
+        is_loop: bool,
         volume: f32,
         output_channel: usize,
-        output_stereo: bool
+        output_stereo: bool,
     ) -> Self {
         Self {
             instance_id,

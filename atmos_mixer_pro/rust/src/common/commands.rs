@@ -1,5 +1,5 @@
-use std::sync::Arc;
 use crate::audio::player::SoundData;
+use std::sync::Arc;
 
 #[derive(Clone)]
 pub enum AudioCommand {
@@ -17,10 +17,27 @@ pub enum AudioCommand {
         output_channel: usize,
         output_stereo: bool,
     },
-    StopTrack { room_id: u32, track_id: u32 },
+    StopTrack {
+        room_id: u32,
+        track_id: u32,
+    },
     StopAll,
-    SetMasterVolume { room_id: u32, volume: f32 },
-    SetTrackVolume { room_id: u32, track_id: u32, volume: f32 },
-    SetTrackOutput { room_id: u32, track_id: u32, output_channel: usize, output_stereo: bool },
-    ClearRoom { room_id: u32 },
+    SetMasterVolume {
+        room_id: u32,
+        volume: f32,
+    },
+    SetTrackVolume {
+        room_id: u32,
+        track_id: u32,
+        volume: f32,
+    },
+    SetTrackOutput {
+        room_id: u32,
+        track_id: u32,
+        output_channel: usize,
+        output_stereo: bool,
+    },
+    ClearRoom {
+        room_id: u32,
+    },
 }

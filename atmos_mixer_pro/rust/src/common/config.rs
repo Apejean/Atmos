@@ -53,15 +53,17 @@ pub struct RoomConfig {
     pub tracks: Vec<TrackConfig>,
 }
 
-fn default_true() -> bool { true }
+fn default_true() -> bool {
+    true
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TrackConfig {
     pub id: String,
     pub name: String,
     pub file_path: String,
-    pub volume: f32, // 0.0 to 1.0
-    pub is_loop: bool, // true = BGM, false = SFX
+    pub volume: f32,         // 0.0 to 1.0
+    pub is_loop: bool,       // true = BGM, false = SFX
     pub output_channel: u32, // 1 to 24 (1-indexed for user, mapped to 0-23 internally)
     #[serde(default = "default_true")]
     pub output_stereo: bool,
@@ -98,12 +100,12 @@ impl AppConfig {
         if let Some(parent) = path_ref.parent() {
             fs::create_dir_all(parent)?;
         }
-        
+
         // 원자적 쓰기(Atomic Write) 적용: tmp에 먼저 쓰고 rename (OS 수준 안전 보장)
         let tmp_path = path_ref.with_extension("tmp");
         fs::write(&tmp_path, content)?;
         fs::rename(&tmp_path, path_ref)?;
-        
+
         Ok(())
     }
 }

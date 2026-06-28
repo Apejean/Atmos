@@ -1,6 +1,6 @@
 use std::collections::HashMap;
-use std::time::{Duration, Instant};
 use std::sync::Mutex;
+use std::time::{Duration, Instant};
 
 const DEBOUNCE_MS: u64 = 250;
 

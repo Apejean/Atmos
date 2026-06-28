@@ -85,9 +85,6 @@ Future<void> apiForceRestartEngine({String? deviceName}) => RustLib.instance.api
 Future<void> apiStartOscListener({required int port}) =>
     RustLib.instance.api.crateApiSimpleApiStartOscListener(port: port);
 
-Stream<String> apiCreateLogStream() =>
-    RustLib.instance.api.crateApiSimpleApiCreateLogStream();
-
 Stream<EngineStateUpdate> apiCreateEngineStateStream() =>
     RustLib.instance.api.crateApiSimpleApiCreateEngineStateStream();
 
