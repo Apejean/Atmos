@@ -226,7 +226,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         return AnimatedPositioned(
           duration: const Duration(milliseconds: 300),
           curve: Curves.easeInOut,
-          top: error != null ? 0 : -100,
+          top: error != null ? 0 : -400,
           left: 0,
           right: 0,
           child: Material(

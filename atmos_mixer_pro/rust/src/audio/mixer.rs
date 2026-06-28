@@ -153,8 +153,8 @@ impl AudioMixer {
                 let mut frac = (idx_f - (idx_base as f64)) as f32;
                 let mut idx_i = idx_base * channels;
 
-                let mut vals = [0.0; 16]; // N-channel temp buffer (up to 16 channels)
-                let ch_limit = channels.min(16);
+                let mut vals = [0.0; 64]; // N-channel temp buffer (up to 64 channels)
+                let ch_limit = channels.min(64);
                 let mut has_sample = false;
 
                 if let Some(stream_rx) = &instance.stream_receiver {
