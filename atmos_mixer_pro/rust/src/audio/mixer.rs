@@ -13,7 +13,7 @@ pub struct AudioMixer {
     pub ducking: DuckingState,
     pub gc_sender: crossbeam_channel::Sender<SoundInstance>,
     pub buf_gc_tx: crossbeam_channel::Sender<Vec<f32>>,
-    pub room_volumes: std::collections::HashMap<u32, f32>,
+    pub room_volumes: Vec<Option<(u32, f32)>>,
 }
 
 impl AudioMixer {
@@ -38,7 +38,7 @@ impl AudioMixer {
             },
             gc_sender,
             buf_gc_tx,
-            room_volumes: std::collections::HashMap::with_capacity(128),
+            room_volumes: vec![None; 128],
         }
     }
 
@@ -257,7 +257,7 @@ impl AudioMixer {
 
                             if is_l_enabled && out_idx_l < output.len() {
                                 let mut final_vol = current_vol;
-                                if let Some(&rv) = self.room_volumes.get(&instance.room_id) {
+                                if let Some(rv) = self.room_volumes.iter().find_map(|slot| slot.as_ref().filter(|&&(id, _)| id == instance.room_id).map(|&(_, v)| v)) {
                                     final_vol *= rv;
                                 }
                                 output[out_idx_l] += val_l * final_vol;
@@ -274,7 +274,7 @@ impl AudioMixer {
                                 let out_idx_r = out_idx_l + 1;
                                 if is_r_enabled && out_idx_r < output.len() {
                                     let mut final_vol = current_vol;
-                                    if let Some(&rv) = self.room_volumes.get(&instance.room_id) {
+                                    if let Some(rv) = self.room_volumes.iter().find_map(|slot| slot.as_ref().filter(|&&(id, _)| id == instance.room_id).map(|&(_, v)| v)) {
                                         final_vol *= rv;
                                     }
                                     output[out_idx_r] += val_r * final_vol;
@@ -285,7 +285,7 @@ impl AudioMixer {
                             if !wrote_r && is_l_enabled && out_idx_l < output.len() {
                                 // mono fallback if r is muted/unavailable
                                 let mut final_vol = current_vol;
-                                if let Some(&rv) = self.room_volumes.get(&instance.room_id) {
+                                if let Some(rv) = self.room_volumes.iter().find_map(|slot| slot.as_ref().filter(|&&(id, _)| id == instance.room_id).map(|&(_, v)| v)) {
                                     final_vol *= rv;
                                 }
                                 output[out_idx_l] += val_r * final_vol;
@@ -294,7 +294,7 @@ impl AudioMixer {
                             let out_idx = frame * out_channels + instance.output_channel;
                             if is_l_enabled && out_idx < output.len() {
                                 let mut final_vol = current_vol;
-                                if let Some(&rv) = self.room_volumes.get(&instance.room_id) {
+                                if let Some(rv) = self.room_volumes.iter().find_map(|slot| slot.as_ref().filter(|&&(id, _)| id == instance.room_id).map(|&(_, v)| v)) {
                                     final_vol *= rv;
                                 }
                                 output[out_idx] += ((val_l + val_r) * 0.5) * final_vol;

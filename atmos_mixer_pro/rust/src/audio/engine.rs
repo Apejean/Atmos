@@ -207,7 +207,7 @@ impl AudioEngine {
                 None,
             ),
             SampleFormat::I16 => {
-                let mut temp_buf: Vec<f32> = Vec::new();
+                let mut temp_buf: Vec<f32> = vec![0.0; 8192];
                 device.build_output_stream(
                     &config,
                     move |data: &mut [i16], _: &OutputCallbackInfo| {
@@ -226,7 +226,7 @@ impl AudioEngine {
                 )
             }
             SampleFormat::I32 => {
-                let mut temp_buf: Vec<f32> = Vec::new();
+                let mut temp_buf: Vec<f32> = vec![0.0; 8192];
                 device.build_output_stream(
                     &config,
                     move |data: &mut [i32], _: &OutputCallbackInfo| {
@@ -245,7 +245,7 @@ impl AudioEngine {
                 )
             }
             SampleFormat::U16 => {
-                let mut temp_buf: Vec<f32> = Vec::new();
+                let mut temp_buf: Vec<f32> = vec![0.0; 8192];
                 device.build_output_stream(
                     &config,
                     move |data: &mut [u16], _: &OutputCallbackInfo| {
@@ -333,7 +333,13 @@ impl AudioEngine {
                     }
                 }
                 AudioCommand::SetMasterVolume { room_id, volume } => {
-                    mixer.room_volumes.insert(room_id, volume);
+                    if let Some(slot) = mixer.room_volumes.iter_mut().find(|s| s.as_ref().map_or(false, |(id, _)| *id == room_id)) {
+                        if let Some((_, v)) = slot.as_mut() {
+                            *v = volume;
+                        }
+                    } else if let Some(empty_slot) = mixer.room_volumes.iter_mut().find(|s| s.is_none()) {
+                        *empty_slot = Some((room_id, volume));
+                    }
                 }
                 AudioCommand::SetTrackVolume {
                     room_id,

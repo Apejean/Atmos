@@ -52,7 +52,7 @@ impl Default for GlobalEngineState {
 
 impl GlobalEngineState {
     pub fn new() -> Self {
-        let (tx, rx) = bounded(1024);
+        let (tx, rx) = bounded(8192);
 
         let mut vu = Vec::with_capacity(4096);
         let mut enabled = Vec::with_capacity(4096);

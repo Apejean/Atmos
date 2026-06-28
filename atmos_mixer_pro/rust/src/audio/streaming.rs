@@ -22,7 +22,7 @@ impl Default for DiskStreamer {
 }
 
 impl DiskStreamer {
-    pub fn new(file_path: String) -> anyhow::Result<Self> {
+    pub fn new(file_path: String, is_loop: bool) -> anyhow::Result<Self> {
         let (tx, rx) = bounded(16); // Buffer up to 16 chunks
         let is_running = Arc::new(AtomicBool::new(true));
 
@@ -114,22 +114,26 @@ impl DiskStreamer {
                     }
                     Err(symphonia::core::errors::Error::IoError(err)) => {
                         if err.kind() == std::io::ErrorKind::UnexpectedEof {
-                            // Re-open and reset for loop
-                            if let Ok(f) = std::fs::File::open(&path) {
-                                let mss_loop = symphonia::core::io::MediaSourceStream::new(
-                                    Box::new(f),
-                                    Default::default(),
-                                );
-                                if let Ok(probed_loop) = symphonia::default::get_probe().format(
-                                    &hint,
-                                    mss_loop,
-                                    &format_opts,
-                                    &metadata_opts,
-                                ) {
-                                    format = probed_loop.format;
-                                    decoder.reset();
-                                    continue;
+                            if is_loop {
+                                // Re-open and reset for loop
+                                if let Ok(f) = std::fs::File::open(&path) {
+                                    let mss_loop = symphonia::core::io::MediaSourceStream::new(
+                                        Box::new(f),
+                                        Default::default(),
+                                    );
+                                    if let Ok(probed_loop) = symphonia::default::get_probe().format(
+                                        &hint,
+                                        mss_loop,
+                                        &format_opts,
+                                        &metadata_opts,
+                                    ) {
+                                        format = probed_loop.format;
+                                        decoder.reset();
+                                        continue;
+                                    }
                                 }
+                            } else {
+                                break; // EOF reached, stop stream naturally for SFX
                             }
                         }
                         break; // Stop on severe IO error
