@@ -174,7 +174,11 @@ impl AudioMixer {
                                         if self.local_recycle.len() < self.local_recycle.capacity() {
                                             self.local_recycle.push(v);
                                         } else {
-                                            let _ = std::mem::ManuallyDrop::new(v);
+                                            // Channel is full and local recycle is full.
+                                            // We must drop it to prevent a fatal OOM memory leak.
+                                            // Dropping here might theoretically acquire a heap lock, 
+                                            // but it's vastly better than guaranteed OOM.
+                                            let _ = v;
                                         }
                                     }
 
