@@ -134,36 +134,65 @@ class _TrackCardState extends ConsumerState<TrackCard> {
 
     final List<DropdownMenuItem<String>> outputItems = [];
     if (config != null) {
-      final sortedMonoKeys = config.monoConfigs.keys.toList()..sort();
-      for (final key in sortedMonoKeys) {
-        final setting = config.monoConfigs[key]!;
-        if (setting.enabled) {
-          final realCh1 = key - 1;
-          if (realCh1 >= maxChannels) continue;
-          final name1 = setting.customName.isNotEmpty
-              ? '$key (${setting.customName} L)'
-              : '$key';
-          outputItems.add(
-            DropdownMenuItem(
-              value: 'mono_$realCh1',
-              child: Text(
-                '1-Ch (모노) $name1',
-                style: const TextStyle(fontSize: 12, color: Colors.white),
-              ),
-            ),
-          );
+      final isMulti = _fileChannels != null && _fileChannels! > 2;
+      final isMono = _fileChannels == 1;
 
-          final realCh2 = key;
-          if (realCh2 < maxChannels) {
-            final displayCh2 = key + 1;
-            final name2 = setting.customName.isNotEmpty
-                ? '$displayCh2 (${setting.customName} R)'
-                : '$displayCh2';
+      if (!isMulti) {
+        final sortedMonoKeys = config.monoConfigs.keys.toList()..sort();
+        for (final key in sortedMonoKeys) {
+          final setting = config.monoConfigs[key]!;
+          if (setting.enabled) {
+            final realCh1 = key - 1;
+            if (realCh1 >= maxChannels) continue;
+            final name1 = setting.customName.isNotEmpty
+                ? '$key (${setting.customName} L)'
+                : '$key';
             outputItems.add(
               DropdownMenuItem(
-                value: 'mono_$realCh2',
+                value: 'mono_$realCh1',
                 child: Text(
-                  '1-Ch (모노) $name2',
+                  '1-Ch (모노) $name1',
+                  style: const TextStyle(fontSize: 12, color: Colors.white),
+                ),
+              ),
+            );
+
+            final realCh2 = key;
+            if (realCh2 < maxChannels) {
+              final displayCh2 = key + 1;
+              final name2 = setting.customName.isNotEmpty
+                  ? '$displayCh2 (${setting.customName} R)'
+                  : '$displayCh2';
+              outputItems.add(
+                DropdownMenuItem(
+                  value: 'mono_$realCh2',
+                  child: Text(
+                    '1-Ch (모노) $name2',
+                    style: const TextStyle(fontSize: 12, color: Colors.white),
+                  ),
+                ),
+              );
+            }
+          }
+        }
+      }
+
+      if (!isMono && !isMulti) {
+        final sortedStereoKeys = config.stereoConfigs.keys.toList()..sort();
+        for (final key in sortedStereoKeys) {
+          final setting = config.stereoConfigs[key]!;
+          if (setting.enabled) {
+            final realCh = key - 1;
+            if (realCh >= maxChannels) continue;
+            final displayCh2 = key + 1;
+            final displayName = setting.customName.isNotEmpty
+                ? '$key/$displayCh2 (${setting.customName})'
+                : '$key/$displayCh2';
+            outputItems.add(
+              DropdownMenuItem(
+                value: 'stereo_$realCh',
+                child: Text(
+                  '2-Ch (Stereo) $displayName',
                   style: const TextStyle(fontSize: 12, color: Colors.white),
                 ),
               ),
@@ -172,37 +201,28 @@ class _TrackCardState extends ConsumerState<TrackCard> {
         }
       }
 
-      final sortedStereoKeys = config.stereoConfigs.keys.toList()..sort();
-      for (final key in sortedStereoKeys) {
-        final setting = config.stereoConfigs[key]!;
-        if (setting.enabled) {
-          final realCh = key - 1;
-          if (realCh >= maxChannels) continue;
-
-          String labelText;
-          if (_fileChannels != null && _fileChannels! > 2) {
+      if (isMulti) {
+        final sortedMultiKeys = config.multiConfigs.keys.toList()..sort();
+        for (final key in sortedMultiKeys) {
+          final setting = config.multiConfigs[key]!;
+          if (setting.enabled) {
+            final realCh = key - 1;
+            if (realCh >= maxChannels) continue;
             final endCh = key - 1 + _fileChannels!;
-            labelText = 'Ch $key~$endCh ($_fileChannels ch)';
+            var labelText = 'Ch $key~$endCh ($_fileChannels ch)';
             if (setting.customName.isNotEmpty) {
               labelText += ' (${setting.customName})';
             }
-          } else {
-            final displayCh2 = key + 1;
-            final displayName = setting.customName.isNotEmpty
-                ? '$key/$displayCh2 (${setting.customName})'
-                : '$key/$displayCh2';
-            labelText = 'N-Ch (다채널) $displayName';
-          }
-
-          outputItems.add(
-            DropdownMenuItem(
-              value: 'stereo_$realCh',
-              child: Text(
-                labelText,
-                style: const TextStyle(fontSize: 12, color: Colors.white),
+            outputItems.add(
+              DropdownMenuItem(
+                value: 'multi_$realCh',
+                child: Text(
+                  labelText,
+                  style: const TextStyle(fontSize: 12, color: Colors.white),
+                ),
               ),
-            ),
-          );
+            );
+          }
         }
       }
     }
@@ -390,11 +410,11 @@ class _TrackCardState extends ConsumerState<TrackCard> {
                               ),
                               onChanged: (val) {
                                 if (val != null) {
-                                  final isStereo = val.startsWith('stereo_');
-                                  final keyStr = val.replaceFirst(
-                                    isStereo ? 'stereo_' : 'mono_',
-                                    '',
-                                  );
+                                  final isStereo = val.startsWith('stereo_') || val.startsWith('multi_');
+                                  final keyStr = val
+                                      .replaceFirst('stereo_', '')
+                                      .replaceFirst('mono_', '')
+                                      .replaceFirst('multi_', '');
                                   final key = int.tryParse(keyStr);
                                   if (key != null) {
                                     widget.onOutputChanged?.call(key, isStereo);

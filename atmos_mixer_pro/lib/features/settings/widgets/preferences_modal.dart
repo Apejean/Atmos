@@ -74,6 +74,7 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
             systemResetOscAddress: '/system/reset',
             monoConfigs: {},
             stereoConfigs: {},
+            multiConfigs: {},
             rooms: [],
             isExhibitionMode: _tempConfig.isExhibitionMode,
           );
@@ -141,6 +142,7 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
           systemResetOscAddress: _tempConfig.systemResetOscAddress,
           monoConfigs: _tempConfig.monoConfigs,
           stereoConfigs: _tempConfig.stereoConfigs,
+          multiConfigs: _tempConfig.multiConfigs,
           rooms: _tempConfig.rooms,
           isExhibitionMode: _tempConfig.isExhibitionMode,
         );
@@ -198,6 +200,7 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
               systemResetOscAddress: _tempConfig.systemResetOscAddress,
               monoConfigs: _tempConfig.monoConfigs,
               stereoConfigs: _tempConfig.stereoConfigs,
+              multiConfigs: _tempConfig.multiConfigs,
               rooms: _tempConfig.rooms,
               isExhibitionMode: _tempConfig.isExhibitionMode,
             );
@@ -218,6 +221,7 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                 systemResetOscAddress: _tempConfig.systemResetOscAddress,
                 monoConfigs: _tempConfig.monoConfigs,
                 stereoConfigs: _tempConfig.stereoConfigs,
+                multiConfigs: _tempConfig.multiConfigs,
                 rooms: _tempConfig.rooms,
                 isExhibitionMode: _tempConfig.isExhibitionMode,
               );
@@ -277,6 +281,7 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
       systemResetOscAddress: config.systemResetOscAddress,
       monoConfigs: Map.from(config.monoConfigs),
       stereoConfigs: Map.from(config.stereoConfigs),
+      multiConfigs: Map.from(config.multiConfigs),
       isExhibitionMode: config.isExhibitionMode,
       rooms: config.rooms
           .map(
@@ -349,6 +354,7 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
       systemResetOscAddress: _tempConfig.systemResetOscAddress,
       monoConfigs: _tempConfig.monoConfigs,
       stereoConfigs: _tempConfig.stereoConfigs,
+      multiConfigs: _tempConfig.multiConfigs,
       rooms: newRooms,
       isExhibitionMode: _tempConfig.isExhibitionMode,
     );
@@ -401,6 +407,7 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
             systemResetOscAddress: next.systemResetOscAddress,
             monoConfigs: Map.from(next.monoConfigs),
             stereoConfigs: Map.from(next.stereoConfigs),
+            multiConfigs: Map.from(next.multiConfigs),
             rooms: updatedRooms,
             isExhibitionMode: _tempConfig.isExhibitionMode,
           );
@@ -640,6 +647,7 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                             _tempConfig.systemResetOscAddress,
                         monoConfigs: _tempConfig.monoConfigs,
                         stereoConfigs: _tempConfig.stereoConfigs,
+                        multiConfigs: _tempConfig.multiConfigs,
                         rooms: _tempConfig.rooms,
                         isExhibitionMode: _tempConfig.isExhibitionMode,
                       );
@@ -720,6 +728,7 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                       systemResetOscAddress: _tempConfig.systemResetOscAddress,
                       monoConfigs: _tempConfig.monoConfigs,
                       stereoConfigs: _tempConfig.stereoConfigs,
+                      multiConfigs: _tempConfig.multiConfigs,
                       rooms: _tempConfig.rooms,
                       isExhibitionMode: _tempConfig.isExhibitionMode,
                     );
@@ -801,6 +810,7 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                             _tempConfig.systemResetOscAddress,
                         monoConfigs: _tempConfig.monoConfigs,
                         stereoConfigs: _tempConfig.stereoConfigs,
+                        multiConfigs: _tempConfig.multiConfigs,
                         rooms: _tempConfig.rooms,
                         isExhibitionMode: _tempConfig.isExhibitionMode,
                       );
@@ -857,6 +867,7 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                             _tempConfig.systemResetOscAddress,
                         monoConfigs: result['mono']!,
                         stereoConfigs: result['stereo']!,
+                        multiConfigs: result['multi']!,
                         rooms: _tempConfig.rooms,
                         isExhibitionMode: _tempConfig.isExhibitionMode,
                       );
@@ -999,6 +1010,7 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                                       _tempConfig.systemResetOscAddress,
                                   monoConfigs: _tempConfig.monoConfigs,
                                   stereoConfigs: _tempConfig.stereoConfigs,
+                                  multiConfigs: _tempConfig.multiConfigs,
                                   rooms: newRooms,
                                   isExhibitionMode:
                                       _tempConfig.isExhibitionMode,
@@ -1069,6 +1081,7 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                             _tempConfig.systemResetOscAddress,
                         monoConfigs: _tempConfig.monoConfigs,
                         stereoConfigs: _tempConfig.stereoConfigs,
+                        multiConfigs: _tempConfig.multiConfigs,
                         rooms: _tempConfig.rooms,
                         isExhibitionMode: _tempConfig.isExhibitionMode,
                       );
@@ -1116,6 +1129,7 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                         systemResetOscAddress: val,
                         monoConfigs: _tempConfig.monoConfigs,
                         stereoConfigs: _tempConfig.stereoConfigs,
+                        multiConfigs: _tempConfig.multiConfigs,
                         rooms: _tempConfig.rooms,
                         isExhibitionMode: _tempConfig.isExhibitionMode,
                       );
@@ -1190,6 +1204,7 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                                   _tempConfig.systemResetOscAddress,
                               monoConfigs: _tempConfig.monoConfigs,
                               stereoConfigs: _tempConfig.stereoConfigs,
+                              multiConfigs: _tempConfig.multiConfigs,
                               rooms: newRooms,
                               isExhibitionMode: _tempConfig.isExhibitionMode,
                             );
@@ -1266,6 +1281,7 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                                       _tempConfig.systemResetOscAddress,
                                   monoConfigs: _tempConfig.monoConfigs,
                                   stereoConfigs: _tempConfig.stereoConfigs,
+                                  multiConfigs: _tempConfig.multiConfigs,
                                   rooms: newRooms,
                                   isExhibitionMode:
                                       _tempConfig.isExhibitionMode,
@@ -1325,6 +1341,7 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                                       _tempConfig.systemResetOscAddress,
                                   monoConfigs: _tempConfig.monoConfigs,
                                   stereoConfigs: _tempConfig.stereoConfigs,
+                                  multiConfigs: _tempConfig.multiConfigs,
                                   rooms: newRooms,
                                   isExhibitionMode:
                                       _tempConfig.isExhibitionMode,
@@ -1379,6 +1396,7 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                             _tempConfig.systemResetOscAddress,
                         monoConfigs: _tempConfig.monoConfigs,
                         stereoConfigs: _tempConfig.stereoConfigs,
+                        multiConfigs: _tempConfig.multiConfigs,
                         rooms: _tempConfig.rooms,
                         isExhibitionMode: _tempConfig.isExhibitionMode,
                       );

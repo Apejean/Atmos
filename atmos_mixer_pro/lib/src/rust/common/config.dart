@@ -14,6 +14,7 @@ class AppConfig {
   final String systemResetOscAddress;
   final Map<int, ChannelSetting> monoConfigs;
   final Map<int, ChannelSetting> stereoConfigs;
+  final Map<int, ChannelSetting> multiConfigs;
   final List<RoomConfig> rooms;
   final bool isExhibitionMode;
 
@@ -25,6 +26,7 @@ class AppConfig {
     required this.systemResetOscAddress,
     required this.monoConfigs,
     required this.stereoConfigs,
+    required this.multiConfigs,
     required this.rooms,
     required this.isExhibitionMode,
   });
@@ -38,6 +40,7 @@ class AppConfig {
       systemResetOscAddress.hashCode ^
       monoConfigs.hashCode ^
       stereoConfigs.hashCode ^
+      multiConfigs.hashCode ^
       rooms.hashCode ^
       isExhibitionMode.hashCode;
 
@@ -53,6 +56,7 @@ class AppConfig {
           systemResetOscAddress == other.systemResetOscAddress &&
           monoConfigs == other.monoConfigs &&
           stereoConfigs == other.stereoConfigs &&
+          multiConfigs == other.multiConfigs &&
           rooms == other.rooms &&
           isExhibitionMode == other.isExhibitionMode;
 }

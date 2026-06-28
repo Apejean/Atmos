@@ -181,6 +181,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   systemResetOscAddress: config.systemResetOscAddress,
                   monoConfigs: config.monoConfigs,
                   stereoConfigs: config.stereoConfigs,
+                  multiConfigs: config.multiConfigs,
                   rooms: config.rooms,
                   isExhibitionMode: !config.isExhibitionMode,
                 );
@@ -506,6 +507,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       systemResetOscAddress: config.systemResetOscAddress,
                       monoConfigs: config.monoConfigs,
                       stereoConfigs: config.stereoConfigs,
+                      multiConfigs: config.multiConfigs,
                       rooms: [...config.rooms, newRoom],
                       isExhibitionMode: config.isExhibitionMode,
                     );

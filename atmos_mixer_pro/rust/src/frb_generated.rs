@@ -1008,6 +1008,10 @@ impl SseDecode for crate::common::config::AppConfig {
             u32,
             crate::common::config::ChannelSetting,
         >>::sse_decode(deserializer);
+        let mut var_multiConfigs = <std::collections::HashMap<
+            u32,
+            crate::common::config::ChannelSetting,
+        >>::sse_decode(deserializer);
         let mut var_rooms = <Vec<crate::common::config::RoomConfig>>::sse_decode(deserializer);
         let mut var_isExhibitionMode = <bool>::sse_decode(deserializer);
         return crate::common::config::AppConfig {
@@ -1018,6 +1022,7 @@ impl SseDecode for crate::common::config::AppConfig {
             system_reset_osc_address: var_systemResetOscAddress,
             mono_configs: var_monoConfigs,
             stereo_configs: var_stereoConfigs,
+            multi_configs: var_multiConfigs,
             rooms: var_rooms,
             is_exhibition_mode: var_isExhibitionMode,
         };
@@ -1400,6 +1405,7 @@ impl flutter_rust_bridge::IntoDart for crate::common::config::AppConfig {
             self.system_reset_osc_address.into_into_dart().into_dart(),
             self.mono_configs.into_into_dart().into_dart(),
             self.stereo_configs.into_into_dart().into_dart(),
+            self.multi_configs.into_into_dart().into_dart(),
             self.rooms.into_into_dart().into_dart(),
             self.is_exhibition_mode.into_into_dart().into_dart(),
         ]
@@ -1608,6 +1614,10 @@ impl SseEncode for crate::common::config::AppConfig {
         );
         <std::collections::HashMap<u32, crate::common::config::ChannelSetting>>::sse_encode(
             self.stereo_configs,
+            serializer,
+        );
+        <std::collections::HashMap<u32, crate::common::config::ChannelSetting>>::sse_encode(
+            self.multi_configs,
             serializer,
         );
         <Vec<crate::common::config::RoomConfig>>::sse_encode(self.rooms, serializer);

@@ -68,6 +68,7 @@ void main() {
         2: ChannelSetting(enabled: true, customName: 'Mono2'),
       },
       stereoConfigs: {3: ChannelSetting(enabled: true, customName: 'Stereo3')},
+      multiConfigs: {},
       rooms: [],
       isExhibitionMode: false,
     );

@@ -187,6 +187,7 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                 systemResetOscAddress: config.systemResetOscAddress,
                 monoConfigs: config.monoConfigs,
                 stereoConfigs: config.stereoConfigs,
+                multiConfigs: config.multiConfigs,
                 rooms: newRooms,
                 isExhibitionMode: config.isExhibitionMode,
               ),
@@ -343,6 +344,8 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                                                 currentConfig.monoConfigs,
                                             stereoConfigs:
                                                 currentConfig.stereoConfigs,
+                                            multiConfigs:
+                                                currentConfig.multiConfigs,
                                             rooms: newRooms,
                                             isExhibitionMode:
                                                 currentConfig.isExhibitionMode,
@@ -384,6 +387,8 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                                         monoConfigs: currentConfig.monoConfigs,
                                         stereoConfigs:
                                             currentConfig.stereoConfigs,
+                                        multiConfigs:
+                                            currentConfig.multiConfigs,
                                         rooms: newRooms,
                                         isExhibitionMode:
                                             currentConfig.isExhibitionMode,
@@ -487,6 +492,8 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                                                 currentConfig.monoConfigs,
                                             stereoConfigs:
                                                 currentConfig.stereoConfigs,
+                                            multiConfigs:
+                                                currentConfig.multiConfigs,
                                             rooms: newRooms,
                                             isExhibitionMode:
                                                 currentConfig.isExhibitionMode,
@@ -685,6 +692,8 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                                               currentConfig.monoConfigs,
                                           stereoConfigs:
                                               currentConfig.stereoConfigs,
+                                          multiConfigs:
+                                              currentConfig.multiConfigs,
                                           rooms: newRooms,
                                           isExhibitionMode:
                                               currentConfig.isExhibitionMode,
@@ -752,6 +761,8 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                                               currentConfig.monoConfigs,
                                           stereoConfigs:
                                               currentConfig.stereoConfigs,
+                                          multiConfigs:
+                                              currentConfig.multiConfigs,
                                           rooms: newRooms,
                                           isExhibitionMode:
                                               currentConfig.isExhibitionMode,
@@ -813,6 +824,8 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                                               currentConfig.monoConfigs,
                                           stereoConfigs:
                                               currentConfig.stereoConfigs,
+                                          multiConfigs:
+                                              currentConfig.multiConfigs,
                                           rooms: newRooms,
                                           isExhibitionMode:
                                               currentConfig.isExhibitionMode,
@@ -873,6 +886,8 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                                               currentConfig.monoConfigs,
                                           stereoConfigs:
                                               currentConfig.stereoConfigs,
+                                          multiConfigs:
+                                              currentConfig.multiConfigs,
                                           rooms: newRooms,
                                           isExhibitionMode:
                                               currentConfig.isExhibitionMode,
@@ -939,6 +954,8 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                                               currentConfig.monoConfigs,
                                           stereoConfigs:
                                               currentConfig.stereoConfigs,
+                                          multiConfigs:
+                                              currentConfig.multiConfigs,
                                           rooms: newRooms,
                                           isExhibitionMode:
                                               currentConfig.isExhibitionMode,

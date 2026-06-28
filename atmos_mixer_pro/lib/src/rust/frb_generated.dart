@@ -1024,8 +1024,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   AppConfig dco_decode_app_config(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 9)
-      throw Exception('unexpected arr length: expect 9 but see ${arr.length}');
+    if (arr.length != 10)
+      throw Exception('unexpected arr length: expect 10 but see ${arr.length}');
     return AppConfig(
       oscPort: dco_decode_u_16(arr[0]),
       deviceName: dco_decode_opt_String(arr[1]),
@@ -1034,8 +1034,9 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       systemResetOscAddress: dco_decode_String(arr[4]),
       monoConfigs: dco_decode_Map_u_32_channel_setting_None(arr[5]),
       stereoConfigs: dco_decode_Map_u_32_channel_setting_None(arr[6]),
-      rooms: dco_decode_list_room_config(arr[7]),
-      isExhibitionMode: dco_decode_bool(arr[8]),
+      multiConfigs: dco_decode_Map_u_32_channel_setting_None(arr[7]),
+      rooms: dco_decode_list_room_config(arr[8]),
+      isExhibitionMode: dco_decode_bool(arr[9]),
     );
   }
 
@@ -1284,6 +1285,9 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_stereoConfigs = sse_decode_Map_u_32_channel_setting_None(
       deserializer,
     );
+    var var_multiConfigs = sse_decode_Map_u_32_channel_setting_None(
+      deserializer,
+    );
     var var_rooms = sse_decode_list_room_config(deserializer);
     var var_isExhibitionMode = sse_decode_bool(deserializer);
     return AppConfig(
@@ -1294,6 +1298,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       systemResetOscAddress: var_systemResetOscAddress,
       monoConfigs: var_monoConfigs,
       stereoConfigs: var_stereoConfigs,
+      multiConfigs: var_multiConfigs,
       rooms: var_rooms,
       isExhibitionMode: var_isExhibitionMode,
     );
@@ -1611,6 +1616,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_String(self.systemResetOscAddress, serializer);
     sse_encode_Map_u_32_channel_setting_None(self.monoConfigs, serializer);
     sse_encode_Map_u_32_channel_setting_None(self.stereoConfigs, serializer);
+    sse_encode_Map_u_32_channel_setting_None(self.multiConfigs, serializer);
     sse_encode_list_room_config(self.rooms, serializer);
     sse_encode_bool(self.isExhibitionMode, serializer);
   }
