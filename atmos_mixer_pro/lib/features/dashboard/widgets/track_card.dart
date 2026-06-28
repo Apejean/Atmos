@@ -107,7 +107,7 @@ class _TrackCardState extends ConsumerState<TrackCard> {
 
     final config = ref.watch(configProvider);
     final hwChannelsAsync = ref.watch(hardwareChannelsProvider);
-    int maxChannels = 30;
+    int maxChannels = 256;
     if (config != null) {
       if (config.deviceName != null &&
           GlobalDeviceCache.channels.containsKey(config.deviceName)) {
