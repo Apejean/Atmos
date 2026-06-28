@@ -15,6 +15,24 @@ pub struct SoundData {
 }
 
 impl SoundData {
+    pub fn probe_channels(path: &std::path::Path) -> u32 {
+        if let Ok(file) = File::open(path) {
+            let mss = MediaSourceStream::new(Box::new(file), Default::default());
+            let mut hint = Hint::new();
+            if let Some(ext) = path.extension().and_then(|s| s.to_str()) {
+                hint.with_extension(&ext.to_lowercase());
+            }
+            let format_opts = FormatOptions::default();
+            let metadata_opts = MetadataOptions::default();
+            if let Ok(probed) = symphonia::default::get_probe().format(&hint, mss, &format_opts, &metadata_opts) {
+                if let Some(track) = probed.format.default_track() {
+                    return track.codec_params.channels.map(|c| c.count() as u32).unwrap_or(2);
+                }
+            }
+        }
+        2
+    }
+
     pub fn load_from_file(path: &std::path::Path) -> anyhow::Result<Self> {
         let file = Box::new(File::open(path)?);
         let mss = MediaSourceStream::new(file, Default::default());

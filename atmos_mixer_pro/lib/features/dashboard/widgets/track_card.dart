@@ -5,6 +5,7 @@ import 'package:atmos_mixer_pro/src/rust/common/config.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:atmos_mixer_pro/core/state/global_state.dart';
+import 'package:atmos_mixer_pro/src/rust/api/simple.dart' as rust_api;
 
 class TrackCard extends ConsumerStatefulWidget {
   final TrackConfig track;
@@ -41,6 +42,7 @@ class _TrackCardState extends ConsumerState<TrackCard> {
   late FocusNode _nameFocusNode;
   double? _localVolume;
   Timer? _debounce;
+  int? _fileChannels;
 
   @override
   void initState() {
@@ -53,6 +55,20 @@ class _TrackCardState extends ConsumerState<TrackCard> {
         widget.onNameChanged?.call(_nameController.text);
       }
     });
+    _loadFileChannels(widget.track.filePath);
+  }
+
+  Future<void> _loadFileChannels(String filePath) async {
+    try {
+      final ch = await rust_api.apiGetAudioFileChannels(filePath: filePath);
+      if (mounted) {
+        setState(() {
+          _fileChannels = ch;
+        });
+      }
+    } catch (e) {
+      // Ignore
+    }
   }
 
   void _onNameChanged(String value) {
@@ -70,6 +86,9 @@ class _TrackCardState extends ConsumerState<TrackCard> {
     if (oldWidget.track.name != widget.track.name &&
         _nameController.text != widget.track.name) {
       _nameController.text = widget.track.name;
+    }
+    if (oldWidget.track.filePath != widget.track.filePath) {
+      _loadFileChannels(widget.track.filePath);
     }
   }
 
@@ -159,15 +178,27 @@ class _TrackCardState extends ConsumerState<TrackCard> {
         if (setting.enabled) {
           final realCh = key - 1;
           if (realCh >= maxChannels) continue;
-          final displayCh2 = key + 1;
-          final displayName = setting.customName.isNotEmpty
-              ? '$key/$displayCh2 (${setting.customName})'
-              : '$key/$displayCh2';
+
+          String labelText;
+          if (_fileChannels != null && _fileChannels! > 2) {
+            final endCh = key - 1 + _fileChannels!;
+            labelText = 'Ch $key~$endCh ($_fileChannels ch)';
+            if (setting.customName.isNotEmpty) {
+              labelText += ' (${setting.customName})';
+            }
+          } else {
+            final displayCh2 = key + 1;
+            final displayName = setting.customName.isNotEmpty
+                ? '$key/$displayCh2 (${setting.customName})'
+                : '$key/$displayCh2';
+            labelText = 'N-Ch (다채널) $displayName';
+          }
+
           outputItems.add(
             DropdownMenuItem(
               value: 'stereo_$realCh',
               child: Text(
-                'N-Ch (다채널) $displayName',
+                labelText,
                 style: const TextStyle(fontSize: 12, color: Colors.white),
               ),
             ),

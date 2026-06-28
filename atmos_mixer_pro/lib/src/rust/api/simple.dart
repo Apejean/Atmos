@@ -118,6 +118,11 @@ Future<void> apiLoadPreset({required AppConfig config}) =>
 Future<void> apiTriggerTestError({required String message}) =>
     RustLib.instance.api.crateApiSimpleApiTriggerTestError(message: message);
 
+Future<int> apiGetAudioFileChannels({required String filePath}) => RustLib
+    .instance
+    .api
+    .crateApiSimpleApiGetAudioFileChannels(filePath: filePath);
+
 class EngineStateUpdate {
   final String? activeRoomId;
   final bool duckingActive;

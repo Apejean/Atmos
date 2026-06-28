@@ -987,3 +987,13 @@ pub fn api_trigger_test_error(message: String) -> Result<(), AtmosError> {
     GLOBAL_STATE.broadcast_state();
     Ok(())
 }
+
+pub fn api_get_audio_file_channels(file_path: String) -> u32 {
+    if let Ok(cache) = crate::core::state::GLOBAL_STATE.sound_cache.read() {
+        if let Some(data) = cache.get(&file_path) {
+            return data.channels as u32;
+        }
+    }
+    let path = std::path::Path::new(&file_path);
+    crate::audio::player::SoundData::probe_channels(path)
+}
