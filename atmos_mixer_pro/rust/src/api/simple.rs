@@ -186,6 +186,13 @@ pub fn api_play_track(room_id: String, track_id: String) -> Result<(), AtmosErro
                     } else {
                         // Cache miss -> Load into RAM dynamically (obeys 100% RAM rule for SFX)
                         let path = std::path::Path::new(&track.file_path);
+                        if let Ok(metadata) = std::fs::metadata(&path) {
+                            if metadata.len() > 500 * 1024 * 1024 {
+                                return Err(AtmosError {
+                                    message: format!("파일 용량이 너무 큽니다 (500MB 초과). BGM(Loop)으로 설정하거나 용량을 줄이세요: {}", track.file_path),
+                                });
+                            }
+                        }
                         match crate::audio::player::SoundData::load_from_file(path) {
                             Ok(data) => {
                                 let arc_data = std::sync::Arc::new(data);
@@ -510,6 +517,15 @@ pub fn api_preload_all_sounds(config: AppConfig) -> Result<(), AtmosError> {
     let mut errors = Vec::new();
     for file in missing_files {
         let path = std::path::Path::new(&file);
+        
+        if let Ok(metadata) = std::fs::metadata(&path) {
+            if metadata.len() > 500 * 1024 * 1024 {
+                let err_msg = format!("파일 용량이 너무 큽니다 (500MB 초과). BGM(Loop)으로 설정하거나 용량을 줄이세요: {}", file);
+                GLOBAL_STATE.log(err_msg.clone());
+                errors.push(err_msg);
+                continue;
+            }
+        }
         
         // Load into RAM regardless of size (SFX only, loop=false)
         match crate::audio::player::SoundData::load_from_file(path) {

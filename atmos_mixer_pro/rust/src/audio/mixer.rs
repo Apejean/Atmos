@@ -40,7 +40,7 @@ impl AudioMixer {
             gc_sender,
             buf_gc_tx,
             room_volumes: vec![None; 128],
-            local_recycle: Vec::with_capacity(128),
+            local_recycle: Vec::with_capacity(4096),
         }
     }
 
