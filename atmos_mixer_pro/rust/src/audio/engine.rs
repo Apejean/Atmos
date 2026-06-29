@@ -339,7 +339,7 @@ impl AudioEngine {
                     }
                 }
                 AudioCommand::SetMasterVolume { room_id, volume } => {
-                    if let Some(slot) = mixer.room_volumes.iter_mut().find(|s| s.as_ref().map_or(false, |(id, _)| *id == room_id)) {
+                    if let Some(slot) = mixer.room_volumes.iter_mut().find(|s| s.as_ref().is_some_and(|(id, _)| *id == room_id)) {
                         if let Some((_, v)) = slot.as_mut() {
                             *v = volume;
                         }

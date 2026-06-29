@@ -84,12 +84,10 @@ impl AudioMixer {
         for (i, inst_opt) in self.instances.iter().enumerate() {
             if let Some(inst) = inst_opt {
                 if inst.is_playing {
-                    for slot in &self.room_volumes {
-                        if let Some((rid, rvol)) = slot {
-                            if *rid == inst.room_id {
-                                temp_room_vols[i] = *rvol;
-                                break;
-                            }
+                    for (rid, rvol) in self.room_volumes.iter().flatten() {
+                        if *rid == inst.room_id {
+                            temp_room_vols[i] = *rvol;
+                            break;
                         }
                     }
                 }
@@ -208,15 +206,15 @@ impl AudioMixer {
                             } else {
                                 idx_i
                             };
-                            for ch in 0..ch_limit {
+                            for (ch, val) in vals.iter_mut().enumerate().take(ch_limit) {
                                 let s1 = instance.stream_buffer.get(idx_i + ch).copied().unwrap_or(0.0);
                                 let s2 = instance.stream_buffer.get(next_idx + ch).copied().unwrap_or(s1);
-                                vals[ch] = s1 + frac * (s2 - s1);
+                                *val = s1 + frac * (s2 - s1);
                             }
                         } else {
                             has_sample = true;
-                            for ch in 0..ch_limit {
-                                vals[ch] = 0.0;
+                            for val in vals.iter_mut().take(ch_limit) {
+                                *val = 0.0;
                             }
                         }
                     } else {
@@ -246,10 +244,10 @@ impl AudioMixer {
                                 next_idx = idx_i;
                             }
                         }
-                        for ch in 0..ch_limit {
+                        for (ch, val) in vals.iter_mut().enumerate().take(ch_limit) {
                             let s1 = data.samples.get(idx_i + ch).copied().unwrap_or(0.0);
                             let s2 = data.samples.get(next_idx + ch).copied().unwrap_or(s1);
-                            vals[ch] = s1 + frac * (s2 - s1);
+                            *val = s1 + frac * (s2 - s1);
                         }
                     }
                 }
@@ -258,8 +256,8 @@ impl AudioMixer {
                     if !instance.output_stereo && ch_limit > 1 {
                         // Downmix all to Mono for backwards compatibility if output_stereo is false
                         let mut sum = 0.0;
-                        for ch in 0..ch_limit {
-                            sum += vals[ch];
+                        for val in vals.iter().take(ch_limit) {
+                            sum += *val;
                         }
                         let mono_val = sum / ch_limit as f32;
 
@@ -277,7 +275,7 @@ impl AudioMixer {
                         }
                     } else {
                         // N:N direct routing
-                        for ch in 0..ch_limit {
+                        for (ch, val) in vals.iter().enumerate().take(ch_limit) {
                             let hw_ch = instance.output_channel + ch;
                             if hw_ch < out_channels {
                                 let is_enabled = if hw_ch < GLOBAL_STATE.enabled_channels.len() {
@@ -287,7 +285,7 @@ impl AudioMixer {
                                 };
                                 let out_idx = frame * out_channels + hw_ch;
                                 if is_enabled && out_idx < output.len() {
-                                    output[out_idx] += vals[ch] * current_vol;
+                                    output[out_idx] += val * current_vol;
                                 }
                             }
                         }

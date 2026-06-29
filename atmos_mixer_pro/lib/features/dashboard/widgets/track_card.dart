@@ -209,13 +209,8 @@ class _TrackCardState extends ConsumerState<TrackCard> {
           if (setting.enabled) {
             final realCh = key - 1;
             if (realCh >= maxChannels) continue;
-<<<<<<< HEAD
-            final endCh = key - 1 + _fileChannels!;
-            var labelText = 'Ch $key~$endCh ($_fileChannels ch)';
-=======
             final endCh = math.min(key - 1 + _fileChannels!, maxChannels);
             var labelText = 'N-Ch (다채널) Ch $key~$endCh ($_fileChannels ch)';
->>>>>>> e0d9b7c (fix: implement 3-column UI, resolve channel state corruption, and expand audio engine buffer to 256 channels)
             if (setting.customName.isNotEmpty) {
               labelText += ' (${setting.customName})';
             }
