@@ -57,11 +57,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           PlatformMenuItemGroup(
             members: [
               PlatformMenuItem(
-                label: 'Load Preset',
+                label: 'Load Project',
                 onSelected: () async {
                   FilePickerResult? result = await FilePicker.pickFiles(
                     type: FileType.custom,
-                    allowedExtensions: ['json'],
+                    allowedExtensions: ['atmos'],
                   );
                   if (result != null && result.files.single.path != null) {
                     try {
@@ -95,14 +95,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 },
               ),
               PlatformMenuItem(
-                label: 'Save Preset',
+                label: 'Save Project',
                 onSelected: () async {
                   final config = ref.read(configProvider);
                   if (config == null) return;
                   String? outputFile = await FilePicker.saveFile(
-                    dialogTitle: '설정 저장',
-                    fileName: 'atmos_config_backup.json',
-                    allowedExtensions: ['json'],
+                    dialogTitle: '프로젝트 저장 (Save Project)',
+                    fileName: 'project.atmos',
+                    allowedExtensions: ['atmos'],
                     type: FileType.custom,
                   );
                   if (outputFile != null) {
