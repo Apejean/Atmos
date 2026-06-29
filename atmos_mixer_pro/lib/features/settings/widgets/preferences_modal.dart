@@ -854,6 +854,7 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                           channelCount: _channelNames.length,
                           initialMonoConfigs: _tempConfig.monoConfigs,
                           initialStereoConfigs: _tempConfig.stereoConfigs,
+                          initialMultiConfigs: _tempConfig.multiConfigs,
                         ),
                       );
                   if (result != null) {
@@ -1416,12 +1417,14 @@ class OutputConfigDialog extends ConsumerStatefulWidget {
   final int channelCount;
   final Map<int, ChannelSetting> initialMonoConfigs;
   final Map<int, ChannelSetting> initialStereoConfigs;
+  final Map<int, ChannelSetting> initialMultiConfigs;
 
   const OutputConfigDialog({
     super.key,
     required this.channelCount,
     required this.initialMonoConfigs,
     required this.initialStereoConfigs,
+    required this.initialMultiConfigs,
   });
 
   @override
@@ -1431,12 +1434,14 @@ class OutputConfigDialog extends ConsumerStatefulWidget {
 class _OutputConfigDialogState extends ConsumerState<OutputConfigDialog> {
   late Map<int, ChannelSetting> monoConfigs;
   late Map<int, ChannelSetting> stereoConfigs;
+  late Map<int, ChannelSetting> multiConfigs;
 
   @override
   void initState() {
     super.initState();
     monoConfigs = Map.from(widget.initialMonoConfigs);
     stereoConfigs = Map.from(widget.initialStereoConfigs);
+    multiConfigs = Map.from(widget.initialMultiConfigs);
   }
 
   Widget _buildChannelRow(
@@ -1574,14 +1579,10 @@ class _OutputConfigDialogState extends ConsumerState<OutputConfigDialog> {
                         ),
                         Expanded(
                           child: ListView.builder(
-                            itemCount: (widget.channelCount / 2).ceil(),
+                            itemCount: widget.channelCount,
                             itemBuilder: (context, index) {
-                              final chStart = index * 2;
-                              if (chStart >= widget.channelCount) {
-                                return const SizedBox.shrink();
-                              }
+                              final chStart = index;
                               final displayCh1 = chStart + 1;
-                              final displayCh2 = chStart + 2;
                               final key = displayCh1;
                               final setting =
                                   monoConfigs[key] ??
@@ -1591,7 +1592,7 @@ class _OutputConfigDialogState extends ConsumerState<OutputConfigDialog> {
                                   );
 
                               return _buildChannelRow(
-                                '$displayCh1 & $displayCh2',
+                                '$displayCh1',
                                 setting,
                                 (newSetting) {
                                   setState(() {
@@ -1615,7 +1616,7 @@ class _OutputConfigDialogState extends ConsumerState<OutputConfigDialog> {
                           child: Align(
                             alignment: Alignment.centerLeft,
                             child: Text(
-                              'N-Ch (Multi-Channel) Outputs',
+                              '2-Ch (Stereo) Outputs',
                               style: TextStyle(
                                 color: Colors.white,
                                 fontWeight: FontWeight.bold,
@@ -1656,6 +1657,53 @@ class _OutputConfigDialogState extends ConsumerState<OutputConfigDialog> {
                       ],
                     ),
                   ),
+                  const VerticalDivider(color: AppColors.darkGrey, width: 1),
+                  // Multi-Ch Column
+                  Expanded(
+                    child: Column(
+                      children: [
+                        const Padding(
+                          padding: EdgeInsets.all(8.0),
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              'Multi-Ch (N-Ch) 시작',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: ListView.builder(
+                            itemCount: widget.channelCount,
+                            itemBuilder: (context, index) {
+                              final chStart = index;
+                              final displayCh1 = chStart + 1;
+                              final key = displayCh1;
+                              final setting =
+                                  multiConfigs[key] ??
+                                  const ChannelSetting(
+                                    enabled: false,
+                                    customName: '',
+                                  );
+
+                              return _buildChannelRow(
+                                'Ch $displayCh1 시작',
+                                setting,
+                                (newSetting) {
+                                  setState(() {
+                                    multiConfigs[key] = newSetting;
+                                  });
+                                },
+                              );
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -1682,7 +1730,7 @@ class _OutputConfigDialogState extends ConsumerState<OutputConfigDialog> {
                     onPressed: () {
                       Navigator.of(
                         context,
-                      ).pop({'mono': monoConfigs, 'stereo': stereoConfigs});
+                      ).pop({'mono': monoConfigs, 'stereo': stereoConfigs, 'multi': multiConfigs});
                     },
                     child: const Text(
                       'OK',

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:atmos_mixer_pro/core/theme/colors.dart';
 import 'package:atmos_mixer_pro/src/rust/common/config.dart';
@@ -208,8 +209,13 @@ class _TrackCardState extends ConsumerState<TrackCard> {
           if (setting.enabled) {
             final realCh = key - 1;
             if (realCh >= maxChannels) continue;
+<<<<<<< HEAD
             final endCh = key - 1 + _fileChannels!;
             var labelText = 'Ch $key~$endCh ($_fileChannels ch)';
+=======
+            final endCh = math.min(key - 1 + _fileChannels!, maxChannels);
+            var labelText = 'N-Ch (다채널) Ch $key~$endCh ($_fileChannels ch)';
+>>>>>>> e0d9b7c (fix: implement 3-column UI, resolve channel state corruption, and expand audio engine buffer to 256 channels)
             if (setting.customName.isNotEmpty) {
               labelText += ' (${setting.customName})';
             }
@@ -228,9 +234,12 @@ class _TrackCardState extends ConsumerState<TrackCard> {
     }
 
     int currentKey = widget.track.outputChannel;
-    String currentValue = widget.track.outputStereo
-        ? 'stereo_$currentKey'
-        : 'mono_$currentKey';
+    String currentValue;
+    if (config != null && _fileChannels != null && _fileChannels! > 2) {
+      currentValue = widget.track.outputStereo ? 'multi_$currentKey' : 'mono_$currentKey';
+    } else {
+      currentValue = widget.track.outputStereo ? 'stereo_$currentKey' : 'mono_$currentKey';
+    }
 
     bool valueExists = outputItems.any((item) => item.value == currentValue);
 
@@ -239,11 +248,11 @@ class _TrackCardState extends ConsumerState<TrackCard> {
         final firstVal = outputItems.first.value;
         if (firstVal != null) {
           currentValue = firstVal;
-          final isStereo = firstVal.startsWith('stereo_');
-          final keyStr = firstVal.replaceFirst(
-            isStereo ? 'stereo_' : 'mono_',
-            '',
-          );
+          final isStereo = firstVal.startsWith('stereo_') || firstVal.startsWith('multi_');
+          final keyStr = firstVal
+              .replaceFirst('stereo_', '')
+              .replaceFirst('mono_', '')
+              .replaceFirst('multi_', '');
           currentKey = int.tryParse(keyStr) ?? 0;
 
           WidgetsBinding.instance.addPostFrameCallback((_) {
