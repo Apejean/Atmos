@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:atmos_mixer_pro/core/theme/colors.dart';
@@ -7,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:atmos_mixer_pro/core/state/global_state.dart';
 import 'package:atmos_mixer_pro/src/rust/api/simple.dart' as rust_api;
+import 'package:desktop_drop/desktop_drop.dart';
 import 'track_card.dart';
 
 Future<bool?> _showDeleteConfirmDialog(
@@ -137,8 +139,60 @@ class _RoomCardState extends ConsumerState<RoomCard> {
   late TextEditingController _nameController;
   late FocusNode _nameFocusNode;
   bool _isProcessing = false;
+  bool _isDragging = false;
   double? _localVolume;
   Timer? _debounce;
+
+  void _addTracks(List<String> paths) {
+    final currentConfig = ref.read(configProvider);
+    if (currentConfig == null) return;
+
+    final newRooms = List<RoomConfig>.from(currentConfig.rooms);
+    final idx = newRooms.indexWhere((r) => r.id == widget.room.id);
+    if (idx != -1) {
+      final newTracks = List<TrackConfig>.from(newRooms[idx].tracks);
+      
+      for (final path in paths) {
+        final name = path.split(RegExp(r'[\\/]')).last;
+        final newTrack = TrackConfig(
+          id: 'track_${DateTime.now().millisecondsSinceEpoch}_${math.Random().nextInt(1000)}',
+          name: name,
+          filePath: path,
+          volume: 1.0,
+          isLoop: false,
+          outputChannel: 0,
+          outputStereo: true,
+          playOscAddress: '/play',
+          stopOscAddress: '/stop',
+        );
+        newTracks.add(newTrack);
+      }
+      
+      newRooms[idx] = RoomConfig(
+        id: widget.room.id,
+        name: widget.room.name,
+        colorHex: widget.room.colorHex,
+        volume: widget.room.volume,
+        clearOscAddress: widget.room.clearOscAddress,
+        tracks: newTracks,
+      );
+      
+      ref.read(configProvider.notifier).saveConfig(
+        AppConfig(
+          oscPort: currentConfig.oscPort,
+          deviceName: currentConfig.deviceName,
+          bufferSize: currentConfig.bufferSize,
+          themeStartOscAddress: currentConfig.themeStartOscAddress,
+          systemResetOscAddress: currentConfig.systemResetOscAddress,
+          monoConfigs: currentConfig.monoConfigs,
+          stereoConfigs: currentConfig.stereoConfigs,
+          multiConfigs: currentConfig.multiConfigs,
+          rooms: newRooms,
+          isExhibitionMode: currentConfig.isExhibitionMode,
+        ),
+      );
+    }
+  }
 
   @override
   void initState() {
@@ -223,18 +277,42 @@ class _RoomCardState extends ConsumerState<RoomCard> {
 
     final canInteract = !isThemeStarted || isActive;
 
-    return Container(
-      width: 350,
-      margin: const EdgeInsets.only(right: 16),
-      decoration: BoxDecoration(
-        color: AppColors.cardSurface,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: isActive ? accentColor : AppColors.darkGrey,
-          width: isActive ? 2.0 : 1.0,
+    return DropTarget(
+      onDragDone: (detail) {
+        setState(() {
+          _isDragging = false;
+        });
+        final allowedExtensions = ['.mp3', '.wav', '.aac', '.flac', '.m4a', '.ogg', '.aiff'];
+        final validPaths = detail.files
+            .map((f) => f.path)
+            .where((path) => allowedExtensions.any((ext) => path.toLowerCase().endsWith(ext)))
+            .toList();
+        if (validPaths.isNotEmpty) {
+          _addTracks(validPaths);
+        }
+      },
+      onDragEntered: (detail) {
+        setState(() {
+          _isDragging = true;
+        });
+      },
+      onDragExited: (detail) {
+        setState(() {
+          _isDragging = false;
+        });
+      },
+      child: Container(
+        width: 350,
+        margin: const EdgeInsets.only(right: 16),
+        decoration: BoxDecoration(
+          color: _isDragging ? AppColors.cardSurfaceSolid : AppColors.cardSurface,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: _isDragging ? AppColors.primaryNeon : (isActive ? accentColor : AppColors.darkGrey),
+            width: isActive || _isDragging ? 2.0 : 1.0,
+          ),
         ),
-      ),
-      child: Stack(
+        child: Stack(
         children: [
           Positioned.fill(
             child: IgnorePointer(
@@ -430,6 +508,7 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                               FilePickerResult? result =
                                   await FilePicker.pickFiles(
                                     type: FileType.custom,
+                                    allowMultiple: true,
                                     allowedExtensions: [
                                       'mp3',
                                       'wav',
@@ -440,67 +519,8 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                                       'aiff',
                                     ],
                                   );
-                              if (result != null &&
-                                  result.files.single.path != null) {
-                                final currentConfig = ref.read(configProvider);
-                                if (currentConfig != null) {
-                                  final path = result.files.single.path!;
-                                  final name = result.files.single.name;
-                                  final newTrack = TrackConfig(
-                                    id: 'track_${DateTime.now().millisecondsSinceEpoch}',
-                                    name: name,
-                                    filePath: path,
-                                    volume: 1.0,
-                                    isLoop: false,
-                                    outputChannel: 0,
-                                    outputStereo: true,
-                                    playOscAddress: '/play',
-                                    stopOscAddress: '/stop',
-                                  );
-                                  final newRooms = List<RoomConfig>.from(
-                                    currentConfig.rooms,
-                                  );
-                                  final idx = newRooms.indexWhere(
-                                    (r) => r.id == room.id,
-                                  );
-                                  if (idx != -1) {
-                                    final newTracks = List<TrackConfig>.from(
-                                      newRooms[idx].tracks,
-                                    )..add(newTrack);
-                                    newRooms[idx] = RoomConfig(
-                                      id: room.id,
-                                      name: room.name,
-                                      colorHex: room.colorHex,
-                                      volume: room.volume,
-                                      clearOscAddress: room.clearOscAddress,
-                                      tracks: newTracks,
-                                    );
-                                    ref
-                                        .read(configProvider.notifier)
-                                        .saveConfig(
-                                          AppConfig(
-                                            oscPort: currentConfig.oscPort,
-                                            deviceName:
-                                                currentConfig.deviceName,
-                                            bufferSize:
-                                                currentConfig.bufferSize,
-                                            themeStartOscAddress: currentConfig
-                                                .themeStartOscAddress,
-                                            systemResetOscAddress: currentConfig
-                                                .systemResetOscAddress,
-                                            monoConfigs:
-                                                currentConfig.monoConfigs,
-                                            stereoConfigs:
-                                                currentConfig.stereoConfigs,
-                                            multiConfigs:
-                                                currentConfig.multiConfigs,
-                                            rooms: newRooms,
-                                            isExhibitionMode:
-                                                currentConfig.isExhibitionMode,
-                                          ),
-                                        );
-                                  }
-                                }
+                              if (result != null && result.paths.isNotEmpty) {
+                                _addTracks(result.paths.whereType<String>().toList());
                               }
                             },
                           ),
@@ -1011,6 +1031,7 @@ class _RoomCardState extends ConsumerState<RoomCard> {
               ),
             ),
         ],
+      ),
       ),
     );
   }

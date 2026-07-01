@@ -1,0 +1,38 @@
+{
+  "osc_port": 8000,
+  "device_name": "BlackHole 16ch",
+  "buffer_size": 256,
+  "theme_start_osc_address": "",
+  "system_reset_osc_address": "",
+  "mono_configs": {},
+  "stereo_configs": {},
+  "multi_configs": {
+    "1": {
+      "enabled": true,
+      "custom_name": "Multi-Channel Start"
+    }
+  },
+  "rooms": [
+    {
+      "id": "room_multi_test",
+      "name": "Multi-Channel Test Room",
+      "color_hex": "FF0000",
+      "volume": 1.0,
+      "clear_osc_address": "",
+      "tracks": [
+        {
+          "id": "track_multi_1",
+          "name": "Real FLAC Multi-Ch Test",
+          "file_path": "/Users/Allweno/Projects/GitHub/atmos/atmos_mixer_pro/dummy/658827__3dj__beach-7.flac",
+          "volume": 1.0,
+          "is_loop": true,
+          "output_channel": 1,
+          "output_stereo": false,
+          "play_osc_address": "",
+          "stop_osc_address": ""
+        }
+      ]
+    }
+  ],
+  "is_exhibition_mode": false
+}

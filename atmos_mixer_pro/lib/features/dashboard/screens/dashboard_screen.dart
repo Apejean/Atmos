@@ -34,6 +34,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final bodyContent = Stack(
       children: [
         Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             if (!Platform.isMacOS) _buildMaterialMenuBar(context),
             _buildHeader(context),
@@ -229,12 +230,15 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   Widget _buildMaterialMenuBar(BuildContext context) {
     return Container(
       color: AppColors.headerBackground,
-      child: MenuBar(
-        style: MenuStyle(
-          backgroundColor: WidgetStatePropertyAll(AppColors.headerBackground),
-          elevation: const WidgetStatePropertyAll(0),
-        ),
+      child: Row(
         children: [
+          MenuBar(
+            style: MenuStyle(
+              backgroundColor: WidgetStatePropertyAll(AppColors.headerBackground),
+              elevation: const WidgetStatePropertyAll(0),
+              padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 8)),
+            ),
+            children: [
           SubmenuButton(
             menuChildren: [
               MenuItemButton(
@@ -393,6 +397,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               ),
             ],
             child: const Text('Settings'),
+          ),
+            ],
           ),
         ],
       ),

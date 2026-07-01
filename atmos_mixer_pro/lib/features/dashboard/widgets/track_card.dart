@@ -377,16 +377,6 @@ class _TrackCardState extends ConsumerState<TrackCard> {
                               tooltip: '무한 루프 (BGM)',
                             ),
                           ),
-                          const SizedBox(width: 4),
-                          Text(
-                            '무한 루프',
-                            style: TextStyle(
-                              color: widget.track.isLoop
-                                  ? widget.accentColor
-                                  : AppColors.textSecondary,
-                              fontSize: 12,
-                            ),
-                          ),
                         ],
                       ),
                       Row(

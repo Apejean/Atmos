@@ -23,6 +23,7 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
   String _selectedDriverType = 'WASAPI';
   bool _isDeviceManuallyChanged = false;
   bool _isScanning = false;
+  final Map<String, int> _trackChannels = {};
 
   String _getDriverType(String? deviceName) {
     if (deviceName == null) return 'WASAPI';
@@ -97,6 +98,35 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
       _loadDevices();
     }
     _selectedDriverType = _getDriverType(_tempConfig.deviceName);
+    _loadAllTrackChannels();
+  }
+
+  Future<void> _loadAllTrackChannels() async {
+    for (final room in _tempConfig.rooms) {
+      for (final track in room.tracks) {
+        if (track.filePath.isNotEmpty) {
+          try {
+            final ch = await rust_api.apiGetAudioFileChannels(filePath: track.filePath);
+            if (mounted) {
+              setState(() {
+                _trackChannels[track.id] = ch;
+              });
+            }
+          } catch (e) {
+            // ignore
+          }
+        }
+      }
+    }
+  }
+
+  String _getDropdownValueForTrack(TrackConfig track) {
+    final fileChannels = _trackChannels[track.id];
+    if (fileChannels != null && fileChannels > 2) {
+      return '${track.outputChannel}_multi';
+    } else {
+      return track.outputStereo ? '${track.outputChannel}_stereo' : '${track.outputChannel}_mono';
+    }
   }
 
   Future<void> _loadDevices() async {
@@ -586,9 +616,6 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
       }
     }
 
-    String getDropdownValue(int channelIndex, bool isStereo) {
-      return isStereo ? '${channelIndex}_stereo' : '${channelIndex}_mono';
-    }
 
     final uniqueDriverTypes = Platform.isMacOS
         ? ['CoreAudio']
@@ -934,6 +961,119 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
               ...room.tracks.asMap().entries.map((entry) {
                 final tIndex = entry.key;
                 final track = entry.value;
+
+                final List<DropdownMenuItem<String>> trackDropdownItems = [];
+                final fileChannels = _trackChannels[track.id];
+
+                final isMulti = fileChannels != null && fileChannels > 2;
+                final isMono = fileChannels == 1;
+
+                if (!isMulti) {
+                  final sortedMono = _tempConfig.monoConfigs.entries
+                      .where((e) => e.value.enabled)
+                      .toList()
+                    ..sort((a, b) => a.key.compareTo(b.key));
+                  for (final e in sortedMono) {
+                    final key = e.key;
+                    final setting = e.value;
+
+                    final realCh1 = key - 1;
+                    if (realCh1 < _channelNames.length) {
+                      final name1 = setting.customName.isNotEmpty
+                          ? '$key (${setting.customName} L)'
+                          : '$key';
+                      trackDropdownItems.add(
+                        DropdownMenuItem<String>(
+                          value: '${realCh1}_mono',
+                          child: Text(
+                            'Mono $name1',
+                            style: const TextStyle(fontSize: 12),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      );
+                    }
+
+                    final realCh2 = key;
+                    final displayCh2 = key + 1;
+                    if (realCh2 < _channelNames.length) {
+                      final name2 = setting.customName.isNotEmpty
+                          ? '$displayCh2 (${setting.customName} R)'
+                          : '$displayCh2';
+                      trackDropdownItems.add(
+                        DropdownMenuItem<String>(
+                          value: '${realCh2}_mono',
+                          child: Text(
+                            'Mono $name2',
+                            style: const TextStyle(fontSize: 12),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      );
+                    }
+                  }
+                }
+
+                if (!isMono && !isMulti) {
+                  final sortedStereo = _tempConfig.stereoConfigs.entries
+                      .where((e) => e.value.enabled)
+                      .toList()
+                    ..sort((a, b) => a.key.compareTo(b.key));
+                  for (final e in sortedStereo) {
+                    final key = e.key;
+                    final setting = e.value;
+                    final realCh = key - 1;
+                    final displayCh2 = key + 1;
+                    if (realCh + 1 < _channelNames.length) {
+                      final displayName = setting.customName.isNotEmpty
+                          ? '$key/$displayCh2 (${setting.customName})'
+                          : '$key/$displayCh2';
+                      trackDropdownItems.add(
+                        DropdownMenuItem<String>(
+                          value: '${realCh}_stereo',
+                          child: Text(
+                            '2-Ch (Stereo) $displayName',
+                            style: const TextStyle(fontSize: 12),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      );
+                    }
+                  }
+                }
+
+                if (isMulti) {
+                  final sortedMulti = _tempConfig.multiConfigs.entries
+                      .where((e) => e.value.enabled)
+                      .toList()
+                    ..sort((a, b) => a.key.compareTo(b.key));
+                  for (final e in sortedMulti) {
+                    final key = e.key;
+                    final setting = e.value;
+                    final realCh = key - 1;
+                    if (realCh < _channelNames.length) {
+                      final endCh = (key - 1 + fileChannels).clamp(1, _channelNames.length);
+                      var labelText = 'N-Ch (다채널) Ch $key~$endCh (${fileChannels}ch)';
+                      if (setting.customName.isNotEmpty) {
+                        labelText += ' (${setting.customName})';
+                      }
+                      trackDropdownItems.add(
+                        DropdownMenuItem<String>(
+                          value: '${realCh}_multi',
+                          child: Text(
+                            labelText,
+                            style: const TextStyle(fontSize: 12),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      );
+                    }
+                  }
+                }
+
+                final currentVal = _getDropdownValueForTrack(track);
+                final bool valueExists = trackDropdownItems.any((item) => item.value == currentVal);
+
                 return Padding(
                   padding: const EdgeInsets.only(left: 16, bottom: 8),
                   child: Row(
@@ -952,10 +1092,7 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                       Expanded(
                         flex: 1,
                         child: DropdownButtonFormField<String>(
-                          initialValue: getDropdownValue(
-                            track.outputChannel,
-                            track.outputStereo,
-                          ),
+                          initialValue: currentVal,
                           dropdownColor: AppColors.cardSurfaceSolid,
                           isExpanded: true,
                           decoration: const InputDecoration(
@@ -969,32 +1106,24 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                             fontSize: 12,
                           ),
                           items: [
-                            ...channelItems,
-                            if (!channelItems.any(
-                              (item) =>
-                                  item.value ==
-                                  getDropdownValue(
-                                    track.outputChannel,
-                                    track.outputStereo,
-                                  ),
-                            ))
+                            ...trackDropdownItems,
+                            if (!valueExists)
                               DropdownMenuItem(
-                                value: getDropdownValue(
-                                  track.outputChannel,
-                                  track.outputStereo,
-                                ),
+                                value: currentVal,
                                 child: Text(
                                   '${track.outputChannel + 1} (Missing)',
+                                  style: const TextStyle(color: Colors.redAccent),
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
                           ],
                           onChanged: (val) {
                             if (val != null) {
-                              final isStereo = val.endsWith('_stereo');
-                              final parsedChannel = int.parse(
-                                val.split('_').first,
-                              );
+                              final parts = val.split('_');
+                              final parsedChannel = int.parse(parts.first);
+                              final type = parts.last;
+                              final isStereo = (type == 'stereo' || type == 'multi');
+
                               final newRooms = List<RoomConfig>.from(
                                 _tempConfig.rooms,
                               );
