@@ -28,24 +28,30 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     super.dispose();
   }
 
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      body: PlatformMenuBar(
-        menus: _buildMenus(context),
-        child: Stack(
+    final bodyContent = Stack(
+      children: [
+        Column(
           children: [
-            Column(
-              children: [
-                _buildHeader(context),
-                Expanded(child: _buildRoomPanels(context)),
-              ],
-            ),
-            _buildErrorModal(),
+            if (!Platform.isMacOS) _buildMaterialMenuBar(context),
+            _buildHeader(context),
+            Expanded(child: _buildRoomPanels(context)),
           ],
         ),
-      ),
+        _buildErrorModal(),
+      ],
+    );
+
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      body: Platform.isMacOS
+          ? PlatformMenuBar(
+              menus: _buildMenus(context),
+              child: bodyContent,
+            )
+          : bodyContent,
     );
   }
 
@@ -218,6 +224,179 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         ],
       ),
     ];
+  }
+
+  Widget _buildMaterialMenuBar(BuildContext context) {
+    return Container(
+      color: AppColors.headerBackground,
+      child: MenuBar(
+        style: MenuStyle(
+          backgroundColor: WidgetStatePropertyAll(AppColors.headerBackground),
+          elevation: const WidgetStatePropertyAll(0),
+        ),
+        children: [
+          SubmenuButton(
+            menuChildren: [
+              MenuItemButton(
+                onPressed: () async {
+                  FilePickerResult? result = await FilePicker.pickFiles(
+                    type: FileType.custom,
+                    allowedExtensions: ['atmos'],
+                  );
+                  if (result != null && result.files.single.path != null) {
+                    try {
+                      final importedConfig = await rust_api.apiGetConfig(
+                        path: result.files.single.path!,
+                      );
+                      await rust_api.apiStopAll();
+                      if (context.mounted) {
+                        ref.read(engineStateProvider.notifier).reset();
+                        ref
+                            .read(configProvider.notifier)
+                            .saveConfig(importedConfig);
+                        await rust_api.apiLoadPreset(config: importedConfig);
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('프리셋이 성공적으로 로드되었습니다.'),
+                              backgroundColor: AppColors.success,
+                            ),
+                          );
+                        }
+                      }
+                    } catch (e) {
+                      if (context.mounted) {
+                        ref
+                            .read(globalErrorProvider.notifier)
+                            .showError('설정 불러오기 실패: $e');
+                      }
+                    }
+                  }
+                },
+                child: const Text('Load Project'),
+              ),
+              MenuItemButton(
+                onPressed: () async {
+                  final config = ref.read(configProvider);
+                  if (config == null) return;
+                  String? outputFile = await FilePicker.saveFile(
+                    dialogTitle: '프로젝트 저장 (Save Project)',
+                    fileName: 'project.atmos',
+                    allowedExtensions: ['atmos'],
+                    type: FileType.custom,
+                  );
+                  if (outputFile != null) {
+                    try {
+                      await rust_api.apiSaveConfig(
+                        path: outputFile,
+                        config: config,
+                      );
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('설정이 저장되었습니다.'),
+                            backgroundColor: AppColors.success,
+                          ),
+                        );
+                      }
+                    } catch (e) {
+                      if (context.mounted) {
+                        ref
+                            .read(globalErrorProvider.notifier)
+                            .showError('설정 저장 실패: $e');
+                      }
+                    }
+                  }
+                },
+                child: const Text('Save Project'),
+              ),
+              const Divider(),
+              MenuItemButton(
+                onPressed: () async {
+                  try {
+                    String dest = '';
+                    if (Platform.isWindows) {
+                      dest = '${Platform.environment['USERPROFILE']}\\Desktop';
+                    } else {
+                      dest = '${Platform.environment['HOME']}/Desktop';
+                    }
+                    await rust_api.apiExportLogs(destinationDir: dest);
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('바탕화면에 로그가 저장되었습니다.'),
+                          backgroundColor: AppColors.success,
+                        ),
+                      );
+                    }
+                  } catch (e) {
+                    if (context.mounted) {
+                      ref
+                          .read(globalErrorProvider.notifier)
+                          .showError('로그 저장 실패: $e');
+                    }
+                  }
+                },
+                child: const Text('Export Log'),
+              ),
+            ],
+            child: const Text('File'),
+          ),
+          SubmenuButton(
+            menuChildren: [
+              MenuItemButton(
+                onPressed: () {
+                  final config = ref.read(configProvider);
+                  if (config != null) {
+                    final updated = AppConfig(
+                      oscPort: config.oscPort,
+                      deviceName: config.deviceName,
+                      bufferSize: config.bufferSize,
+                      themeStartOscAddress: config.themeStartOscAddress,
+                      systemResetOscAddress: config.systemResetOscAddress,
+                      monoConfigs: config.monoConfigs,
+                      stereoConfigs: config.stereoConfigs,
+                      multiConfigs: config.multiConfigs,
+                      rooms: config.rooms,
+                      isExhibitionMode: !config.isExhibitionMode,
+                    );
+                    ref.read(configProvider.notifier).saveConfig(updated);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          updated.isExhibitionMode
+                              ? '전시 모드가 켜졌습니다.'
+                              : '전시 모드가 꺼졌습니다.',
+                        ),
+                        backgroundColor: AppColors.primaryNeon,
+                      ),
+                    );
+                  }
+                },
+                child: const Text('Toggle Exhibition Mode'),
+              ),
+            ],
+            child: const Text('View'),
+          ),
+          SubmenuButton(
+            menuChildren: [
+              MenuItemButton(
+                onPressed: () {
+                  if (context.mounted) {
+                    showDialog(
+                      context: context,
+                      builder: (context) => const PreferencesModal(),
+                    );
+                  }
+                },
+                child: const Text('Preferences'),
+              ),
+            ],
+            child: const Text('Settings'),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildErrorModal() {

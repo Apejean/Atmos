@@ -560,6 +560,26 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
         channelItems.add(
           DropdownMenuItem<String>(
             value: '${realCh}_stereo',
+            child: Text('2-Ch (Stereo) $displayName'),
+          ),
+        );
+      }
+    }
+
+    final sortedMulti =
+        _tempConfig.multiConfigs.entries.where((e) => e.value.enabled).toList()
+          ..sort((a, b) => a.key.compareTo(b.key));
+    for (final entry in sortedMulti) {
+      final key = entry.key;
+      final setting = entry.value;
+      final realCh = key - 1;
+      if (realCh < _channelNames.length) {
+        final displayName = setting.customName.isNotEmpty
+            ? '$key~ (${setting.customName})'
+            : '$key~';
+        channelItems.add(
+          DropdownMenuItem<String>(
+            value: '${realCh}_multi',
             child: Text('N-Ch (다채널) $displayName'),
           ),
         );
