@@ -1021,7 +1021,14 @@ class _RoomCardState extends ConsumerState<RoomCard> {
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(4),
                 child: Container(
-                  color: Colors.black.withValues(alpha: 0.85),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.85),
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.08),
+                      width: 1.0,
+                    ),
+                  ),
                   alignment: Alignment.topCenter,
                   padding: const EdgeInsets.only(top: 40),
                     child: Container(
