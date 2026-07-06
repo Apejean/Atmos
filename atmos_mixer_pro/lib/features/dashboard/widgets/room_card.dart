@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:math' as math;
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:atmos_mixer_pro/core/theme/colors.dart';
 import 'package:atmos_mixer_pro/src/rust/common/config.dart';
@@ -1016,17 +1015,15 @@ class _RoomCardState extends ConsumerState<RoomCard> {
             ),
           ),
 
-          // Locked / Cleared Badge & Glassmorphism Overlay
+          // Locked / Cleared Badge & Solid Overlay (Optimized for Audio Performance)
           if (isThemeStarted && !isActive && !widget.isExhibitionMode)
             Positioned.fill(
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(4),
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 8.0, sigmaY: 8.0),
-                  child: Container(
-                    color: Colors.black.withValues(alpha: 0.55),
-                    alignment: Alignment.topCenter,
-                    padding: const EdgeInsets.only(top: 40),
+                child: Container(
+                  color: Colors.black.withValues(alpha: 0.85),
+                  alignment: Alignment.topCenter,
+                  padding: const EdgeInsets.only(top: 40),
                     child: Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 16,
@@ -1049,7 +1046,6 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                     ),
                   ),
                 ),
-              ),
             ),
         ],
       ),
