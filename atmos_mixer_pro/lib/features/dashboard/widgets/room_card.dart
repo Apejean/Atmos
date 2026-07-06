@@ -20,8 +20,8 @@ Future<bool?> _showDeleteConfirmDialog(
     context: context,
     barrierColor: Colors.black87,
     builder: (context) => AlertDialog(
-      backgroundColor: AppColors.cardSurfaceSolid,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    backgroundColor: AppColors.cardSurfaceSolid,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
       title: Row(
         children: [
           const Icon(Icons.warning_amber_rounded, color: AppColors.danger),
@@ -42,7 +42,10 @@ Future<bool?> _showDeleteConfirmDialog(
           child: const Text('취소', style: TextStyle(color: Colors.white70)),
         ),
         ElevatedButton(
-          style: ElevatedButton.styleFrom(backgroundColor: AppColors.danger),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.danger,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+          ),
           onPressed: () => Navigator.of(context).pop(true),
           child: const Text('삭제', style: TextStyle(color: Colors.white)),
         ),
@@ -95,13 +98,22 @@ class _HoverGlowButtonState extends State<HoverGlowButton> {
             color: _isHovered && !isDisabled
                 ? bgColor.withValues(alpha: 0.85)
                 : bgColor,
-            borderRadius: BorderRadius.circular(24),
+            borderRadius: BorderRadius.circular(4),
             border: Border.all(
               color: _isHovered && !isDisabled
-                  ? widget.glowColor
-                  : Colors.transparent,
+                  ? widget.glowColor.withValues(alpha: 0.6)
+                  : Colors.white.withValues(alpha: 0.05),
               width: 1,
             ),
+            boxShadow: _isHovered && !isDisabled
+                ? [
+                    BoxShadow(
+                      color: widget.glowColor.withValues(alpha: 0.25),
+                      blurRadius: 8,
+                      spreadRadius: 1,
+                    )
+                  ]
+                : [],
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -306,11 +318,20 @@ class _RoomCardState extends ConsumerState<RoomCard> {
         margin: const EdgeInsets.only(right: 16),
         decoration: BoxDecoration(
           color: _isDragging ? AppColors.cardSurfaceSolid : AppColors.cardSurface,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(4),
           border: Border.all(
-            color: _isDragging ? AppColors.primaryNeon : (isActive ? accentColor : AppColors.darkGrey),
-            width: isActive || _isDragging ? 2.0 : 1.0,
+            color: _isDragging 
+                ? AppColors.primaryNeon 
+                : (isActive ? accentColor.withValues(alpha: 0.6) : Colors.white.withValues(alpha: 0.05)),
+            width: 1.0,
           ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.3),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
         child: Stack(
         children: [
@@ -327,9 +348,9 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                       vertical: 8,
                     ),
                     decoration: BoxDecoration(
-                      color: accentColor.withValues(alpha: 0.1),
+                      color: accentColor.withValues(alpha: 0.08),
                       borderRadius: const BorderRadius.vertical(
-                        top: Radius.circular(8),
+                        top: Radius.circular(3),
                       ),
                     ),
                     child: Row(
@@ -999,11 +1020,11 @@ class _RoomCardState extends ConsumerState<RoomCard> {
           if (isThemeStarted && !isActive && !widget.isExhibitionMode)
             Positioned.fill(
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(4),
                 child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 20.0, sigmaY: 20.0),
+                  filter: ImageFilter.blur(sigmaX: 8.0, sigmaY: 8.0),
                   child: Container(
-                    color: Colors.black.withValues(alpha: 0.4),
+                    color: Colors.black.withValues(alpha: 0.55),
                     alignment: Alignment.topCenter,
                     padding: const EdgeInsets.only(top: 40),
                     child: Container(
@@ -1012,9 +1033,9 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                         vertical: 8,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.black87,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: Colors.white24),
+                        color: Colors.black.withValues(alpha: 0.85),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
                       ),
                       child: Text(
                         isCleared ? '✅ 룸 클리어됨' : '🔒 잠금 — 이전 룸을 클리어하세요',

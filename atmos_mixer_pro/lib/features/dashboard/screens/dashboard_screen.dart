@@ -420,13 +420,16 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 padding: const EdgeInsets.all(32),
                 decoration: BoxDecoration(
                   color: AppColors.background,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AppColors.danger, width: 2),
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(
+                    color: AppColors.danger.withValues(alpha: 0.5),
+                    width: 1.0,
+                  ),
                   boxShadow: [
                     BoxShadow(
-                      color: AppColors.danger.withValues(alpha: 0.3),
-                      blurRadius: 20,
-                      spreadRadius: 5,
+                      color: AppColors.danger.withValues(alpha: 0.15),
+                      blurRadius: 12,
+                      spreadRadius: 2,
                     ),
                   ],
                 ),
@@ -511,6 +514,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                           backgroundColor: AppColors.danger,
                           foregroundColor: Colors.white,
                           disabledBackgroundColor: Colors.white24,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(4),
+                          ),
                         ),
                       ),
                     ),
@@ -550,6 +556,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primaryBlue,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(4),
+                  ),
                 ),
                 onPressed: () async {
                   if (_isProcessing) return;
@@ -609,6 +618,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.danger,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(4),
+                  ),
                 ),
                 onPressed: () async {
                   if (_isProcessing) return;
@@ -635,6 +647,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.darkGrey,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(4),
+                  ),
                 ),
                 onPressed: () async {
                   if (_isProcessing) return;
@@ -664,6 +679,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.success,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(4),
+                  ),
                 ),
                 onPressed: () {
                   final config = ref.read(configProvider);

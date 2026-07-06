@@ -447,7 +447,7 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
 
     return Dialog(
       backgroundColor: AppColors.background,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
       child: SizedBox(
         width: 800,
         height: 700,
@@ -458,7 +458,7 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
               padding: const EdgeInsets.all(16),
               decoration: const BoxDecoration(
                 color: AppColors.headerBackground,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+                borderRadius: BorderRadius.vertical(top: Radius.circular(4)),
               ),
               child: Row(
                 children: [
@@ -882,7 +882,8 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: AppColors.cardSurface,
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1198,7 +1199,8 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: AppColors.cardSurface,
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
           ),
           child: Row(
             children: [
@@ -1247,7 +1249,8 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: AppColors.cardSurface,
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
           ),
           child: Row(
             children: [
@@ -1298,7 +1301,8 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: AppColors.cardSurface,
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1669,7 +1673,7 @@ class _OutputConfigDialogState extends ConsumerState<OutputConfigDialog> {
   Widget build(BuildContext context) {
     return Dialog(
       backgroundColor: AppColors.background,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
       child: SizedBox(
         width: 700,
         height: 600,
@@ -1679,7 +1683,7 @@ class _OutputConfigDialogState extends ConsumerState<OutputConfigDialog> {
               padding: const EdgeInsets.all(16),
               decoration: const BoxDecoration(
                 color: AppColors.headerBackground,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+                borderRadius: BorderRadius.vertical(top: Radius.circular(4)),
               ),
               child: Row(
                 children: [
