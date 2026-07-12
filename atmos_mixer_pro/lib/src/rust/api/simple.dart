@@ -70,6 +70,22 @@ Future<void> apiSetTrackOutput({
   outputStereo: outputStereo,
 );
 
+Future<void> apiSetChannelDelay({
+  required BigInt channel,
+  required double delayMs,
+}) => RustLib.instance.api.crateApiSimpleApiSetChannelDelay(
+  channel: channel,
+  delayMs: delayMs,
+);
+
+Future<void> apiSetChannelEq({
+  required BigInt channel,
+  required List<EqBand> bands,
+}) => RustLib.instance.api.crateApiSimpleApiSetChannelEq(
+  channel: channel,
+  bands: bands,
+);
+
 Stream<Float32List> apiCreateVuStream() =>
     RustLib.instance.api.crateApiSimpleApiCreateVuStream();
 
@@ -122,6 +138,16 @@ Future<int> apiGetAudioFileChannels({required String filePath}) => RustLib
     .instance
     .api
     .crateApiSimpleApiGetAudioFileChannels(filePath: filePath);
+
+Future<void> apiApplyChannelTuning({
+  required int channel,
+  required double delayMs,
+  required List<EqBand> eqBands,
+}) => RustLib.instance.api.crateApiSimpleApiApplyChannelTuning(
+  channel: channel,
+  delayMs: delayMs,
+  eqBands: eqBands,
+);
 
 class EngineStateUpdate {
   final String? activeRoomId;

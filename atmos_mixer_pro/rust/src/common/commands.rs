@@ -40,4 +40,17 @@ pub enum AudioCommand {
     ClearRoom {
         room_id: u32,
     },
+    SetChannelDelay {
+        channel: usize,
+        delay_ms: f32,
+    },
+    SetChannelEq {
+        channel: usize,
+        bands: Vec<crate::common::config::EqBand>,
+    },
+    ApplyChannelTuning {
+        channel: usize,
+        delay_ms: f32,
+        eq_bands: Vec<crate::common::config::EqBand>,
+    },
 }

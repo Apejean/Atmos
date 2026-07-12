@@ -371,6 +371,22 @@ impl AudioEngine {
                         }
                     }
                 }
+                AudioCommand::SetChannelDelay { channel, delay_ms } => {
+                    if channel < mixer.channel_dsp.len() {
+                        mixer.channel_dsp[channel].update_delay_target(delay_ms);
+                    }
+                }
+                AudioCommand::SetChannelEq { channel, bands } => {
+                    if channel < mixer.channel_dsp.len() {
+                        mixer.channel_dsp[channel].update_eq_targets(bands, mixer.sample_rate as f32);
+                    }
+                }
+                AudioCommand::ApplyChannelTuning { channel, delay_ms, eq_bands } => {
+                    if channel < mixer.channel_dsp.len() {
+                        mixer.channel_dsp[channel].update_delay_target(delay_ms);
+                        mixer.channel_dsp[channel].update_eq_targets(eq_bands, mixer.sample_rate as f32);
+                    }
+                }
             }
         }
     }

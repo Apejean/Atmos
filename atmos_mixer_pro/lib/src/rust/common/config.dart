@@ -64,11 +64,22 @@ class AppConfig {
 class ChannelSetting {
   final bool enabled;
   final String customName;
+  final double delayMs;
+  final List<EqBand> eqBands;
 
-  const ChannelSetting({required this.enabled, required this.customName});
+  const ChannelSetting({
+    required this.enabled,
+    required this.customName,
+    required this.delayMs,
+    required this.eqBands,
+  });
 
   @override
-  int get hashCode => enabled.hashCode ^ customName.hashCode;
+  int get hashCode =>
+      enabled.hashCode ^
+      customName.hashCode ^
+      delayMs.hashCode ^
+      eqBands.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -76,8 +87,47 @@ class ChannelSetting {
       other is ChannelSetting &&
           runtimeType == other.runtimeType &&
           enabled == other.enabled &&
-          customName == other.customName;
+          customName == other.customName &&
+          delayMs == other.delayMs &&
+          eqBands == other.eqBands;
 }
+
+class EqBand {
+  final bool enabled;
+  final double freq;
+  final double gain;
+  final double qFactor;
+  final EqType filterType;
+
+  const EqBand({
+    required this.enabled,
+    required this.freq,
+    required this.gain,
+    required this.qFactor,
+    required this.filterType,
+  });
+
+  @override
+  int get hashCode =>
+      enabled.hashCode ^
+      freq.hashCode ^
+      gain.hashCode ^
+      qFactor.hashCode ^
+      filterType.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is EqBand &&
+          runtimeType == other.runtimeType &&
+          enabled == other.enabled &&
+          freq == other.freq &&
+          gain == other.gain &&
+          qFactor == other.qFactor &&
+          filterType == other.filterType;
+}
+
+enum EqType { lowCut, lowShelf, bell, notch, highShelf, highCut }
 
 class RoomConfig {
   final String id;

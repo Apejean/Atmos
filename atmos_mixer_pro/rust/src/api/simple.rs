@@ -356,6 +356,32 @@ pub fn api_set_track_output(
     Ok(())
 }
 
+pub fn api_set_channel_delay(channel: usize, delay_ms: f32) -> Result<(), AtmosError> {
+    GLOBAL_STATE
+        .command_sender
+        .try_send(AudioCommand::SetChannelDelay {
+            channel,
+            delay_ms,
+        })
+        .map_err(|e| AtmosError {
+            message: e.to_string(),
+        })?;
+    Ok(())
+}
+
+pub fn api_set_channel_eq(channel: usize, bands: Vec<crate::common::config::EqBand>) -> Result<(), AtmosError> {
+    GLOBAL_STATE
+        .command_sender
+        .try_send(AudioCommand::SetChannelEq {
+            channel,
+            bands,
+        })
+        .map_err(|e| AtmosError {
+            message: e.to_string(),
+        })?;
+    Ok(())
+}
+
 use std::sync::atomic::AtomicU64;
 lazy_static::lazy_static! {
     static ref VU_THREAD_RUNNING: AtomicU64 = AtomicU64::new(0);
@@ -996,4 +1022,20 @@ pub fn api_get_audio_file_channels(file_path: String) -> u32 {
     }
     let path = std::path::Path::new(&file_path);
     crate::audio::player::SoundData::probe_channels(path)
+}
+
+use crate::common::config::{EqBand, EqType};
+
+pub fn api_apply_channel_tuning(channel: u32, delay_ms: f32, eq_bands: Vec<EqBand>) -> Result<(), AtmosError> {
+    GLOBAL_STATE
+        .command_sender
+        .try_send(AudioCommand::ApplyChannelTuning {
+            channel: channel as usize,
+            delay_ms,
+            eq_bands, // Send the EqBands directly now
+        })
+        .map_err(|e| AtmosError {
+            message: format!("Failed to apply channel tuning: {}", e),
+        })?;
+    Ok(())
 }

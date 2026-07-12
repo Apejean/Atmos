@@ -1612,6 +1612,8 @@ class _OutputConfigDialogState extends ConsumerState<OutputConfigDialog> {
                 ChannelSetting(
                   enabled: !setting.enabled,
                   customName: setting.customName,
+                  delayMs: setting.delayMs,
+                  eqBands: setting.eqBands,
                 ),
               );
             },
@@ -1658,7 +1660,7 @@ class _OutputConfigDialogState extends ConsumerState<OutputConfigDialog> {
                 ),
                 onChanged: (val) {
                   onChanged(
-                    ChannelSetting(enabled: setting.enabled, customName: val),
+                    ChannelSetting(enabled: setting.enabled, customName: val, delayMs: setting.delayMs, eqBands: setting.eqBands),
                   );
                 },
               ),
@@ -1742,6 +1744,8 @@ class _OutputConfigDialogState extends ConsumerState<OutputConfigDialog> {
                                   const ChannelSetting(
                                     enabled: false,
                                     customName: '',
+                                    delayMs: 0.0,
+                                    eqBands: [],
                                   );
 
                               return _buildChannelRow(
@@ -1793,6 +1797,8 @@ class _OutputConfigDialogState extends ConsumerState<OutputConfigDialog> {
                                   const ChannelSetting(
                                     enabled: false,
                                     customName: '',
+                                    delayMs: 0.0,
+                                    eqBands: [],
                                   );
 
                               return _buildChannelRow(
@@ -1840,6 +1846,8 @@ class _OutputConfigDialogState extends ConsumerState<OutputConfigDialog> {
                                   const ChannelSetting(
                                     enabled: false,
                                     customName: '',
+                                    delayMs: 0.0,
+                                    eqBands: [],
                                   );
 
                               return _buildChannelRow(

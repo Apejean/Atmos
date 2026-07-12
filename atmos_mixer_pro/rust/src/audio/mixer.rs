@@ -1,6 +1,7 @@
 use crate::audio::player::SoundInstance;
 use crate::core::state::GLOBAL_STATE;
 use std::sync::atomic::Ordering;
+use crate::audio::dsp::dsp_utils::ChannelDspState;
 
 pub struct DuckingState {
     pub is_ducking: bool,
@@ -15,6 +16,7 @@ pub struct AudioMixer {
     pub buf_gc_tx: crossbeam_channel::Sender<Vec<f32>>,
     pub room_volumes: Vec<Option<(u32, f32)>>,
     pub local_recycle: Vec<Vec<f32>>,
+    pub channel_dsp: Vec<ChannelDspState>,
 }
 
 impl AudioMixer {
@@ -30,6 +32,11 @@ impl AudioMixer {
         for _ in 0..4096 {
             instances.push(None);
         }
+        let mut channel_dsp = Vec::with_capacity(24);
+        for _ in 0..24 {
+            channel_dsp.push(ChannelDspState::new());
+        }
+
         Self {
             instances,
             sample_rate,
@@ -41,6 +48,7 @@ impl AudioMixer {
             buf_gc_tx,
             room_volumes: vec![None; 128],
             local_recycle: Vec::with_capacity(4096),
+            channel_dsp,
         }
     }
 
@@ -314,6 +322,27 @@ impl AudioMixer {
                     }
                 } else {
                     instance.is_stopping = true;
+                }
+            }
+        }
+
+        // Apply Channel DSP
+        let fs = self.sample_rate as f32;
+        for ch in 0..out_channels {
+            if ch >= 24 { break; } // We only have 24 DSP states
+            let is_enabled = if ch < GLOBAL_STATE.enabled_channels.len() {
+                GLOBAL_STATE.enabled_channels[ch].load(Ordering::Relaxed)
+            } else {
+                false
+            };
+            if !is_enabled { continue; }
+
+            for frame in 0..frames {
+                let sample_idx = frame * out_channels + ch;
+                if sample_idx < output.len() {
+                    let mut val = output[sample_idx];
+                    val = self.channel_dsp[ch].process(val, fs);
+                    output[sample_idx] = val;
                 }
             }
         }

@@ -64,10 +64,10 @@ void main() {
       themeStartOscAddress: '',
       systemResetOscAddress: '',
       monoConfigs: {
-        1: ChannelSetting(enabled: true, customName: 'Mono1'),
-        2: ChannelSetting(enabled: true, customName: 'Mono2'),
+        1: ChannelSetting(enabled: true, customName: 'Mono1', delayMs: 0.0, eqBands: []),
+        2: ChannelSetting(enabled: true, customName: 'Mono2', delayMs: 0.0, eqBands: []),
       },
-      stereoConfigs: {3: ChannelSetting(enabled: true, customName: 'Stereo3')},
+      stereoConfigs: {3: ChannelSetting(enabled: true, customName: 'Stereo3', delayMs: 0.0, eqBands: [])},
       multiConfigs: {},
       rooms: [],
       isExhibitionMode: false,

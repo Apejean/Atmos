@@ -61,10 +61,22 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   EngineStateUpdate dco_decode_engine_state_update(dynamic raw);
 
   @protected
+  EqBand dco_decode_eq_band(dynamic raw);
+
+  @protected
+  EqType dco_decode_eq_type(dynamic raw);
+
+  @protected
   double dco_decode_f_32(dynamic raw);
 
   @protected
+  int dco_decode_i_32(dynamic raw);
+
+  @protected
   List<String> dco_decode_list_String(dynamic raw);
+
+  @protected
+  List<EqBand> dco_decode_list_eq_band(dynamic raw);
 
   @protected
   List<OutputDeviceInfo> dco_decode_list_output_device_info(dynamic raw);
@@ -157,10 +169,22 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  EqBand sse_decode_eq_band(SseDeserializer deserializer);
+
+  @protected
+  EqType sse_decode_eq_type(SseDeserializer deserializer);
+
+  @protected
   double sse_decode_f_32(SseDeserializer deserializer);
 
   @protected
+  int sse_decode_i_32(SseDeserializer deserializer);
+
+  @protected
   List<String> sse_decode_list_String(SseDeserializer deserializer);
+
+  @protected
+  List<EqBand> sse_decode_list_eq_band(SseDeserializer deserializer);
 
   @protected
   List<OutputDeviceInfo> sse_decode_list_output_device_info(
@@ -217,9 +241,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   BigInt sse_decode_usize(SseDeserializer deserializer);
 
   @protected
-  int sse_decode_i_32(SseDeserializer deserializer);
-
-  @protected
   void sse_encode_AnyhowException(
     AnyhowException self,
     SseSerializer serializer,
@@ -274,10 +295,22 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_eq_band(EqBand self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_eq_type(EqType self, SseSerializer serializer);
+
+  @protected
   void sse_encode_f_32(double self, SseSerializer serializer);
 
   @protected
+  void sse_encode_i_32(int self, SseSerializer serializer);
+
+  @protected
   void sse_encode_list_String(List<String> self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_list_eq_band(List<EqBand> self, SseSerializer serializer);
 
   @protected
   void sse_encode_list_output_device_info(
@@ -350,9 +383,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_usize(BigInt self, SseSerializer serializer);
-
-  @protected
-  void sse_encode_i_32(int self, SseSerializer serializer);
 }
 
 // Section: wire_class

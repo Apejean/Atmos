@@ -3,10 +3,45 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum EqType {
+    LowCut,
+    LowShelf,
+    Bell,
+    Notch,
+    HighShelf,
+    HighCut,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EqBand {
+    pub enabled: bool,
+    pub freq: f32,
+    pub gain: f32,
+    pub q_factor: f32,
+    pub filter_type: EqType,
+}
+
+impl Default for EqBand {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            freq: 1000.0,
+            gain: 0.0,
+            q_factor: 0.707,
+            filter_type: EqType::Bell,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ChannelSetting {
     pub enabled: bool,
     pub custom_name: String,
+    #[serde(default)]
+    pub delay_ms: f32,
+    #[serde(default)]
+    pub eq_bands: Vec<EqBand>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

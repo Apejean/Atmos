@@ -6,6 +6,7 @@ import 'package:atmos_mixer_pro/core/theme/colors.dart';
 import 'package:atmos_mixer_pro/core/state/global_state.dart';
 import 'package:atmos_mixer_pro/features/dashboard/widgets/room_card.dart';
 import 'package:atmos_mixer_pro/features/settings/widgets/preferences_modal.dart';
+import 'package:atmos_mixer_pro/features/settings/widgets/tuning_modal.dart' as atmos_tuning_modal;
 import 'package:atmos_mixer_pro/src/rust/api/simple.dart' as rust_api;
 import 'package:atmos_mixer_pro/src/rust/common/config.dart';
 import 'package:file_picker/file_picker.dart';
@@ -719,6 +720,27 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 },
                 child: const Text(
                   '➕ 룸 추가',
+                  style: TextStyle(color: Colors.white),
+                ),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.background,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(4),
+                    side: const BorderSide(color: Colors.white24, width: 1),
+                  ),
+                ),
+                onPressed: () {
+                  if (context.mounted) {
+                    showDialog(
+                      context: context,
+                      builder: (context) => const atmos_tuning_modal.TuningModal(),
+                    );
+                  }
+                },
+                child: const Text(
+                  '⚙️ 튜닝',
                   style: TextStyle(color: Colors.white),
                 ),
               ),
