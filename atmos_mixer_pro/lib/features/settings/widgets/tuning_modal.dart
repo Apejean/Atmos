@@ -1,11 +1,82 @@
 import 'dart:math' as math;
 import 'dart:async';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/colors.dart';
+import '../../../core/state/global_state.dart';
 import '../../../src/rust/api/simple.dart';
 import '../../../src/rust/common/config.dart';
+
+class ChannelTuningState {
+  final double delay;
+  final List<bool> bandEnabled;
+  final List<EqType> bandTypes;
+  final List<double> freqs;
+  final List<double> gains;
+  final List<double> qs;
+  final bool isStereoLinked;
+
+  ChannelTuningState({
+    required this.delay,
+    required this.bandEnabled,
+    required this.bandTypes,
+    required this.freqs,
+    required this.gains,
+    required this.qs,
+    required this.isStereoLinked,
+  });
+
+  factory ChannelTuningState.initial() {
+    return ChannelTuningState(
+      delay: 0.0,
+      bandEnabled: List.filled(8, false),
+      bandTypes: List.filled(8, EqType.bell),
+      freqs: List.generate(8, (i) => math.min(100 * math.pow(2, i), 20000.0).toDouble()),
+      gains: List.filled(8, 0.0),
+      qs: List.filled(8, 0.707),
+      isStereoLinked: true,
+    );
+  }
+
+  ChannelTuningState copyWith({
+    double? delay,
+    List<bool>? bandEnabled,
+    List<EqType>? bandTypes,
+    List<double>? freqs,
+    List<double>? gains,
+    List<double>? qs,
+    bool? isStereoLinked,
+  }) {
+    return ChannelTuningState(
+      delay: delay ?? this.delay,
+      bandEnabled: bandEnabled ?? this.bandEnabled,
+      bandTypes: bandTypes ?? this.bandTypes,
+      freqs: freqs ?? this.freqs,
+      gains: gains ?? this.gains,
+      qs: qs ?? this.qs,
+      isStereoLinked: isStereoLinked ?? this.isStereoLinked,
+    );
+  }
+}
+
+class TuningStateNotifier extends Notifier<Map<int, ChannelTuningState>> {
+  @override
+  Map<int, ChannelTuningState> build() => {};
+
+  ChannelTuningState getTuning(int channel) {
+    return state[channel] ?? ChannelTuningState.initial();
+  }
+
+  void saveTuning(int channel, ChannelTuningState tuning) {
+    state = {...state, channel: tuning};
+  }
+}
+
+final tuningStateProvider = NotifierProvider<TuningStateNotifier, Map<int, ChannelTuningState>>(
+  TuningStateNotifier.new,
+);
 
 class TuningModal extends ConsumerStatefulWidget {
   const TuningModal({super.key});
@@ -16,6 +87,7 @@ class TuningModal extends ConsumerStatefulWidget {
 
 class _TuningModalState extends ConsumerState<TuningModal> {
   int _selectedChannel = 1;
+  bool _isStereoLinked = true;
   final TextEditingController _delayController = TextEditingController(text: '0.0');
   
   int _activeBandIndex = 0;
@@ -40,15 +112,59 @@ class _TuningModalState extends ConsumerState<TuningModal> {
   void initState() {
     super.initState();
     for (int i = 0; i < 8; i++) {
-      _freqControllers.add(TextEditingController(text: '${math.min(100 * math.pow(2, i), maxFreq).toInt()}'));
-      _gainControllers.add(TextEditingController(text: '0.0'));
-      _qControllers.add(TextEditingController(text: '0.707'));
+      _freqControllers.add(TextEditingController());
+      _gainControllers.add(TextEditingController());
+      _qControllers.add(TextEditingController());
     }
-    // Listen to changes in controllers to trigger repaint
+    
+    // We delay the load so we don't modify provider state during init.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadStateForChannel(_selectedChannel);
+    });
+  }
+
+  void _loadStateForChannel(int channel) {
+    final tuning = ref.read(tuningStateProvider.notifier).getTuning(channel);
+    _delayController.text = tuning.delay.toString();
+    _isStereoLinked = tuning.isStereoLinked;
+    _bandEnabled.setAll(0, tuning.bandEnabled);
+    _bandTypes.setAll(0, tuning.bandTypes);
+    
     for (int i = 0; i < 8; i++) {
-      _freqControllers[i].addListener(() => setState(() {}));
-      _gainControllers[i].addListener(() => setState(() {}));
-      _qControllers[i].addListener(() => setState(() {}));
+      _freqControllers[i].text = tuning.freqs[i].toStringAsFixed(1);
+      _gainControllers[i].text = tuning.gains[i].toStringAsFixed(1);
+      _qControllers[i].text = tuning.qs[i].toStringAsFixed(3);
+    }
+    setState(() {});
+  }
+
+  void _saveCurrentState() {
+    final tuning = ChannelTuningState(
+      delay: double.tryParse(_delayController.text) ?? 0.0,
+      bandEnabled: List.from(_bandEnabled),
+      bandTypes: List.from(_bandTypes),
+      freqs: _freqControllers.map((c) => double.tryParse(c.text) ?? 1000.0).toList(),
+      gains: _gainControllers.map((c) => double.tryParse(c.text) ?? 0.0).toList(),
+      qs: _qControllers.map((c) => double.tryParse(c.text) ?? 0.707).toList(),
+      isStereoLinked: _isStereoLinked,
+    );
+    ref.read(tuningStateProvider.notifier).saveTuning(_selectedChannel, tuning);
+    
+    // Sync partner channel's state if stereo link is involved
+    int partnerChannel = _selectedChannel % 2 != 0 ? _selectedChannel + 1 : _selectedChannel - 1;
+    
+    if (_isStereoLinked) {
+      // If linked, partner channel should have the exact same tuning state.
+      ref.read(tuningStateProvider.notifier).saveTuning(partnerChannel, tuning);
+    } else {
+      // If unlinked, just ensure the partner channel also unlinks its UI state without changing its eq values.
+      final partnerTuning = ref.read(tuningStateProvider.notifier).getTuning(partnerChannel);
+      if (partnerTuning.isStereoLinked) {
+        ref.read(tuningStateProvider.notifier).saveTuning(
+          partnerChannel, 
+          partnerTuning.copyWith(isStereoLinked: false)
+        );
+      }
     }
   }
 
@@ -77,6 +193,8 @@ class _TuningModalState extends ConsumerState<TuningModal> {
 
   void _applyTuning({bool silent = false}) {
     try {
+      _saveCurrentState(); // Save to Riverpod so it persists
+      
       final double delay = double.tryParse(_delayController.text) ?? 0.0;
       final List<EqBand> bands = [];
       for (int i = 0; i < 8; i++) {
@@ -92,12 +210,18 @@ class _TuningModalState extends ConsumerState<TuningModal> {
         ));
       }
       
-      apiApplyChannelTuning(channel: _selectedChannel, delayMs: delay, eqBands: bands);
+      int targetChannel1 = _selectedChannel - 1;
+      apiApplyChannelTuning(channel: targetChannel1, delayMs: delay, eqBands: bands);
+      
+      if (_isStereoLinked) {
+        int targetChannel2 = _selectedChannel % 2 != 0 ? targetChannel1 + 1 : targetChannel1 - 1;
+        apiApplyChannelTuning(channel: targetChannel2, delayMs: delay, eqBands: bands);
+      }
       
       if (!silent && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('튜닝 설정이 적용되었습니다.'),
+            content: Text('Mixer 설정이 적용되었습니다.'),
             backgroundColor: AppColors.success,
             duration: Duration(seconds: 2),
           ),
@@ -188,8 +312,10 @@ class _TuningModalState extends ConsumerState<TuningModal> {
     double newFreq = _xToFreq(details.localPosition.dx, constraints.maxWidth);
     double newGain = _yToGain(details.localPosition.dy, constraints.maxHeight);
     
-    _freqControllers[_activeBandIndex].text = newFreq.toStringAsFixed(1);
-    _gainControllers[_activeBandIndex].text = newGain.toStringAsFixed(1);
+    setState(() {
+      _freqControllers[_activeBandIndex].text = newFreq.toStringAsFixed(1);
+      _gainControllers[_activeBandIndex].text = newGain.toStringAsFixed(1);
+    });
     
     _sendThrottledUpdate();
   }
@@ -241,6 +367,7 @@ class _TuningModalState extends ConsumerState<TuningModal> {
                 setState(() {
                   _bandEnabled[index] = !isEnabled;
                   _activeBandIndex = index;
+                  _saveCurrentState();
                   _sendThrottledUpdate();
                 });
               },
@@ -306,6 +433,7 @@ class _TuningModalState extends ConsumerState<TuningModal> {
                         if (val != null) {
                           setState(() {
                             _bandTypes[idx] = val;
+                            _saveCurrentState();
                             _sendThrottledUpdate();
                           });
                         }
@@ -415,9 +543,36 @@ class _TuningModalState extends ConsumerState<TuningModal> {
         borderRadius: BorderRadius.circular(4),
         child: LayoutBuilder(
           builder: (context, constraints) {
-            return MouseRegion(
-              onHover: (event) => _handleHover(event, constraints),
-              onExit: (_) => setState(() => _hoverIndex = -1),
+            return Listener(
+              onPointerSignal: (pointerSignal) {
+                if (pointerSignal is PointerScrollEvent) {
+                  if (_activeBandIndex != -1 && _bandEnabled[_activeBandIndex]) {
+                    double currentQ = double.tryParse(_qControllers[_activeBandIndex].text) ?? 0.707;
+                    double delta = pointerSignal.scrollDelta.dy > 0 ? -0.1 : 0.1;
+                    double newQ = (currentQ + delta).clamp(0.1, 10.0);
+                    setState(() {
+                      _qControllers[_activeBandIndex].text = newQ.toStringAsFixed(3);
+                    });
+                    _sendThrottledUpdate();
+                  }
+                }
+              },
+              onPointerPanZoomUpdate: (event) {
+                if (_activeBandIndex != -1 && _bandEnabled[_activeBandIndex]) {
+                  double currentQ = double.tryParse(_qControllers[_activeBandIndex].text) ?? 0.707;
+                  // Use pan delta dy (trackpad continuous scroll)
+                  double delta = event.panDelta.dy > 0 ? -0.05 : 0.05;
+                  if (event.panDelta.dy == 0) return;
+                  double newQ = (currentQ + delta).clamp(0.1, 10.0);
+                  setState(() {
+                    _qControllers[_activeBandIndex].text = newQ.toStringAsFixed(3);
+                  });
+                  _sendThrottledUpdate();
+                }
+              },
+              child: MouseRegion(
+                onHover: (event) => _handleHover(event, constraints),
+                onExit: (_) => setState(() => _hoverIndex = -1),
               child: GestureDetector(
                 onPanDown: (details) => _handlePanDown(details, constraints),
                 onPanUpdate: (details) => _handlePanUpdate(details, constraints),
@@ -459,6 +614,7 @@ class _TuningModalState extends ConsumerState<TuningModal> {
                   ],
                 ),
               ),
+              ),
             );
           },
         ),
@@ -468,6 +624,22 @@ class _TuningModalState extends ConsumerState<TuningModal> {
 
   @override
   Widget build(BuildContext context) {
+    final config = ref.watch(configProvider);
+    final hwChannelsAsync = ref.watch(hardwareChannelsProvider);
+    int maxChannels = 24;
+    if (config != null) {
+      if (config.deviceName != null &&
+          GlobalDeviceCache.channels.containsKey(config.deviceName)) {
+        maxChannels = GlobalDeviceCache.channels[config.deviceName]!.length;
+      } else if (hwChannelsAsync.value != null &&
+          hwChannelsAsync.value!.isNotEmpty) {
+        maxChannels = hwChannelsAsync.value!.length;
+      }
+    }
+    
+    int safeSelectedChannel = _selectedChannel;
+    if (safeSelectedChannel > maxChannels) safeSelectedChannel = 1;
+
     return Dialog(
       backgroundColor: AppColors.cardSurfaceSolid,
       shape: RoundedRectangleBorder(
@@ -482,7 +654,7 @@ class _TuningModalState extends ConsumerState<TuningModal> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              '출력 채널 튜닝 (Delay & EQ Eight)',
+              '출력 채널 Mixer (Delay & EQ Eight)',
               style: TextStyle(
                 color: AppColors.textPrimary,
                 fontSize: 20,
@@ -509,28 +681,56 @@ class _TuningModalState extends ConsumerState<TuningModal> {
                     ),
                     child: DropdownButtonHideUnderline(
                       child: DropdownButton<int>(
-                        value: _selectedChannel,
+                        value: safeSelectedChannel,
                         dropdownColor: AppColors.cardSurface,
                         isDense: true,
                         isExpanded: true,
                         style: const TextStyle(color: AppColors.textPrimary, fontSize: 14),
-                        items: List.generate(24, (index) => index + 1).map((ch) {
+                        items: List.generate(maxChannels, (index) => index + 1).map((ch) {
+                          String side = ch % 2 != 0 ? "(L)" : "(R)";
                           return DropdownMenuItem<int>(
                             value: ch,
-                            child: Text('Channel $ch'),
+                            child: Text('Channel $ch $side'),
                           );
                         }).toList(),
                         onChanged: (val) {
-                          if (val != null) setState(() => _selectedChannel = val);
+                          if (val != null) {
+                            setState(() {
+                              _selectedChannel = val;
+                              _loadStateForChannel(val);
+                            });
+                          }
                         },
                       ),
                     ),
                   ),
                 ),
-                const SizedBox(width: 24),
+                const SizedBox(width: 12),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SizedBox(
+                      width: 24,
+                      child: Checkbox(
+                        value: _isStereoLinked,
+                        activeColor: AppColors.primaryNeon,
+                        onChanged: (val) {
+                          setState(() {
+                            _isStereoLinked = val ?? true;
+                            _saveCurrentState();
+                            _sendThrottledUpdate();
+                          });
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    const Text('Link L/R', style: TextStyle(color: AppColors.textPrimary, fontSize: 12)),
+                  ],
+                ),
+                const SizedBox(width: 16),
                 const SizedBox(
-                  width: 80,
-                  child: Text('Delay (ms)', style: TextStyle(color: AppColors.textSecondary)),
+                  width: 70,
+                  child: Text('Delay (ms)', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
                 ),
                 Expanded(
                   flex: 2,

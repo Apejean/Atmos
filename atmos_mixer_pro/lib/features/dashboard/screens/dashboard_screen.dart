@@ -740,7 +740,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   }
                 },
                 child: const Text(
-                  '⚙️ 튜닝',
+                  '⚙️ Mixer',
                   style: TextStyle(color: Colors.white),
                 ),
               ),

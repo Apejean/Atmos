@@ -958,24 +958,18 @@ pub fn api_get_device_channel_names(
 }
 
 pub fn api_export_logs(destination_dir: String) -> Result<(), AtmosError> {
-    if let Ok(mut dir) = std::env::current_exe() {
-        dir.pop();
-        dir.push("Logs");
-        dir.push("atmos_mixer_pro.log");
-        if dir.exists() {
-            let dest_path = std::path::Path::new(&destination_dir).join("atmos_mixer_pro.log");
-            std::fs::copy(&dir, &dest_path).map_err(|e| AtmosError {
-                message: format!("Failed to copy log file: {}", e),
-            })?;
-            Ok(())
-        } else {
-            Err(AtmosError {
-                message: "Log file does not exist".to_string(),
-            })
-        }
+    let mut dir = std::env::temp_dir();
+    dir.push("atmos_mixer_pro_logs");
+    dir.push("atmos_mixer_pro.log");
+    if dir.exists() {
+        let dest_path = std::path::Path::new(&destination_dir).join("atmos_mixer_pro.log");
+        std::fs::copy(&dir, &dest_path).map_err(|e| AtmosError {
+            message: format!("Failed to copy log file: {}", e),
+        })?;
+        Ok(())
     } else {
         Err(AtmosError {
-            message: "Failed to get current executable path".to_string(),
+            message: "Log file does not exist".to_string(),
         })
     }
 }
@@ -1027,6 +1021,7 @@ pub fn api_get_audio_file_channels(file_path: String) -> u32 {
 use crate::common::config::{EqBand, EqType};
 
 pub fn api_apply_channel_tuning(channel: u32, delay_ms: f32, eq_bands: Vec<EqBand>) -> Result<(), AtmosError> {
+    println!("🔥 [디버깅] api_apply_channel_tuning 호출됨. 채널: {}, 딜레이: {}ms", channel, delay_ms);
     GLOBAL_STATE
         .command_sender
         .try_send(AudioCommand::ApplyChannelTuning {

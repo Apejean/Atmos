@@ -121,19 +121,17 @@ impl GlobalEngineState {
         println!("{}", msg);
 
         // Write to log file
-        if let Ok(mut dir) = std::env::current_exe() {
-            dir.pop();
-            dir.push("Logs");
-            let _ = std::fs::create_dir_all(&dir);
-            dir.push("atmos_mixer_pro.log");
-            if let Ok(mut file) = std::fs::OpenOptions::new()
-                .create(true)
-                .append(true)
-                .open(&dir)
-            {
-                let time = chrono::Local::now().format("%Y-%m-%d %H:%M:%S");
-                let _ = std::io::Write::write_fmt(&mut file, format_args!("[{}] {}\n", time, msg));
-            }
+        let mut dir = std::env::temp_dir();
+        dir.push("atmos_mixer_pro_logs");
+        let _ = std::fs::create_dir_all(&dir);
+        dir.push("atmos_mixer_pro.log");
+        if let Ok(mut file) = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&dir)
+        {
+            let time = chrono::Local::now().format("%Y-%m-%d %H:%M:%S");
+            let _ = std::io::Write::write_fmt(&mut file, format_args!("[{}] {}\n", time, msg));
         }
     }
 
