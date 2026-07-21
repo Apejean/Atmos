@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:atmos_mixer_pro/features/dashboard/screens/dashboard_screen.dart';
 import 'package:atmos_mixer_pro/core/state/global_state.dart';
 import 'package:atmos_mixer_pro/src/rust/api/simple.dart' as rust_api;
+import 'package:atmos_mixer_pro/features/settings/widgets/tuning_modal.dart';
 
 class AudioInitSplashScreen extends ConsumerStatefulWidget {
   const AudioInitSplashScreen({super.key});
@@ -26,6 +27,9 @@ class _AudioInitSplashScreenState extends ConsumerState<AudioInitSplashScreen> {
     try {
       // 1. Ensure config is loaded first. We wait for config to be ready.
       await ref.read(configProvider.notifier).loadConfigAsync();
+      
+      // Force initialization of TuningStateNotifier so it loads from SharedPreferences
+      ref.read(tuningStateProvider);
 
       setState(() {
         _statusMessage = 'Starting Audio System...';
