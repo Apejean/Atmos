@@ -868,6 +868,26 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
             ),
           ],
         ),
+        
+        if (Platform.isWindows) ...[
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              const SizedBox(width: 120),
+              ElevatedButton.icon(
+                icon: const Icon(Icons.settings_applications),
+                label: const Text('ASIO 제어판 열기'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.cardSurfaceSolid,
+                  foregroundColor: Colors.white,
+                ),
+                onPressed: () {
+                  rust_api.apiOpenAsioPanel();
+                },
+              ),
+            ],
+          ),
+        ],
 
         const SizedBox(height: 24),
         const Text(

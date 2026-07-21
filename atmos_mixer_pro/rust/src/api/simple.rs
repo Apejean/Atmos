@@ -411,16 +411,17 @@ pub fn api_create_vu_stream(sink: StreamSink<Vec<f32>>) {
 lazy_static::lazy_static! {
     static ref ENGINE_GENERATION: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
     static ref ENGINE_ACTIVE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
-    static ref ENGINE_RESTARTING: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 }
 
-pub fn api_start_audio_engine(device_name: Option<String>) {
+pub fn api_init_audio_system(device_name: Option<String>) -> Result<(), AtmosError> {
     let rx = GLOBAL_STATE.command_receiver.clone();
+    
+    api_stop_audio_engine();
+    
     let gen = ENGINE_GENERATION.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1;
-    ENGINE_RESTARTING.store(true, std::sync::atomic::Ordering::SeqCst);
-
+    let (tx, rx_init) = std::sync::mpsc::channel();
+    
     std::thread::spawn(move || {
-        // Wait for previous engine to fully drop to release ASIO locks
         for _ in 0..60 {
             if !ENGINE_ACTIVE.load(std::sync::atomic::Ordering::SeqCst) {
                 break;
@@ -428,12 +429,8 @@ pub fn api_start_audio_engine(device_name: Option<String>) {
             std::thread::sleep(std::time::Duration::from_millis(50));
         }
 
-        // Give ASIO driver extra time to fully release hardware locks
-        std::thread::sleep(std::time::Duration::from_millis(500));
-
-        ENGINE_ACTIVE.store(true, std::sync::atomic::Ordering::SeqCst);
-        ENGINE_RESTARTING.store(false, std::sync::atomic::Ordering::SeqCst);
-
+        std::thread::sleep(std::time::Duration::from_millis(100)); // safe margin
+        
         #[cfg(target_os = "windows")]
         {
             use windows::Win32::System::Com::{CoInitializeEx, COINIT_APARTMENTTHREADED};
@@ -441,27 +438,37 @@ pub fn api_start_audio_engine(device_name: Option<String>) {
                 let _ = CoInitializeEx(None, COINIT_APARTMENTTHREADED);
             }
         }
-
+        
         let mut engine = crate::audio::engine::AudioEngine::new();
-        if let Err(e) = engine.start(device_name, rx) {
-            let err_msg = format!("Failed to start audio engine: {}", e);
-            eprintln!("{}", err_msg);
-            GLOBAL_STATE.log(err_msg);
-            ENGINE_ACTIVE.store(false, std::sync::atomic::Ordering::SeqCst);
-            ENGINE_RESTARTING.store(false, std::sync::atomic::Ordering::SeqCst);
-            return;
-        }
-
-        loop {
-            if ENGINE_GENERATION.load(std::sync::atomic::Ordering::SeqCst) != gen {
-                break;
+        match engine.start(device_name, rx) {
+            Ok(_) => {
+                ENGINE_ACTIVE.store(true, std::sync::atomic::Ordering::SeqCst);
+                let _ = tx.send(Ok(()));
+                
+                // Keep thread alive until next generation
+                loop {
+                    if ENGINE_GENERATION.load(std::sync::atomic::Ordering::SeqCst) != gen {
+                        break;
+                    }
+                    std::thread::sleep(std::time::Duration::from_millis(100));
+                }
+                
+                drop(engine);
+                ENGINE_ACTIVE.store(false, std::sync::atomic::Ordering::SeqCst);
             }
-            std::thread::sleep(std::time::Duration::from_millis(100));
+            Err(e) => {
+                let _ = tx.send(Err(e));
+            }
         }
-
-        drop(engine);
-        ENGINE_ACTIVE.store(false, std::sync::atomic::Ordering::SeqCst);
     });
+    
+    rx_init.recv().unwrap_or_else(|_| Err("Failed to communicate with audio thread".to_string())).map_err(|e| AtmosError {
+        message: format!("Failed to start audio engine: {}", e),
+    })
+}
+
+pub fn api_start_audio_engine(device_name: Option<String>) {
+    let _ = api_init_audio_system(device_name);
 }
 
 pub fn api_stop_audio_engine() {
@@ -472,17 +479,40 @@ pub fn api_stop_audio_engine() {
         }
         std::thread::sleep(std::time::Duration::from_millis(50));
     }
-    // Do not reset active_device_channels to 0 here to prevent UI cache poisoning during restart
     println!("✅ [디버깅] 백엔드 오디오 엔진 명시적 종료 완료.");
+}
+
+pub fn api_open_asio_panel() {
+    #[cfg(target_os = "windows")]
+    {
+        crate::core::state::GLOBAL_STATE.log("ASIO Control panel opening is not fully supported yet without custom asio-sys bindings.".to_string());
+        // Custom ASIO control panel invocation would go here
+    }
+}
+
+pub fn api_create_device_event_stream(sink: StreamSink<String>) {
+    std::thread::spawn(move || {
+        let mut last_err: Option<String> = None;
+        loop {
+            let current_err = GLOBAL_STATE.engine_error.read().unwrap().clone();
+            if current_err != last_err {
+                if let Some(ref err) = current_err {
+                    if err == "DeviceNotAvailable" || err.contains("Disconnected") {
+                        let _ = sink.add(err.clone());
+                    }
+                }
+                last_err = current_err;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(500));
+        }
+    });
 }
 
 pub fn api_force_restart_engine(device_name: Option<String>) {
     println!("🔄 [디버깅] 백엔드 오디오 엔진 강제 재시작 요청됨.");
     api_stop_audio_engine();
 
-    // api_start_audio_engine automatically sets ENGINE_RESTARTING = true,
-    // waits 500ms, and sets ENGINE_ACTIVE = true.
-    api_start_audio_engine(device_name);
+    let _ = api_init_audio_system(device_name);
 }
 
 pub fn api_start_osc_listener(port: u16) {
@@ -686,7 +716,12 @@ pub fn api_get_output_devices() -> Result<Vec<OutputDeviceInfo>, AtmosError> {
             }
         }
 
-        let hosts = crate::audio::engine::get_hosts(None).map_err(|e| AtmosError { message: e })?;
+        let target_prefix = if skip_asio_scan {
+            Some("[WASAPI]")
+        } else {
+            None
+        };
+        let hosts = crate::audio::engine::get_hosts(target_prefix).map_err(|e| AtmosError { message: e })?;
 
         let mut device_info_list = Vec::new();
 
@@ -1018,7 +1053,7 @@ pub fn api_get_audio_file_channels(file_path: String) -> u32 {
     crate::audio::player::SoundData::probe_channels(path)
 }
 
-use crate::common::config::{EqBand, EqType};
+use crate::common::config::EqBand;
 
 pub fn api_apply_channel_tuning(channel: u32, delay_ms: f32, eq_bands: Vec<EqBand>) -> Result<(), AtmosError> {
     println!("🔥 [디버깅] api_apply_channel_tuning 호출됨. 채널: {}, 딜레이: {}ms", channel, delay_ms);

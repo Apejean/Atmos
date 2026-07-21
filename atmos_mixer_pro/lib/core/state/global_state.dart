@@ -29,11 +29,11 @@ class ConfigNotifier extends Notifier<AppConfig?> {
 
   @override
   AppConfig? build() {
-    loadConfig();
+    // Initial load will be handled by the splash screen
     return null;
   }
 
-  void loadConfig() async {
+  Future<void> loadConfigAsync() async {
     try {
       final path = await _getConfigPath();
       final config = await rust_api.apiGetConfig(path: path);
@@ -45,7 +45,7 @@ class ConfigNotifier extends Notifier<AppConfig?> {
 
       _lastProcessedConfig = config;
       state = config;
-      rust_api.apiStartAudioEngine(deviceName: config.deviceName);
+      await rust_api.apiInitAudioSystem(deviceName: config.deviceName);
       await rust_api.apiStartOscListener(port: config.oscPort);
 
       // Wait a moment for the audio engine to initialize and lock the ASIO device.
@@ -132,7 +132,7 @@ class ConfigNotifier extends Notifier<AppConfig?> {
         }
 
         if (engineNeedsRestart) {
-          rust_api.apiStartAudioEngine(deviceName: configToSave.deviceName);
+          await rust_api.apiInitAudioSystem(deviceName: configToSave.deviceName);
         }
 
         if (oldConfig == null || oldConfig.oscPort != configToSave.oscPort) {
@@ -260,7 +260,18 @@ final engineStateProvider = NotifierProvider<EngineStateNotifier, EngineState>(
 
 class GlobalErrorNotifier extends Notifier<String?> {
   @override
-  String? build() => null;
+  String? build() {
+    try {
+      // Listen for backend device events
+      final sub = rust_api.apiCreateDeviceEventStream().listen((event) {
+        if (event.contains("DeviceNotAvailable") || event.contains("Disconnected")) {
+          state = "오디오 장치와 연결이 끊어졌습니다. 설정에서 오디오 장치를 다시 확인해 주세요.";
+        }
+      });
+      ref.onDispose(() => sub.cancel());
+    } catch (_) {}
+    return null;
+  }
 
   void showError(String message) {
     state = message;

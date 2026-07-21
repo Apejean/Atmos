@@ -3,7 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:atmos_mixer_pro/src/rust/frb_generated.dart';
 import 'package:atmos_mixer_pro/src/rust/api/simple.dart';
-import 'package:atmos_mixer_pro/features/dashboard/screens/dashboard_screen.dart';
+
+import 'package:atmos_mixer_pro/features/splash/screens/audio_init_splash_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -69,7 +70,7 @@ class _AtmosMixerProAppState extends State<AtmosMixerProApp>
         brightness: Brightness.dark,
         fontFamily: 'Pretendard', // Fallback to system font if not provided
       ),
-      home: const DashboardScreen(),
+      home: const AudioInitSplashScreen(),
     );
   }
 }

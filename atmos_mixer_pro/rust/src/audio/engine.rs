@@ -25,6 +25,12 @@ impl Drop for AudioEngine {
     }
 }
 
+impl AudioEngine {
+    pub fn new() -> Self {
+        Self { stream: None }
+    }
+}
+
 #[cfg(target_os = "windows")]
 pub fn get_hosts(target_prefix: Option<&str>) -> Result<Vec<cpal::Host>, String> {
     let mut hosts = Vec::new();
@@ -56,10 +62,6 @@ pub fn get_hosts(_target_prefix: Option<&str>) -> Result<Vec<cpal::Host>, String
 }
 
 impl AudioEngine {
-    pub fn new() -> Self {
-        Self { stream: None }
-    }
-
     pub fn start(
         &mut self,
         device_name: Option<String>,
@@ -198,7 +200,13 @@ impl AudioEngine {
 
         let err_fn = |err: cpal::StreamError| {
             eprintln!("an error occurred on stream: {}", err);
-            *crate::core::state::GLOBAL_STATE.engine_error.write().unwrap() = Some(err.to_string());
+            let is_disconnect = matches!(err, cpal::StreamError::DeviceNotAvailable);
+            let msg = if is_disconnect {
+                "DeviceNotAvailable".to_string()
+            } else {
+                err.to_string()
+            };
+            *crate::core::state::GLOBAL_STATE.engine_error.write().unwrap() = Some(msg);
             crate::core::state::GLOBAL_STATE.broadcast_state();
         };
 
@@ -270,11 +278,21 @@ impl AudioEngine {
                 )
             }
             _ => return Err("Unsupported format".to_string()),
-        }
-        .map_err(|e| e.to_string())?;
+        };
+        
+        let stream = match stream {
+            Ok(s) => s,
+            Err(e) => {
+                // Task 3: 버퍼 사이즈 및 최대 채널 초과 시 폴백 처리
+                eprintln!("Failed to build stream with config {:?}: {}", config, e);
+                return Err(format!("Failed to build stream: {}", e));
+            }
+        };
 
         stream.play().map_err(|e| e.to_string())?;
+        
         self.stream = Some(stream);
+        
         Ok(())
     }
 
