@@ -1,9 +1,11 @@
 import 'dart:math' as math;
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/state/global_state.dart';
 import '../../../src/rust/api/simple.dart';
@@ -59,11 +61,73 @@ class ChannelTuningState {
       isStereoLinked: isStereoLinked ?? this.isStereoLinked,
     );
   }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'delay': delay,
+      'bandEnabled': bandEnabled,
+      'bandTypes': bandTypes.map((e) => e.index).toList(),
+      'freqs': freqs,
+      'gains': gains,
+      'qs': qs,
+      'isStereoLinked': isStereoLinked,
+    };
+  }
+
+  factory ChannelTuningState.fromJson(Map<String, dynamic> json) {
+    return ChannelTuningState(
+      delay: (json['delay'] as num).toDouble(),
+      bandEnabled: (json['bandEnabled'] as List).cast<bool>(),
+      bandTypes: (json['bandTypes'] as List).map((e) => EqType.values[e as int]).toList(),
+      freqs: (json['freqs'] as List).map((e) => (e as num).toDouble()).toList(),
+      gains: (json['gains'] as List).map((e) => (e as num).toDouble()).toList(),
+      qs: (json['qs'] as List).map((e) => (e as num).toDouble()).toList(),
+      isStereoLinked: json['isStereoLinked'] as bool,
+    );
+  }
 }
 
 class TuningStateNotifier extends Notifier<Map<int, ChannelTuningState>> {
   @override
-  Map<int, ChannelTuningState> build() => {};
+  Map<int, ChannelTuningState> build() {
+    // Schedule load after build to avoid synchronously triggering state updates while building
+    Future.microtask(_load);
+    return {};
+  }
+
+  Future<void> _load() async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonString = prefs.getString('tuning_state');
+    if (jsonString != null) {
+      try {
+        final decoded = jsonDecode(jsonString) as Map<String, dynamic>;
+        final Map<int, ChannelTuningState> loadedState = {};
+        for (final entry in decoded.entries) {
+          loadedState[int.parse(entry.key)] = ChannelTuningState.fromJson(entry.value as Map<String, dynamic>);
+        }
+        state = loadedState;
+        
+        // Apply tuning settings to backend on startup
+        for (final entry in loadedState.entries) {
+          final channel = entry.key;
+          final tuning = entry.value;
+          final bands = <EqBand>[];
+          for (int i = 0; i < 8; i++) {
+            bands.add(EqBand(
+              enabled: tuning.bandEnabled[i],
+              filterType: tuning.bandTypes[i],
+              freq: tuning.freqs[i],
+              gain: tuning.gains[i],
+              qFactor: tuning.qs[i],
+            ));
+          }
+          apiApplyChannelTuning(channel: channel, delayMs: tuning.delay, eqBands: bands);
+        }
+      } catch (e) {
+        debugPrint('Failed to load tuning state: $e');
+      }
+    }
+  }
 
   ChannelTuningState getTuning(int channel) {
     return state[channel] ?? ChannelTuningState.initial();
@@ -71,6 +135,13 @@ class TuningStateNotifier extends Notifier<Map<int, ChannelTuningState>> {
 
   void saveTuning(int channel, ChannelTuningState tuning) {
     state = {...state, channel: tuning};
+    _saveToPrefs();
+  }
+
+  Future<void> _saveToPrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    final mapToSave = state.map((key, value) => MapEntry(key.toString(), value.toJson()));
+    await prefs.setString('tuning_state', jsonEncode(mapToSave));
   }
 }
 
