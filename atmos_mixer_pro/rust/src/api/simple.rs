@@ -695,8 +695,7 @@ pub fn api_get_output_devices() -> Result<Vec<OutputDeviceInfo>, AtmosError> {
 
         use cpal::traits::{DeviceTrait, HostTrait};
 
-        let is_engine_active = ENGINE_ACTIVE.load(std::sync::atomic::Ordering::SeqCst)
-            || ENGINE_RESTARTING.load(std::sync::atomic::Ordering::SeqCst);
+        let is_engine_active = ENGINE_ACTIVE.load(std::sync::atomic::Ordering::SeqCst);
 
         let mut skip_asio_scan = false;
         let mut active_asio_device = None;
@@ -861,8 +860,7 @@ pub fn api_get_device_channel_count(device_name: Option<String>) -> Result<u32, 
         }
         use cpal::traits::{DeviceTrait, HostTrait};
 
-        let is_engine_active = ENGINE_ACTIVE.load(std::sync::atomic::Ordering::SeqCst)
-            || ENGINE_RESTARTING.load(std::sync::atomic::Ordering::SeqCst);
+        let is_engine_active = ENGINE_ACTIVE.load(std::sync::atomic::Ordering::SeqCst);
         let mut active_asio_device = None;
         if is_engine_active {
             if let Some(config) = crate::core::state::GLOBAL_STATE
