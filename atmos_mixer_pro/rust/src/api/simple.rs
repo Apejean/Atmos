@@ -1060,10 +1060,27 @@ pub fn api_apply_channel_tuning(channel: u32, delay_ms: f32, eq_bands: Vec<EqBan
         .try_send(AudioCommand::ApplyChannelTuning {
             channel: channel as usize,
             delay_ms,
-            eq_bands, // Send the EqBands directly now
+            eq_bands: eq_bands.clone(), // Send the EqBands directly now
         })
         .map_err(|e| AtmosError {
             message: format!("Failed to apply channel tuning: {}", e),
         })?;
+
+    // 인메모리 Config 상태 업데이트 (믹서 재시작 시 복구용)
+    if let Ok(mut config_guard) = GLOBAL_STATE.config.write() {
+        if let Some(config) = config_guard.as_mut() {
+            if let Some(setting) = config.mono_configs.get_mut(&channel) {
+                setting.delay_ms = delay_ms;
+                setting.eq_bands = eq_bands.clone();
+            } else if let Some(setting) = config.stereo_configs.get_mut(&channel) {
+                setting.delay_ms = delay_ms;
+                setting.eq_bands = eq_bands.clone();
+            } else if let Some(setting) = config.multi_configs.get_mut(&channel) {
+                setting.delay_ms = delay_ms;
+                setting.eq_bands = eq_bands.clone();
+            }
+        }
+    }
+
     Ok(())
 }

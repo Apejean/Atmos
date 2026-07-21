@@ -88,11 +88,20 @@ class ChannelTuningState {
 }
 
 class TuningStateNotifier extends Notifier<Map<int, ChannelTuningState>> {
+  bool _isLoaded = false;
+
   @override
   Map<int, ChannelTuningState> build() {
-    // Schedule load after build to avoid synchronously triggering state updates while building
-    Future.microtask(_load);
+    // We don't automatically schedule _load here anymore to give more control to the caller
+    // but we can keep it for safety if used elsewhere without splash screen.
+    Future.microtask(ensureLoaded);
     return {};
+  }
+
+  Future<void> ensureLoaded() async {
+    if (_isLoaded) return;
+    await _load();
+    _isLoaded = true;
   }
 
   Future<void> _load() async {
@@ -107,25 +116,28 @@ class TuningStateNotifier extends Notifier<Map<int, ChannelTuningState>> {
         }
         state = loadedState;
         
-        // Apply tuning settings to backend on startup
-        for (final entry in loadedState.entries) {
-          final channel = entry.key;
-          final tuning = entry.value;
-          final bands = <EqBand>[];
-          for (int i = 0; i < 8; i++) {
-            bands.add(EqBand(
-              enabled: tuning.bandEnabled[i],
-              filterType: tuning.bandTypes[i],
-              freq: tuning.freqs[i],
-              gain: tuning.gains[i],
-              qFactor: tuning.qs[i],
-            ));
-          }
-          apiApplyChannelTuning(channel: channel, delayMs: tuning.delay, eqBands: bands);
-        }
+        applyAllToBackend();
       } catch (e) {
         debugPrint('Failed to load tuning state: $e');
       }
+    }
+  }
+
+  void applyAllToBackend() {
+    for (final entry in state.entries) {
+      final channel = entry.key;
+      final tuning = entry.value;
+      final bands = <EqBand>[];
+      for (int i = 0; i < 8; i++) {
+        bands.add(EqBand(
+          enabled: tuning.bandEnabled[i],
+          filterType: tuning.bandTypes[i],
+          freq: tuning.freqs[i],
+          gain: tuning.gains[i],
+          qFactor: tuning.qs[i],
+        ));
+      }
+      apiApplyChannelTuning(channel: channel, delayMs: tuning.delay, eqBands: bands);
     }
   }
 

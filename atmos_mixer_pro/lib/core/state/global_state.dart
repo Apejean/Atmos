@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:atmos_mixer_pro/src/rust/api/simple.dart' as rust_api;
+import 'package:atmos_mixer_pro/features/settings/widgets/tuning_modal.dart';
 import 'package:atmos_mixer_pro/src/rust/common/config.dart';
 
 import 'package:path_provider/path_provider.dart';
@@ -133,6 +134,7 @@ class ConfigNotifier extends Notifier<AppConfig?> {
 
         if (engineNeedsRestart) {
           await rust_api.apiInitAudioSystem(deviceName: configToSave.deviceName);
+          ref.read(tuningStateProvider.notifier).applyAllToBackend();
         }
 
         if (oldConfig == null || oldConfig.oscPort != configToSave.oscPort) {

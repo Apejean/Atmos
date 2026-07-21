@@ -28,8 +28,8 @@ class _AudioInitSplashScreenState extends ConsumerState<AudioInitSplashScreen> {
       // 1. Ensure config is loaded first. We wait for config to be ready.
       await ref.read(configProvider.notifier).loadConfigAsync();
       
-      // Force initialization of TuningStateNotifier so it loads from SharedPreferences
-      ref.read(tuningStateProvider);
+      // Load EQ and delay settings from shared preferences
+      await ref.read(tuningStateProvider.notifier).ensureLoaded();
 
       setState(() {
         _statusMessage = 'Starting Audio System...';
@@ -38,6 +38,10 @@ class _AudioInitSplashScreenState extends ConsumerState<AudioInitSplashScreen> {
       // 2. Await the new backend initialization (this requires Back agent's new API).
       // apiInitAudioSystem returns a Result, so we can try-catch it.
       await rust_api.apiInitAudioSystem(deviceName: ref.read(configProvider)?.deviceName);
+      
+      // Apply tuning settings after engine starts
+      ref.read(tuningStateProvider.notifier).applyAllToBackend();
+      
       _navigateToDashboard();
     } catch (e) {
       setState(() {

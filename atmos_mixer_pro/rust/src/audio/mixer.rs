@@ -37,6 +37,46 @@ impl AudioMixer {
             channel_dsp.push(ChannelDspState::new());
         }
 
+        if let Ok(config_guard) = GLOBAL_STATE.config.read() {
+            if let Some(config) = config_guard.as_ref() {
+                for (&ch_key, setting) in &config.mono_configs {
+                    if ch_key > 0 {
+                        let ch_idx = (ch_key - 1) as usize;
+                        if ch_idx < channel_dsp.len() {
+                            channel_dsp[ch_idx].update_delay_target(setting.delay_ms);
+                            channel_dsp[ch_idx].update_eq_targets(setting.eq_bands.clone(), sample_rate as f32);
+                        }
+                    }
+                }
+                for (&ch_key, setting) in &config.stereo_configs {
+                    if ch_key > 0 {
+                        let ch_idx1 = (ch_key - 1) as usize;
+                        let ch_idx2 = ch_idx1 + 1;
+                        if ch_idx1 < channel_dsp.len() {
+                            channel_dsp[ch_idx1].update_delay_target(setting.delay_ms);
+                            channel_dsp[ch_idx1].update_eq_targets(setting.eq_bands.clone(), sample_rate as f32);
+                        }
+                        if ch_idx2 < channel_dsp.len() {
+                            channel_dsp[ch_idx2].update_delay_target(setting.delay_ms);
+                            channel_dsp[ch_idx2].update_eq_targets(setting.eq_bands.clone(), sample_rate as f32);
+                        }
+                    }
+                }
+                for (&ch_key, setting) in &config.multi_configs {
+                    if ch_key > 0 {
+                        let ch_idx_base = (ch_key - 1) as usize;
+                        for i in 0..6 {
+                            let ch_idx = ch_idx_base + i;
+                            if ch_idx < channel_dsp.len() {
+                                channel_dsp[ch_idx].update_delay_target(setting.delay_ms);
+                                channel_dsp[ch_idx].update_eq_targets(setting.eq_bands.clone(), sample_rate as f32);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         Self {
             instances,
             sample_rate,
