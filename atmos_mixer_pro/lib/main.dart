@@ -57,7 +57,11 @@ class _AtmosMixerProAppState extends State<AtmosMixerProApp>
   @override
   void onWindowClose() async {
     // Explicitly release ASIO hardware locks and cleanly stop audio engine
-    await apiStopAudioEngine();
+    // Adding timeout guard to prevent ghost processes
+    await Future.any([
+      apiStopAudioEngine(),
+      Future.delayed(const Duration(milliseconds: 1500)),
+    ]);
     await windowManager.destroy();
   }
 

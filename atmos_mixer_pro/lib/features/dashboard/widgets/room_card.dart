@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io' as io;
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:atmos_mixer_pro/core/theme/colors.dart';
@@ -149,7 +150,7 @@ class RoomCard extends ConsumerStatefulWidget {
 class _RoomCardState extends ConsumerState<RoomCard> {
   late TextEditingController _nameController;
   late FocusNode _nameFocusNode;
-  bool _isProcessing = false;
+
   bool _isDragging = false;
   double? _localVolume;
   Timer? _debounce;
@@ -165,12 +166,22 @@ class _RoomCardState extends ConsumerState<RoomCard> {
       
       for (final path in paths) {
         final name = path.split(RegExp(r'[\\/]')).last;
+        
+        bool isStreaming = false;
+        try {
+          final file = io.File(path);
+          if (file.existsSync() && file.lengthSync() > 10 * 1024 * 1024) {
+            isStreaming = true;
+          }
+        } catch (_) {}
+
         final newTrack = TrackConfig(
           id: 'track_${DateTime.now().millisecondsSinceEpoch}_${math.Random().nextInt(1000)}',
           name: name,
           filePath: path,
           volume: 1.0,
           isLoop: false,
+          isStreaming: isStreaming,
           outputChannel: 0,
           outputStereo: true,
           playOscAddress: '/play',
@@ -566,10 +577,6 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                               glowColor: AppColors.primaryNeon,
                               onPressed: isActive
                                   ? () async {
-                                      if (_isProcessing) return;
-                                      setState(() {
-                                        _isProcessing = true;
-                                      });
                                       try {
                                         // TODO: Call rust_api.apiClearRoom when Backend is ready,
                                         // for now we update frontend state directly to simulate
@@ -639,12 +646,8 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                                                 .clearActiveRoom();
                                           }
                                         }
-                                      } finally {
-                                        if (mounted) {
-                                          setState(() {
-                                            _isProcessing = false;
-                                          });
-                                        }
+                                      } catch (e) {
+                                        // ignored or handled
                                       }
                                     }
                                   : null,
@@ -777,6 +780,7 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                                     outputStereo: track.outputStereo,
                                     playOscAddress: track.playOscAddress,
                                     stopOscAddress: track.stopOscAddress,
+                                    isStreaming: track.isStreaming,
                                   );
                                   newRooms[idx] = RoomConfig(
                                     id: room.id,
@@ -836,6 +840,70 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                                     filePath: track.filePath,
                                     volume: track.volume,
                                     isLoop: v,
+                                    isStreaming: track.isStreaming,
+                                    outputChannel: track.outputChannel,
+                                    outputStereo: track.outputStereo,
+                                    playOscAddress: track.playOscAddress,
+                                    stopOscAddress: track.stopOscAddress,
+                                  );
+                                  newRooms[idx] = RoomConfig(
+                                    id: room.id,
+                                    name: room.name,
+                                    colorHex: room.colorHex,
+                                    volume: room.volume,
+                                    clearOscAddress: room.clearOscAddress,
+                                    tracks: newTracks,
+                                  );
+                                  ref
+                                      .read(configProvider.notifier)
+                                      .saveConfig(
+                                        AppConfig(
+                                          oscPort: currentConfig.oscPort,
+                                          deviceName: currentConfig.deviceName,
+                                          bufferSize: currentConfig.bufferSize,
+                                          themeStartOscAddress: currentConfig
+                                              .themeStartOscAddress,
+                                          systemResetOscAddress: currentConfig
+                                              .systemResetOscAddress,
+                                          monoConfigs:
+                                              currentConfig.monoConfigs,
+                                          stereoConfigs:
+                                              currentConfig.stereoConfigs,
+                                          multiConfigs:
+                                              currentConfig.multiConfigs,
+                                          rooms: newRooms,
+                                          isExhibitionMode:
+                                              currentConfig.isExhibitionMode,
+                                        ),
+                                      );
+                                }
+                              }
+                            }
+                          },
+                          onStreamChanged: (v) {
+                            final currentConfig = ref.read(configProvider);
+                            if (currentConfig != null) {
+                              final newRooms = List<RoomConfig>.from(
+                                currentConfig.rooms,
+                              );
+                              final idx = newRooms.indexWhere(
+                                (r) => r.id == room.id,
+                              );
+                              if (idx != -1) {
+                                final newTracks = List<TrackConfig>.from(
+                                  newRooms[idx].tracks,
+                                );
+                                final tIdx = newTracks.indexWhere(
+                                  (t) => t.id == track.id,
+                                );
+                                if (tIdx != -1) {
+                                  newTracks[tIdx] = TrackConfig(
+                                    id: track.id,
+                                    name: track.name,
+                                    filePath: track.filePath,
+                                    volume: track.volume,
+                                    isLoop: track.isLoop,
+                                    isStreaming: v,
                                     outputChannel: track.outputChannel,
                                     outputStereo: track.outputStereo,
                                     playOscAddress: track.playOscAddress,
@@ -902,6 +970,7 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                                     outputStereo: track.outputStereo,
                                     playOscAddress: track.playOscAddress,
                                     stopOscAddress: track.stopOscAddress,
+                                    isStreaming: track.isStreaming,
                                   );
                                   newRooms[idx] = RoomConfig(
                                     id: room.id,
@@ -964,6 +1033,7 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                                     outputStereo: isStereo,
                                     playOscAddress: track.playOscAddress,
                                     stopOscAddress: track.stopOscAddress,
+                                    isStreaming: track.isStreaming,
                                   );
                                   newRooms[idx] = RoomConfig(
                                     id: room.id,

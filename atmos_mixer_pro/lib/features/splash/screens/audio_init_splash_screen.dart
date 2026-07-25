@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:atmos_mixer_pro/features/dashboard/screens/dashboard_screen.dart';
 import 'package:atmos_mixer_pro/core/state/global_state.dart';
+import 'package:atmos_mixer_pro/src/rust/api/simple.dart' as rust_api;
 import 'package:atmos_mixer_pro/features/settings/widgets/tuning_modal.dart';
 
 class AudioInitSplashScreen extends ConsumerStatefulWidget {
@@ -30,23 +31,35 @@ class _AudioInitSplashScreenState extends ConsumerState<AudioInitSplashScreen> {
       // 2. Load EQ and delay settings from shared preferences
       await ref.read(tuningStateProvider.notifier).ensureLoaded();
 
-      setState(() {
-        _statusMessage = 'Applying Audio Settings...';
-      });
+      if (mounted) {
+        setState(() {
+          _statusMessage = 'Loading large audio assets...';
+        });
+      }
 
       // 3. Wait for the audio engine to fully initialize before sending FFI commands
       // loadConfigAsync() already started the audio engine, we just need a safe delay
-      await Future.delayed(const Duration(milliseconds: 500));
+      if (!(await rust_api.apiIsEngineReady())) {
+        try {
+          await rust_api.apiCreateDeviceEventStream()
+              .firstWhere((e) => e == 'EngineReady')
+              .timeout(const Duration(milliseconds: 2000));
+        } catch (_) {
+          // fallback
+        }
+      }
       
       // Apply tuning settings after engine starts
       ref.read(tuningStateProvider.notifier).applyAllToBackend();
       
       _navigateToDashboard();
     } catch (e) {
-      setState(() {
-        _hasError = true;
-        _statusMessage = 'Audio Initialization Failed:\n$e';
-      });
+      if (mounted) {
+        setState(() {
+          _hasError = true;
+          _statusMessage = 'Audio Initialization Failed:\n$e';
+        });
+      }
       // Optionally redirect to preferences even on error after a delay
       Future.delayed(const Duration(seconds: 3), _navigateToPreferences);
     }

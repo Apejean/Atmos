@@ -7,6 +7,7 @@
 // ignore_for_file: argument_type_not_assignable
 
 import 'api/error.dart';
+import 'api/osc.dart';
 import 'api/simple.dart';
 import 'common/config.dart';
 import 'dart:async';
@@ -61,6 +62,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   ChannelSetting dco_decode_channel_setting(dynamic raw);
 
   @protected
+  ChannelTuningParams dco_decode_channel_tuning_params(dynamic raw);
+
+  @protected
   EngineStateUpdate dco_decode_engine_state_update(dynamic raw);
 
   @protected
@@ -77,6 +81,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<String> dco_decode_list_String(dynamic raw);
+
+  @protected
+  List<ChannelTuningParams> dco_decode_list_channel_tuning_params(dynamic raw);
 
   @protected
   List<EqBand> dco_decode_list_eq_band(dynamic raw);
@@ -172,6 +179,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   ChannelSetting sse_decode_channel_setting(SseDeserializer deserializer);
 
   @protected
+  ChannelTuningParams sse_decode_channel_tuning_params(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   EngineStateUpdate sse_decode_engine_state_update(
     SseDeserializer deserializer,
   );
@@ -190,6 +202,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<String> sse_decode_list_String(SseDeserializer deserializer);
+
+  @protected
+  List<ChannelTuningParams> sse_decode_list_channel_tuning_params(
+    SseDeserializer deserializer,
+  );
 
   @protected
   List<EqBand> sse_decode_list_eq_band(SseDeserializer deserializer);
@@ -303,6 +320,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_channel_tuning_params(
+    ChannelTuningParams self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_engine_state_update(
     EngineStateUpdate self,
     SseSerializer serializer,
@@ -322,6 +345,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_list_String(List<String> self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_list_channel_tuning_params(
+    List<ChannelTuningParams> self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_list_eq_band(List<EqBand> self, SseSerializer serializer);

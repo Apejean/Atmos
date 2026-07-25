@@ -105,6 +105,8 @@ pub struct TrackConfig {
     pub file_path: String,
     pub volume: f32,         // 0.0 to 1.0
     pub is_loop: bool,       // true = BGM, false = SFX
+    #[serde(default)]
+    pub is_streaming: bool,  // true = disk streaming, false = memory preload
     pub output_channel: u32, // 1 to 24 (1-indexed for user, mapped to 0-23 internally)
     #[serde(default = "default_true")]
     pub output_stereo: bool,
@@ -145,6 +147,9 @@ impl AppConfig {
         // 원자적 쓰기(Atomic Write) 적용: tmp에 먼저 쓰고 rename (OS 수준 안전 보장)
         let tmp_path = path_ref.with_extension("tmp");
         fs::write(&tmp_path, content)?;
+        if path_ref.exists() {
+            let _ = fs::remove_file(path_ref);
+        }
         fs::rename(&tmp_path, path_ref)?;
 
         Ok(())

@@ -7,6 +7,7 @@ import 'package:atmos_mixer_pro/src/rust/common/config.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:atmos_mixer_pro/core/state/global_state.dart';
 import 'package:atmos_mixer_pro/src/rust/api/simple.dart' as rust_api;
+import 'package:atmos_mixer_pro/core/utils/channel_dropdown_helper.dart';
 
 class TrackCard extends ConsumerStatefulWidget {
   final TrackConfig track;
@@ -17,6 +18,7 @@ class TrackCard extends ConsumerStatefulWidget {
   final ValueChanged<double>? onVolumeChanged;
   final ValueChanged<double>? onVolumeChangeEnd;
   final ValueChanged<bool>? onLoopChanged;
+  final ValueChanged<bool>? onStreamChanged;
   final ValueChanged<String>? onNameChanged;
   final void Function(int channel, bool isStereo)? onOutputChanged;
 
@@ -30,6 +32,7 @@ class TrackCard extends ConsumerStatefulWidget {
     this.onVolumeChanged,
     this.onVolumeChangeEnd,
     this.onLoopChanged,
+    this.onStreamChanged,
     this.onNameChanged,
     this.onOutputChanged,
   });
@@ -150,7 +153,7 @@ class _TrackCardState extends ConsumerState<TrackCard> {
                 : '$key';
             outputItems.add(
               DropdownMenuItem(
-                value: 'mono_$realCh1',
+                value: ChannelDropdownValueHelper.getMonoValue(realCh1),
                 child: Text(
                   '1-Ch (모노) $name1',
                   style: const TextStyle(fontSize: 12, color: Colors.white),
@@ -166,7 +169,7 @@ class _TrackCardState extends ConsumerState<TrackCard> {
                   : '$displayCh2';
               outputItems.add(
                 DropdownMenuItem(
-                  value: 'mono_$realCh2',
+                  value: ChannelDropdownValueHelper.getMonoValue(realCh2),
                   child: Text(
                     '1-Ch (모노) $name2',
                     style: const TextStyle(fontSize: 12, color: Colors.white),
@@ -191,7 +194,7 @@ class _TrackCardState extends ConsumerState<TrackCard> {
                 : '$key/$displayCh2';
             outputItems.add(
               DropdownMenuItem(
-                value: 'stereo_$realCh',
+                value: ChannelDropdownValueHelper.getStereoValue(realCh),
                 child: Text(
                   '2-Ch (Stereo) $displayName',
                   style: const TextStyle(fontSize: 12, color: Colors.white),
@@ -216,7 +219,7 @@ class _TrackCardState extends ConsumerState<TrackCard> {
             }
             outputItems.add(
               DropdownMenuItem(
-                value: 'multi_$realCh',
+                value: ChannelDropdownValueHelper.getMultiValue(realCh),
                 child: Text(
                   labelText,
                   style: const TextStyle(fontSize: 12, color: Colors.white),
@@ -231,9 +234,9 @@ class _TrackCardState extends ConsumerState<TrackCard> {
     int currentKey = widget.track.outputChannel;
     String currentValue;
     if (config != null && _fileChannels != null && _fileChannels! > 2) {
-      currentValue = widget.track.outputStereo ? 'multi_$currentKey' : 'mono_$currentKey';
+      currentValue = widget.track.outputStereo ? ChannelDropdownValueHelper.getMultiValue(currentKey) : ChannelDropdownValueHelper.getMonoValue(currentKey);
     } else {
-      currentValue = widget.track.outputStereo ? 'stereo_$currentKey' : 'mono_$currentKey';
+      currentValue = widget.track.outputStereo ? ChannelDropdownValueHelper.getStereoValue(currentKey) : ChannelDropdownValueHelper.getMonoValue(currentKey);
     }
 
     bool valueExists = outputItems.any((item) => item.value == currentValue);
@@ -243,12 +246,8 @@ class _TrackCardState extends ConsumerState<TrackCard> {
         final firstVal = outputItems.first.value;
         if (firstVal != null) {
           currentValue = firstVal;
-          final isStereo = firstVal.startsWith('stereo_') || firstVal.startsWith('multi_');
-          final keyStr = firstVal
-              .replaceFirst('stereo_', '')
-              .replaceFirst('mono_', '')
-              .replaceFirst('multi_', '');
-          currentKey = int.tryParse(keyStr) ?? 0;
+          final isStereo = ChannelDropdownValueHelper.isStereo(firstVal) || ChannelDropdownValueHelper.isMulti(firstVal);
+          currentKey = ChannelDropdownValueHelper.getChannel(firstVal) ?? 0;
 
           WidgetsBinding.instance.addPostFrameCallback((_) {
             widget.onOutputChanged?.call(currentKey, isStereo);
@@ -380,6 +379,65 @@ class _TrackCardState extends ConsumerState<TrackCard> {
                               tooltip: '무한 루프 (BGM)',
                             ),
                           ),
+                          const SizedBox(width: 8),
+                          Container(
+                            decoration: BoxDecoration(
+                              color: widget.track.isStreaming
+                                  ? widget.accentColor.withOpacity(0.12)
+                                  : Colors.transparent,
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(
+                                color: widget.track.isStreaming
+                                    ? widget.accentColor.withOpacity(0.7)
+                                    : Colors.white.withOpacity(0.05),
+                                width: 1.0,
+                              ),
+                            ),
+                            child: IconButton(
+                              icon: Icon(widget.track.isStreaming ? Icons.storage : Icons.memory),
+                              color: widget.track.isStreaming
+                                  ? widget.accentColor
+                                  : AppColors.darkGrey,
+                              iconSize: 20,
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(
+                                minWidth: 32,
+                                minHeight: 32,
+                              ),
+                              onPressed: () {
+                                if (widget.track.isStreaming) {
+                                  // Warning user before switching to memory preload
+                                  showDialog(
+                                    context: context,
+                                    builder: (context) => AlertDialog(
+                                      backgroundColor: AppColors.background,
+                                      title: const Text('경고: OOM 위험', style: TextStyle(color: AppColors.danger)),
+                                      content: const Text(
+                                        '큰 파일을 메모리에 프리로드하면 OOM(메모리 부족) 문제가 발생할 수 있습니다.\n\n긴 BGM은 "디스크 스트리밍" 모드를 권장합니다. 계속하시겠습니까?',
+                                        style: TextStyle(color: Colors.white70),
+                                      ),
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () => Navigator.of(context).pop(),
+                                          child: const Text('취소', style: TextStyle(color: Colors.white54)),
+                                        ),
+                                        TextButton(
+                                          onPressed: () {
+                                            Navigator.of(context).pop();
+                                            widget.onStreamChanged?.call(false);
+                                          },
+                                          child: const Text('프리로드', style: TextStyle(color: AppColors.primaryNeon)),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                } else {
+                                  widget.onStreamChanged?.call(true);
+                                }
+                              },
+                              tooltip: widget.track.isStreaming ? '디스크 스트리밍 모드' : '메모리 프리로드 모드',
+                            ),
+                          ),
                         ],
                       ),
                       Row(
@@ -406,17 +464,13 @@ class _TrackCardState extends ConsumerState<TrackCard> {
                                 fontSize: 12,
                               ),
                               onChanged: (val) {
-                                if (val != null) {
-                                  final isStereo = val.startsWith('stereo_') || val.startsWith('multi_');
-                                  final keyStr = val
-                                      .replaceFirst('stereo_', '')
-                                      .replaceFirst('mono_', '')
-                                      .replaceFirst('multi_', '');
-                                  final key = int.tryParse(keyStr);
-                                  if (key != null) {
-                                    widget.onOutputChanged?.call(key, isStereo);
+                                  if (val != null) {
+                                    final isStereo = ChannelDropdownValueHelper.isStereo(val) || ChannelDropdownValueHelper.isMulti(val);
+                                    final key = ChannelDropdownValueHelper.getChannel(val);
+                                    if (key != null) {
+                                      widget.onOutputChanged?.call(key, isStereo);
+                                    }
                                   }
-                                }
                               },
                             ),
                           ),

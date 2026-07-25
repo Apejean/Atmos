@@ -22,7 +22,7 @@ impl OscDebouncer {
     }
 
     pub fn should_process(&self, address: &str) -> bool {
-        let mut map = self.last_triggers.lock().unwrap();
+        let mut map = self.last_triggers.lock().unwrap_or_else(|e| e.into_inner());
         let now = Instant::now();
         if let Some(&last_time) = map.get(address) {
             if now.duration_since(last_time) < Duration::from_millis(DEBOUNCE_MS) {

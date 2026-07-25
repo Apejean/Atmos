@@ -3,6 +3,9 @@ use crate::common::commands::AudioCommand;
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::{OutputCallbackInfo, SampleFormat, Stream, StreamConfig};
 use crossbeam_channel::Receiver;
+use std::sync::atomic::AtomicBool;
+
+pub static CALLBACK_FIRED: AtomicBool = AtomicBool::new(false);
 
 pub struct AudioEngine {
     stream: Option<Stream>,
@@ -61,6 +64,38 @@ pub fn get_hosts(_target_prefix: Option<&str>) -> Result<Vec<cpal::Host>, String
     Ok(vec![cpal::default_host()])
 }
 
+#[cfg(target_os = "windows")]
+pub fn apply_windows_admin_optimizations() {
+    use windows::Win32::UI::Shell::IsUserAnAdmin;
+    
+    unsafe {
+        if IsUserAnAdmin().as_bool() {
+            println!("🔥 [디버깅] 관리자 권한 확인됨. MMCSS 스레드 승격 & RAM 고정 시도.");
+            // 1. MMCSS (Pro Audio) 승격
+            let mut task_index = 0;
+            let class_name: Vec<u16> = "Pro Audio\0".encode_utf16().collect();
+            let _handle = windows::Win32::System::Threading::AvSetMmThreadCharacteristicsW(
+                windows::core::PCWSTR(class_name.as_ptr()),
+                &mut task_index,
+            );
+            
+            // 2. RAM Working Set 고정
+            let process = windows::Win32::System::Threading::GetCurrentProcess();
+            // 최소 500MB, 최대 2GB Working Set
+            let min_size = 500 * 1024 * 1024;
+            let max_size = 2000 * 1024 * 1024;
+            let _ = windows::Win32::System::Memory::SetProcessWorkingSetSize(
+                process,
+                min_size,
+                max_size,
+            );
+        } else {
+            // 일반 계정인 경우: 튕김(크래시) 없이 표준 프로세스로 Graceful Fallback
+            println!("⚠️ 일반 사용자 계정으로 로그인되었습니다. 표준 스케줄링 모드로 구동합니다.");
+        }
+    }
+}
+
 impl AudioEngine {
     pub fn start(
         &mut self,
@@ -73,6 +108,7 @@ impl AudioEngine {
             unsafe {
                 let _ = CoInitializeEx(None, COINIT_APARTMENTTHREADED);
             }
+            apply_windows_admin_optimizations();
         }
 
         let target_prefix = device_name.as_ref().and_then(|n| {
@@ -98,35 +134,42 @@ impl AudioEngine {
             println!("🔥 [디버깅] 플러터 원본 요청: '{}'", name);
             println!("🔥 [디버깅] 공백 제거 후 타겟: '{}'", target_name);
 
-            for host in &hosts {
-                if let Ok(devices) = host.output_devices() {
-                    println!(
-                        "🔥 [디버깅] 현재 호스트 '{:?}'에서 찾은 장치 목록:",
-                        host.id()
-                    );
-                    for d in devices {
-                        if let Ok(d_name) = d.name() {
-                            let clean_d_name = d_name.replace('\0', "").trim().to_string();
-                            println!("  - 발견된 기기: '{}'", clean_d_name);
-                            if clean_d_name == target_name {
-                                found_device = Some(d);
-                                break;
+            let start_time = std::time::Instant::now();
+            let timeout_secs = 30;
+            loop {
+                for host in &hosts {
+                    if let Ok(devices) = host.output_devices() {
+                        for d in devices {
+                            if let Ok(d_name) = d.name() {
+                                let clean_d_name = d_name.replace('\0', "").trim().to_string();
+                                if clean_d_name == target_name {
+                                    found_device = Some(d);
+                                    break;
+                                }
                             }
                         }
                     }
-                } else {
-                    println!("🔥 [디버깅] 호스트 '{:?}'에서 기기 목록을 가져오지 못했습니다! (빈 배열 혹은 에러)", host.id());
+                    if found_device.is_some() {
+                        break;
+                    }
                 }
+
                 if found_device.is_some() {
-                    println!("✅ [디버깅] 장치를 찾았습니다! 스트림 오픈 진행.");
+                    println!("✅ [디버깅] ASIO 오디오 인터페이스 인식 성공: {}", target_name);
                     break;
                 }
+
+                if start_time.elapsed().as_secs() >= timeout_secs {
+                    break;
+                }
+                println!("⚠️ 장치를 찾는 중... ({} / 30초)", start_time.elapsed().as_secs());
+                std::thread::sleep(std::time::Duration::from_millis(500));
             }
 
             if let Some(d) = found_device {
                 d
             } else {
-                let error_msg = format!("Requested device '{}' not found. Available devices were not matched. (Target name was: '{}')", name, target_name);
+                let error_msg = format!("Requested device '{}' not found after 30s. Available devices were not matched.", name);
                 eprintln!("{}", error_msg);
                 return Err(error_msg);
             }
@@ -185,10 +228,10 @@ impl AudioEngine {
             .active_device_channels
             .store(config.channels as u32, std::sync::atomic::Ordering::SeqCst);
         
-        *crate::core::state::GLOBAL_STATE.engine_error.write().unwrap() = None;
+        *crate::core::state::GLOBAL_STATE.engine_error.write().unwrap_or_else(|e| e.into_inner()) = None;
 
         let (gc_tx, gc_rx) =
-            crossbeam_channel::bounded::<crate::audio::player::SoundInstance>(4096);
+            crossbeam_channel::bounded::<crate::audio::player::SoundInstance>(8192);
         std::thread::spawn(move || {
             while let Ok(dropped) = gc_rx.recv() {
                 // Instance is dropped here in a background thread, preventing GC in audio thread.
@@ -206,7 +249,7 @@ impl AudioEngine {
             } else {
                 err.to_string()
             };
-            *crate::core::state::GLOBAL_STATE.engine_error.write().unwrap() = Some(msg);
+            *crate::core::state::GLOBAL_STATE.engine_error.write().unwrap_or_else(|e| e.into_inner()) = Some(msg);
             crate::core::state::GLOBAL_STATE.broadcast_state();
         };
 
@@ -314,7 +357,7 @@ impl AudioEngine {
                     output_channel,
                     output_stereo,
                 } => {
-                    let mut instance = crate::audio::player::SoundInstance::new(
+                    let instance = crate::audio::player::SoundInstance::new(
                         instance_id,
                         track_id,
                         room_id,
@@ -328,7 +371,7 @@ impl AudioEngine {
                         output_channel,
                         output_stereo,
                     );
-                    instance.volume = volume;
+                    // instance.volume is already set in new
                     if let Some(slot) = mixer.instances.iter_mut().find(|s| s.is_none()) {
                         if let Some(old) = slot.replace(instance) {
                             let _ = mixer.gc_sender.try_send(old);
@@ -373,6 +416,7 @@ impl AudioEngine {
                     for inst in mixer.instances.iter_mut().flatten() {
                         if inst.room_id == room_id && inst.id == track_id {
                             inst.volume = volume;
+                            inst.volume_smoother.set_target(volume);
                         }
                     }
                 }
@@ -396,15 +440,16 @@ impl AudioEngine {
                 }
                 AudioCommand::SetChannelEq { channel, bands } => {
                     if channel < mixer.channel_dsp.len() {
-                        mixer.channel_dsp[channel].update_eq_targets(bands, mixer.sample_rate as f32);
+                        mixer.channel_dsp[channel].update_eq_targets(&bands, mixer.sample_rate as f32);
                     }
                 }
                 AudioCommand::ApplyChannelTuning { channel, delay_ms, eq_bands } => {
                     if channel < mixer.channel_dsp.len() {
                         mixer.channel_dsp[channel].update_delay_target(delay_ms);
-                        mixer.channel_dsp[channel].update_eq_targets(eq_bands, mixer.sample_rate as f32);
+                        mixer.channel_dsp[channel].update_eq_targets(&eq_bands, mixer.sample_rate as f32);
                     }
                 }
+                _ => {}
             }
         }
     }

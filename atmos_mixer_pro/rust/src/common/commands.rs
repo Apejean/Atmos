@@ -22,6 +22,12 @@ pub enum AudioCommand {
         track_id: u32,
     },
     StopAll,
+    PlayTestNoise {
+        channel: u32,
+    },
+    ApplyAllChannelTunings {
+        tunings: Vec<(usize, f32, Vec<crate::common::config::EqBand>)>,
+    },
     SetMasterVolume {
         room_id: u32,
         volume: f32,

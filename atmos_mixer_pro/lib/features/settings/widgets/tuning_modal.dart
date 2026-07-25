@@ -87,15 +87,29 @@ class ChannelTuningState {
   }
 }
 
-class TuningStateNotifier extends Notifier<Map<int, ChannelTuningState>> {
+class TuningStateNotifier extends Notifier<Map<int, ChannelTuningState>> with WidgetsBindingObserver {
   bool _isLoaded = false;
+  Timer? _saveTimer;
 
   @override
   Map<int, ChannelTuningState> build() {
-    // We don't automatically schedule _load here anymore to give more control to the caller
-    // but we can keep it for safety if used elsewhere without splash screen.
+    WidgetsBinding.instance.addObserver(this);
+    ref.onDispose(() {
+      WidgetsBinding.instance.removeObserver(this);
+      _saveTimer?.cancel();
+    });
     Future.microtask(ensureLoaded);
     return {};
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
+      if (_saveTimer != null && _saveTimer!.isActive) {
+        _saveTimer!.cancel();
+        _saveToPrefs();
+      }
+    }
   }
 
   Future<void> ensureLoaded() async {
@@ -124,6 +138,7 @@ class TuningStateNotifier extends Notifier<Map<int, ChannelTuningState>> {
   }
 
   void applyAllToBackend() {
+    final tuningsToApply = <ChannelTuningParams>[];
     for (final entry in state.entries) {
       final channelKey = entry.key;
       final targetChannel = channelKey - 1;
@@ -138,8 +153,56 @@ class TuningStateNotifier extends Notifier<Map<int, ChannelTuningState>> {
           qFactor: tuning.qs[i],
         ));
       }
-      apiApplyChannelTuning(channel: targetChannel, delayMs: tuning.delay, eqBands: bands);
+      tuningsToApply.add(ChannelTuningParams(
+        channel: targetChannel,
+        delayMs: tuning.delay,
+        eqBands: bands,
+      ));
     }
+    apiApplyAllChannelTunings(tunings: tuningsToApply);
+  }
+
+  void syncFromBackendConfig(AppConfig config) {
+    final Map<int, ChannelTuningState> newState = {};
+
+    void processConfigs(Map<int, ChannelSetting> configs, bool isStereo) {
+      for (final entry in configs.entries) {
+        final chKey = entry.key;
+        final setting = entry.value;
+
+        final bandEnabled = List.filled(8, false);
+        final bandTypes = List.filled(8, EqType.bell);
+        final freqs = List.filled(8, 1000.0);
+        final gains = List.filled(8, 0.0);
+        final qs = List.filled(8, 0.707);
+
+        for (int i = 0; i < setting.eqBands.length && i < 8; i++) {
+          final band = setting.eqBands[i];
+          bandEnabled[i] = band.enabled;
+          bandTypes[i] = band.filterType;
+          freqs[i] = band.freq;
+          gains[i] = band.gain;
+          qs[i] = band.qFactor;
+        }
+
+        newState[chKey] = ChannelTuningState(
+          delay: setting.delayMs,
+          bandEnabled: bandEnabled,
+          bandTypes: bandTypes,
+          freqs: freqs,
+          gains: gains,
+          qs: qs,
+          isStereoLinked: isStereo,
+        );
+      }
+    }
+
+    processConfigs(config.monoConfigs, false);
+    processConfigs(config.stereoConfigs, true);
+    processConfigs(config.multiConfigs, false);
+
+    state = newState;
+    _saveToPrefs();
   }
 
   ChannelTuningState getTuning(int channel) {
@@ -148,7 +211,8 @@ class TuningStateNotifier extends Notifier<Map<int, ChannelTuningState>> {
 
   void saveTuning(int channel, ChannelTuningState tuning) {
     state = {...state, channel: tuning};
-    _saveToPrefs();
+    _saveTimer?.cancel();
+    _saveTimer = Timer(const Duration(milliseconds: 500), _saveToPrefs);
   }
 
   Future<void> _saveToPrefs() async {
@@ -295,12 +359,15 @@ class _TuningModalState extends ConsumerState<TuningModal> {
       }
       
       int targetChannel1 = _selectedChannel - 1;
-      apiApplyChannelTuning(channel: targetChannel1, delayMs: delay, eqBands: bands);
+      final tunings = <ChannelTuningParams>[
+        ChannelTuningParams(channel: targetChannel1, delayMs: delay, eqBands: bands),
+      ];
       
       if (_isStereoLinked) {
         int targetChannel2 = _selectedChannel % 2 != 0 ? targetChannel1 + 1 : targetChannel1 - 1;
-        apiApplyChannelTuning(channel: targetChannel2, delayMs: delay, eqBands: bands);
+        tunings.add(ChannelTuningParams(channel: targetChannel2, delayMs: delay, eqBands: bands));
       }
+      apiApplyAllChannelTunings(tunings: tunings);
       
       if (!silent && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

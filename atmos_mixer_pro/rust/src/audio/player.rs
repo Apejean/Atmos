@@ -14,6 +14,32 @@ pub struct SoundData {
     pub sample_rate: u32,
 }
 
+pub fn downsample_hi_res_if_needed(in_sample_rate: u32, samples: Vec<f32>, channels: usize) -> (Vec<f32>, u32) {
+    if in_sample_rate > 96000 {
+        let target_rate = 48000;
+        let step = (in_sample_rate as f32 / target_rate as f32) as usize;
+        if step > 1 {
+            let total_frames = samples.len() / channels;
+            let out_frames = total_frames / step;
+            let mut downsampled = Vec::with_capacity(out_frames * channels);
+
+            for frame in 0..out_frames {
+                let src_frame = frame * step;
+                for ch in 0..channels {
+                    let idx = src_frame * channels + ch;
+                    if idx < samples.len() {
+                        downsampled.push(samples[idx]);
+                    } else {
+                        downsampled.push(0.0);
+                    }
+                }
+            }
+            return (downsampled, target_rate);
+        }
+    }
+    (samples, in_sample_rate)
+}
+
 impl SoundData {
     pub fn probe_channels(path: &std::path::Path) -> u32 {
         if let Ok(file) = File::open(path) {
@@ -107,10 +133,12 @@ impl SoundData {
             }
         }
 
+        let (final_samples, final_sample_rate) = downsample_hi_res_if_needed(sample_rate, all_samples, actual_channels as usize);
+
         Ok(Self {
-            samples: all_samples,
+            samples: final_samples,
             channels: actual_channels,
-            sample_rate,
+            sample_rate: final_sample_rate,
         })
     }
 }
@@ -133,6 +161,7 @@ pub struct SoundInstance {
     pub output_channel: usize,
     pub output_stereo: bool,
     pub fade_weight: f32, // 0.0 to 1.0
+    pub volume_smoother: crate::audio::dsp::dsp_utils::GainSmoother,
 }
 
 impl SoundInstance {
@@ -169,6 +198,7 @@ impl SoundInstance {
             output_channel,
             output_stereo,
             fade_weight: 0.0, // starts from 0 for fade in
+            volume_smoother: crate::audio::dsp::dsp_utils::GainSmoother::new(volume, 0.005),
         }
     }
 }

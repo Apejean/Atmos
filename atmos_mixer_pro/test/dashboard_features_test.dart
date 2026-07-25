@@ -78,6 +78,7 @@ void main() {
       filePath: '',
       volume: 1.0,
       isLoop: false,
+      isStreaming: false,
       outputChannel: 0,
       outputStereo: false,
       playOscAddress: '',

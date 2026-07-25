@@ -94,13 +94,12 @@ fn handle_packet(packet: OscPacket, debouncer: &OscDebouncer) {
 
             crate::core::state::GLOBAL_STATE.log(format!("Valid OSC Trigger: {}", msg.addr));
 
-            // Check Theme Start first without holding lock while calling API
             let (theme_start_info, is_system_reset) = {
                 let config_guard = crate::core::state::GLOBAL_STATE
                     .config
                     .read()
                     .unwrap_or_else(|e| e.into_inner());
-                if let Some(config) = config_guard.as_ref() {
+                if let Some(ref config) = *config_guard {
                     let is_ts = !config.theme_start_osc_address.is_empty()
                         && msg.addr == config.theme_start_osc_address;
                     let is_sr = !config.system_reset_osc_address.is_empty()
@@ -149,8 +148,8 @@ fn handle_packet(packet: OscPacket, debouncer: &OscDebouncer) {
                 .config
                 .read()
                 .unwrap_or_else(|e| e.into_inner());
-            let config = match config_guard.as_ref() {
-                Some(c) => c,
+            let config = match *config_guard {
+                Some(ref c) => c,
                 None => return,
             };
 

@@ -8,8 +8,8 @@ import '../frb_generated.dart';
 import 'error.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `ENGINE_GENERATION`, `VU_THREAD_RUNNING`
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `deref`, `deref`, `fmt`, `fmt`, `initialize`, `initialize`
+// These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `ENGINE_ACTIVE`, `ENGINE_GENERATION`, `ENGINE_THREAD`, `VU_THREAD_RUNNING`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `deref`, `deref`, `deref`, `deref`, `fmt`, `fmt`, `initialize`, `initialize`, `initialize`, `initialize`
 
 Future<AppConfig> apiGetConfig({required String path}) =>
     RustLib.instance.api.crateApiSimpleApiGetConfig(path: path);
@@ -19,6 +19,12 @@ Future<void> apiSaveConfig({required String path, required AppConfig config}) =>
       path: path,
       config: config,
     );
+
+Future<void> apiPlayTestNoise({required int channel}) =>
+    RustLib.instance.api.crateApiSimpleApiPlayTestNoise(channel: channel);
+
+Future<void> apiPreloadSound({required String filePath}) =>
+    RustLib.instance.api.crateApiSimpleApiPreloadSound(filePath: filePath);
 
 Future<void> apiPlayTrack({required String roomId, required String trackId}) =>
     RustLib.instance.api.crateApiSimpleApiPlayTrack(
@@ -48,7 +54,7 @@ Future<void> apiSetMasterVolume({
   volume: volume,
 );
 
-Future<void> apiSetTrackVolume({
+void apiSetTrackVolume({
   required String roomId,
   required String trackId,
   required double volume,
@@ -91,6 +97,12 @@ Stream<Float32List> apiCreateVuStream() =>
 
 Future<void> apiInitAudioSystem({String? deviceName}) => RustLib.instance.api
     .crateApiSimpleApiInitAudioSystem(deviceName: deviceName);
+
+Future<void> apiStartAudioEngine({String? deviceName}) => RustLib.instance.api
+    .crateApiSimpleApiStartAudioEngine(deviceName: deviceName);
+
+Future<bool> apiIsEngineReady() =>
+    RustLib.instance.api.crateApiSimpleApiIsEngineReady();
 
 Future<void> apiStopAudioEngine() =>
     RustLib.instance.api.crateApiSimpleApiStopAudioEngine();
@@ -145,6 +157,12 @@ Future<int> apiGetAudioFileChannels({required String filePath}) => RustLib
     .api
     .crateApiSimpleApiGetAudioFileChannels(filePath: filePath);
 
+Future<void> apiApplyAllChannelTunings({
+  required List<ChannelTuningParams> tunings,
+}) => RustLib.instance.api.crateApiSimpleApiApplyAllChannelTunings(
+  tunings: tunings,
+);
+
 Future<void> apiApplyChannelTuning({
   required int channel,
   required double delayMs,
@@ -154,6 +172,30 @@ Future<void> apiApplyChannelTuning({
   delayMs: delayMs,
   eqBands: eqBands,
 );
+
+class ChannelTuningParams {
+  final int channel;
+  final double delayMs;
+  final List<EqBand> eqBands;
+
+  const ChannelTuningParams({
+    required this.channel,
+    required this.delayMs,
+    required this.eqBands,
+  });
+
+  @override
+  int get hashCode => channel.hashCode ^ delayMs.hashCode ^ eqBands.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ChannelTuningParams &&
+          runtimeType == other.runtimeType &&
+          channel == other.channel &&
+          delayMs == other.delayMs &&
+          eqBands == other.eqBands;
+}
 
 class EngineStateUpdate {
   final String? activeRoomId;

@@ -5,6 +5,7 @@ import 'package:atmos_mixer_pro/core/theme/colors.dart';
 import 'package:atmos_mixer_pro/core/state/global_state.dart';
 import 'package:atmos_mixer_pro/src/rust/common/config.dart';
 import 'package:atmos_mixer_pro/src/rust/api/simple.dart' as rust_api;
+import 'package:atmos_mixer_pro/core/utils/channel_dropdown_helper.dart';
 
 class PreferencesModal extends ConsumerStatefulWidget {
   const PreferencesModal({super.key});
@@ -123,9 +124,9 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
   String _getDropdownValueForTrack(TrackConfig track) {
     final fileChannels = _trackChannels[track.id];
     if (fileChannels != null && fileChannels > 2) {
-      return '${track.outputChannel}_multi';
+      return ChannelDropdownValueHelper.getMultiValue(track.outputChannel);
     } else {
-      return track.outputStereo ? '${track.outputChannel}_stereo' : '${track.outputChannel}_mono';
+      return track.outputStereo ? ChannelDropdownValueHelper.getStereoValue(track.outputChannel) : ChannelDropdownValueHelper.getMonoValue(track.outputChannel);
     }
   }
 
@@ -329,6 +330,7 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                       filePath: t.filePath,
                       volume: t.volume,
                       isLoop: t.isLoop,
+                      isStreaming: t.isStreaming,
                       outputChannel: t.outputChannel,
                       outputStereo: t.outputStereo,
                       playOscAddress: t.playOscAddress,
@@ -357,6 +359,7 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
           filePath: track.filePath,
           volume: track.volume,
           isLoop: track.isLoop,
+          isStreaming: track.isStreaming,
           outputChannel: track.outputChannel,
           outputStereo: track.outputStereo,
           playOscAddress: track.playOscAddress,
@@ -413,6 +416,7 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                 filePath: tempTrack.filePath,
                 volume: tempTrack.volume,
                 isLoop: tempTrack.isLoop,
+                isStreaming: tempTrack.isStreaming,
                 outputChannel: tempTrack.outputChannel,
                 outputStereo: tempTrack.outputStereo,
                 playOscAddress: tempTrack.playOscAddress,
@@ -554,7 +558,7 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
             : '$key';
         channelItems.add(
           DropdownMenuItem<String>(
-            value: '${realCh1}_mono',
+            value: ChannelDropdownValueHelper.getMonoValue(realCh1),
             child: Text('Mono $name1'),
           ),
         );
@@ -568,7 +572,7 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
             : '$displayCh2';
         channelItems.add(
           DropdownMenuItem<String>(
-            value: '${realCh2}_mono',
+            value: ChannelDropdownValueHelper.getMonoValue(realCh2),
             child: Text('Mono $name2'),
           ),
         );
@@ -589,7 +593,7 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
             : '$key/$displayCh2';
         channelItems.add(
           DropdownMenuItem<String>(
-            value: '${realCh}_stereo',
+            value: ChannelDropdownValueHelper.getStereoValue(realCh),
             child: Text('2-Ch (Stereo) $displayName'),
           ),
         );
@@ -609,7 +613,7 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
             : '$key~';
         channelItems.add(
           DropdownMenuItem<String>(
-            value: '${realCh}_multi',
+            value: ChannelDropdownValueHelper.getMultiValue(realCh),
             child: Text('N-Ch (다채널) $displayName'),
           ),
         );
@@ -1005,7 +1009,7 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                           : '$key';
                       trackDropdownItems.add(
                         DropdownMenuItem<String>(
-                          value: '${realCh1}_mono',
+                          value: ChannelDropdownValueHelper.getMonoValue(realCh1),
                           child: Text(
                             'Mono $name1',
                             style: const TextStyle(fontSize: 12),
@@ -1023,7 +1027,7 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                           : '$displayCh2';
                       trackDropdownItems.add(
                         DropdownMenuItem<String>(
-                          value: '${realCh2}_mono',
+                          value: ChannelDropdownValueHelper.getMonoValue(realCh2),
                           child: Text(
                             'Mono $name2',
                             style: const TextStyle(fontSize: 12),
@@ -1051,7 +1055,7 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                           : '$key/$displayCh2';
                       trackDropdownItems.add(
                         DropdownMenuItem<String>(
-                          value: '${realCh}_stereo',
+                          value: ChannelDropdownValueHelper.getStereoValue(realCh),
                           child: Text(
                             '2-Ch (Stereo) $displayName',
                             style: const TextStyle(fontSize: 12),
@@ -1080,7 +1084,7 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                       }
                       trackDropdownItems.add(
                         DropdownMenuItem<String>(
-                          value: '${realCh}_multi',
+                          value: ChannelDropdownValueHelper.getMultiValue(realCh),
                           child: Text(
                             labelText,
                             style: const TextStyle(fontSize: 12),
@@ -1140,10 +1144,8 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                           ],
                           onChanged: (val) {
                             if (val != null) {
-                              final parts = val.split('_');
-                              final parsedChannel = int.parse(parts.first);
-                              final type = parts.last;
-                              final isStereo = (type == 'stereo' || type == 'multi');
+                              final parsedChannel = ChannelDropdownValueHelper.getChannel(val) ?? 0;
+                              final isStereo = ChannelDropdownValueHelper.isStereo(val) || ChannelDropdownValueHelper.isMulti(val);
 
                               final newRooms = List<RoomConfig>.from(
                                 _tempConfig.rooms,
@@ -1157,6 +1159,7 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                                 filePath: track.filePath,
                                 volume: track.volume,
                                 isLoop: track.isLoop,
+                                isStreaming: track.isStreaming,
                                 outputChannel: parsedChannel,
                                 outputStereo: isStereo,
                                 playOscAddress: track.playOscAddress,
@@ -1431,6 +1434,7 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                                 filePath: track.filePath,
                                 volume: track.volume,
                                 isLoop: track.isLoop,
+                                isStreaming: track.isStreaming,
                                 outputChannel: track.outputChannel,
                                 outputStereo: track.outputStereo,
                                 playOscAddress: val,
@@ -1491,6 +1495,7 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                                 filePath: track.filePath,
                                 volume: track.volume,
                                 isLoop: track.isLoop,
+                                isStreaming: track.isStreaming,
                                 outputChannel: track.outputChannel,
                                 outputStereo: track.outputStereo,
                                 playOscAddress: track.playOscAddress,

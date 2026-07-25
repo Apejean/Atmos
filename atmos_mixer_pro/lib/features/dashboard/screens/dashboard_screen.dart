@@ -7,6 +7,7 @@ import 'package:atmos_mixer_pro/core/state/global_state.dart';
 import 'package:atmos_mixer_pro/features/dashboard/widgets/room_card.dart';
 import 'package:atmos_mixer_pro/features/settings/widgets/preferences_modal.dart';
 import 'package:atmos_mixer_pro/features/settings/widgets/tuning_modal.dart' as atmos_tuning_modal;
+import 'package:atmos_mixer_pro/features/exhibition/screens/speaker_canvas_screen.dart' as atmos_exhibition;
 import 'package:atmos_mixer_pro/src/rust/api/simple.dart' as rust_api;
 import 'package:atmos_mixer_pro/src/rust/common/config.dart';
 import 'package:file_picker/file_picker.dart';
@@ -19,7 +20,7 @@ class DashboardScreen extends ConsumerStatefulWidget {
 }
 
 class _DashboardScreenState extends ConsumerState<DashboardScreen> {
-  bool _isProcessing = false;
+
   bool _isRecovering = false;
   final ScrollController _scrollController = ScrollController();
 
@@ -72,6 +73,23 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     allowedExtensions: ['atmos'],
                   );
                   if (result != null && result.files.single.path != null) {
+                    if (context.mounted) {
+                      showDialog(
+                        context: context,
+                        barrierDismissible: false,
+                        builder: (context) => const AlertDialog(
+                          backgroundColor: AppColors.background,
+                          content: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              CircularProgressIndicator(color: AppColors.primaryNeon),
+                              SizedBox(height: 16),
+                              Text('Loading large audio assets...', style: TextStyle(color: Colors.white)),
+                            ],
+                          ),
+                        ),
+                      );
+                    }
                     try {
                       final importedConfig = await rust_api.apiGetConfig(
                         path: result.files.single.path!,
@@ -82,8 +100,16 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                         ref
                             .read(configProvider.notifier)
                             .saveConfig(importedConfig);
-                        await rust_api.apiLoadPreset(config: importedConfig);
+                        ref.read(tuningStateProvider.notifier).syncFromBackendConfig(importedConfig);
+                        
+                        try {
+                           await rust_api.apiPreloadAllSounds(config: importedConfig);
+                        } catch (e) {
+                          // ignore preload error
+                        }
+
                         if (context.mounted) {
+                          Navigator.of(context).pop(); // dismiss dialog
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
                               content: Text('프리셋이 성공적으로 로드되었습니다.'),
@@ -94,6 +120,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       }
                     } catch (e) {
                       if (context.mounted) {
+                        Navigator.of(context).pop(); // dismiss dialog
                         ref
                             .read(globalErrorProvider.notifier)
                             .showError('설정 불러오기 실패: $e');
@@ -249,6 +276,23 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     allowedExtensions: ['atmos'],
                   );
                   if (result != null && result.files.single.path != null) {
+                    if (context.mounted) {
+                      showDialog(
+                        context: context,
+                        barrierDismissible: false,
+                        builder: (context) => const AlertDialog(
+                          backgroundColor: AppColors.background,
+                          content: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              CircularProgressIndicator(color: AppColors.primaryNeon),
+                              SizedBox(height: 16),
+                              Text('Loading large audio assets...', style: TextStyle(color: Colors.white)),
+                            ],
+                          ),
+                        ),
+                      );
+                    }
                     try {
                       final importedConfig = await rust_api.apiGetConfig(
                         path: result.files.single.path!,
@@ -259,8 +303,16 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                         ref
                             .read(configProvider.notifier)
                             .saveConfig(importedConfig);
-                        await rust_api.apiLoadPreset(config: importedConfig);
+                        ref.read(tuningStateProvider.notifier).syncFromBackendConfig(importedConfig);
+                        
+                        try {
+                           await rust_api.apiPreloadAllSounds(config: importedConfig);
+                        } catch (e) {
+                          // ignore preload error
+                        }
+
                         if (context.mounted) {
+                          Navigator.of(context).pop(); // dismiss dialog
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
                               content: Text('프리셋이 성공적으로 로드되었습니다.'),
@@ -271,6 +323,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       }
                     } catch (e) {
                       if (context.mounted) {
+                        Navigator.of(context).pop(); // dismiss dialog
                         ref
                             .read(globalErrorProvider.notifier)
                             .showError('설정 불러오기 실패: $e');
@@ -549,6 +602,34 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               fontWeight: FontWeight.bold,
             ),
           ),
+          Consumer(
+            builder: (context, ref, child) {
+              final isMasterMuted = ref.watch(engineStateProvider.select((state) => state.masterMuteActive));
+              if (!isMasterMuted) return const SizedBox.shrink();
+              return Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.orange.shade800,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.warning_amber_rounded, color: Colors.white, size: 20),
+                    SizedBox(width: 8),
+                    Text(
+                      'MASTER MUTE ACTIVE',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.2,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
           Wrap(
             spacing: 8,
             runSpacing: 8,
@@ -562,10 +643,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   ),
                 ),
                 onPressed: () async {
-                  if (_isProcessing) return;
-                  setState(() {
-                    _isProcessing = true;
-                  });
                   try {
                     try {
                       await rust_api.apiStopAll();
@@ -605,16 +682,38 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                         }
                       }
                     }
-                  } finally {
-                    setState(() {
-                      _isProcessing = false;
-                    });
+                  } catch (e) {
+                    ref.read(globalErrorProvider.notifier).showError('테마 시작 오류: $e');
                   }
                 },
                 child: const Text(
                   '테마 시작',
                   style: TextStyle(color: Colors.white),
                 ),
+              ),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.danger,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+                icon: const Icon(Icons.volume_off, color: Colors.white),
+                label: const Text('마스터 음소거',
+                    style: TextStyle(color: Colors.white)),
+                onPressed: () async {
+                  ref.read(engineStateProvider.notifier).toggleMasterMute();
+                  final isMuted = ref.read(engineStateProvider).masterMuteActive;
+                  try {
+                    await rust_api.apiSetMasterMute(muted: isMuted);
+                  } catch (e) {
+                    if (context.mounted) {
+                      ref
+                          .read(globalErrorProvider.notifier)
+                          .showError('마스터 음소거 실패: $e');
+                    }
+                  }
+                },
               ),
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
@@ -624,20 +723,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   ),
                 ),
                 onPressed: () async {
-                  if (_isProcessing) return;
-                  setState(() {
-                    _isProcessing = true;
-                  });
                   try {
                     await rust_api.apiStopAll();
                   } catch (e) {
                     ref
                         .read(globalErrorProvider.notifier)
                         .showError('비상 정지 실패: $e');
-                  } finally {
-                    setState(() {
-                      _isProcessing = false;
-                    });
                   }
                 },
                 child: const Text(
@@ -653,10 +744,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   ),
                 ),
                 onPressed: () async {
-                  if (_isProcessing) return;
-                  setState(() {
-                    _isProcessing = true;
-                  });
                   try {
                     try {
                       await rust_api.apiStopAll();
@@ -666,10 +753,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                           .showError('시스템 리셋 실패: $e');
                     }
                     ref.read(engineStateProvider.notifier).reset();
-                  } finally {
-                    setState(() {
-                      _isProcessing = false;
-                    });
+                  } catch (e) {
+                    ref.read(globalErrorProvider.notifier).showError('시스템 리셋 오류: $e');
                   }
                 },
                 child: const Text(
@@ -743,6 +828,17 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   '⚙️ Mixer',
                   style: TextStyle(color: Colors.white),
                 ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.grid_on, color: Colors.white),
+                tooltip: 'Speaker Layout',
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) => const atmos_exhibition.SpeakerCanvasScreen(),
+                    ),
+                  );
+                },
               ),
             ],
           ),

@@ -174,6 +174,7 @@ class TrackConfig {
   final String filePath;
   final double volume;
   final bool isLoop;
+  final bool isStreaming;
   final int outputChannel;
   final bool outputStereo;
   final String playOscAddress;
@@ -185,6 +186,7 @@ class TrackConfig {
     required this.filePath,
     required this.volume,
     required this.isLoop,
+    required this.isStreaming,
     required this.outputChannel,
     required this.outputStereo,
     required this.playOscAddress,
@@ -198,6 +200,7 @@ class TrackConfig {
       filePath.hashCode ^
       volume.hashCode ^
       isLoop.hashCode ^
+      isStreaming.hashCode ^
       outputChannel.hashCode ^
       outputStereo.hashCode ^
       playOscAddress.hashCode ^
@@ -213,6 +216,7 @@ class TrackConfig {
           filePath == other.filePath &&
           volume == other.volume &&
           isLoop == other.isLoop &&
+          isStreaming == other.isStreaming &&
           outputChannel == other.outputChannel &&
           outputStereo == other.outputStereo &&
           playOscAddress == other.playOscAddress &&

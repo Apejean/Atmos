@@ -17,7 +17,6 @@ pub mod dsp_utils {
         pub current_q: f32,
         pub filter_type: EqType,
         pub filter: SvfFilter,
-        pub update_counter: usize,
     }
     
     impl Default for EqFilterState {
@@ -38,7 +37,6 @@ pub mod dsp_utils {
                 current_q: 0.707,
                 filter_type: EqType::Bell,
                 filter: SvfFilter::new(),
-                update_counter: 0,
             }
         }
     
@@ -87,15 +85,43 @@ pub mod dsp_utils {
             if dq.abs() > 0.01 { self.current_q += dq * 0.05; changed = true; } else { self.current_q = self.target_q; }
             
             if changed {
-                self.update_counter += 1;
-                // Recalculate every 16 samples to save CPU
-                if self.update_counter >= 16 {
-                    self.update_counter = 0;
-                    self.recalculate(fs);
-                }
+                self.recalculate(fs);
             }
 
             self.filter.process(input)
+        }
+    }
+    
+    #[derive(Clone)]
+    pub struct DcBlocker {
+        x1: f32,
+        y1: f32,
+        r: f32,
+    }
+    
+    impl DcBlocker {
+        pub fn new() -> Self {
+            Self {
+                x1: 0.0,
+                y1: 0.0,
+                r: 0.999934, // ~0.5Hz cutoff at 48kHz
+            }
+        }
+        
+        #[inline(always)]
+        pub fn process(&mut self, input: f32, fs: f32) -> f32 {
+            self.r = 1.0 - (2.0 * std::f32::consts::PI * 0.5 / fs);
+            let mut output = input - self.x1 + self.r * self.y1;
+            
+            if output.abs() < 1e-15 {
+                output = 0.0;
+                self.y1 = 0.0;
+            } else {
+                self.y1 = output;
+            }
+            
+            self.x1 = input;
+            output
         }
     }
     
@@ -109,6 +135,7 @@ pub mod dsp_utils {
         pub target_bands: Vec<EqBand>,
         pub current_bands: Vec<EqBand>,
         pub eq_filters: Vec<EqFilterState>,
+        pub dc_blocker: DcBlocker,
     }
     
     impl Default for ChannelDspState {
@@ -131,6 +158,7 @@ pub mod dsp_utils {
                 target_bands: vec![EqBand::default(); MAX_EQ_BANDS],
                 current_bands: vec![EqBand::default(); MAX_EQ_BANDS],
                 eq_filters,
+                dc_blocker: DcBlocker::new(),
             }
         }
     
@@ -138,17 +166,22 @@ pub mod dsp_utils {
             self.target_delay_ms = target_delay_ms.clamp(0.0, 1000.0);
         }
 
-        pub fn update_eq_targets(&mut self, target_bands: Vec<EqBand>, fs: f32) {
-            let mut bands = target_bands;
-            bands.truncate(MAX_EQ_BANDS);
-            while bands.len() < MAX_EQ_BANDS {
-                bands.push(EqBand::default());
-            }
+        pub fn update_eq_targets(&mut self, target_bands: &[EqBand], fs: f32) {
+            let limit = target_bands.len().min(MAX_EQ_BANDS);
             
-            for (i, band) in bands.iter().enumerate() {
+            for i in 0..limit {
+                let band = &target_bands[i];
                 self.target_bands[i] = band.clone();
                 self.current_bands[i] = band.clone();
                 self.eq_filters[i].update(band, fs);
+            }
+            
+            // Fill remaining filters with defaults if target_bands is smaller than MAX_EQ_BANDS
+            for i in limit..MAX_EQ_BANDS {
+                let default_band = EqBand::default();
+                self.target_bands[i] = default_band.clone();
+                self.current_bands[i] = default_band.clone();
+                self.eq_filters[i].update(&default_band, fs);
             }
         }
     
@@ -186,10 +219,42 @@ pub mod dsp_utils {
                 out = filter.process(out, fs);
             }
             
+            // Apply DC Blocker
+            out = self.dc_blocker.process(out, fs);
+            
             out
         }
     }
     
+    #[inline(always)]
+    pub fn interpolate_hermite(x0: f32, x1: f32, x2: f32, x3: f32, t: f32) -> f32 {
+        let diff = x1 - x2;
+        let c1 = x2 - x0;
+        let c3 = x3 - x0 + 3.0 * diff;
+        let c2 = -(2.0 * diff + c1 + c3);
+        0.5 * ((c3 * t + c2) * t + c1) * t + x1
+    }
+
+    pub struct GainSmoother {
+        pub current: f32,
+        pub target: f32,
+        pub alpha: f32,
+    }
+    
+    impl GainSmoother {
+        pub fn new(initial_gain: f32, alpha: f32) -> Self {
+            Self { current: initial_gain, target: initial_gain, alpha }
+        }
+        
+        pub fn set_target(&mut self, new_target: f32) { self.target = new_target; }
+        
+        #[inline(always)]
+        pub fn next(&mut self) -> f32 {
+            self.current += self.alpha * (self.target - self.current);
+            self.current
+        }
+    }
+
     #[inline(always)]
     pub fn prevent_denormal(val: &mut f32) {
         let abs = val.abs();

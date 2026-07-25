@@ -34,6 +34,7 @@ pub struct GlobalEngineState {
     // VU levels for up to 4096 output channels, stored as f32 bits
     pub vu_levels: Vec<AtomicU32>,
     pub sound_cache: RwLock<HashMap<String, Arc<SoundData>>>,
+    pub preloaded_sounds: RwLock<HashMap<String, Arc<SoundData>>>,
     pub config: RwLock<Option<AppConfig>>,
     pub playing_track_ids: RwLock<HashMap<u64, String>>,
     pub broadcast_lock: std::sync::Mutex<()>,
@@ -69,6 +70,7 @@ impl GlobalEngineState {
             enabled_channels: enabled,
             vu_levels: vu,
             sound_cache: RwLock::new(HashMap::new()),
+            preloaded_sounds: RwLock::new(HashMap::new()),
             config: RwLock::new(None),
             playing_track_ids: RwLock::new(HashMap::new()),
             broadcast_lock: std::sync::Mutex::new(()),
@@ -80,10 +82,10 @@ impl GlobalEngineState {
     }
 
     pub fn broadcast_state(&self) {
-        let room_id = self.active_room_id.read().unwrap().clone();
+        let room_id = self.active_room_id.read().unwrap_or_else(|e| e.into_inner()).clone();
         let ducking = self.is_ducking.load(Ordering::Relaxed);
         let playing_track_ids = {
-            let guard = self.playing_track_ids.read().unwrap();
+            let guard = self.playing_track_ids.read().unwrap_or_else(|e| e.into_inner());
             let mut unique_ids: Vec<String> = guard.values().cloned().collect();
             unique_ids.sort();
             unique_ids.dedup();
@@ -94,25 +96,25 @@ impl GlobalEngineState {
             active_room_id: room_id,
             ducking_active: ducking,
             playing_track_ids,
-            engine_error: self.engine_error.read().unwrap().clone(),
+            engine_error: self.engine_error.read().unwrap_or_else(|e| e.into_inner()).clone(),
         };
 
-        if let Some(sink) = self.state_sink.read().unwrap().as_ref() {
+        if let Some(sink) = self.state_sink.read().unwrap_or_else(|e| e.into_inner()).as_ref() {
             let _ = sink.add(update);
         }
     }
 
     pub fn set_active_room(&self, room_id: Option<String>) {
-        let _lock = self.broadcast_lock.lock().unwrap();
+        let _lock = self.broadcast_lock.lock().unwrap_or_else(|e| e.into_inner());
         {
-            let mut guard = self.active_room_id.write().unwrap();
+            let mut guard = self.active_room_id.write().unwrap_or_else(|e| e.into_inner());
             *guard = room_id;
         }
         self.broadcast_state();
     }
 
     pub fn set_ducking(&self, ducking: bool) {
-        let _lock = self.broadcast_lock.lock().unwrap();
+        let _lock = self.broadcast_lock.lock().unwrap_or_else(|e| e.into_inner());
         self.is_ducking.store(ducking, Ordering::Relaxed);
         self.broadcast_state();
     }
@@ -136,16 +138,16 @@ impl GlobalEngineState {
     }
 
     pub fn add_playing_track(&self, instance_id: u64, track_id: String) {
-        let _lock = self.broadcast_lock.lock().unwrap();
-        let mut guard = self.playing_track_ids.write().unwrap();
+        let _lock = self.broadcast_lock.lock().unwrap_or_else(|e| e.into_inner());
+        let mut guard = self.playing_track_ids.write().unwrap_or_else(|e| e.into_inner());
         guard.insert(instance_id, track_id);
         drop(guard);
         self.broadcast_state();
     }
 
     pub fn remove_playing_track(&self, instance_id: u64) {
-        let _lock = self.broadcast_lock.lock().unwrap();
-        let mut guard = self.playing_track_ids.write().unwrap();
+        let _lock = self.broadcast_lock.lock().unwrap_or_else(|e| e.into_inner());
+        let mut guard = self.playing_track_ids.write().unwrap_or_else(|e| e.into_inner());
         if guard.remove(&instance_id).is_some() {
             drop(guard);
             self.broadcast_state();
@@ -153,8 +155,8 @@ impl GlobalEngineState {
     }
 
     pub fn remove_playing_tracks_by_track_id(&self, track_id: &str) {
-        let _lock = self.broadcast_lock.lock().unwrap();
-        let mut guard = self.playing_track_ids.write().unwrap();
+        let _lock = self.broadcast_lock.lock().unwrap_or_else(|e| e.into_inner());
+        let mut guard = self.playing_track_ids.write().unwrap_or_else(|e| e.into_inner());
         let initial_len = guard.len();
         guard.retain(|_, v| v != track_id);
         if guard.len() != initial_len {
@@ -164,9 +166,9 @@ impl GlobalEngineState {
     }
 
     pub fn clear_playing_tracks(&self) {
-        let _lock = self.broadcast_lock.lock().unwrap();
+        let _lock = self.broadcast_lock.lock().unwrap_or_else(|e| e.into_inner());
         {
-            let mut guard = self.playing_track_ids.write().unwrap();
+            let mut guard = self.playing_track_ids.write().unwrap_or_else(|e| e.into_inner());
             guard.clear();
         }
         self.broadcast_state();

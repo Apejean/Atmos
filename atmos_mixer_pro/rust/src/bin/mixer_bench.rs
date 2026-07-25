@@ -3,6 +3,7 @@ use std::time::Instant;
 
 fn main() {
     let (gc_tx, _gc_rx) = crossbeam_channel::bounded(4096);
+    let _default_config = rust_lib_atmos_mixer_pro::common::config::AppConfig::default();
     let mut mixer = AudioMixer::new(48000, gc_tx);
     
     // Enable 24 channels

@@ -46,12 +46,9 @@ class ConfigNotifier extends Notifier<AppConfig?> {
 
       _lastProcessedConfig = config;
       state = config;
+      ref.read(tuningStateProvider.notifier).syncFromBackendConfig(config);
       await rust_api.apiInitAudioSystem(deviceName: config.deviceName);
       await rust_api.apiStartOscListener(port: config.oscPort);
-
-      // Wait a moment for the audio engine to initialize and lock the ASIO device.
-      // This allows the backend to skip the slow ASIO scan and instantly return the correct physical channel count (e.g. 94) instead of a default fallback.
-      await Future.delayed(const Duration(milliseconds: 500));
 
       try {
         final deviceInfos = await rust_api.apiGetOutputDevices();
@@ -72,7 +69,7 @@ class ConfigNotifier extends Notifier<AppConfig?> {
     bool forceRestart = false,
     bool skipPreload = false,
   }) {
-    // Optimistic UI Update: immediately set state so UI reflects the added track
+    // Update config before save so UI reacts quickly
     state = newConfig;
 
     _saveQueue.add(_SaveTask(newConfig, forceRestart, skipPreload));
@@ -134,7 +131,16 @@ class ConfigNotifier extends Notifier<AppConfig?> {
 
         if (engineNeedsRestart) {
           await rust_api.apiInitAudioSystem(deviceName: configToSave.deviceName);
-          await Future.delayed(const Duration(milliseconds: 500));
+          
+          if (!(await rust_api.apiIsEngineReady())) {
+            try {
+              await rust_api.apiCreateDeviceEventStream()
+                  .firstWhere((e) => e == 'EngineReady')
+                  .timeout(const Duration(milliseconds: 2000));
+            } catch (_) {
+              // fallback
+            }
+          }
           ref.read(tuningStateProvider.notifier).applyAllToBackend();
         }
 
@@ -175,6 +181,7 @@ class EngineState {
   final bool duckingActive;
   final bool themeStarted;
   final List<String> playingTrackIds;
+  final bool masterMuteActive;
 
   EngineState({
     this.activeRoomId,
@@ -182,6 +189,7 @@ class EngineState {
     this.duckingActive = false,
     this.themeStarted = false,
     this.playingTrackIds = const [],
+    this.masterMuteActive = false,
   });
 
   EngineState copyWith({
@@ -191,6 +199,7 @@ class EngineState {
     bool? duckingActive,
     bool? themeStarted,
     List<String>? playingTrackIds,
+    bool? masterMuteActive,
   }) {
     return EngineState(
       activeRoomId: forceNullActiveRoom
@@ -200,6 +209,7 @@ class EngineState {
       duckingActive: duckingActive ?? this.duckingActive,
       themeStarted: themeStarted ?? this.themeStarted,
       playingTrackIds: playingTrackIds ?? this.playingTrackIds,
+      masterMuteActive: masterMuteActive ?? this.masterMuteActive,
     );
   }
 }
@@ -252,8 +262,12 @@ class EngineStateNotifier extends Notifier<EngineState> {
     }
   }
 
+  void toggleMasterMute() {
+    state = state.copyWith(masterMuteActive: !state.masterMuteActive);
+  }
+
   void reset() {
-    state = state.copyWith(themeStarted: false, clearedRoomIds: {});
+    state = state.copyWith(themeStarted: false, clearedRoomIds: {}, masterMuteActive: false);
   }
 }
 
