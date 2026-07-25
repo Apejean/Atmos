@@ -1,6 +1,7 @@
 use rosc::OscPacket;
 use tokio::net::UdpSocket;
 
+#[flutter_rust_bridge::frb(ignore)]
 pub fn validate_osc_packet(sender_addr: &std::net::SocketAddr, whitelist: &[std::net::IpAddr], raw_bytes: &[u8]) -> bool {
     // 1. IP 화이트리스트 검사 (비어있으면 전체 허용으로 간주하거나, 기본적으로 허용 목록 확인)
     if !whitelist.is_empty() && !whitelist.contains(&sender_addr.ip()) {
@@ -14,6 +15,7 @@ pub fn validate_osc_packet(sender_addr: &std::net::SocketAddr, whitelist: &[std:
     true
 }
 
+#[flutter_rust_bridge::frb(ignore)]
 pub fn create_high_capacity_osc_socket(port: u16) -> std::io::Result<std::net::UdpSocket> {
     use socket2::{Socket, Domain, Type, Protocol};
     let socket = Socket::new(Domain::IPV4, Type::DGRAM, Some(Protocol::UDP))?;
@@ -25,6 +27,7 @@ pub fn create_high_capacity_osc_socket(port: u16) -> std::io::Result<std::net::U
     Ok(socket.into())
 }
 
+#[flutter_rust_bridge::frb(ignore)]
 pub async fn start_osc_server() {
     let port = 8000;
     let std_socket = match create_high_capacity_osc_socket(port) {
