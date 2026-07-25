@@ -20,6 +20,12 @@ pub mod dsp_utils {
         pub update_counter: usize,
     }
     
+    impl Default for EqFilterState {
+        fn default() -> Self {
+            Self::new()
+        }
+    }
+
     impl EqFilterState {
         pub fn new() -> Self {
             Self {
@@ -105,6 +111,12 @@ pub mod dsp_utils {
         pub eq_filters: Vec<EqFilterState>,
     }
     
+    impl Default for ChannelDspState {
+        fn default() -> Self {
+            Self::new()
+        }
+    }
+
     impl ChannelDspState {
         pub fn new() -> Self {
             let mut eq_filters = Vec::with_capacity(MAX_EQ_BANDS);

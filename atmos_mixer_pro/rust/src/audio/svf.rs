@@ -15,6 +15,12 @@ pub struct SvfFilter {
     m2: f32,
 }
 
+impl Default for SvfFilter {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SvfFilter {
     pub fn new() -> Self {
         Self {
