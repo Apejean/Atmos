@@ -46,6 +46,9 @@ Future<void> apiSetActiveRoom({String? roomId}) =>
 Future<void> apiClearRoom({required String roomId}) =>
     RustLib.instance.api.crateApiSimpleApiClearRoom(roomId: roomId);
 
+Future<void> apiSetMasterMute({required bool muted}) =>
+    RustLib.instance.api.crateApiSimpleApiSetMasterMute(muted: muted);
+
 Future<void> apiSetMasterVolume({
   required String roomId,
   required double volume,
