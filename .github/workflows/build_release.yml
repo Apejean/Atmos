@@ -58,9 +58,10 @@ jobs:
         if: matrix.os == 'windows-latest'
         shell: pwsh
         run: |
-          Invoke-WebRequest -Uri "https://www.steinberg.net/asiosdk" -OutFile "asio.zip"
-          Expand-Archive -Path "asio.zip" -DestinationPath "."
-          echo "CPAL_ASIO_DIR=$((Get-Item ASIOSDK).FullName)" >> $env:GITHUB_ENV
+          Invoke-WebRequest -Uri "https://download.steinberg.net/sdk_downloads/ASIO-SDK_2.3.4_2025-10-15.zip" -OutFile "asio.zip"
+          Expand-Archive -Path "asio.zip" -DestinationPath "ASIOSDK_EXTRACTED"
+          $asioDir = Get-ChildItem -Path "ASIOSDK_EXTRACTED" -Directory | Select-Object -First 1
+          echo "CPAL_ASIO_DIR=$($asioDir.FullName)" >> $env:GITHUB_ENV
 
       - name: Install dependencies
         run: flutter pub get
