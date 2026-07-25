@@ -6,12 +6,14 @@ import 'package:atmos_mixer_pro/core/theme/colors.dart';
 
 class SpeakerNodeWidget extends StatefulWidget {
   final SpeakerNode node;
+  final bool isDuplicateChannel;
   final ValueChanged<int> onChannelChanged;
   final VoidCallback onDelete;
 
   const SpeakerNodeWidget({
     super.key,
     required this.node,
+    this.isDuplicateChannel = false,
     required this.onChannelChanged,
     required this.onDelete,
   });
@@ -54,78 +56,121 @@ class _SpeakerNodeWidgetState extends State<SpeakerNodeWidget> {
     final glowOpacity = (_currentLevel * 0.8).clamp(0.0, 1.0);
     final glowRadius = _currentLevel * 30.0;
 
-    return Container(
-      width: 100,
-      height: 120,
-      decoration: BoxDecoration(
-        color: Colors.black54,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.primaryNeon.withOpacity(0.5)),
-        boxShadow: [
-          if (glowOpacity > 0)
-            BoxShadow(
-              color: AppColors.primaryNeon.withOpacity(glowOpacity),
-              blurRadius: glowRadius,
-              spreadRadius: glowRadius / 2,
+    final borderColor = widget.isDuplicateChannel
+        ? Colors.orangeAccent
+        : AppColors.primaryNeon.withOpacity(0.5);
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Coordinate Badge
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+          decoration: BoxDecoration(
+            color: Colors.black87,
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: Colors.white24, width: 0.5),
+          ),
+          child: Text(
+            'X: ${widget.node.x.round()}, Y: ${widget.node.y.round()}',
+            style: TextStyle(
+              fontSize: 10,
+              color: widget.isDuplicateChannel ? Colors.orangeAccent : Colors.white70,
+              fontWeight: FontWeight.bold,
             ),
-        ],
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Container(
+          width: 100,
+          height: 120,
+          decoration: BoxDecoration(
+            color: Colors.black54,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: borderColor,
+              width: widget.isDuplicateChannel ? 2.5 : 1.0,
+            ),
+            boxShadow: [
+              if (glowOpacity > 0)
+                BoxShadow(
+                  color: AppColors.primaryNeon.withOpacity(glowOpacity),
+                  blurRadius: glowRadius,
+                  spreadRadius: glowRadius / 2,
+                ),
+              if (widget.isDuplicateChannel)
+                const BoxShadow(
+                  color: Colors.orangeAccent,
+                  blurRadius: 8,
+                  spreadRadius: 1,
+                ),
+            ],
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const SizedBox(width: 24), // Balance the close button
-              Icon(
-                Icons.speaker,
-                size: 40,
-                color: _currentLevel > 0.1 ? AppColors.primaryNeon : Colors.white70,
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  if (widget.isDuplicateChannel)
+                    const Padding(
+                      padding: EdgeInsets.only(left: 4.0),
+                      child: Tooltip(
+                        message: '중복된 채널이 지정되었습니다!',
+                        child: Icon(Icons.warning_amber_rounded, size: 16, color: Colors.orangeAccent),
+                      ),
+                    )
+                  else
+                    const SizedBox(width: 20),
+                  Icon(
+                    Icons.speaker,
+                    size: 38,
+                    color: _currentLevel > 0.1 ? AppColors.primaryNeon : Colors.white70,
+                  ),
+                  InkWell(
+                    onTap: widget.onDelete,
+                    child: const Padding(
+                      padding: EdgeInsets.only(bottom: 12.0, right: 4.0),
+                      child: Icon(Icons.close, size: 16, color: Colors.redAccent),
+                    ),
+                  ),
+                ],
               ),
-              InkWell(
-                onTap: widget.onDelete,
-                child: const Padding(
-                  padding: EdgeInsets.only(bottom: 16.0, right: 4.0),
-                  child: Icon(Icons.close, size: 16, color: Colors.redAccent),
+              const SizedBox(height: 4),
+              Container(
+                height: 30,
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                decoration: BoxDecoration(
+                  color: Colors.black87,
+                  borderRadius: BorderRadius.circular(6),
+                  border: widget.isDuplicateChannel
+                      ? Border.all(color: Colors.orangeAccent, width: 1.0)
+                      : null,
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<int>(
+                    value: widget.node.channel,
+                    dropdownColor: AppColors.background,
+                    icon: const Icon(Icons.arrow_drop_down, size: 16, color: Colors.white54),
+                    style: const TextStyle(fontSize: 12, color: Colors.white),
+                    items: List.generate(24, (index) {
+                      return DropdownMenuItem<int>(
+                        value: index,
+                        child: Text('Ch ${index + 1}'),
+                      );
+                    }),
+                    onChanged: (val) {
+                      if (val != null) {
+                        widget.onChannelChanged(val);
+                      }
+                    },
+                  ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          Container(
-            height: 30,
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            decoration: BoxDecoration(
-              color: Colors.black87,
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: DropdownButtonHideUnderline(
-              child: DropdownButton<int>(
-                value: widget.node.channel,
-                dropdownColor: AppColors.background,
-                icon: const Icon(Icons.arrow_drop_down, size: 16, color: Colors.white54),
-                style: const TextStyle(fontSize: 12, color: Colors.white),
-                items: List.generate(24, (index) {
-                  return DropdownMenuItem<int>(
-                    value: index,
-                    child: Text('Ch ${index + 1}'),
-                  );
-                }),
-                onChanged: (val) {
-                  if (val != null) {
-                    widget.onChannelChanged(val);
-                    // try {
-                    //   rust_api.apiPlayTestNoise(channel: val);
-                    // } catch (e) {
-                    //   print('apiPlayTestNoise not available yet: \$e');
-                    // }
-                  }
-                },
-              ),
-            ),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

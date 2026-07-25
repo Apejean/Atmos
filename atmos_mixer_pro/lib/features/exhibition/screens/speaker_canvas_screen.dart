@@ -118,15 +118,22 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
               
               // Speaker Nodes
               ...nodes.map((node) {
+                // Check if this speaker's channel is duplicated among other nodes
+                final isDuplicate = nodes.where((n) => n.id != node.id && n.channel == node.channel).isNotEmpty;
+
                 return Positioned(
                   left: node.x,
                   top: node.y,
                   child: GestureDetector(
                     onPanUpdate: (details) {
-                      // Update position without snapping while dragging
+                      // Get current zoom scale from InteractiveViewer transformation matrix
+                      final scale = _transformationController.value.getMaxScaleOnAxis();
+                      final currentScale = scale > 0 ? scale : 1.0;
+
+                      // Normalize drag delta by current scale so movement tracks pointer accurately
                       final updated = node.copyWith(
-                        x: node.x + details.delta.dx,
-                        y: node.y + details.delta.dy,
+                        x: node.x + (details.delta.dx / currentScale),
+                        y: node.y + (details.delta.dy / currentScale),
                       );
                       ref.read(speakerLayoutProvider.notifier).updateSpeaker(updated);
                     },
@@ -139,6 +146,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                     },
                     child: SpeakerNodeWidget(
                       node: node,
+                      isDuplicateChannel: isDuplicate,
                       onChannelChanged: (ch) {
                         ref.read(speakerLayoutProvider.notifier).updateSpeaker(node.copyWith(channel: ch));
                       },
