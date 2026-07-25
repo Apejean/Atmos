@@ -80,7 +80,7 @@ class _HoverGlowButtonState extends State<HoverGlowButton> {
   Widget build(BuildContext context) {
     final isDisabled = widget.onPressed == null;
     final bgColor = isDisabled
-        ? AppColors.darkGrey.withValues(alpha: 0.5)
+        ? AppColors.darkGrey.withOpacity(0.5)
         : widget.baseColor;
 
     return MouseRegion(
@@ -95,19 +95,19 @@ class _HoverGlowButtonState extends State<HoverGlowButton> {
           padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
           decoration: BoxDecoration(
             color: _isHovered && !isDisabled
-                ? bgColor.withValues(alpha: 0.85)
+                ? bgColor.withOpacity(0.85)
                 : bgColor,
             borderRadius: BorderRadius.circular(4),
             border: Border.all(
               color: _isHovered && !isDisabled
-                  ? widget.glowColor.withValues(alpha: 0.6)
-                  : Colors.white.withValues(alpha: 0.05),
+                  ? widget.glowColor.withOpacity(0.6)
+                  : Colors.white.withOpacity(0.05),
               width: 1,
             ),
             boxShadow: _isHovered && !isDisabled
                 ? [
                     BoxShadow(
-                      color: widget.glowColor.withValues(alpha: 0.25),
+                      color: widget.glowColor.withOpacity(0.25),
                       blurRadius: 8,
                       spreadRadius: 1,
                     )
@@ -321,12 +321,12 @@ class _RoomCardState extends ConsumerState<RoomCard> {
           border: Border.all(
             color: _isDragging 
                 ? AppColors.primaryNeon 
-                : (isActive ? accentColor.withValues(alpha: 0.6) : Colors.white.withValues(alpha: 0.05)),
+                : (isActive ? accentColor.withOpacity(0.6) : Colors.white.withOpacity(0.05)),
             width: 1.0,
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.3),
+              color: Colors.black.withOpacity(0.3),
               blurRadius: 12,
               offset: const Offset(0, 4),
             ),
@@ -347,7 +347,7 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                       vertical: 8,
                     ),
                     decoration: BoxDecoration(
-                      color: accentColor.withValues(alpha: 0.08),
+                      color: accentColor.withOpacity(0.08),
                       borderRadius: const BorderRadius.vertical(
                         top: Radius.circular(3),
                       ),
@@ -378,7 +378,7 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                               Icon(
                                 Icons.edit,
                                 size: 14,
-                                color: accentColor.withValues(alpha: 0.5),
+                                color: accentColor.withOpacity(0.5),
                               ),
                             ],
                           ),
@@ -1022,10 +1022,10 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                 borderRadius: BorderRadius.circular(4),
                 child: Container(
                   decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.85),
+                    color: Colors.black.withOpacity(0.85),
                     borderRadius: BorderRadius.circular(4),
                     border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.08),
+                      color: Colors.white.withOpacity(0.08),
                       width: 1.0,
                     ),
                   ),
@@ -1037,9 +1037,9 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                         vertical: 8,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.85),
+                        color: Colors.black.withOpacity(0.85),
                         borderRadius: BorderRadius.circular(4),
-                        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                        border: Border.all(color: Colors.white.withOpacity(0.1)),
                       ),
                       child: Text(
                         isCleared ? '✅ 룸 클리어됨' : '🔒 잠금 — 이전 룸을 클리어하세요',

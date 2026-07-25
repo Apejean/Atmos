@@ -125,7 +125,8 @@ class TuningStateNotifier extends Notifier<Map<int, ChannelTuningState>> {
 
   void applyAllToBackend() {
     for (final entry in state.entries) {
-      final channel = entry.key;
+      final channelKey = entry.key;
+      final targetChannel = channelKey - 1;
       final tuning = entry.value;
       final bands = <EqBand>[];
       for (int i = 0; i < 8; i++) {
@@ -137,7 +138,7 @@ class TuningStateNotifier extends Notifier<Map<int, ChannelTuningState>> {
           qFactor: tuning.qs[i],
         ));
       }
-      apiApplyChannelTuning(channel: channel, delayMs: tuning.delay, eqBands: bands);
+      apiApplyChannelTuning(channel: targetChannel, delayMs: tuning.delay, eqBands: bands);
     }
   }
 
@@ -427,7 +428,7 @@ class _TuningModalState extends ConsumerState<TuningModal> {
         height: 44,
         margin: const EdgeInsets.only(right: 8),
         decoration: BoxDecoration(
-          color: isActive ? AppColors.primaryNeon.withValues(alpha: 0.15) : AppColors.background,
+          color: isActive ? AppColors.primaryNeon.withOpacity(0.15) : AppColors.background,
           border: Border.all(
             color: isActive ? AppColors.primaryNeon : Colors.white24,
             width: 1,
@@ -727,7 +728,7 @@ class _TuningModalState extends ConsumerState<TuningModal> {
       backgroundColor: AppColors.cardSurfaceSolid,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(4),
-        side: BorderSide(color: Colors.white.withValues(alpha: 0.08), width: 1),
+        side: BorderSide(color: Colors.white.withOpacity(0.08), width: 1),
       ),
       child: Container(
         width: 650,
@@ -913,10 +914,10 @@ class _EqGridPainter extends CustomPainter {
     }
 
     final gridPaint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.05)
+      ..color = Colors.white.withOpacity(0.05)
       ..strokeWidth = 1;
     final zeroLinePaint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.2)
+      ..color = Colors.white.withOpacity(0.2)
       ..strokeWidth = 1;
 
     // Horizontal lines (Gain)
@@ -1057,8 +1058,8 @@ class _EqCurvePainter extends CustomPainter {
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
-            AppColors.primaryNeon.withValues(alpha: 0.35),
-            AppColors.primaryNeon.withValues(alpha: 0.0),
+            AppColors.primaryNeon.withOpacity(0.35),
+            AppColors.primaryNeon.withOpacity(0.0),
           ],
           stops: const [0.0, 1.0],
         ).createShader(Rect.fromLTRB(0, 0, size.width, size.height));
@@ -1160,7 +1161,7 @@ class _EqCurvePainter extends CustomPainter {
     canvas.drawRRect(
       rect.shift(const Offset(0, 2)), 
       Paint()
-        ..color = Colors.black.withValues(alpha: 0.5)
+        ..color = Colors.black.withOpacity(0.5)
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4)
     );
 
@@ -1172,7 +1173,7 @@ class _EqCurvePainter extends CustomPainter {
     canvas.drawRRect(
       rect,
       Paint()
-        ..color = Colors.white.withValues(alpha: 0.1)
+        ..color = Colors.white.withOpacity(0.1)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1
     );

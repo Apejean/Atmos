@@ -1069,13 +1069,14 @@ pub fn api_apply_channel_tuning(channel: u32, delay_ms: f32, eq_bands: Vec<EqBan
     // 인메모리 Config 상태 업데이트 (믹서 재시작 시 복구용)
     if let Ok(mut config_guard) = GLOBAL_STATE.config.write() {
         if let Some(config) = config_guard.as_mut() {
-            if let Some(setting) = config.mono_configs.get_mut(&channel) {
+            let ch_key = channel + 1;
+            if let Some(setting) = config.mono_configs.get_mut(&ch_key) {
                 setting.delay_ms = delay_ms;
                 setting.eq_bands = eq_bands.clone();
-            } else if let Some(setting) = config.stereo_configs.get_mut(&channel) {
+            } else if let Some(setting) = config.stereo_configs.get_mut(&ch_key) {
                 setting.delay_ms = delay_ms;
                 setting.eq_bands = eq_bands.clone();
-            } else if let Some(setting) = config.multi_configs.get_mut(&channel) {
+            } else if let Some(setting) = config.multi_configs.get_mut(&ch_key) {
                 setting.delay_ms = delay_ms;
                 setting.eq_bands = eq_bands.clone();
             }

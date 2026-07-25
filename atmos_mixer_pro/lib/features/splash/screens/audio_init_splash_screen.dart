@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:atmos_mixer_pro/features/dashboard/screens/dashboard_screen.dart';
 import 'package:atmos_mixer_pro/core/state/global_state.dart';
-import 'package:atmos_mixer_pro/src/rust/api/simple.dart' as rust_api;
 import 'package:atmos_mixer_pro/features/settings/widgets/tuning_modal.dart';
 
 class AudioInitSplashScreen extends ConsumerStatefulWidget {
@@ -28,16 +27,16 @@ class _AudioInitSplashScreenState extends ConsumerState<AudioInitSplashScreen> {
       // 1. Ensure config is loaded first. We wait for config to be ready.
       await ref.read(configProvider.notifier).loadConfigAsync();
       
-      // Load EQ and delay settings from shared preferences
+      // 2. Load EQ and delay settings from shared preferences
       await ref.read(tuningStateProvider.notifier).ensureLoaded();
 
       setState(() {
-        _statusMessage = 'Starting Audio System...';
+        _statusMessage = 'Applying Audio Settings...';
       });
 
-      // 2. Await the new backend initialization (this requires Back agent's new API).
-      // apiInitAudioSystem returns a Result, so we can try-catch it.
-      await rust_api.apiInitAudioSystem(deviceName: ref.read(configProvider)?.deviceName);
+      // 3. Wait for the audio engine to fully initialize before sending FFI commands
+      // loadConfigAsync() already started the audio engine, we just need a safe delay
+      await Future.delayed(const Duration(milliseconds: 500));
       
       // Apply tuning settings after engine starts
       ref.read(tuningStateProvider.notifier).applyAllToBackend();

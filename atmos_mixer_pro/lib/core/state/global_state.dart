@@ -134,6 +134,7 @@ class ConfigNotifier extends Notifier<AppConfig?> {
 
         if (engineNeedsRestart) {
           await rust_api.apiInitAudioSystem(deviceName: configToSave.deviceName);
+          await Future.delayed(const Duration(milliseconds: 500));
           ref.read(tuningStateProvider.notifier).applyAllToBackend();
         }
 
