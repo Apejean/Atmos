@@ -138,11 +138,11 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                       ref.read(speakerLayoutProvider.notifier).updateSpeaker(updated);
                     },
                     onPanEnd: (details) {
-                      // Snap to grid on release
+                      // Snap to grid on release and save immediately
                       final snappedX = (node.x / _gridSize).round() * _gridSize;
                       final snappedY = (node.y / _gridSize).round() * _gridSize;
                       final updated = node.copyWith(x: snappedX, y: snappedY);
-                      ref.read(speakerLayoutProvider.notifier).updateSpeaker(updated);
+                      ref.read(speakerLayoutProvider.notifier).updateSpeaker(updated, immediate: true);
                     },
                     child: SpeakerNodeWidget(
                       node: node,
