@@ -84,10 +84,11 @@ pub fn apply_windows_admin_optimizations() {
             // 최소 500MB, 최대 2GB Working Set
             let min_size = 500 * 1024 * 1024;
             let max_size = 2000 * 1024 * 1024;
-            let _ = windows::Win32::System::Memory::SetProcessWorkingSetSize(
+            let _ = windows::Win32::System::Memory::SetProcessWorkingSetSizeEx(
                 process,
                 min_size,
                 max_size,
+                windows::Win32::System::Memory::SETPROCESSWORKINGSETSIZEEX_FLAGS(0),
             );
         } else {
             // 일반 계정인 경우: 튕김(크래시) 없이 표준 프로세스로 Graceful Fallback
