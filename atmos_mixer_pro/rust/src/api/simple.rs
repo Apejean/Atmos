@@ -401,6 +401,18 @@ pub fn api_clear_room(room_id: String) -> Result<(), AtmosError> {
     Ok(())
 }
 
+pub fn api_set_master_mute(muted: bool) -> Result<(), AtmosError> {
+    GLOBAL_STATE
+        .command_sender
+        .try_send(AudioCommand::SetMasterMute {
+            muted,
+        })
+        .map_err(|e| AtmosError {
+            message: e.to_string(),
+        })?;
+    Ok(())
+}
+
 pub fn api_set_master_volume(room_id: String, volume: f32) -> Result<(), AtmosError> {
     GLOBAL_STATE
         .command_sender

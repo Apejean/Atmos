@@ -22,6 +22,9 @@ pub enum AudioCommand {
         track_id: u32,
     },
     StopAll,
+    SetMasterMute {
+        muted: bool,
+    },
     PlayTestNoise {
         channel: u32,
     },

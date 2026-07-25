@@ -6,7 +6,7 @@ import 'package:atmos_mixer_pro/core/theme/colors.dart';
 import 'package:atmos_mixer_pro/core/state/global_state.dart';
 import 'package:atmos_mixer_pro/features/dashboard/widgets/room_card.dart';
 import 'package:atmos_mixer_pro/features/settings/widgets/preferences_modal.dart';
-import 'package:atmos_mixer_pro/features/settings/widgets/tuning_modal.dart' as atmos_tuning_modal;
+import 'package:atmos_mixer_pro/features/settings/widgets/tuning_modal.dart';
 import 'package:atmos_mixer_pro/features/exhibition/screens/speaker_canvas_screen.dart' as atmos_exhibition;
 import 'package:atmos_mixer_pro/src/rust/api/simple.dart' as rust_api;
 import 'package:atmos_mixer_pro/src/rust/common/config.dart';
@@ -820,7 +820,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   if (context.mounted) {
                     showDialog(
                       context: context,
-                      builder: (context) => const atmos_tuning_modal.TuningModal(),
+                      builder: (context) => const TuningModal(),
                     );
                   }
                 },

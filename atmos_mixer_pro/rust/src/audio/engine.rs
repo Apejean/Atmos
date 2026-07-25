@@ -392,6 +392,9 @@ impl AudioEngine {
                         inst.is_stopping = true;
                     }
                 }
+                AudioCommand::SetMasterMute { muted } => {
+                    mixer.master_mute = muted;
+                }
                 AudioCommand::ClearRoom { room_id } => {
                     for inst in mixer.instances.iter_mut().flatten() {
                         if inst.room_id == room_id {

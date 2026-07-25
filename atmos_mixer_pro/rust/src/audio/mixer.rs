@@ -37,6 +37,7 @@ pub struct AudioMixer {
     pub room_volumes: Vec<Option<(u32, f32)>>,
     pub local_recycle: Vec<Vec<f32>>,
     pub startup_ramp: StartupMuteRamp,
+    pub master_mute: bool,
     pub channel_dsp: Vec<ChannelDspState>,
 }
 
@@ -110,6 +111,7 @@ impl AudioMixer {
             room_volumes: vec![None; 128],
             local_recycle: Vec::with_capacity(8192),
             startup_ramp: StartupMuteRamp::new(sample_rate as f32),
+            master_mute: false,
             channel_dsp,
         }
     }
@@ -450,6 +452,9 @@ impl AudioMixer {
                     }
                     
                     val = self.startup_ramp.apply(val);
+                    if self.master_mute {
+                        val = 0.0;
+                    }
                     output[sample_idx] = val;
 
                     let abs_val = val.abs();
