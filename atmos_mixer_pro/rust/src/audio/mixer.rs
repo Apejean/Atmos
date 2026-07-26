@@ -155,27 +155,39 @@ impl AudioMixer {
                             let dist = crate::audio::acoustic::distance_3d(pos, &center);
                             let acoustic_delay = crate::audio::acoustic::calculate_acoustic_delay_ms(dist);
 
-                            let current_target = channel_dsp[ch_idx].target_delay_ms;
-                            // Add acoustic_delay + boundary_delay_ms from zone
-                            channel_dsp[ch_idx].update_delay_target(current_target + acoustic_delay + zone.boundary_delay_ms);
+                            // Acoustic delay logic
+                            // base_delay should be 0.0 or from the config, not accumulated every loop iteration.
+                            let base_delay = 0.0;
+                            channel_dsp[ch_idx].update_delay_target(base_delay + acoustic_delay + zone.boundary_delay_ms);
 
                             // Boundary EQ
                             if !zone.boundary_eq_bands.is_empty() {
                                 let mut new_targets = channel_dsp[ch_idx].target_bands.clone();
                                 for b_eq in &zone.boundary_eq_bands {
-                                    if new_targets.is_empty() {
-                                        new_targets.push(b_eq.clone());
-                                    } else {
-                                        let mut applied = false;
-                                        for band in &mut new_targets {
-                                            if !band.enabled {
-                                                *band = b_eq.clone();
-                                                applied = true;
-                                                break;
-                                            }
+                                    // Check if this specific EQ band already exists
+                                    let mut already_exists = false;
+                                    for band in &new_targets {
+                                        if band.enabled && (band.freq - b_eq.freq).abs() < 1.0 && band.filter_type == b_eq.filter_type {
+                                            already_exists = true;
+                                            break;
                                         }
-                                        if !applied && new_targets.len() < crate::audio::dsp::dsp_utils::MAX_EQ_BANDS {
+                                    }
+                                    
+                                    if !already_exists {
+                                        if new_targets.is_empty() {
                                             new_targets.push(b_eq.clone());
+                                        } else {
+                                            let mut applied = false;
+                                            for band in &mut new_targets {
+                                                if !band.enabled {
+                                                    *band = b_eq.clone();
+                                                    applied = true;
+                                                    break;
+                                                }
+                                            }
+                                            if !applied && new_targets.len() < crate::audio::dsp::dsp_utils::MAX_EQ_BANDS {
+                                                new_targets.push(b_eq.clone());
+                                            }
                                         }
                                     }
                                 }
