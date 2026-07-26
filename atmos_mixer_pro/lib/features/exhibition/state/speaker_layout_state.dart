@@ -58,7 +58,7 @@ class SpeakerLayoutState extends Notifier<List<SpeakerNode>> {
   void updateSpeaker(SpeakerNode node, {bool immediate = false}) {
     state = [
       for (final n in state)
-        if (n.id == node.id) node else n
+        if (n.id == node.id) node else n,
     ];
     if (immediate) {
       _saveToPrefsImmediate();
@@ -79,4 +79,5 @@ class SpeakerLayoutState extends Notifier<List<SpeakerNode>> {
 
 final speakerLayoutProvider =
     NotifierProvider<SpeakerLayoutState, List<SpeakerNode>>(
-        SpeakerLayoutState.new);
+      SpeakerLayoutState.new,
+    );

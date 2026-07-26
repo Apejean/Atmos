@@ -27,7 +27,7 @@ class _AudioInitSplashScreenState extends ConsumerState<AudioInitSplashScreen> {
     try {
       // 1. Ensure config is loaded first. We wait for config to be ready.
       await ref.read(configProvider.notifier).loadConfigAsync();
-      
+
       // 2. Load EQ and delay settings from shared preferences
       await ref.read(tuningStateProvider.notifier).ensureLoaded();
 
@@ -41,17 +41,18 @@ class _AudioInitSplashScreenState extends ConsumerState<AudioInitSplashScreen> {
       // loadConfigAsync() already started the audio engine, we just need a safe delay
       if (!(await rust_api.apiIsEngineReady())) {
         try {
-          await rust_api.apiCreateDeviceEventStream()
+          await rust_api
+              .apiCreateDeviceEventStream()
               .firstWhere((e) => e == 'EngineReady')
               .timeout(const Duration(milliseconds: 2000));
         } catch (_) {
           // fallback
         }
       }
-      
+
       // Apply tuning settings after engine starts
       ref.read(tuningStateProvider.notifier).applyAllToBackend();
-      
+
       _navigateToDashboard();
     } catch (e) {
       if (mounted) {
@@ -74,14 +75,16 @@ class _AudioInitSplashScreenState extends ConsumerState<AudioInitSplashScreen> {
 
   void _navigateToPreferences() {
     if (!mounted) return;
-    // We navigate to Dashboard but immediately open Settings Modal? 
-    // Or we have a dedicated Preferences route. 
+    // We navigate to Dashboard but immediately open Settings Modal?
+    // Or we have a dedicated Preferences route.
     // Usually Settings is a Modal over Dashboard. Let's just go to Dashboard and open Settings.
     Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) {
-        // We can pass a flag to Dashboard to open settings immediately.
-        return const DashboardScreen(); // We'll need to adapt DashboardScreen to accept openSettingsOnInit
-      }),
+      MaterialPageRoute(
+        builder: (_) {
+          // We can pass a flag to Dashboard to open settings immediately.
+          return const DashboardScreen(); // We'll need to adapt DashboardScreen to accept openSettingsOnInit
+        },
+      ),
     );
   }
 
@@ -93,11 +96,7 @@ class _AudioInitSplashScreenState extends ConsumerState<AudioInitSplashScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(
-              Icons.graphic_eq,
-              size: 64,
-              color: Colors.blueAccent,
-            ),
+            const Icon(Icons.graphic_eq, size: 64, color: Colors.blueAccent),
             const SizedBox(height: 24),
             const Text(
               'Atmos Mixer Pro',

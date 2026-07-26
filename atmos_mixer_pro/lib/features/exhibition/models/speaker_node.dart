@@ -1,4 +1,3 @@
-
 class SpeakerNode {
   final String id;
   final double x;
@@ -12,12 +11,7 @@ class SpeakerNode {
     required this.channel,
   });
 
-  SpeakerNode copyWith({
-    String? id,
-    double? x,
-    double? y,
-    int? channel,
-  }) {
+  SpeakerNode copyWith({String? id, double? x, double? y, int? channel}) {
     return SpeakerNode(
       id: id ?? this.id,
       x: x ?? this.x,
@@ -27,12 +21,7 @@ class SpeakerNode {
   }
 
   Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'x': x,
-      'y': y,
-      'channel': channel,
-    };
+    return {'id': id, 'x': x, 'y': y, 'channel': channel};
   }
 
   factory SpeakerNode.fromJson(Map<String, dynamic> map) {

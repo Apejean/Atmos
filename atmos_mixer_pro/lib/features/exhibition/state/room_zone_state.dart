@@ -52,7 +52,7 @@ class RoomZoneState extends Notifier<List<RoomZone>> {
   void updateRoomZone(RoomZone room, {bool immediate = false}) {
     state = [
       for (final r in state)
-        if (r.id == room.id) room else r
+        if (r.id == room.id) room else r,
     ];
     if (immediate) {
       _saveToPrefsImmediate();
@@ -67,5 +67,6 @@ class RoomZoneState extends Notifier<List<RoomZone>> {
   }
 }
 
-final roomZoneProvider =
-    NotifierProvider<RoomZoneState, List<RoomZone>>(RoomZoneState.new);
+final roomZoneProvider = NotifierProvider<RoomZoneState, List<RoomZone>>(
+  RoomZoneState.new,
+);

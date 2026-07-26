@@ -52,7 +52,7 @@ class TrajectoryState extends Notifier<List<Trajectory>> {
   void updateTrajectory(Trajectory trajectory, {bool immediate = false}) {
     state = [
       for (final t in state)
-        if (t.id == trajectory.id) trajectory else t
+        if (t.id == trajectory.id) trajectory else t,
     ];
     if (immediate) {
       _saveToPrefsImmediate();
@@ -67,5 +67,6 @@ class TrajectoryState extends Notifier<List<Trajectory>> {
   }
 }
 
-final trajectoryProvider =
-    NotifierProvider<TrajectoryState, List<Trajectory>>(TrajectoryState.new);
+final trajectoryProvider = NotifierProvider<TrajectoryState, List<Trajectory>>(
+  TrajectoryState.new,
+);

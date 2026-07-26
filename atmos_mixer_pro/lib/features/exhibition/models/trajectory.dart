@@ -5,10 +5,7 @@ class TrajectoryWaypoint {
   const TrajectoryWaypoint(this.x, this.y);
 
   Map<String, dynamic> toJson() {
-    return {
-      'x': x,
-      'y': y,
-    };
+    return {'x': x, 'y': y};
   }
 
   factory TrajectoryWaypoint.fromJson(Map<String, dynamic> json) {
@@ -23,15 +20,9 @@ class Trajectory {
   final String id;
   final List<TrajectoryWaypoint> waypoints;
 
-  const Trajectory({
-    required this.id,
-    required this.waypoints,
-  });
+  const Trajectory({required this.id, required this.waypoints});
 
-  Trajectory copyWith({
-    String? id,
-    List<TrajectoryWaypoint>? waypoints,
-  }) {
+  Trajectory copyWith({String? id, List<TrajectoryWaypoint>? waypoints}) {
     return Trajectory(
       id: id ?? this.id,
       waypoints: waypoints ?? this.waypoints,
@@ -39,10 +30,7 @@ class Trajectory {
   }
 
   Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'waypoints': waypoints.map((w) => w.toJson()).toList(),
-    };
+    return {'id': id, 'waypoints': waypoints.map((w) => w.toJson()).toList()};
   }
 
   factory Trajectory.fromJson(Map<String, dynamic> json) {

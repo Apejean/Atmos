@@ -29,12 +29,15 @@ class SpeakerNodeWidget extends StatefulWidget {
 class _SpeakerNodeWidgetState extends State<SpeakerNodeWidget> {
   StreamSubscription<List<double>>? _vuSubscription;
   double _currentLevel = 0.0;
+  bool _isHovered = false;
 
   @override
   void initState() {
     super.initState();
     _vuSubscription = rust_api.apiCreateVuStream().listen((levels) {
-      if (mounted && widget.node.channel >= 0 && widget.node.channel < levels.length) {
+      if (mounted &&
+          widget.node.channel >= 0 &&
+          widget.node.channel < levels.length) {
         final newLevel = levels[widget.node.channel];
         setState(() {
           if (newLevel > _currentLevel) {
@@ -80,38 +83,49 @@ class _SpeakerNodeWidgetState extends State<SpeakerNodeWidget> {
             'X: ${widget.node.x.round()}, Y: ${widget.node.y.round()}',
             style: TextStyle(
               fontSize: 10,
-              color: widget.isDuplicateChannel ? Colors.orangeAccent : Colors.white70,
+              color: widget.isDuplicateChannel
+                  ? Colors.orangeAccent
+                  : Colors.white70,
               fontWeight: FontWeight.bold,
             ),
           ),
         ),
         const SizedBox(height: 4),
-        Container(
-          width: 100,
-          height: 120,
-          decoration: BoxDecoration(
-            color: Colors.black54,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: borderColor,
-              width: widget.isDuplicateChannel ? 2.5 : 1.0,
-            ),
-            boxShadow: [
-              if (glowOpacity > 0)
-                BoxShadow(
-                  color: baseColor.withOpacity(glowOpacity),
-                  blurRadius: glowRadius,
-                  spreadRadius: glowRadius / 2,
+        MouseRegion(
+          onEnter: (_) => setState(() => _isHovered = true),
+          onExit: (_) => setState(() => _isHovered = false),
+          child: AnimatedScale(
+            scale: _isHovered ? 1.05 : 1.0,
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeOutCubic,
+            child: Container(
+              width: 100,
+              height: 120,
+              decoration: BoxDecoration(
+                color: Colors.black54,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: _isHovered ? baseColor : borderColor,
+                  width: widget.isDuplicateChannel ? 2.5 : (_isHovered ? 2.0 : 1.0),
                 ),
-              if (widget.isDuplicateChannel)
-                const BoxShadow(
-                  color: Colors.orangeAccent,
-                  blurRadius: 8,
-                  spreadRadius: 1,
-                ),
-            ],
-          ),
-          child: Column(
+                boxShadow: [
+                  if (glowOpacity > 0 || _isHovered)
+                    BoxShadow(
+                      color: baseColor.withOpacity(
+                        _isHovered ? 0.8 : glowOpacity,
+                      ),
+                      blurRadius: _isHovered ? 15.0 : glowRadius,
+                      spreadRadius: _isHovered ? 2.0 : glowRadius / 2,
+                    ),
+                  if (widget.isDuplicateChannel)
+                    const BoxShadow(
+                      color: Colors.orangeAccent,
+                      blurRadius: 8,
+                      spreadRadius: 1,
+                    ),
+                ],
+              ),
+              child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Row(
@@ -122,7 +136,11 @@ class _SpeakerNodeWidgetState extends State<SpeakerNodeWidget> {
                       padding: EdgeInsets.only(left: 4.0),
                       child: Tooltip(
                         message: '중복된 채널이 지정되었습니다!',
-                        child: Icon(Icons.warning_amber_rounded, size: 16, color: Colors.orangeAccent),
+                        child: Icon(
+                          Icons.warning_amber_rounded,
+                          size: 16,
+                          color: Colors.orangeAccent,
+                        ),
                       ),
                     )
                   else
@@ -136,7 +154,11 @@ class _SpeakerNodeWidgetState extends State<SpeakerNodeWidget> {
                     onTap: widget.onDelete,
                     child: const Padding(
                       padding: EdgeInsets.only(bottom: 12.0, right: 4.0),
-                      child: Icon(Icons.close, size: 16, color: Colors.redAccent),
+                      child: Icon(
+                        Icons.close,
+                        size: 16,
+                        color: Colors.redAccent,
+                      ),
                     ),
                   ),
                 ],
@@ -155,21 +177,35 @@ class _SpeakerNodeWidgetState extends State<SpeakerNodeWidget> {
                 child: DropdownButtonHideUnderline(
                   child: Consumer(
                     builder: (context, ref, child) {
-                      final maxChannels = ref.watch(engineStateProvider.select((s) => s.outputChannelCount));
+                      final maxChannels = ref.watch(
+                        engineStateProvider.select((s) => s.outputChannelCount),
+                      );
                       // Ensure current channel is within valid range
-                      final currentValue = widget.node.channel < maxChannels ? widget.node.channel : 0;
-                      
+                      final currentValue = widget.node.channel < maxChannels
+                          ? widget.node.channel
+                          : 0;
+
                       return DropdownButton<int>(
                         value: currentValue,
                         dropdownColor: AppColors.background,
-                        icon: const Icon(Icons.arrow_drop_down, size: 16, color: Colors.white54),
-                        style: const TextStyle(fontSize: 12, color: Colors.white),
-                        items: List.generate(maxChannels > 0 ? maxChannels : 2, (index) {
-                          return DropdownMenuItem<int>(
-                            value: index,
-                            child: Text('Ch ${index + 1}'),
-                          );
-                        }),
+                        icon: const Icon(
+                          Icons.arrow_drop_down,
+                          size: 16,
+                          color: Colors.white54,
+                        ),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.white,
+                        ),
+                        items: List.generate(
+                          maxChannels > 0 ? maxChannels : 2,
+                          (index) {
+                            return DropdownMenuItem<int>(
+                              value: index,
+                              child: Text('Ch ${index + 1}'),
+                            );
+                          },
+                        ),
                         onChanged: (val) {
                           if (val != null) {
                             widget.onChannelChanged(val);
@@ -181,6 +217,8 @@ class _SpeakerNodeWidgetState extends State<SpeakerNodeWidget> {
                 ),
               ),
             ],
+          ),
+        ),
           ),
         ),
       ],

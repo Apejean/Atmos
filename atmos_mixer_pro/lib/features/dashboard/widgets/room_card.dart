@@ -20,7 +20,7 @@ Future<bool?> _showDeleteConfirmDialog(
     context: context,
     barrierColor: Colors.black87,
     builder: (context) => AlertDialog(
-    backgroundColor: AppColors.cardSurfaceSolid,
+      backgroundColor: AppColors.cardSurfaceSolid,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
       title: Row(
         children: [
@@ -44,7 +44,9 @@ Future<bool?> _showDeleteConfirmDialog(
         ElevatedButton(
           style: ElevatedButton.styleFrom(
             backgroundColor: AppColors.danger,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(4),
+            ),
           ),
           onPressed: () => Navigator.of(context).pop(true),
           child: const Text('삭제', style: TextStyle(color: Colors.white)),
@@ -111,7 +113,7 @@ class _HoverGlowButtonState extends State<HoverGlowButton> {
                       color: widget.glowColor.withOpacity(0.25),
                       blurRadius: 8,
                       spreadRadius: 1,
-                    )
+                    ),
                   ]
                 : [],
           ),
@@ -163,10 +165,10 @@ class _RoomCardState extends ConsumerState<RoomCard> {
     final idx = newRooms.indexWhere((r) => r.id == widget.room.id);
     if (idx != -1) {
       final newTracks = List<TrackConfig>.from(newRooms[idx].tracks);
-      
+
       for (final path in paths) {
         final name = path.split(RegExp(r'[\\/]')).last;
-        
+
         bool isStreaming = false;
         try {
           final file = io.File(path);
@@ -189,7 +191,7 @@ class _RoomCardState extends ConsumerState<RoomCard> {
         );
         newTracks.add(newTrack);
       }
-      
+
       newRooms[idx] = RoomConfig(
         id: widget.room.id,
         name: widget.room.name,
@@ -198,23 +200,25 @@ class _RoomCardState extends ConsumerState<RoomCard> {
         clearOscAddress: widget.room.clearOscAddress,
         tracks: newTracks,
       );
-      
-      ref.read(configProvider.notifier).saveConfig(
-        AppConfig(
-          oscPort: currentConfig.oscPort,
-          deviceName: currentConfig.deviceName,
-          bufferSize: currentConfig.bufferSize,
-          themeStartOscAddress: currentConfig.themeStartOscAddress,
-          systemResetOscAddress: currentConfig.systemResetOscAddress,
-          monoConfigs: currentConfig.monoConfigs,
-          stereoConfigs: currentConfig.stereoConfigs,
-          multiConfigs: currentConfig.multiConfigs,
-          rooms: newRooms,
-          isExhibitionMode: currentConfig.isExhibitionMode,
-          globalTrajectory: currentConfig.globalTrajectory,
-          roomZones: currentConfig.roomZones,
-        ),
-      );
+
+      ref
+          .read(configProvider.notifier)
+          .saveConfig(
+            AppConfig(
+              oscPort: currentConfig.oscPort,
+              deviceName: currentConfig.deviceName,
+              bufferSize: currentConfig.bufferSize,
+              themeStartOscAddress: currentConfig.themeStartOscAddress,
+              systemResetOscAddress: currentConfig.systemResetOscAddress,
+              monoConfigs: currentConfig.monoConfigs,
+              stereoConfigs: currentConfig.stereoConfigs,
+              multiConfigs: currentConfig.multiConfigs,
+              rooms: newRooms,
+              isExhibitionMode: currentConfig.isExhibitionMode,
+              globalTrajectory: currentConfig.globalTrajectory,
+              roomZones: currentConfig.roomZones,
+            ),
+          );
     }
   }
 
@@ -268,8 +272,8 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                 multiConfigs: config.multiConfigs,
                 rooms: newRooms,
                 isExhibitionMode: config.isExhibitionMode,
-          globalTrajectory: config.globalTrajectory,
-          roomZones: config.roomZones,
+                globalTrajectory: config.globalTrajectory,
+                roomZones: config.roomZones,
               ),
             );
       }
@@ -308,10 +312,22 @@ class _RoomCardState extends ConsumerState<RoomCard> {
         setState(() {
           _isDragging = false;
         });
-        final allowedExtensions = ['.mp3', '.wav', '.aac', '.flac', '.m4a', '.ogg', '.aiff'];
+        final allowedExtensions = [
+          '.mp3',
+          '.wav',
+          '.aac',
+          '.flac',
+          '.m4a',
+          '.ogg',
+          '.aiff',
+        ];
         final validPaths = detail.files
             .map((f) => f.path)
-            .where((path) => allowedExtensions.any((ext) => path.toLowerCase().endsWith(ext)))
+            .where(
+              (path) => allowedExtensions.any(
+                (ext) => path.toLowerCase().endsWith(ext),
+              ),
+            )
             .toList();
         if (validPaths.isNotEmpty) {
           _addTracks(validPaths);
@@ -331,12 +347,16 @@ class _RoomCardState extends ConsumerState<RoomCard> {
         width: 350,
         margin: const EdgeInsets.only(right: 16),
         decoration: BoxDecoration(
-          color: _isDragging ? AppColors.cardSurfaceSolid : AppColors.cardSurface,
+          color: _isDragging
+              ? AppColors.cardSurfaceSolid
+              : AppColors.cardSurface,
           borderRadius: BorderRadius.circular(4),
           border: Border.all(
-            color: _isDragging 
-                ? AppColors.primaryNeon 
-                : (isActive ? accentColor.withOpacity(0.6) : Colors.white.withOpacity(0.05)),
+            color: _isDragging
+                ? AppColors.primaryNeon
+                : (isActive
+                      ? accentColor.withOpacity(0.6)
+                      : Colors.white.withOpacity(0.05)),
             width: 1.0,
           ),
           boxShadow: [
@@ -348,81 +368,382 @@ class _RoomCardState extends ConsumerState<RoomCard> {
           ],
         ),
         child: Stack(
-        children: [
-          Positioned.fill(
-            child: IgnorePointer(
-              ignoring: !canInteract,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // Header
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: accentColor.withOpacity(0.08),
-                      borderRadius: const BorderRadius.vertical(
-                        top: Radius.circular(3),
+          children: [
+            Positioned.fill(
+              child: IgnorePointer(
+                ignoring: !canInteract,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Header
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
                       ),
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: TextField(
-                                  controller: _nameController,
-                                  focusNode: _nameFocusNode,
-                                  style: TextStyle(
-                                    color: accentColor,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 16,
+                      decoration: BoxDecoration(
+                        color: accentColor.withOpacity(0.08),
+                        borderRadius: const BorderRadius.vertical(
+                          top: Radius.circular(3),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: TextField(
+                                    controller: _nameController,
+                                    focusNode: _nameFocusNode,
+                                    style: TextStyle(
+                                      color: accentColor,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16,
+                                    ),
+                                    decoration: const InputDecoration(
+                                      isDense: true,
+                                      contentPadding: EdgeInsets.zero,
+                                      border: InputBorder.none,
+                                    ),
+                                    onChanged: _onNameChanged,
+                                    onSubmitted: _saveName,
                                   ),
-                                  decoration: const InputDecoration(
-                                    isDense: true,
-                                    contentPadding: EdgeInsets.zero,
-                                    border: InputBorder.none,
-                                  ),
-                                  onChanged: _onNameChanged,
-                                  onSubmitted: _saveName,
+                                ),
+                                Icon(
+                                  Icons.edit,
+                                  size: 14,
+                                  color: accentColor.withOpacity(0.5),
+                                ),
+                              ],
+                            ),
+                          ),
+                          SizedBox(
+                            width: 100,
+                            child: SliderTheme(
+                              data: SliderThemeData(
+                                activeTrackColor: accentColor,
+                                thumbColor: accentColor,
+                                trackHeight: 2.0,
+                                thumbShape: const RoundSliderThumbShape(
+                                  enabledThumbRadius: 5.0,
                                 ),
                               ),
-                              Icon(
-                                Icons.edit,
-                                size: 14,
-                                color: accentColor.withOpacity(0.5),
-                              ),
-                            ],
-                          ),
-                        ),
-                        SizedBox(
-                          width: 100,
-                          child: SliderTheme(
-                            data: SliderThemeData(
-                              activeTrackColor: accentColor,
-                              thumbColor: accentColor,
-                              trackHeight: 2.0,
-                              thumbShape: const RoundSliderThumbShape(
-                                enabledThumbRadius: 5.0,
+                              child: Slider(
+                                value: _localVolume ?? room.volume,
+                                min: 0.0,
+                                max: 1.0,
+                                onChanged: (v) {
+                                  setState(() => _localVolume = v);
+                                  rust_api.apiSetMasterVolume(
+                                    roomId: room.id,
+                                    volume: v,
+                                  );
+                                  // We don't save config here to prevent rapid UI freezing & I/O bottleneck
+                                },
+                                onChangeEnd: (v) {
+                                  setState(() => _localVolume = null);
+                                  final currentConfig = ref.read(
+                                    configProvider,
+                                  );
+                                  if (currentConfig != null) {
+                                    final newRooms = List<RoomConfig>.from(
+                                      currentConfig.rooms,
+                                    );
+                                    final idx = newRooms.indexWhere(
+                                      (r) => r.id == room.id,
+                                    );
+                                    if (idx != -1) {
+                                      newRooms[idx] = RoomConfig(
+                                        id: room.id,
+                                        name: room.name,
+                                        colorHex: room.colorHex,
+                                        volume: v,
+                                        clearOscAddress: room.clearOscAddress,
+                                        tracks: room.tracks,
+                                      );
+                                      ref
+                                          .read(configProvider.notifier)
+                                          .saveConfig(
+                                            AppConfig(
+                                              oscPort: currentConfig.oscPort,
+                                              deviceName:
+                                                  currentConfig.deviceName,
+                                              bufferSize:
+                                                  currentConfig.bufferSize,
+                                              themeStartOscAddress:
+                                                  currentConfig
+                                                      .themeStartOscAddress,
+                                              systemResetOscAddress:
+                                                  currentConfig
+                                                      .systemResetOscAddress,
+                                              monoConfigs:
+                                                  currentConfig.monoConfigs,
+                                              stereoConfigs:
+                                                  currentConfig.stereoConfigs,
+                                              multiConfigs:
+                                                  currentConfig.multiConfigs,
+                                              rooms: newRooms,
+                                              isExhibitionMode: currentConfig
+                                                  .isExhibitionMode,
+                                              globalTrajectory: currentConfig
+                                                  .globalTrajectory,
+                                              roomZones:
+                                                  currentConfig.roomZones,
+                                            ),
+                                            skipPreload: true,
+                                          );
+                                    }
+                                  }
+                                },
                               ),
                             ),
-                            child: Slider(
-                              value: _localVolume ?? room.volume,
-                              min: 0.0,
-                              max: 1.0,
-                              onChanged: (v) {
-                                setState(() => _localVolume = v);
-                                rust_api.apiSetMasterVolume(
-                                  roomId: room.id,
-                                  volume: v,
-                                );
-                                // We don't save config here to prevent rapid UI freezing & I/O bottleneck
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.close, size: 16),
+                            color: AppColors.danger,
+                            onPressed: () async {
+                              bool? confirm = await _showDeleteConfirmDialog(
+                                context,
+                                '룸 삭제 경고',
+                                '정말 삭제하시겠습니까?\n(현재 룸에 ${room.tracks.length}개의 오디오 트랙이 포함되어 있습니다.)',
+                              );
+                              if (confirm == true) {
+                                final currentConfig = ref.read(configProvider);
+                                if (currentConfig != null) {
+                                  final newRooms = currentConfig.rooms
+                                      .where((r) => r.id != room.id)
+                                      .toList();
+                                  ref
+                                      .read(configProvider.notifier)
+                                      .saveConfig(
+                                        AppConfig(
+                                          oscPort: currentConfig.oscPort,
+                                          deviceName: currentConfig.deviceName,
+                                          bufferSize: currentConfig.bufferSize,
+                                          themeStartOscAddress: currentConfig
+                                              .themeStartOscAddress,
+                                          systemResetOscAddress: currentConfig
+                                              .systemResetOscAddress,
+                                          monoConfigs:
+                                              currentConfig.monoConfigs,
+                                          stereoConfigs:
+                                              currentConfig.stereoConfigs,
+                                          multiConfigs:
+                                              currentConfig.multiConfigs,
+                                          rooms: newRooms,
+                                          isExhibitionMode:
+                                              currentConfig.isExhibitionMode,
+                                          globalTrajectory:
+                                              currentConfig.globalTrajectory,
+                                          roomZones: currentConfig.roomZones,
+                                        ),
+                                      );
+                                }
+                              }
+                            },
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    // Action Buttons
+                    Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: HoverGlowButton(
+                              icon: const Icon(
+                                Icons.add,
+                                size: 16,
+                                color: Colors.white,
+                              ),
+                              label: const Text(
+                                '오디오 파일 추가',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              baseColor: AppColors.darkGrey,
+                              glowColor: Colors.white,
+                              onPressed: () async {
+                                FilePickerResult? result =
+                                    await FilePicker.pickFiles(
+                                      type: FileType.custom,
+                                      allowMultiple: true,
+                                      allowedExtensions: [
+                                        'mp3',
+                                        'wav',
+                                        'aac',
+                                        'flac',
+                                        'm4a',
+                                        'ogg',
+                                        'aiff',
+                                      ],
+                                    );
+                                if (result != null && result.paths.isNotEmpty) {
+                                  _addTracks(
+                                    result.paths.whereType<String>().toList(),
+                                  );
+                                }
                               },
-                              onChangeEnd: (v) {
-                                setState(() => _localVolume = null);
+                            ),
+                          ),
+                          if (!widget.isExhibitionMode) ...[
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: HoverGlowButton(
+                                icon: const Icon(
+                                  Icons.check_circle_outline,
+                                  size: 16,
+                                  color: Colors.white,
+                                ),
+                                label: const Text(
+                                  '룸 클리어',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                baseColor: AppColors.brown,
+                                glowColor: AppColors.primaryNeon,
+                                onPressed: isActive
+                                    ? () async {
+                                        try {
+                                          // TODO: Call rust_api.apiClearRoom when Backend is ready,
+                                          // for now we update frontend state directly to simulate
+                                          try {
+                                            await rust_api.apiClearRoom(
+                                              roomId: room.id,
+                                            );
+                                          } catch (e) {
+                                            ref
+                                                .read(
+                                                  globalErrorProvider.notifier,
+                                                )
+                                                .showError('룸 클리어 중단: $e');
+                                            return; // Error means it's already cleared or not active. Do not auto-promote.
+                                          }
+
+                                          ref
+                                              .read(
+                                                engineStateProvider.notifier,
+                                              )
+                                              .clearRoom(room.id);
+
+                                          // Automatically activate next room if possible
+                                          final currentConfig = ref.read(
+                                            configProvider,
+                                          );
+                                          if (currentConfig != null) {
+                                            final idx = currentConfig.rooms
+                                                .indexWhere(
+                                                  (r) => r.id == room.id,
+                                                );
+                                            if (idx != -1 &&
+                                                idx + 1 <
+                                                    currentConfig
+                                                        .rooms
+                                                        .length) {
+                                              final nextRoom =
+                                                  currentConfig.rooms[idx + 1];
+                                              ref
+                                                  .read(
+                                                    engineStateProvider
+                                                        .notifier,
+                                                  )
+                                                  .setActiveRoom(nextRoom.id);
+                                              // Auto play loop tracks of next room
+                                              for (final track
+                                                  in nextRoom.tracks) {
+                                                if (track.isLoop) {
+                                                  try {
+                                                    await rust_api.apiPlayTrack(
+                                                      roomId: nextRoom.id,
+                                                      trackId: track.id,
+                                                    );
+                                                  } catch (e) {
+                                                    ref
+                                                        .read(
+                                                          globalErrorProvider
+                                                              .notifier,
+                                                        )
+                                                        .showError(
+                                                          '트랙 재생 실패: $e',
+                                                        );
+                                                  }
+                                                }
+                                              }
+                                            } else {
+                                              // It's the last room
+                                              ref
+                                                  .read(
+                                                    engineStateProvider
+                                                        .notifier,
+                                                  )
+                                                  .clearActiveRoom();
+                                            }
+                                          }
+                                        } catch (e) {
+                                          // ignored or handled
+                                        }
+                                      }
+                                    : null,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+
+                    // Track List
+                    Expanded(
+                      child: ListView.builder(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        itemCount: room.tracks.length,
+                        itemBuilder: (context, index) {
+                          final track = room.tracks[index];
+                          return TrackCard(
+                            key: ValueKey(track.id),
+                            track: track,
+                            accentColor: accentColor,
+                            onPlay: () async {
+                              try {
+                                await rust_api.apiPlayTrack(
+                                  roomId: room.id,
+                                  trackId: track.id,
+                                );
+                              } catch (e) {
+                                ref
+                                    .read(globalErrorProvider.notifier)
+                                    .showError('트랙 재생 실패: $e');
+                              }
+                            },
+                            onStop: () async {
+                              try {
+                                await rust_api.apiStopTrack(
+                                  roomId: room.id,
+                                  trackId: track.id,
+                                );
+                              } catch (e) {
+                                ref
+                                    .read(globalErrorProvider.notifier)
+                                    .showError('트랙 정지 실패: $e');
+                              }
+                            },
+                            onDelete: () async {
+                              bool? confirm = await _showDeleteConfirmDialog(
+                                context,
+                                '트랙 삭제',
+                                '[${track.name}] 오디오 트랙을 영구적으로 삭제하시겠습니까?',
+                              );
+                              if (confirm == true) {
                                 final currentConfig = ref.read(configProvider);
                                 if (currentConfig != null) {
                                   final newRooms = List<RoomConfig>.from(
@@ -432,13 +753,16 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                                     (r) => r.id == room.id,
                                   );
                                   if (idx != -1) {
+                                    final newTracks = newRooms[idx].tracks
+                                        .where((t) => t.id != track.id)
+                                        .toList();
                                     newRooms[idx] = RoomConfig(
                                       id: room.id,
                                       name: room.name,
                                       colorHex: room.colorHex,
-                                      volume: v,
+                                      volume: room.volume,
                                       clearOscAddress: room.clearOscAddress,
-                                      tracks: room.tracks,
+                                      tracks: newTracks,
                                     );
                                     ref
                                         .read(configProvider.notifier)
@@ -460,252 +784,25 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                                             multiConfigs:
                                                 currentConfig.multiConfigs,
                                             rooms: newRooms,
-                                            isExhibitionMode: currentConfig.isExhibitionMode,
-          globalTrajectory: currentConfig.globalTrajectory,
-          roomZones: currentConfig.roomZones,
+                                            isExhibitionMode:
+                                                currentConfig.isExhibitionMode,
+                                            globalTrajectory:
+                                                currentConfig.globalTrajectory,
+                                            roomZones: currentConfig.roomZones,
                                           ),
-                                          skipPreload: true,
                                         );
                                   }
                                 }
-                              },
-                            ),
-                          ),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.close, size: 16),
-                          color: AppColors.danger,
-                          onPressed: () async {
-                            bool? confirm = await _showDeleteConfirmDialog(
-                              context,
-                              '룸 삭제 경고',
-                              '정말 삭제하시겠습니까?\n(현재 룸에 ${room.tracks.length}개의 오디오 트랙이 포함되어 있습니다.)',
-                            );
-                            if (confirm == true) {
-                              final currentConfig = ref.read(configProvider);
-                              if (currentConfig != null) {
-                                final newRooms = currentConfig.rooms
-                                    .where((r) => r.id != room.id)
-                                    .toList();
-                                ref
-                                    .read(configProvider.notifier)
-                                    .saveConfig(
-                                      AppConfig(
-                                        oscPort: currentConfig.oscPort,
-                                        deviceName: currentConfig.deviceName,
-                                        bufferSize: currentConfig.bufferSize,
-                                        themeStartOscAddress:
-                                            currentConfig.themeStartOscAddress,
-                                        systemResetOscAddress:
-                                            currentConfig.systemResetOscAddress,
-                                        monoConfigs: currentConfig.monoConfigs,
-                                        stereoConfigs:
-                                            currentConfig.stereoConfigs,
-                                        multiConfigs:
-                                            currentConfig.multiConfigs,
-                                        rooms: newRooms,
-                                        isExhibitionMode: currentConfig.isExhibitionMode,
-          globalTrajectory: currentConfig.globalTrajectory,
-          roomZones: currentConfig.roomZones,
-                                      ),
-                                    );
-                              }
-                            }
-                          },
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  // Action Buttons
-                  Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: HoverGlowButton(
-                            icon: const Icon(
-                              Icons.add,
-                              size: 16,
-                              color: Colors.white,
-                            ),
-                            label: const Text(
-                              '오디오 파일 추가',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            baseColor: AppColors.darkGrey,
-                            glowColor: Colors.white,
-                            onPressed: () async {
-                              FilePickerResult? result =
-                                  await FilePicker.pickFiles(
-                                    type: FileType.custom,
-                                    allowMultiple: true,
-                                    allowedExtensions: [
-                                      'mp3',
-                                      'wav',
-                                      'aac',
-                                      'flac',
-                                      'm4a',
-                                      'ogg',
-                                      'aiff',
-                                    ],
-                                  );
-                              if (result != null && result.paths.isNotEmpty) {
-                                _addTracks(result.paths.whereType<String>().toList());
                               }
                             },
-                          ),
-                        ),
-                        if (!widget.isExhibitionMode) ...[
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: HoverGlowButton(
-                              icon: const Icon(
-                                Icons.check_circle_outline,
-                                size: 16,
-                                color: Colors.white,
-                              ),
-                              label: const Text(
-                                '룸 클리어',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              baseColor: AppColors.brown,
-                              glowColor: AppColors.primaryNeon,
-                              onPressed: isActive
-                                  ? () async {
-                                      try {
-                                        // TODO: Call rust_api.apiClearRoom when Backend is ready,
-                                        // for now we update frontend state directly to simulate
-                                        try {
-                                          await rust_api.apiClearRoom(
-                                            roomId: room.id,
-                                          );
-                                        } catch (e) {
-                                          ref
-                                              .read(
-                                                globalErrorProvider.notifier,
-                                              )
-                                              .showError('룸 클리어 중단: $e');
-                                          return; // Error means it's already cleared or not active. Do not auto-promote.
-                                        }
-
-                                        ref
-                                            .read(engineStateProvider.notifier)
-                                            .clearRoom(room.id);
-
-                                        // Automatically activate next room if possible
-                                        final currentConfig = ref.read(
-                                          configProvider,
-                                        );
-                                        if (currentConfig != null) {
-                                          final idx = currentConfig.rooms
-                                              .indexWhere(
-                                                (r) => r.id == room.id,
-                                              );
-                                          if (idx != -1 &&
-                                              idx + 1 <
-                                                  currentConfig.rooms.length) {
-                                            final nextRoom =
-                                                currentConfig.rooms[idx + 1];
-                                            ref
-                                                .read(
-                                                  engineStateProvider.notifier,
-                                                )
-                                                .setActiveRoom(nextRoom.id);
-                                            // Auto play loop tracks of next room
-                                            for (final track
-                                                in nextRoom.tracks) {
-                                              if (track.isLoop) {
-                                                try {
-                                                  await rust_api.apiPlayTrack(
-                                                    roomId: nextRoom.id,
-                                                    trackId: track.id,
-                                                  );
-                                                } catch (e) {
-                                                  ref
-                                                      .read(
-                                                        globalErrorProvider
-                                                            .notifier,
-                                                      )
-                                                      .showError(
-                                                        '트랙 재생 실패: $e',
-                                                      );
-                                                }
-                                              }
-                                            }
-                                          } else {
-                                            // It's the last room
-                                            ref
-                                                .read(
-                                                  engineStateProvider.notifier,
-                                                )
-                                                .clearActiveRoom();
-                                          }
-                                        }
-                                      } catch (e) {
-                                        // ignored or handled
-                                      }
-                                    }
-                                  : null,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-
-                  // Track List
-                  Expanded(
-                    child: ListView.builder(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      itemCount: room.tracks.length,
-                      itemBuilder: (context, index) {
-                        final track = room.tracks[index];
-                        return TrackCard(
-                          key: ValueKey(track.id),
-                          track: track,
-                          accentColor: accentColor,
-                          onPlay: () async {
-                            try {
-                              await rust_api.apiPlayTrack(
+                            onVolumeChanged: (v) {
+                              rust_api.apiSetTrackVolume(
                                 roomId: room.id,
                                 trackId: track.id,
+                                volume: v,
                               );
-                            } catch (e) {
-                              ref
-                                  .read(globalErrorProvider.notifier)
-                                  .showError('트랙 재생 실패: $e');
-                            }
-                          },
-                          onStop: () async {
-                            try {
-                              await rust_api.apiStopTrack(
-                                roomId: room.id,
-                                trackId: track.id,
-                              );
-                            } catch (e) {
-                              ref
-                                  .read(globalErrorProvider.notifier)
-                                  .showError('트랙 정지 실패: $e');
-                            }
-                          },
-                          onDelete: () async {
-                            bool? confirm = await _showDeleteConfirmDialog(
-                              context,
-                              '트랙 삭제',
-                              '[${track.name}] 오디오 트랙을 영구적으로 삭제하시겠습니까?',
-                            );
-                            if (confirm == true) {
+                            },
+                            onVolumeChangeEnd: (v) {
                               final currentConfig = ref.read(configProvider);
                               if (currentConfig != null) {
                                 final newRooms = List<RoomConfig>.from(
@@ -715,404 +812,369 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                                   (r) => r.id == room.id,
                                 );
                                 if (idx != -1) {
-                                  final newTracks = newRooms[idx].tracks
-                                      .where((t) => t.id != track.id)
-                                      .toList();
-                                  newRooms[idx] = RoomConfig(
-                                    id: room.id,
-                                    name: room.name,
-                                    colorHex: room.colorHex,
-                                    volume: room.volume,
-                                    clearOscAddress: room.clearOscAddress,
-                                    tracks: newTracks,
+                                  final newTracks = List<TrackConfig>.from(
+                                    newRooms[idx].tracks,
                                   );
-                                  ref
-                                      .read(configProvider.notifier)
-                                      .saveConfig(
-                                        AppConfig(
-                                          oscPort: currentConfig.oscPort,
-                                          deviceName: currentConfig.deviceName,
-                                          bufferSize: currentConfig.bufferSize,
-                                          themeStartOscAddress: currentConfig
-                                              .themeStartOscAddress,
-                                          systemResetOscAddress: currentConfig
-                                              .systemResetOscAddress,
-                                          monoConfigs:
-                                              currentConfig.monoConfigs,
-                                          stereoConfigs:
-                                              currentConfig.stereoConfigs,
-                                          multiConfigs:
-                                              currentConfig.multiConfigs,
-                                          rooms: newRooms,
-                                          isExhibitionMode: currentConfig.isExhibitionMode,
-          globalTrajectory: currentConfig.globalTrajectory,
-          roomZones: currentConfig.roomZones,
-                                        ),
-                                      );
+                                  final tIdx = newTracks.indexWhere(
+                                    (t) => t.id == track.id,
+                                  );
+                                  if (tIdx != -1) {
+                                    newTracks[tIdx] = TrackConfig(
+                                      id: track.id,
+                                      name: track.name,
+                                      filePath: track.filePath,
+                                      volume: v,
+                                      isLoop: track.isLoop,
+                                      outputChannel: track.outputChannel,
+                                      outputStereo: track.outputStereo,
+                                      playOscAddress: track.playOscAddress,
+                                      stopOscAddress: track.stopOscAddress,
+                                      isStreaming: track.isStreaming,
+                                    );
+                                    newRooms[idx] = RoomConfig(
+                                      id: room.id,
+                                      name: room.name,
+                                      colorHex: room.colorHex,
+                                      volume: room.volume,
+                                      clearOscAddress: room.clearOscAddress,
+                                      tracks: newTracks,
+                                    );
+                                    ref
+                                        .read(configProvider.notifier)
+                                        .saveConfig(
+                                          AppConfig(
+                                            oscPort: currentConfig.oscPort,
+                                            deviceName:
+                                                currentConfig.deviceName,
+                                            bufferSize:
+                                                currentConfig.bufferSize,
+                                            themeStartOscAddress: currentConfig
+                                                .themeStartOscAddress,
+                                            systemResetOscAddress: currentConfig
+                                                .systemResetOscAddress,
+                                            monoConfigs:
+                                                currentConfig.monoConfigs,
+                                            stereoConfigs:
+                                                currentConfig.stereoConfigs,
+                                            multiConfigs:
+                                                currentConfig.multiConfigs,
+                                            rooms: newRooms,
+                                            isExhibitionMode:
+                                                currentConfig.isExhibitionMode,
+                                            globalTrajectory:
+                                                currentConfig.globalTrajectory,
+                                            roomZones: currentConfig.roomZones,
+                                          ),
+                                          skipPreload: true,
+                                        );
+                                  }
                                 }
                               }
-                            }
-                          },
-                          onVolumeChanged: (v) {
-                            rust_api.apiSetTrackVolume(
-                              roomId: room.id,
-                              trackId: track.id,
-                              volume: v,
-                            );
-                          },
-                          onVolumeChangeEnd: (v) {
-                            final currentConfig = ref.read(configProvider);
-                            if (currentConfig != null) {
-                              final newRooms = List<RoomConfig>.from(
-                                currentConfig.rooms,
-                              );
-                              final idx = newRooms.indexWhere(
-                                (r) => r.id == room.id,
-                              );
-                              if (idx != -1) {
-                                final newTracks = List<TrackConfig>.from(
-                                  newRooms[idx].tracks,
+                            },
+                            onLoopChanged: (v) {
+                              final currentConfig = ref.read(configProvider);
+                              if (currentConfig != null) {
+                                final newRooms = List<RoomConfig>.from(
+                                  currentConfig.rooms,
                                 );
-                                final tIdx = newTracks.indexWhere(
-                                  (t) => t.id == track.id,
+                                final idx = newRooms.indexWhere(
+                                  (r) => r.id == room.id,
                                 );
-                                if (tIdx != -1) {
-                                  newTracks[tIdx] = TrackConfig(
-                                    id: track.id,
-                                    name: track.name,
-                                    filePath: track.filePath,
-                                    volume: v,
-                                    isLoop: track.isLoop,
-                                    outputChannel: track.outputChannel,
-                                    outputStereo: track.outputStereo,
-                                    playOscAddress: track.playOscAddress,
-                                    stopOscAddress: track.stopOscAddress,
-                                    isStreaming: track.isStreaming,
+                                if (idx != -1) {
+                                  final newTracks = List<TrackConfig>.from(
+                                    newRooms[idx].tracks,
                                   );
-                                  newRooms[idx] = RoomConfig(
-                                    id: room.id,
-                                    name: room.name,
-                                    colorHex: room.colorHex,
-                                    volume: room.volume,
-                                    clearOscAddress: room.clearOscAddress,
-                                    tracks: newTracks,
+                                  final tIdx = newTracks.indexWhere(
+                                    (t) => t.id == track.id,
                                   );
-                                  ref
-                                      .read(configProvider.notifier)
-                                      .saveConfig(
-                                        AppConfig(
-                                          oscPort: currentConfig.oscPort,
-                                          deviceName: currentConfig.deviceName,
-                                          bufferSize: currentConfig.bufferSize,
-                                          themeStartOscAddress: currentConfig
-                                              .themeStartOscAddress,
-                                          systemResetOscAddress: currentConfig
-                                              .systemResetOscAddress,
-                                          monoConfigs:
-                                              currentConfig.monoConfigs,
-                                          stereoConfigs:
-                                              currentConfig.stereoConfigs,
-                                          multiConfigs:
-                                              currentConfig.multiConfigs,
-                                          rooms: newRooms,
-                                          isExhibitionMode: currentConfig.isExhibitionMode,
-          globalTrajectory: currentConfig.globalTrajectory,
-          roomZones: currentConfig.roomZones,
-                                        ),
-                                        skipPreload: true,
-                                      );
+                                  if (tIdx != -1) {
+                                    newTracks[tIdx] = TrackConfig(
+                                      id: track.id,
+                                      name: track.name,
+                                      filePath: track.filePath,
+                                      volume: track.volume,
+                                      isLoop: v,
+                                      isStreaming: track.isStreaming,
+                                      outputChannel: track.outputChannel,
+                                      outputStereo: track.outputStereo,
+                                      playOscAddress: track.playOscAddress,
+                                      stopOscAddress: track.stopOscAddress,
+                                    );
+                                    newRooms[idx] = RoomConfig(
+                                      id: room.id,
+                                      name: room.name,
+                                      colorHex: room.colorHex,
+                                      volume: room.volume,
+                                      clearOscAddress: room.clearOscAddress,
+                                      tracks: newTracks,
+                                    );
+                                    ref
+                                        .read(configProvider.notifier)
+                                        .saveConfig(
+                                          AppConfig(
+                                            oscPort: currentConfig.oscPort,
+                                            deviceName:
+                                                currentConfig.deviceName,
+                                            bufferSize:
+                                                currentConfig.bufferSize,
+                                            themeStartOscAddress: currentConfig
+                                                .themeStartOscAddress,
+                                            systemResetOscAddress: currentConfig
+                                                .systemResetOscAddress,
+                                            monoConfigs:
+                                                currentConfig.monoConfigs,
+                                            stereoConfigs:
+                                                currentConfig.stereoConfigs,
+                                            multiConfigs:
+                                                currentConfig.multiConfigs,
+                                            rooms: newRooms,
+                                            isExhibitionMode:
+                                                currentConfig.isExhibitionMode,
+                                            globalTrajectory:
+                                                currentConfig.globalTrajectory,
+                                            roomZones: currentConfig.roomZones,
+                                          ),
+                                        );
+                                  }
                                 }
                               }
-                            }
-                          },
-                          onLoopChanged: (v) {
-                            final currentConfig = ref.read(configProvider);
-                            if (currentConfig != null) {
-                              final newRooms = List<RoomConfig>.from(
-                                currentConfig.rooms,
-                              );
-                              final idx = newRooms.indexWhere(
-                                (r) => r.id == room.id,
-                              );
-                              if (idx != -1) {
-                                final newTracks = List<TrackConfig>.from(
-                                  newRooms[idx].tracks,
+                            },
+                            onStreamChanged: (v) {
+                              final currentConfig = ref.read(configProvider);
+                              if (currentConfig != null) {
+                                final newRooms = List<RoomConfig>.from(
+                                  currentConfig.rooms,
                                 );
-                                final tIdx = newTracks.indexWhere(
-                                  (t) => t.id == track.id,
+                                final idx = newRooms.indexWhere(
+                                  (r) => r.id == room.id,
                                 );
-                                if (tIdx != -1) {
-                                  newTracks[tIdx] = TrackConfig(
-                                    id: track.id,
-                                    name: track.name,
-                                    filePath: track.filePath,
-                                    volume: track.volume,
-                                    isLoop: v,
-                                    isStreaming: track.isStreaming,
-                                    outputChannel: track.outputChannel,
-                                    outputStereo: track.outputStereo,
-                                    playOscAddress: track.playOscAddress,
-                                    stopOscAddress: track.stopOscAddress,
+                                if (idx != -1) {
+                                  final newTracks = List<TrackConfig>.from(
+                                    newRooms[idx].tracks,
                                   );
-                                  newRooms[idx] = RoomConfig(
-                                    id: room.id,
-                                    name: room.name,
-                                    colorHex: room.colorHex,
-                                    volume: room.volume,
-                                    clearOscAddress: room.clearOscAddress,
-                                    tracks: newTracks,
+                                  final tIdx = newTracks.indexWhere(
+                                    (t) => t.id == track.id,
                                   );
-                                  ref
-                                      .read(configProvider.notifier)
-                                      .saveConfig(
-                                        AppConfig(
-                                          oscPort: currentConfig.oscPort,
-                                          deviceName: currentConfig.deviceName,
-                                          bufferSize: currentConfig.bufferSize,
-                                          themeStartOscAddress: currentConfig
-                                              .themeStartOscAddress,
-                                          systemResetOscAddress: currentConfig
-                                              .systemResetOscAddress,
-                                          monoConfigs:
-                                              currentConfig.monoConfigs,
-                                          stereoConfigs:
-                                              currentConfig.stereoConfigs,
-                                          multiConfigs:
-                                              currentConfig.multiConfigs,
-                                          rooms: newRooms,
-                                          isExhibitionMode: currentConfig.isExhibitionMode,
-          globalTrajectory: currentConfig.globalTrajectory,
-          roomZones: currentConfig.roomZones,
-                                        ),
-                                      );
+                                  if (tIdx != -1) {
+                                    newTracks[tIdx] = TrackConfig(
+                                      id: track.id,
+                                      name: track.name,
+                                      filePath: track.filePath,
+                                      volume: track.volume,
+                                      isLoop: track.isLoop,
+                                      isStreaming: v,
+                                      outputChannel: track.outputChannel,
+                                      outputStereo: track.outputStereo,
+                                      playOscAddress: track.playOscAddress,
+                                      stopOscAddress: track.stopOscAddress,
+                                    );
+                                    newRooms[idx] = RoomConfig(
+                                      id: room.id,
+                                      name: room.name,
+                                      colorHex: room.colorHex,
+                                      volume: room.volume,
+                                      clearOscAddress: room.clearOscAddress,
+                                      tracks: newTracks,
+                                    );
+                                    ref
+                                        .read(configProvider.notifier)
+                                        .saveConfig(
+                                          AppConfig(
+                                            oscPort: currentConfig.oscPort,
+                                            deviceName:
+                                                currentConfig.deviceName,
+                                            bufferSize:
+                                                currentConfig.bufferSize,
+                                            themeStartOscAddress: currentConfig
+                                                .themeStartOscAddress,
+                                            systemResetOscAddress: currentConfig
+                                                .systemResetOscAddress,
+                                            monoConfigs:
+                                                currentConfig.monoConfigs,
+                                            stereoConfigs:
+                                                currentConfig.stereoConfigs,
+                                            multiConfigs:
+                                                currentConfig.multiConfigs,
+                                            rooms: newRooms,
+                                            isExhibitionMode:
+                                                currentConfig.isExhibitionMode,
+                                            globalTrajectory:
+                                                currentConfig.globalTrajectory,
+                                            roomZones: currentConfig.roomZones,
+                                          ),
+                                        );
+                                  }
                                 }
                               }
-                            }
-                          },
-                          onStreamChanged: (v) {
-                            final currentConfig = ref.read(configProvider);
-                            if (currentConfig != null) {
-                              final newRooms = List<RoomConfig>.from(
-                                currentConfig.rooms,
-                              );
-                              final idx = newRooms.indexWhere(
-                                (r) => r.id == room.id,
-                              );
-                              if (idx != -1) {
-                                final newTracks = List<TrackConfig>.from(
-                                  newRooms[idx].tracks,
+                            },
+                            onNameChanged: (v) {
+                              final currentConfig = ref.read(configProvider);
+                              if (currentConfig != null) {
+                                final newRooms = List<RoomConfig>.from(
+                                  currentConfig.rooms,
                                 );
-                                final tIdx = newTracks.indexWhere(
-                                  (t) => t.id == track.id,
+                                final idx = newRooms.indexWhere(
+                                  (r) => r.id == room.id,
                                 );
-                                if (tIdx != -1) {
-                                  newTracks[tIdx] = TrackConfig(
-                                    id: track.id,
-                                    name: track.name,
-                                    filePath: track.filePath,
-                                    volume: track.volume,
-                                    isLoop: track.isLoop,
-                                    isStreaming: v,
-                                    outputChannel: track.outputChannel,
-                                    outputStereo: track.outputStereo,
-                                    playOscAddress: track.playOscAddress,
-                                    stopOscAddress: track.stopOscAddress,
+                                if (idx != -1) {
+                                  final newTracks = List<TrackConfig>.from(
+                                    newRooms[idx].tracks,
                                   );
-                                  newRooms[idx] = RoomConfig(
-                                    id: room.id,
-                                    name: room.name,
-                                    colorHex: room.colorHex,
-                                    volume: room.volume,
-                                    clearOscAddress: room.clearOscAddress,
-                                    tracks: newTracks,
+                                  final tIdx = newTracks.indexWhere(
+                                    (t) => t.id == track.id,
                                   );
-                                  ref
-                                      .read(configProvider.notifier)
-                                      .saveConfig(
-                                        AppConfig(
-                                          oscPort: currentConfig.oscPort,
-                                          deviceName: currentConfig.deviceName,
-                                          bufferSize: currentConfig.bufferSize,
-                                          themeStartOscAddress: currentConfig
-                                              .themeStartOscAddress,
-                                          systemResetOscAddress: currentConfig
-                                              .systemResetOscAddress,
-                                          monoConfigs:
-                                              currentConfig.monoConfigs,
-                                          stereoConfigs:
-                                              currentConfig.stereoConfigs,
-                                          multiConfigs:
-                                              currentConfig.multiConfigs,
-                                          rooms: newRooms,
-                                          isExhibitionMode: currentConfig.isExhibitionMode,
-          globalTrajectory: currentConfig.globalTrajectory,
-          roomZones: currentConfig.roomZones,
-                                        ),
-                                      );
+                                  if (tIdx != -1) {
+                                    newTracks[tIdx] = TrackConfig(
+                                      id: track.id,
+                                      name: v,
+                                      filePath: track.filePath,
+                                      volume: track.volume,
+                                      isLoop: track.isLoop,
+                                      outputChannel: track.outputChannel,
+                                      outputStereo: track.outputStereo,
+                                      playOscAddress: track.playOscAddress,
+                                      stopOscAddress: track.stopOscAddress,
+                                      isStreaming: track.isStreaming,
+                                    );
+                                    newRooms[idx] = RoomConfig(
+                                      id: room.id,
+                                      name: room.name,
+                                      colorHex: room.colorHex,
+                                      volume: room.volume,
+                                      clearOscAddress: room.clearOscAddress,
+                                      tracks: newTracks,
+                                    );
+                                    ref
+                                        .read(configProvider.notifier)
+                                        .saveConfig(
+                                          AppConfig(
+                                            oscPort: currentConfig.oscPort,
+                                            deviceName:
+                                                currentConfig.deviceName,
+                                            bufferSize:
+                                                currentConfig.bufferSize,
+                                            themeStartOscAddress: currentConfig
+                                                .themeStartOscAddress,
+                                            systemResetOscAddress: currentConfig
+                                                .systemResetOscAddress,
+                                            monoConfigs:
+                                                currentConfig.monoConfigs,
+                                            stereoConfigs:
+                                                currentConfig.stereoConfigs,
+                                            multiConfigs:
+                                                currentConfig.multiConfigs,
+                                            rooms: newRooms,
+                                            isExhibitionMode:
+                                                currentConfig.isExhibitionMode,
+                                            globalTrajectory:
+                                                currentConfig.globalTrajectory,
+                                            roomZones: currentConfig.roomZones,
+                                          ),
+                                        );
+                                  }
                                 }
                               }
-                            }
-                          },
-                          onNameChanged: (v) {
-                            final currentConfig = ref.read(configProvider);
-                            if (currentConfig != null) {
-                              final newRooms = List<RoomConfig>.from(
-                                currentConfig.rooms,
-                              );
-                              final idx = newRooms.indexWhere(
-                                (r) => r.id == room.id,
-                              );
-                              if (idx != -1) {
-                                final newTracks = List<TrackConfig>.from(
-                                  newRooms[idx].tracks,
+                            },
+                            onOutputChanged: (ch, isStereo) {
+                              final currentConfig = ref.read(configProvider);
+                              if (currentConfig != null) {
+                                final newRooms = List<RoomConfig>.from(
+                                  currentConfig.rooms,
                                 );
-                                final tIdx = newTracks.indexWhere(
-                                  (t) => t.id == track.id,
+                                final idx = newRooms.indexWhere(
+                                  (r) => r.id == room.id,
                                 );
-                                if (tIdx != -1) {
-                                  newTracks[tIdx] = TrackConfig(
-                                    id: track.id,
-                                    name: v,
-                                    filePath: track.filePath,
-                                    volume: track.volume,
-                                    isLoop: track.isLoop,
-                                    outputChannel: track.outputChannel,
-                                    outputStereo: track.outputStereo,
-                                    playOscAddress: track.playOscAddress,
-                                    stopOscAddress: track.stopOscAddress,
-                                    isStreaming: track.isStreaming,
+                                if (idx != -1) {
+                                  final newTracks = List<TrackConfig>.from(
+                                    newRooms[idx].tracks,
                                   );
-                                  newRooms[idx] = RoomConfig(
-                                    id: room.id,
-                                    name: room.name,
-                                    colorHex: room.colorHex,
-                                    volume: room.volume,
-                                    clearOscAddress: room.clearOscAddress,
-                                    tracks: newTracks,
+                                  final tIdx = newTracks.indexWhere(
+                                    (t) => t.id == track.id,
                                   );
-                                  ref
-                                      .read(configProvider.notifier)
-                                      .saveConfig(
-                                        AppConfig(
-                                          oscPort: currentConfig.oscPort,
-                                          deviceName: currentConfig.deviceName,
-                                          bufferSize: currentConfig.bufferSize,
-                                          themeStartOscAddress: currentConfig
-                                              .themeStartOscAddress,
-                                          systemResetOscAddress: currentConfig
-                                              .systemResetOscAddress,
-                                          monoConfigs:
-                                              currentConfig.monoConfigs,
-                                          stereoConfigs:
-                                              currentConfig.stereoConfigs,
-                                          multiConfigs:
-                                              currentConfig.multiConfigs,
-                                          rooms: newRooms,
-                                          isExhibitionMode: currentConfig.isExhibitionMode,
-          globalTrajectory: currentConfig.globalTrajectory,
-          roomZones: currentConfig.roomZones,
-                                        ),
-                                      );
+                                  if (tIdx != -1) {
+                                    newTracks[tIdx] = TrackConfig(
+                                      id: track.id,
+                                      name: track.name,
+                                      filePath: track.filePath,
+                                      volume: track.volume,
+                                      isLoop: track.isLoop,
+                                      outputChannel: ch,
+                                      outputStereo: isStereo,
+                                      playOscAddress: track.playOscAddress,
+                                      stopOscAddress: track.stopOscAddress,
+                                      isStreaming: track.isStreaming,
+                                    );
+                                    newRooms[idx] = RoomConfig(
+                                      id: room.id,
+                                      name: room.name,
+                                      colorHex: room.colorHex,
+                                      volume: room.volume,
+                                      clearOscAddress: room.clearOscAddress,
+                                      tracks: newTracks,
+                                    );
+                                    rust_api.apiSetTrackOutput(
+                                      roomId: room.id,
+                                      trackId: track.id,
+                                      outputChannel: BigInt.from(ch),
+                                      outputStereo: isStereo,
+                                    );
+                                    ref
+                                        .read(configProvider.notifier)
+                                        .saveConfig(
+                                          AppConfig(
+                                            oscPort: currentConfig.oscPort,
+                                            deviceName:
+                                                currentConfig.deviceName,
+                                            bufferSize:
+                                                currentConfig.bufferSize,
+                                            themeStartOscAddress: currentConfig
+                                                .themeStartOscAddress,
+                                            systemResetOscAddress: currentConfig
+                                                .systemResetOscAddress,
+                                            monoConfigs:
+                                                currentConfig.monoConfigs,
+                                            stereoConfigs:
+                                                currentConfig.stereoConfigs,
+                                            multiConfigs:
+                                                currentConfig.multiConfigs,
+                                            rooms: newRooms,
+                                            isExhibitionMode:
+                                                currentConfig.isExhibitionMode,
+                                            globalTrajectory:
+                                                currentConfig.globalTrajectory,
+                                            roomZones: currentConfig.roomZones,
+                                          ),
+                                          skipPreload: true,
+                                        );
+                                  }
                                 }
                               }
-                            }
-                          },
-                          onOutputChanged: (ch, isStereo) {
-                            final currentConfig = ref.read(configProvider);
-                            if (currentConfig != null) {
-                              final newRooms = List<RoomConfig>.from(
-                                currentConfig.rooms,
-                              );
-                              final idx = newRooms.indexWhere(
-                                (r) => r.id == room.id,
-                              );
-                              if (idx != -1) {
-                                final newTracks = List<TrackConfig>.from(
-                                  newRooms[idx].tracks,
-                                );
-                                final tIdx = newTracks.indexWhere(
-                                  (t) => t.id == track.id,
-                                );
-                                if (tIdx != -1) {
-                                  newTracks[tIdx] = TrackConfig(
-                                    id: track.id,
-                                    name: track.name,
-                                    filePath: track.filePath,
-                                    volume: track.volume,
-                                    isLoop: track.isLoop,
-                                    outputChannel: ch,
-                                    outputStereo: isStereo,
-                                    playOscAddress: track.playOscAddress,
-                                    stopOscAddress: track.stopOscAddress,
-                                    isStreaming: track.isStreaming,
-                                  );
-                                  newRooms[idx] = RoomConfig(
-                                    id: room.id,
-                                    name: room.name,
-                                    colorHex: room.colorHex,
-                                    volume: room.volume,
-                                    clearOscAddress: room.clearOscAddress,
-                                    tracks: newTracks,
-                                  );
-                                  rust_api.apiSetTrackOutput(
-                                    roomId: room.id,
-                                    trackId: track.id,
-                                    outputChannel: BigInt.from(ch),
-                                    outputStereo: isStereo,
-                                  );
-                                  ref
-                                      .read(configProvider.notifier)
-                                      .saveConfig(
-                                        AppConfig(
-                                          oscPort: currentConfig.oscPort,
-                                          deviceName: currentConfig.deviceName,
-                                          bufferSize: currentConfig.bufferSize,
-                                          themeStartOscAddress: currentConfig
-                                              .themeStartOscAddress,
-                                          systemResetOscAddress: currentConfig
-                                              .systemResetOscAddress,
-                                          monoConfigs:
-                                              currentConfig.monoConfigs,
-                                          stereoConfigs:
-                                              currentConfig.stereoConfigs,
-                                          multiConfigs:
-                                              currentConfig.multiConfigs,
-                                          rooms: newRooms,
-                                          isExhibitionMode: currentConfig.isExhibitionMode,
-          globalTrajectory: currentConfig.globalTrajectory,
-          roomZones: currentConfig.roomZones,
-                                        ),
-                                        skipPreload: true,
-                                      );
-                                }
-                              }
-                            }
-                          },
-                        );
-                      },
+                            },
+                          );
+                        },
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
-          ),
 
-          // Locked / Cleared Badge & Solid Overlay (Optimized for Audio Performance)
-          if (isThemeStarted && !isActive && !widget.isExhibitionMode)
-            Positioned.fill(
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(4),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.85),
-                    borderRadius: BorderRadius.circular(4),
-                    border: Border.all(
-                      color: Colors.white.withOpacity(0.08),
-                      width: 1.0,
+            // Locked / Cleared Badge & Solid Overlay (Optimized for Audio Performance)
+            if (isThemeStarted && !isActive && !widget.isExhibitionMode)
+              Positioned.fill(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.85),
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(
+                        color: Colors.white.withOpacity(0.08),
+                        width: 1.0,
+                      ),
                     ),
-                  ),
-                  alignment: Alignment.topCenter,
-                  padding: const EdgeInsets.only(top: 40),
+                    alignment: Alignment.topCenter,
+                    padding: const EdgeInsets.only(top: 40),
                     child: Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 16,
@@ -1121,7 +1183,9 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                       decoration: BoxDecoration(
                         color: Colors.black.withOpacity(0.85),
                         borderRadius: BorderRadius.circular(4),
-                        border: Border.all(color: Colors.white.withOpacity(0.1)),
+                        border: Border.all(
+                          color: Colors.white.withOpacity(0.1),
+                        ),
                       ),
                       child: Text(
                         isCleared ? '✅ 룸 클리어됨' : '🔒 잠금 — 이전 룸을 클리어하세요',
@@ -1135,9 +1199,9 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                     ),
                   ),
                 ),
-            ),
-        ],
-      ),
+              ),
+          ],
+        ),
       ),
     );
   }

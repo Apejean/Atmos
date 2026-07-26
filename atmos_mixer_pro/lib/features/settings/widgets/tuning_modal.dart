@@ -35,7 +35,10 @@ class ChannelTuningState {
       delay: 0.0,
       bandEnabled: List.filled(8, false),
       bandTypes: List.filled(8, EqType.bell),
-      freqs: List.generate(8, (i) => math.min(100 * math.pow(2, i), 20000.0).toDouble()),
+      freqs: List.generate(
+        8,
+        (i) => math.min(100 * math.pow(2, i), 20000.0).toDouble(),
+      ),
       gains: List.filled(8, 0.0),
       qs: List.filled(8, 0.707),
       isStereoLinked: true,
@@ -78,7 +81,9 @@ class ChannelTuningState {
     return ChannelTuningState(
       delay: (json['delay'] as num).toDouble(),
       bandEnabled: (json['bandEnabled'] as List).cast<bool>(),
-      bandTypes: (json['bandTypes'] as List).map((e) => EqType.values[e as int]).toList(),
+      bandTypes: (json['bandTypes'] as List)
+          .map((e) => EqType.values[e as int])
+          .toList(),
       freqs: (json['freqs'] as List).map((e) => (e as num).toDouble()).toList(),
       gains: (json['gains'] as List).map((e) => (e as num).toDouble()).toList(),
       qs: (json['qs'] as List).map((e) => (e as num).toDouble()).toList(),
@@ -87,7 +92,8 @@ class ChannelTuningState {
   }
 }
 
-class TuningStateNotifier extends Notifier<Map<int, ChannelTuningState>> with WidgetsBindingObserver {
+class TuningStateNotifier extends Notifier<Map<int, ChannelTuningState>>
+    with WidgetsBindingObserver {
   bool _isLoaded = false;
   Timer? _saveTimer;
 
@@ -104,7 +110,8 @@ class TuningStateNotifier extends Notifier<Map<int, ChannelTuningState>> with Wi
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive) {
       if (_saveTimer != null && _saveTimer!.isActive) {
         _saveTimer!.cancel();
         _saveToPrefs();
@@ -126,10 +133,12 @@ class TuningStateNotifier extends Notifier<Map<int, ChannelTuningState>> with Wi
         final decoded = jsonDecode(jsonString) as Map<String, dynamic>;
         final Map<int, ChannelTuningState> loadedState = {};
         for (final entry in decoded.entries) {
-          loadedState[int.parse(entry.key)] = ChannelTuningState.fromJson(entry.value as Map<String, dynamic>);
+          loadedState[int.parse(entry.key)] = ChannelTuningState.fromJson(
+            entry.value as Map<String, dynamic>,
+          );
         }
         state = loadedState;
-        
+
         applyAllToBackend();
       } catch (e) {
         debugPrint('Failed to load tuning state: $e');
@@ -145,19 +154,23 @@ class TuningStateNotifier extends Notifier<Map<int, ChannelTuningState>> with Wi
       final tuning = entry.value;
       final bands = <EqBand>[];
       for (int i = 0; i < 8; i++) {
-        bands.add(EqBand(
-          enabled: tuning.bandEnabled[i],
-          filterType: tuning.bandTypes[i],
-          freq: tuning.freqs[i],
-          gain: tuning.gains[i],
-          qFactor: tuning.qs[i],
-        ));
+        bands.add(
+          EqBand(
+            enabled: tuning.bandEnabled[i],
+            filterType: tuning.bandTypes[i],
+            freq: tuning.freqs[i],
+            gain: tuning.gains[i],
+            qFactor: tuning.qs[i],
+          ),
+        );
       }
-      tuningsToApply.add(ChannelTuningParams(
-        channel: targetChannel,
-        delayMs: tuning.delay,
-        eqBands: bands,
-      ));
+      tuningsToApply.add(
+        ChannelTuningParams(
+          channel: targetChannel,
+          delayMs: tuning.delay,
+          eqBands: bands,
+        ),
+      );
     }
     apiApplyAllChannelTunings(tunings: tuningsToApply);
   }
@@ -217,14 +230,17 @@ class TuningStateNotifier extends Notifier<Map<int, ChannelTuningState>> with Wi
 
   Future<void> _saveToPrefs() async {
     final prefs = await SharedPreferences.getInstance();
-    final mapToSave = state.map((key, value) => MapEntry(key.toString(), value.toJson()));
+    final mapToSave = state.map(
+      (key, value) => MapEntry(key.toString(), value.toJson()),
+    );
     await prefs.setString('tuning_state', jsonEncode(mapToSave));
   }
 }
 
-final tuningStateProvider = NotifierProvider<TuningStateNotifier, Map<int, ChannelTuningState>>(
-  TuningStateNotifier.new,
-);
+final tuningStateProvider =
+    NotifierProvider<TuningStateNotifier, Map<int, ChannelTuningState>>(
+      TuningStateNotifier.new,
+    );
 
 class TuningModal extends ConsumerStatefulWidget {
   const TuningModal({super.key});
@@ -236,12 +252,14 @@ class TuningModal extends ConsumerStatefulWidget {
 class _TuningModalState extends ConsumerState<TuningModal> {
   int _selectedChannel = 1;
   bool _isStereoLinked = true;
-  final TextEditingController _delayController = TextEditingController(text: '0.0');
-  
+  final TextEditingController _delayController = TextEditingController(
+    text: '0.0',
+  );
+
   int _activeBandIndex = 0;
   int _hoverIndex = -1;
   bool _isDragging = false;
-  
+
   // 8 bands state
   final List<bool> _bandEnabled = List.filled(8, false);
   final List<EqType> _bandTypes = List.filled(8, EqType.bell);
@@ -264,7 +282,7 @@ class _TuningModalState extends ConsumerState<TuningModal> {
       _gainControllers.add(TextEditingController());
       _qControllers.add(TextEditingController());
     }
-    
+
     // We delay the load so we don't modify provider state during init.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadStateForChannel(_selectedChannel);
@@ -277,7 +295,7 @@ class _TuningModalState extends ConsumerState<TuningModal> {
     _isStereoLinked = tuning.isStereoLinked;
     _bandEnabled.setAll(0, tuning.bandEnabled);
     _bandTypes.setAll(0, tuning.bandTypes);
-    
+
     for (int i = 0; i < 8; i++) {
       _freqControllers[i].text = tuning.freqs[i].toStringAsFixed(1);
       _gainControllers[i].text = tuning.gains[i].toStringAsFixed(1);
@@ -291,27 +309,37 @@ class _TuningModalState extends ConsumerState<TuningModal> {
       delay: double.tryParse(_delayController.text) ?? 0.0,
       bandEnabled: List.from(_bandEnabled),
       bandTypes: List.from(_bandTypes),
-      freqs: _freqControllers.map((c) => double.tryParse(c.text) ?? 1000.0).toList(),
-      gains: _gainControllers.map((c) => double.tryParse(c.text) ?? 0.0).toList(),
+      freqs: _freqControllers
+          .map((c) => double.tryParse(c.text) ?? 1000.0)
+          .toList(),
+      gains: _gainControllers
+          .map((c) => double.tryParse(c.text) ?? 0.0)
+          .toList(),
       qs: _qControllers.map((c) => double.tryParse(c.text) ?? 0.707).toList(),
       isStereoLinked: _isStereoLinked,
     );
     ref.read(tuningStateProvider.notifier).saveTuning(_selectedChannel, tuning);
-    
+
     // Sync partner channel's state if stereo link is involved
-    int partnerChannel = _selectedChannel % 2 != 0 ? _selectedChannel + 1 : _selectedChannel - 1;
-    
+    int partnerChannel = _selectedChannel % 2 != 0
+        ? _selectedChannel + 1
+        : _selectedChannel - 1;
+
     if (_isStereoLinked) {
       // If linked, partner channel should have the exact same tuning state.
       ref.read(tuningStateProvider.notifier).saveTuning(partnerChannel, tuning);
     } else {
       // If unlinked, just ensure the partner channel also unlinks its UI state without changing its eq values.
-      final partnerTuning = ref.read(tuningStateProvider.notifier).getTuning(partnerChannel);
+      final partnerTuning = ref
+          .read(tuningStateProvider.notifier)
+          .getTuning(partnerChannel);
       if (partnerTuning.isStereoLinked) {
-        ref.read(tuningStateProvider.notifier).saveTuning(
-          partnerChannel, 
-          partnerTuning.copyWith(isStereoLinked: false)
-        );
+        ref
+            .read(tuningStateProvider.notifier)
+            .saveTuning(
+              partnerChannel,
+              partnerTuning.copyWith(isStereoLinked: false),
+            );
       }
     }
   }
@@ -342,33 +370,47 @@ class _TuningModalState extends ConsumerState<TuningModal> {
   void _applyTuning({bool silent = false}) {
     try {
       _saveCurrentState(); // Save to Riverpod so it persists
-      
+
       final double delay = double.tryParse(_delayController.text) ?? 0.0;
       final List<EqBand> bands = [];
       for (int i = 0; i < 8; i++) {
         final double freq = double.tryParse(_freqControllers[i].text) ?? 1000.0;
         final double gain = double.tryParse(_gainControllers[i].text) ?? 0.0;
         final double q = double.tryParse(_qControllers[i].text) ?? 0.707;
-        bands.add(EqBand(
-          enabled: _bandEnabled[i],
-          freq: freq,
-          gain: gain,
-          qFactor: q,
-          filterType: _bandTypes[i],
-        ));
+        bands.add(
+          EqBand(
+            enabled: _bandEnabled[i],
+            freq: freq,
+            gain: gain,
+            qFactor: q,
+            filterType: _bandTypes[i],
+          ),
+        );
       }
-      
+
       int targetChannel1 = _selectedChannel - 1;
       final tunings = <ChannelTuningParams>[
-        ChannelTuningParams(channel: targetChannel1, delayMs: delay, eqBands: bands),
+        ChannelTuningParams(
+          channel: targetChannel1,
+          delayMs: delay,
+          eqBands: bands,
+        ),
       ];
-      
+
       if (_isStereoLinked) {
-        int targetChannel2 = _selectedChannel % 2 != 0 ? targetChannel1 + 1 : targetChannel1 - 1;
-        tunings.add(ChannelTuningParams(channel: targetChannel2, delayMs: delay, eqBands: bands));
+        int targetChannel2 = _selectedChannel % 2 != 0
+            ? targetChannel1 + 1
+            : targetChannel1 - 1;
+        tunings.add(
+          ChannelTuningParams(
+            channel: targetChannel2,
+            delayMs: delay,
+            eqBands: bands,
+          ),
+        );
       }
       apiApplyAllChannelTunings(tunings: tunings);
-      
+
       if (!silent && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -419,16 +461,18 @@ class _TuningModalState extends ConsumerState<TuningModal> {
   int _findClosestBandIndex(Offset localPosition, Size size) {
     double bestDist = double.infinity;
     int bestIndex = -1;
-    
+
     for (int i = 0; i < 8; i++) {
       if (!_bandEnabled[i]) continue;
       double freq = double.tryParse(_freqControllers[i].text) ?? 1000.0;
       double gain = double.tryParse(_gainControllers[i].text) ?? 0.0;
-      
+
       double px = _freqToX(freq, size.width);
       double py = _gainToY(gain, size.height);
-      
-      double dist = math.sqrt(math.pow(px - localPosition.dx, 2) + math.pow(py - localPosition.dy, 2));
+
+      double dist = math.sqrt(
+        math.pow(px - localPosition.dx, 2) + math.pow(py - localPosition.dy, 2),
+      );
       if (dist < 30.0 && dist < bestDist) {
         bestDist = dist;
         bestIndex = i;
@@ -439,7 +483,10 @@ class _TuningModalState extends ConsumerState<TuningModal> {
 
   void _handleHover(PointerEvent event, BoxConstraints constraints) {
     if (_isDragging) return;
-    int closest = _findClosestBandIndex(event.localPosition, Size(constraints.maxWidth, constraints.maxHeight));
+    int closest = _findClosestBandIndex(
+      event.localPosition,
+      Size(constraints.maxWidth, constraints.maxHeight),
+    );
     if (_hoverIndex != closest) {
       setState(() {
         _hoverIndex = closest;
@@ -448,7 +495,10 @@ class _TuningModalState extends ConsumerState<TuningModal> {
   }
 
   void _handlePanDown(DragDownDetails details, BoxConstraints constraints) {
-    int bestIndex = _findClosestBandIndex(details.localPosition, Size(constraints.maxWidth, constraints.maxHeight));
+    int bestIndex = _findClosestBandIndex(
+      details.localPosition,
+      Size(constraints.maxWidth, constraints.maxHeight),
+    );
     if (bestIndex != -1) {
       setState(() {
         _activeBandIndex = bestIndex;
@@ -459,15 +509,15 @@ class _TuningModalState extends ConsumerState<TuningModal> {
 
   void _handlePanUpdate(DragUpdateDetails details, BoxConstraints constraints) {
     if (!_isDragging || !_bandEnabled[_activeBandIndex]) return;
-    
+
     double newFreq = _xToFreq(details.localPosition.dx, constraints.maxWidth);
     double newGain = _yToGain(details.localPosition.dy, constraints.maxHeight);
-    
+
     setState(() {
       _freqControllers[_activeBandIndex].text = newFreq.toStringAsFixed(1);
       _gainControllers[_activeBandIndex].text = newGain.toStringAsFixed(1);
     });
-    
+
     _sendThrottledUpdate();
   }
 
@@ -483,7 +533,7 @@ class _TuningModalState extends ConsumerState<TuningModal> {
   Widget _buildBandToggle(int index) {
     final bool isActive = _activeBandIndex == index;
     final bool isEnabled = _bandEnabled[index];
-    
+
     return GestureDetector(
       onTap: () {
         setState(() {
@@ -495,7 +545,9 @@ class _TuningModalState extends ConsumerState<TuningModal> {
         height: 44,
         margin: const EdgeInsets.only(right: 8),
         decoration: BoxDecoration(
-          color: isActive ? AppColors.primaryNeon.withOpacity(0.15) : AppColors.background,
+          color: isActive
+              ? AppColors.primaryNeon.withOpacity(0.15)
+              : AppColors.background,
           border: Border.all(
             color: isActive ? AppColors.primaryNeon : Colors.white24,
             width: 1,
@@ -530,9 +582,13 @@ class _TuningModalState extends ConsumerState<TuningModal> {
                   border: Border.all(color: AppColors.primaryNeon),
                   shape: BoxShape.circle,
                 ),
-                child: isEnabled 
-                  ? const Icon(Icons.check, size: 10, color: AppColors.background)
-                  : null,
+                child: isEnabled
+                    ? const Icon(
+                        Icons.check,
+                        size: 10,
+                        color: AppColors.background,
+                      )
+                    : null,
               ),
             ),
           ],
@@ -558,14 +614,23 @@ class _TuningModalState extends ConsumerState<TuningModal> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Type', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+                const Text(
+                  'Type',
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 12,
+                  ),
+                ),
                 const SizedBox(height: 8),
                 InputDecorator(
                   decoration: const InputDecoration(
                     filled: true,
                     fillColor: AppColors.cardSurfaceSolid,
                     border: OutlineInputBorder(),
-                    contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 8,
+                    ),
                   ),
                   child: DropdownButtonHideUnderline(
                     child: DropdownButton<EqType>(
@@ -573,7 +638,10 @@ class _TuningModalState extends ConsumerState<TuningModal> {
                       dropdownColor: AppColors.cardSurface,
                       isDense: true,
                       isExpanded: true,
-                      style: const TextStyle(color: AppColors.textPrimary, fontSize: 14),
+                      style: const TextStyle(
+                        color: AppColors.textPrimary,
+                        fontSize: 14,
+                      ),
                       items: EqType.values.map((type) {
                         return DropdownMenuItem(
                           value: type,
@@ -601,19 +669,35 @@ class _TuningModalState extends ConsumerState<TuningModal> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Freq (Hz)', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+                const Text(
+                  'Freq (Hz)',
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 12,
+                  ),
+                ),
                 const SizedBox(height: 8),
                 TextField(
                   controller: _freqControllers[idx],
-                  style: const TextStyle(color: AppColors.textPrimary, fontSize: 14),
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 14,
+                  ),
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
                   decoration: const InputDecoration(
                     filled: true,
                     fillColor: AppColors.cardSurfaceSolid,
                     border: OutlineInputBorder(),
-                    contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 8,
+                    ),
                   ),
-                  inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*'))],
+                  inputFormatters: [
+                    FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
+                  ],
                   onChanged: (v) => _sendThrottledUpdate(),
                 ),
               ],
@@ -625,19 +709,36 @@ class _TuningModalState extends ConsumerState<TuningModal> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Gain (dB)', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+                const Text(
+                  'Gain (dB)',
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 12,
+                  ),
+                ),
                 const SizedBox(height: 8),
                 TextField(
                   controller: _gainControllers[idx],
-                  style: const TextStyle(color: AppColors.textPrimary, fontSize: 14),
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
+                  style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 14,
+                  ),
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                    signed: true,
+                  ),
                   decoration: const InputDecoration(
                     filled: true,
                     fillColor: AppColors.cardSurfaceSolid,
                     border: OutlineInputBorder(),
-                    contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 8,
+                    ),
                   ),
-                  inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^-?\d*\.?\d*'))],
+                  inputFormatters: [
+                    FilteringTextInputFormatter.allow(RegExp(r'^-?\d*\.?\d*')),
+                  ],
                   onChanged: (v) => _sendThrottledUpdate(),
                 ),
               ],
@@ -649,19 +750,35 @@ class _TuningModalState extends ConsumerState<TuningModal> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Q', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+                const Text(
+                  'Q',
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 12,
+                  ),
+                ),
                 const SizedBox(height: 8),
                 TextField(
                   controller: _qControllers[idx],
-                  style: const TextStyle(color: AppColors.textPrimary, fontSize: 14),
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 14,
+                  ),
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
                   decoration: const InputDecoration(
                     filled: true,
                     fillColor: AppColors.cardSurfaceSolid,
                     border: OutlineInputBorder(),
-                    contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 8,
+                    ),
                   ),
-                  inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*'))],
+                  inputFormatters: [
+                    FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
+                  ],
                   onChanged: (v) => _sendThrottledUpdate(),
                 ),
               ],
@@ -697,12 +814,18 @@ class _TuningModalState extends ConsumerState<TuningModal> {
             return Listener(
               onPointerSignal: (pointerSignal) {
                 if (pointerSignal is PointerScrollEvent) {
-                  if (_activeBandIndex != -1 && _bandEnabled[_activeBandIndex]) {
-                    double currentQ = double.tryParse(_qControllers[_activeBandIndex].text) ?? 0.707;
-                    double delta = pointerSignal.scrollDelta.dy > 0 ? -0.1 : 0.1;
+                  if (_activeBandIndex != -1 &&
+                      _bandEnabled[_activeBandIndex]) {
+                    double currentQ =
+                        double.tryParse(_qControllers[_activeBandIndex].text) ??
+                        0.707;
+                    double delta = pointerSignal.scrollDelta.dy > 0
+                        ? -0.1
+                        : 0.1;
                     double newQ = (currentQ + delta).clamp(0.1, 10.0);
                     setState(() {
-                      _qControllers[_activeBandIndex].text = newQ.toStringAsFixed(3);
+                      _qControllers[_activeBandIndex].text = newQ
+                          .toStringAsFixed(3);
                     });
                     _sendThrottledUpdate();
                   }
@@ -710,13 +833,17 @@ class _TuningModalState extends ConsumerState<TuningModal> {
               },
               onPointerPanZoomUpdate: (event) {
                 if (_activeBandIndex != -1 && _bandEnabled[_activeBandIndex]) {
-                  double currentQ = double.tryParse(_qControllers[_activeBandIndex].text) ?? 0.707;
+                  double currentQ =
+                      double.tryParse(_qControllers[_activeBandIndex].text) ??
+                      0.707;
                   // Use pan delta dy (trackpad continuous scroll)
                   double delta = event.panDelta.dy > 0 ? -0.05 : 0.05;
                   if (event.panDelta.dy == 0) return;
                   double newQ = (currentQ + delta).clamp(0.1, 10.0);
                   setState(() {
-                    _qControllers[_activeBandIndex].text = newQ.toStringAsFixed(3);
+                    _qControllers[_activeBandIndex].text = newQ.toStringAsFixed(
+                      3,
+                    );
                   });
                   _sendThrottledUpdate();
                 }
@@ -724,47 +851,53 @@ class _TuningModalState extends ConsumerState<TuningModal> {
               child: MouseRegion(
                 onHover: (event) => _handleHover(event, constraints),
                 onExit: (_) => setState(() => _hoverIndex = -1),
-              child: GestureDetector(
-                onPanDown: (details) => _handlePanDown(details, constraints),
-                onPanUpdate: (details) => _handlePanUpdate(details, constraints),
-                onPanEnd: _handlePanEnd,
-                onPanCancel: () {
-                  setState(() => _isDragging = false);
-                  _applyTuning(silent: true);
-                },
-                child: Stack(
-                  children: [
-                    // Static Background Grid protected by RepaintBoundary
-                    RepaintBoundary(
-                      child: CustomPaint(
-                        painter: _EqGridPainter(
-                          minFreq: minFreq, maxFreq: maxFreq,
-                          minGain: minGain, maxGain: maxGain,
+                child: GestureDetector(
+                  onPanDown: (details) => _handlePanDown(details, constraints),
+                  onPanUpdate: (details) =>
+                      _handlePanUpdate(details, constraints),
+                  onPanEnd: _handlePanEnd,
+                  onPanCancel: () {
+                    setState(() => _isDragging = false);
+                    _applyTuning(silent: true);
+                  },
+                  child: Stack(
+                    children: [
+                      // Static Background Grid protected by RepaintBoundary
+                      RepaintBoundary(
+                        child: CustomPaint(
+                          painter: _EqGridPainter(
+                            minFreq: minFreq,
+                            maxFreq: maxFreq,
+                            minGain: minGain,
+                            maxGain: maxGain,
+                          ),
+                          size: Size(
+                            constraints.maxWidth,
+                            constraints.maxHeight,
+                          ),
+                        ),
+                      ),
+                      // Dynamic Curve and Dots
+                      CustomPaint(
+                        painter: _EqCurvePainter(
+                          activeBandIndex: _activeBandIndex,
+                          hoverIndex: _hoverIndex,
+                          isDragging: _isDragging,
+                          bandEnabled: _bandEnabled,
+                          bandTypes: _bandTypes,
+                          freqs: freqs,
+                          gains: gains,
+                          qs: qs,
+                          minFreq: minFreq,
+                          maxFreq: maxFreq,
+                          minGain: minGain,
+                          maxGain: maxGain,
                         ),
                         size: Size(constraints.maxWidth, constraints.maxHeight),
                       ),
-                    ),
-                    // Dynamic Curve and Dots
-                    CustomPaint(
-                      painter: _EqCurvePainter(
-                        activeBandIndex: _activeBandIndex,
-                        hoverIndex: _hoverIndex,
-                        isDragging: _isDragging,
-                        bandEnabled: _bandEnabled,
-                        bandTypes: _bandTypes,
-                        freqs: freqs,
-                        gains: gains,
-                        qs: qs,
-                        minFreq: minFreq,
-                        maxFreq: maxFreq,
-                        minGain: minGain,
-                        maxGain: maxGain,
-                      ),
-                      size: Size(constraints.maxWidth, constraints.maxHeight),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
               ),
             );
           },
@@ -787,7 +920,7 @@ class _TuningModalState extends ConsumerState<TuningModal> {
         maxChannels = hwChannelsAsync.value!.length;
       }
     }
-    
+
     int safeSelectedChannel = _selectedChannel;
     if (safeSelectedChannel > maxChannels) safeSelectedChannel = 1;
 
@@ -813,13 +946,16 @@ class _TuningModalState extends ConsumerState<TuningModal> {
               ),
             ),
             const SizedBox(height: 16),
-            
+
             // Channel & Delay Row
             Row(
               children: [
                 const SizedBox(
                   width: 60,
-                  child: Text('채널', style: TextStyle(color: AppColors.textSecondary)),
+                  child: Text(
+                    '채널',
+                    style: TextStyle(color: AppColors.textSecondary),
+                  ),
                 ),
                 Expanded(
                   flex: 2,
@@ -828,7 +964,10 @@ class _TuningModalState extends ConsumerState<TuningModal> {
                       filled: true,
                       fillColor: AppColors.background,
                       border: OutlineInputBorder(),
-                      contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 8,
+                      ),
                     ),
                     child: DropdownButtonHideUnderline(
                       child: DropdownButton<int>(
@@ -836,14 +975,19 @@ class _TuningModalState extends ConsumerState<TuningModal> {
                         dropdownColor: AppColors.cardSurface,
                         isDense: true,
                         isExpanded: true,
-                        style: const TextStyle(color: AppColors.textPrimary, fontSize: 14),
-                        items: List.generate(maxChannels, (index) => index + 1).map((ch) {
-                          String side = ch % 2 != 0 ? "(L)" : "(R)";
-                          return DropdownMenuItem<int>(
-                            value: ch,
-                            child: Text('Channel $ch $side'),
-                          );
-                        }).toList(),
+                        style: const TextStyle(
+                          color: AppColors.textPrimary,
+                          fontSize: 14,
+                        ),
+                        items: List.generate(maxChannels, (index) => index + 1)
+                            .map((ch) {
+                              String side = ch % 2 != 0 ? "(L)" : "(R)";
+                              return DropdownMenuItem<int>(
+                                value: ch,
+                                child: Text('Channel $ch $side'),
+                              );
+                            })
+                            .toList(),
                         onChanged: (val) {
                           if (val != null) {
                             setState(() {
@@ -875,34 +1019,56 @@ class _TuningModalState extends ConsumerState<TuningModal> {
                       ),
                     ),
                     const SizedBox(width: 4),
-                    const Text('Link L/R', style: TextStyle(color: AppColors.textPrimary, fontSize: 12)),
+                    const Text(
+                      'Link L/R',
+                      style: TextStyle(
+                        color: AppColors.textPrimary,
+                        fontSize: 12,
+                      ),
+                    ),
                   ],
                 ),
                 const SizedBox(width: 16),
                 const SizedBox(
                   width: 70,
-                  child: Text('Delay (ms)', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+                  child: Text(
+                    'Delay (ms)',
+                    style: TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 12,
+                    ),
+                  ),
                 ),
                 Expanded(
                   flex: 2,
                   child: TextField(
                     controller: _delayController,
-                    style: const TextStyle(color: AppColors.textPrimary, fontSize: 14),
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    style: const TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 14,
+                    ),
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
                     decoration: const InputDecoration(
                       filled: true,
                       fillColor: AppColors.background,
                       border: OutlineInputBorder(),
-                      contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 8,
+                      ),
                     ),
-                    inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*'))],
+                    inputFormatters: [
+                      FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
+                    ],
                     onChanged: (v) => _sendThrottledUpdate(),
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 16),
-            
+
             // Interactive EQ Curve
             _buildInteractiveEqCurve(),
 
@@ -915,9 +1081,9 @@ class _TuningModalState extends ConsumerState<TuningModal> {
                 children: List.generate(8, (i) => _buildBandToggle(i)),
               ),
             ),
-            
+
             const SizedBox(height: 12),
-            
+
             // Active Band Controls
             _buildActiveBandControls(),
 
@@ -927,18 +1093,29 @@ class _TuningModalState extends ConsumerState<TuningModal> {
               children: [
                 TextButton(
                   onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('닫기', style: TextStyle(color: AppColors.textSecondary)),
+                  child: const Text(
+                    '닫기',
+                    style: TextStyle(color: AppColors.textSecondary),
+                  ),
                 ),
                 const SizedBox(width: 12),
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primaryNeon,
                     foregroundColor: AppColors.background,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 12,
+                    ),
                   ),
                   onPressed: () => _applyTuning(silent: false),
-                  child: const Text('적용 (Apply)', style: TextStyle(fontWeight: FontWeight.bold)),
+                  child: const Text(
+                    '적용 (Apply)',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
                 ),
               ],
             ),
@@ -975,6 +1152,7 @@ class _EqGridPainter extends CustomPainter {
       f = f.clamp(minFreq, maxFreq);
       return ((math.log(f) - minLog) / (maxLog - minLog)) * size.width;
     }
+
     double gainToY(double g) {
       g = g.clamp(minGain, maxGain);
       return size.height - ((g - minGain) / (maxGain - minGain)) * size.height;
@@ -990,7 +1168,11 @@ class _EqGridPainter extends CustomPainter {
     // Horizontal lines (Gain)
     for (double g in [-12.0, -6.0, 0.0, 6.0, 12.0]) {
       double y = gainToY(g);
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), g == 0.0 ? zeroLinePaint : gridPaint);
+      canvas.drawLine(
+        Offset(0, y),
+        Offset(size.width, y),
+        g == 0.0 ? zeroLinePaint : gridPaint,
+      );
     }
 
     // Vertical lines (Freq)
@@ -1042,6 +1224,7 @@ class _EqCurvePainter extends CustomPainter {
       f = f.clamp(minFreq, maxFreq);
       return ((math.log(f) - minLog) / (maxLog - minLog)) * size.width;
     }
+
     double gainToY(double g) {
       g = g.clamp(minGain, maxGain);
       return size.height - ((g - minGain) / (maxGain - minGain)) * size.height;
@@ -1050,7 +1233,7 @@ class _EqCurvePainter extends CustomPainter {
     // Calculate curve points
     int resolution = 100;
     List<Offset> points = [];
-    
+
     for (int i = 0; i <= resolution; i++) {
       double x = (i / resolution) * size.width;
       double t = i / resolution;
@@ -1063,11 +1246,15 @@ class _EqCurvePainter extends CustomPainter {
         double bandG = gains[b];
         double bandQ = qs[b].clamp(0.1, 10.0);
         double distanceOctaves = (math.log(f) - math.log(bandF)) / math.ln2;
-        
+
         switch (bandTypes[b]) {
           case EqType.bell:
             double width = 1.0 / bandQ;
-            totalDb += bandG * math.exp(-(distanceOctaves * distanceOctaves) / (width * width));
+            totalDb +=
+                bandG *
+                math.exp(
+                  -(distanceOctaves * distanceOctaves) / (width * width),
+                );
             break;
           case EqType.lowShelf:
             double width = 1.0 / bandQ;
@@ -1079,18 +1266,18 @@ class _EqCurvePainter extends CustomPainter {
             break;
           case EqType.lowCut:
             if (f < bandF) {
-               totalDb -= (math.log(bandF) - math.log(f)) * 10.0 * bandQ;
+              totalDb -= (math.log(bandF) - math.log(f)) * 10.0 * bandQ;
             }
             break;
           case EqType.highCut:
             if (f > bandF) {
-               totalDb -= (math.log(f) - math.log(bandF)) * 10.0 * bandQ;
+              totalDb -= (math.log(f) - math.log(bandF)) * 10.0 * bandQ;
             }
             break;
           case EqType.notch:
             double width = 0.5 / bandQ;
             if (distanceOctaves.abs() < width) {
-                totalDb -= 15.0 * (1.0 - (distanceOctaves.abs() / width));
+              totalDb -= 15.0 * (1.0 - (distanceOctaves.abs() / width));
             }
             break;
         }
@@ -1130,7 +1317,7 @@ class _EqCurvePainter extends CustomPainter {
           ],
           stops: const [0.0, 1.0],
         ).createShader(Rect.fromLTRB(0, 0, size.width, size.height));
-      
+
       canvas.drawPath(fillPath, fillPaint);
 
       final curvePaint = Paint()
@@ -1138,23 +1325,25 @@ class _EqCurvePainter extends CustomPainter {
         ..strokeWidth = 2.5
         ..style = PaintingStyle.stroke
         ..isAntiAlias = true;
-      
+
       canvas.drawPath(curvePath, curvePaint);
     }
 
     // Draw Dots and Tooltips
     for (int b = 0; b < 8; b++) {
       if (!bandEnabled[b]) continue;
-      
+
       bool isActive = b == activeBandIndex;
       bool isHovered = b == hoverIndex;
       double px = freqToX(freqs[b]);
       double py = gainToY(gains[b]);
 
       final dotPaint = Paint()
-        ..color = isActive || isHovered ? AppColors.primaryNeon : AppColors.cardSurfaceSolid
+        ..color = isActive || isHovered
+            ? AppColors.primaryNeon
+            : AppColors.cardSurfaceSolid
         ..style = PaintingStyle.fill;
-      
+
       final borderPaint = Paint()
         ..color = isActive || isHovered ? Colors.white : AppColors.primaryNeon
         ..strokeWidth = isActive || isHovered ? 2.5 : 1.5
@@ -1181,16 +1370,23 @@ class _EqCurvePainter extends CustomPainter {
         );
         textPainter.layout();
         textPainter.paint(
-          canvas, 
-          Offset(px - textPainter.width / 2, py - textPainter.height / 2 - 16)
+          canvas,
+          Offset(px - textPainter.width / 2, py - textPainter.height / 2 - 16),
         );
       }
     }
   }
 
-  void _drawTooltip(Canvas canvas, double px, double py, int bandIndex, Size size) {
-    final String text = '${freqs[bandIndex].toStringAsFixed(1)} Hz\n${gains[bandIndex].toStringAsFixed(1)} dB';
-    
+  void _drawTooltip(
+    Canvas canvas,
+    double px,
+    double py,
+    int bandIndex,
+    Size size,
+  ) {
+    final String text =
+        '${freqs[bandIndex].toStringAsFixed(1)} Hz\n${gains[bandIndex].toStringAsFixed(1)} dB';
+
     final textPainter = TextPainter(
       text: TextSpan(
         text: text,
@@ -1226,23 +1422,20 @@ class _EqCurvePainter extends CustomPainter {
 
     // Shadow
     canvas.drawRRect(
-      rect.shift(const Offset(0, 2)), 
+      rect.shift(const Offset(0, 2)),
       Paint()
         ..color = Colors.black.withOpacity(0.5)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4),
     );
 
     // Box
-    canvas.drawRRect(
-      rect,
-      Paint()..color = const Color(0xFF2D2D2D)
-    );
+    canvas.drawRRect(rect, Paint()..color = const Color(0xFF2D2D2D));
     canvas.drawRRect(
       rect,
       Paint()
         ..color = Colors.white.withOpacity(0.1)
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 1
+        ..strokeWidth = 1,
     );
 
     textPainter.paint(canvas, Offset(tx + padding.left, ty + padding.top));

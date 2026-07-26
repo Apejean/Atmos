@@ -234,9 +234,13 @@ class _TrackCardState extends ConsumerState<TrackCard> {
     int currentKey = widget.track.outputChannel;
     String currentValue;
     if (config != null && _fileChannels != null && _fileChannels! > 2) {
-      currentValue = widget.track.outputStereo ? ChannelDropdownValueHelper.getMultiValue(currentKey) : ChannelDropdownValueHelper.getMonoValue(currentKey);
+      currentValue = widget.track.outputStereo
+          ? ChannelDropdownValueHelper.getMultiValue(currentKey)
+          : ChannelDropdownValueHelper.getMonoValue(currentKey);
     } else {
-      currentValue = widget.track.outputStereo ? ChannelDropdownValueHelper.getStereoValue(currentKey) : ChannelDropdownValueHelper.getMonoValue(currentKey);
+      currentValue = widget.track.outputStereo
+          ? ChannelDropdownValueHelper.getStereoValue(currentKey)
+          : ChannelDropdownValueHelper.getMonoValue(currentKey);
     }
 
     bool valueExists = outputItems.any((item) => item.value == currentValue);
@@ -246,7 +250,9 @@ class _TrackCardState extends ConsumerState<TrackCard> {
         final firstVal = outputItems.first.value;
         if (firstVal != null) {
           currentValue = firstVal;
-          final isStereo = ChannelDropdownValueHelper.isStereo(firstVal) || ChannelDropdownValueHelper.isMulti(firstVal);
+          final isStereo =
+              ChannelDropdownValueHelper.isStereo(firstVal) ||
+              ChannelDropdownValueHelper.isMulti(firstVal);
           currentKey = ChannelDropdownValueHelper.getChannel(firstVal) ?? 0;
 
           WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -394,7 +400,11 @@ class _TrackCardState extends ConsumerState<TrackCard> {
                               ),
                             ),
                             child: IconButton(
-                              icon: Icon(widget.track.isStreaming ? Icons.storage : Icons.memory),
+                              icon: Icon(
+                                widget.track.isStreaming
+                                    ? Icons.storage
+                                    : Icons.memory,
+                              ),
                               color: widget.track.isStreaming
                                   ? widget.accentColor
                                   : AppColors.darkGrey,
@@ -411,22 +421,38 @@ class _TrackCardState extends ConsumerState<TrackCard> {
                                     context: context,
                                     builder: (context) => AlertDialog(
                                       backgroundColor: AppColors.background,
-                                      title: const Text('경고: OOM 위험', style: TextStyle(color: AppColors.danger)),
+                                      title: const Text(
+                                        '경고: OOM 위험',
+                                        style: TextStyle(
+                                          color: AppColors.danger,
+                                        ),
+                                      ),
                                       content: const Text(
                                         '큰 파일을 메모리에 프리로드하면 OOM(메모리 부족) 문제가 발생할 수 있습니다.\n\n긴 BGM은 "디스크 스트리밍" 모드를 권장합니다. 계속하시겠습니까?',
                                         style: TextStyle(color: Colors.white70),
                                       ),
                                       actions: [
                                         TextButton(
-                                          onPressed: () => Navigator.of(context).pop(),
-                                          child: const Text('취소', style: TextStyle(color: Colors.white54)),
+                                          onPressed: () =>
+                                              Navigator.of(context).pop(),
+                                          child: const Text(
+                                            '취소',
+                                            style: TextStyle(
+                                              color: Colors.white54,
+                                            ),
+                                          ),
                                         ),
                                         TextButton(
                                           onPressed: () {
                                             Navigator.of(context).pop();
                                             widget.onStreamChanged?.call(false);
                                           },
-                                          child: const Text('프리로드', style: TextStyle(color: AppColors.primaryNeon)),
+                                          child: const Text(
+                                            '프리로드',
+                                            style: TextStyle(
+                                              color: AppColors.primaryNeon,
+                                            ),
+                                          ),
                                         ),
                                       ],
                                     ),
@@ -435,7 +461,9 @@ class _TrackCardState extends ConsumerState<TrackCard> {
                                   widget.onStreamChanged?.call(true);
                                 }
                               },
-                              tooltip: widget.track.isStreaming ? '디스크 스트리밍 모드' : '메모리 프리로드 모드',
+                              tooltip: widget.track.isStreaming
+                                  ? '디스크 스트리밍 모드'
+                                  : '메모리 프리로드 모드',
                             ),
                           ),
                         ],
@@ -464,13 +492,20 @@ class _TrackCardState extends ConsumerState<TrackCard> {
                                 fontSize: 12,
                               ),
                               onChanged: (val) {
-                                  if (val != null) {
-                                    final isStereo = ChannelDropdownValueHelper.isStereo(val) || ChannelDropdownValueHelper.isMulti(val);
-                                    final key = ChannelDropdownValueHelper.getChannel(val);
-                                    if (key != null) {
-                                      widget.onOutputChanged?.call(key, isStereo);
-                                    }
+                                if (val != null) {
+                                  final isStereo =
+                                      ChannelDropdownValueHelper.isStereo(
+                                        val,
+                                      ) ||
+                                      ChannelDropdownValueHelper.isMulti(val);
+                                  final key =
+                                      ChannelDropdownValueHelper.getChannel(
+                                        val,
+                                      );
+                                  if (key != null) {
+                                    widget.onOutputChanged?.call(key, isStereo);
                                   }
+                                }
                               },
                             ),
                           ),

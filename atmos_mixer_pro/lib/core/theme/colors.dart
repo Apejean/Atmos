@@ -5,7 +5,9 @@ class AppColors {
   static const Color headerBackground = Color(0xFF191B1D);
   static const Color cardSurface = Color(0xFF222428);
   static const Color cardSurfaceSolid = Color(0xFF282A2E);
-  static const Color primaryNeon = Color(0xFF2E9A75); // Desaturated Tactical Green
+  static const Color primaryNeon = Color(
+    0xFF2E9A75,
+  ); // Desaturated Tactical Green
   static const Color danger = Color(0xFFB84A4A); // Tactical Red
   static const Color dangerHover = Color(0xFF9E3838);
   static const Color success = Color(0xFF2E8251); // Soft Tactical Green
