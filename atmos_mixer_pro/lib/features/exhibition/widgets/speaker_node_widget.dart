@@ -11,6 +11,7 @@ class SpeakerNodeWidget extends StatefulWidget {
   final bool isDuplicateChannel;
   final ValueChanged<int> onChannelChanged;
   final VoidCallback onDelete;
+  final Color? roomColor;
 
   const SpeakerNodeWidget({
     super.key,
@@ -18,6 +19,7 @@ class SpeakerNodeWidget extends StatefulWidget {
     this.isDuplicateChannel = false,
     required this.onChannelChanged,
     required this.onDelete,
+    this.roomColor,
   });
 
   @override
@@ -58,9 +60,10 @@ class _SpeakerNodeWidgetState extends State<SpeakerNodeWidget> {
     final glowOpacity = (_currentLevel * 0.8).clamp(0.0, 1.0);
     final glowRadius = _currentLevel * 30.0;
 
+    final baseColor = widget.roomColor ?? AppColors.primaryNeon;
     final borderColor = widget.isDuplicateChannel
         ? Colors.orangeAccent
-        : AppColors.primaryNeon.withOpacity(0.5);
+        : baseColor.withOpacity(0.5);
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -96,7 +99,7 @@ class _SpeakerNodeWidgetState extends State<SpeakerNodeWidget> {
             boxShadow: [
               if (glowOpacity > 0)
                 BoxShadow(
-                  color: AppColors.primaryNeon.withOpacity(glowOpacity),
+                  color: baseColor.withOpacity(glowOpacity),
                   blurRadius: glowRadius,
                   spreadRadius: glowRadius / 2,
                 ),
@@ -127,7 +130,7 @@ class _SpeakerNodeWidgetState extends State<SpeakerNodeWidget> {
                   Icon(
                     Icons.speaker,
                     size: 38,
-                    color: _currentLevel > 0.1 ? AppColors.primaryNeon : Colors.white70,
+                    color: _currentLevel > 0.1 ? baseColor : Colors.white70,
                   ),
                   InkWell(
                     onTap: widget.onDelete,

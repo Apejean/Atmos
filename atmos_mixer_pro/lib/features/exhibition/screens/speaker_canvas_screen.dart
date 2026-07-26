@@ -35,6 +35,9 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
   CanvasMode _currentMode = CanvasMode.speaker;
   String? _drawingTrajectoryId;
 
+  static int _roomColorIndex = 0;
+  List<String> _draggedSpeakerIds = [];
+
   @override
   void initState() {
     super.initState();
@@ -78,27 +81,38 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
     double cx = (canvasCenter.dx / _gridSize).round() * _gridSize;
     double cy = (canvasCenter.dy / _gridSize).round() * _gridSize;
 
+    cx = cx.clamp(0.0, _canvasWidth - 300.0);
+    cy = cy.clamp(0.0, _canvasHeight - 200.0);
+
+    final colorValue = AppColors.roomAccents[_roomColorIndex % AppColors.roomAccents.length].value;
+    _roomColorIndex++;
+
     final newRoom = RoomZone(
       id: const Uuid().v4(),
       x: cx,
       y: cy,
       width: 300.0,
       height: 200.0,
+      color: colorValue,
     );
     ref.read(roomZoneProvider.notifier).addRoomZone(newRoom);
   }
 
   void _addTrajectoryPoint(Offset localPosition) {
+    // Clamp the points to prevent drawing out of canvas bounds
+    final clampedX = localPosition.dx.clamp(0.0, _canvasWidth);
+    final clampedY = localPosition.dy.clamp(0.0, _canvasHeight);
+
     if (_drawingTrajectoryId == null) {
       _drawingTrajectoryId = const Uuid().v4();
       final t = Trajectory(id: _drawingTrajectoryId!, waypoints: [
-        TrajectoryWaypoint(localPosition.dx, localPosition.dy)
+        TrajectoryWaypoint(clampedX, clampedY)
       ]);
       ref.read(trajectoryProvider.notifier).addTrajectory(t);
     } else {
       final trajectories = ref.read(trajectoryProvider);
       final t = trajectories.firstWhere((element) => element.id == _drawingTrajectoryId);
-      final updated = t.copyWith(waypoints: [...t.waypoints, TrajectoryWaypoint(localPosition.dx, localPosition.dy)]);
+      final updated = t.copyWith(waypoints: [...t.waypoints, TrajectoryWaypoint(clampedX, clampedY)]);
       ref.read(trajectoryProvider.notifier).updateTrajectory(updated);
     }
   }
@@ -106,6 +120,159 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
   void _endTrajectory() {
     _drawingTrajectoryId = null;
     setState(() {});
+  }
+
+  Future<void> _editRoom(RoomZone room) async {
+    final controller = TextEditingController(text: room.label);
+    int selectedColor = room.color;
+
+    await showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          backgroundColor: AppColors.cardSurface,
+          title: const Text('Edit Room', style: TextStyle(color: Colors.white)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: controller,
+                style: const TextStyle(color: Colors.white),
+                decoration: const InputDecoration(
+                  labelText: 'Room Name',
+                  labelStyle: TextStyle(color: Colors.white70),
+                  enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
+                  focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: AppColors.primaryNeon)),
+                ),
+              ),
+              const SizedBox(height: 24),
+              const Text('Theme Color', style: TextStyle(color: Colors.white70)),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: AppColors.roomAccents.map((color) {
+                  final isSelected = color.value == selectedColor;
+                  return GestureDetector(
+                    onTap: () => setState(() => selectedColor = color.value),
+                    child: Container(
+                      width: 40, height: 40,
+                      decoration: BoxDecoration(
+                        color: color,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: isSelected ? Colors.white : Colors.transparent,
+                          width: 3,
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              )
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                ref.read(roomZoneProvider.notifier).removeRoomZone(room.id);
+                Navigator.pop(context);
+              },
+              child: const Text('Delete Room', style: TextStyle(color: Colors.redAccent)),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel', style: TextStyle(color: Colors.white70)),
+            ),
+            TextButton(
+              onPressed: () {
+                ref.read(roomZoneProvider.notifier).updateRoomZone(
+                  room.copyWith(label: controller.text, color: selectedColor), 
+                  immediate: true
+                );
+                Navigator.pop(context);
+              },
+              child: const Text('Save', style: TextStyle(color: AppColors.primaryNeon)),
+            ),
+          ],
+        )
+      ),
+    );
+  }
+
+  List<SpeakerNode> _getSpeakersInRoom(RoomZone room, List<SpeakerNode> nodes) {
+    return nodes.where((n) => room.containsPoint(n.x + _speakerSize / 2, n.y + _speakerSize / 2)).toList();
+  }
+
+  Color? _getRoomColorForSpeaker(SpeakerNode speaker, List<RoomZone> rooms) {
+    for (final room in rooms) {
+      if (room.containsPoint(speaker.x + _speakerSize / 2, speaker.y + _speakerSize / 2)) {
+        return Color(room.color);
+      }
+    }
+    return null;
+  }
+
+  Widget _buildResizeHandle(Alignment alignment, RoomZone room) {
+    return Align(
+      alignment: alignment,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onPanUpdate: (details) {
+          final scale = _transformationController.value.getMaxScaleOnAxis();
+          final currentScale = scale > 0 ? scale : 1.0;
+          final dx = details.delta.dx / currentScale;
+          final dy = details.delta.dy / currentScale;
+
+          final currentRoom = ref.read(roomZoneProvider).firstWhere((r) => r.id == room.id);
+          double newX = currentRoom.x;
+          double newY = currentRoom.y;
+          double newW = currentRoom.width;
+          double newH = currentRoom.height;
+
+          if (alignment.x < 0) {
+            newX += dx;
+            newW -= dx;
+            if (newW < 100) {
+              newX -= (100 - newW);
+              newW = 100;
+            }
+          } else if (alignment.x > 0) {
+            newW += dx;
+            if (newW < 100) newW = 100;
+          }
+
+          if (alignment.y < 0) {
+            newY += dy;
+            newH -= dy;
+            if (newH < 100) {
+              newY -= (100 - newH);
+              newH = 100;
+            }
+          } else if (alignment.y > 0) {
+            newH += dy;
+            if (newH < 100) newH = 100;
+          }
+
+          newX = newX.clamp(0.0, _canvasWidth - newW);
+          newY = newY.clamp(0.0, _canvasHeight - newH);
+          newW = newW.clamp(100.0, _canvasWidth - newX);
+          newH = newH.clamp(100.0, _canvasHeight - newY);
+
+          ref.read(roomZoneProvider.notifier).updateRoomZone(currentRoom.copyWith(
+            x: newX, y: newY, width: newW, height: newH,
+          ));
+        },
+        child: Container(
+          width: 14,
+          height: 14,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            border: Border.all(color: Colors.black, width: 2),
+            shape: BoxShape.circle,
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -209,89 +376,163 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                   children: [
                     // Grid Background
                     Positioned.fill(
-                      child: CustomPaint(
-                        painter: _GridPainter(),
+                      child: RepaintBoundary(
+                        child: CustomPaint(
+                          painter: _GridPainter(),
+                        ),
                       ),
                     ),
                     
                     // Rooms
                     ...rooms.map((room) {
+                      final containedSpeakers = _getSpeakersInRoom(room, nodes);
+                      final roomColor = Color(room.color);
+
                       return Positioned(
                         left: room.x,
                         top: room.y,
                         width: room.width,
                         height: room.height,
-                        child: GestureDetector(
-                          onPanUpdate: _currentMode == CanvasMode.room ? (details) {
-                            final scale = _transformationController.value.getMaxScaleOnAxis();
-                            final currentScale = scale > 0 ? scale : 1.0;
-                            double newX = room.x + (details.delta.dx / currentScale);
-                            double newY = room.y + (details.delta.dy / currentScale);
-                            
-                            ref.read(roomZoneProvider.notifier).updateRoomZone(room.copyWith(
-                              x: newX,
-                              y: newY,
-                            ));
-                          } : null,
-                          onPanEnd: _currentMode == CanvasMode.room ? (details) {
-                            final snappedX = (room.x / _gridSize).round() * _gridSize;
-                            final snappedY = (room.y / _gridSize).round() * _gridSize;
-                            ref.read(roomZoneProvider.notifier).updateRoomZone(
-                              room.copyWith(x: snappedX, y: snappedY), immediate: true
-                            );
-                          } : null,
-                          onDoubleTap: _currentMode == CanvasMode.room ? () {
-                            ref.read(roomZoneProvider.notifier).removeRoomZone(room.id);
-                          } : null,
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: AppColors.primaryNeon.withOpacity(0.1),
-                              border: Border.all(color: AppColors.primaryNeon.withOpacity(0.5), width: 2),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Center(
-                              child: Text(
-                                room.label,
-                                style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                        child: Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            // Room Body
+                            GestureDetector(
+                              onPanStart: _currentMode == CanvasMode.room ? (details) {
+                                _draggedSpeakerIds = containedSpeakers.map((e) => e.id).toList();
+                              } : null,
+                              onPanUpdate: _currentMode == CanvasMode.room ? (details) {
+                                final scale = _transformationController.value.getMaxScaleOnAxis();
+                                final currentScale = scale > 0 ? scale : 1.0;
+                                double dx = details.delta.dx / currentScale;
+                                double dy = details.delta.dy / currentScale;
+                                
+                                final currentRoom = ref.read(roomZoneProvider).firstWhere((r) => r.id == room.id);
+                                double newX = (currentRoom.x + dx).clamp(0.0, _canvasWidth - currentRoom.width);
+                                double newY = (currentRoom.y + dy).clamp(0.0, _canvasHeight - currentRoom.height);
+
+                                ref.read(roomZoneProvider.notifier).updateRoomZone(currentRoom.copyWith(
+                                  x: newX,
+                                  y: newY,
+                                ));
+
+                                // Group Drag: Move contained speakers
+                                final currentNodes = ref.read(speakerLayoutProvider);
+                                for (final nodeId in _draggedSpeakerIds) {
+                                  try {
+                                    final node = currentNodes.firstWhere((n) => n.id == nodeId);
+                                    final nX = (node.x + dx).clamp(0.0, _canvasWidth - _speakerSize);
+                                    final nY = (node.y + dy).clamp(0.0, _canvasHeight - _speakerSize);
+                                    ref.read(speakerLayoutProvider.notifier).updateSpeaker(node.copyWith(x: nX, y: nY));
+                                  } catch (_) {}
+                                }
+                              } : null,
+                              onPanEnd: _currentMode == CanvasMode.room ? (details) {
+                                final currentRoom = ref.read(roomZoneProvider).firstWhere((r) => r.id == room.id);
+                                double snappedX = ((currentRoom.x / _gridSize).round() * _gridSize).clamp(0.0, _canvasWidth - currentRoom.width);
+                                double snappedY = ((currentRoom.y / _gridSize).round() * _gridSize).clamp(0.0, _canvasHeight - currentRoom.height);
+                                ref.read(roomZoneProvider.notifier).updateRoomZone(
+                                  currentRoom.copyWith(x: snappedX, y: snappedY), immediate: true
+                                );
+                                
+                                // Group Drag snap
+                                final currentNodes = ref.read(speakerLayoutProvider);
+                                for (final nodeId in _draggedSpeakerIds) {
+                                  try {
+                                    final node = currentNodes.firstWhere((n) => n.id == nodeId);
+                                    final nX = (node.x / _gridSize).round() * _gridSize;
+                                    final nY = (node.y / _gridSize).round() * _gridSize;
+                                    ref.read(speakerLayoutProvider.notifier).updateSpeaker(
+                                      node.copyWith(x: nX.clamp(0.0, _canvasWidth - _speakerSize), y: nY.clamp(0.0, _canvasHeight - _speakerSize)), 
+                                      immediate: true
+                                    );
+                                  } catch (_) {}
+                                }
+                                _draggedSpeakerIds = [];
+                              } : null,
+                              onDoubleTap: _currentMode == CanvasMode.room ? () => _editRoom(room) : null,
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: roomColor.withOpacity(0.15),
+                                  border: Border.all(color: roomColor.withOpacity(0.8), width: 2),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    room.label,
+                                    style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                                  ),
+                                ),
                               ),
                             ),
-                          ),
+                            
+                            // Channel Badges (above room)
+                            Positioned(
+                              top: -28, left: 0,
+                              child: Wrap(
+                                spacing: 4,
+                                children: containedSpeakers.map((s) => Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(color: roomColor, borderRadius: BorderRadius.circular(4)),
+                                  child: Text('[Ch ${s.channel + 1}]', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+                                )).toList(),
+                              ),
+                            ),
+
+                            // 8-way Resize Handles
+                            if (_currentMode == CanvasMode.room) ...[
+                              _buildResizeHandle(Alignment.topLeft, room),
+                              _buildResizeHandle(Alignment.topCenter, room),
+                              _buildResizeHandle(Alignment.topRight, room),
+                              _buildResizeHandle(Alignment.centerLeft, room),
+                              _buildResizeHandle(Alignment.centerRight, room),
+                              _buildResizeHandle(Alignment.bottomLeft, room),
+                              _buildResizeHandle(Alignment.bottomCenter, room),
+                              _buildResizeHandle(Alignment.bottomRight, room),
+                            ],
+                          ],
                         ),
                       );
                     }),
 
                     // Trajectories
                     Positioned.fill(
-                      child: CustomPaint(
-                        painter: _TrajectoryPainter(trajectories),
+                      child: RepaintBoundary(
+                        child: CustomPaint(
+                          painter: _TrajectoryPainter(trajectories),
+                        ),
                       ),
                     ),
 
                     // Speaker Nodes
                     ...nodes.map((node) {
                       final isDuplicate = nodes.where((n) => n.id != node.id && n.channel == node.channel).isNotEmpty;
+                      final roomColor = _getRoomColorForSpeaker(node, rooms);
 
                       return Positioned(
                         left: node.x,
                         top: node.y,
-                        child: GestureDetector(
+                        child: RepaintBoundary(
+                          child: GestureDetector(
                           onPanUpdate: _currentMode == CanvasMode.speaker ? (details) {
                             final scale = _transformationController.value.getMaxScaleOnAxis();
                             final currentScale = scale > 0 ? scale : 1.0;
 
-                            double newX = node.x + (details.delta.dx / currentScale);
-                            double newY = node.y + (details.delta.dy / currentScale);
+                            final currentNode = ref.read(speakerLayoutProvider).firstWhere((n) => n.id == node.id);
+                            double newX = currentNode.x + (details.delta.dx / currentScale);
+                            double newY = currentNode.y + (details.delta.dy / currentScale);
                             
-                            final updated = node.copyWith(
+                            final updated = currentNode.copyWith(
                               x: newX.clamp(0.0, _canvasWidth - _speakerSize),
                               y: newY.clamp(0.0, _canvasHeight - _speakerSize),
                             );
                             ref.read(speakerLayoutProvider.notifier).updateSpeaker(updated);
                           } : null,
                           onPanEnd: _currentMode == CanvasMode.speaker ? (details) {
-                            final snappedX = (node.x / _gridSize).round() * _gridSize;
-                            final snappedY = (node.y / _gridSize).round() * _gridSize;
-                            final updated = node.copyWith(
+                            final currentNode = ref.read(speakerLayoutProvider).firstWhere((n) => n.id == node.id);
+                            final snappedX = (currentNode.x / _gridSize).round() * _gridSize;
+                            final snappedY = (currentNode.y / _gridSize).round() * _gridSize;
+                            final updated = currentNode.copyWith(
                               x: snappedX.clamp(0.0, _canvasWidth - _speakerSize),
                               y: snappedY.clamp(0.0, _canvasHeight - _speakerSize)
                             );
@@ -301,6 +542,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                             absorbing: _currentMode != CanvasMode.speaker,
                             child: SpeakerNodeWidget(
                               node: node,
+                              roomColor: roomColor,
                               onChannelChanged: (ch) {
                                 ref.read(speakerLayoutProvider.notifier).updateSpeaker(node.copyWith(channel: ch));
                               },
@@ -311,7 +553,8 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                             ),
                           ),
                         ),
-                      );
+                      ),
+                    );
                     }),
                   ],
                 ),
@@ -383,6 +626,6 @@ class _TrajectoryPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _TrajectoryPainter oldDelegate) {
-    return true; // Simple approach, always repaint on change
+    return true;
   }
 }
