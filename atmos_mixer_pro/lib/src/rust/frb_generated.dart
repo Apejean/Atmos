@@ -68,7 +68,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.12.0';
 
   @override
-  int get rustContentHash => -2038919286;
+  int get rustContentHash => 939964396;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -195,6 +195,10 @@ abstract class RustLibApi extends BaseApi {
   });
 
   Future<void> crateApiSimpleApiTriggerTestError({required String message});
+
+  Future<void> crateApiSimpleApiUpdateSpatialConfigJson({
+    required String jsonPayload,
+  });
 }
 
 class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
@@ -1433,6 +1437,39 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(
         debugName: "api_trigger_test_error",
         argNames: ["message"],
+      );
+
+  @override
+  Future<void> crateApiSimpleApiUpdateSpatialConfigJson({
+    required String jsonPayload,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_String(jsonPayload, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 40,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: sse_decode_atmos_error,
+        ),
+        constMeta: kCrateApiSimpleApiUpdateSpatialConfigJsonConstMeta,
+        argValues: [jsonPayload],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiSimpleApiUpdateSpatialConfigJsonConstMeta =>
+      const TaskConstMeta(
+        debugName: "api_update_spatial_config_json",
+        argNames: ["jsonPayload"],
       );
 
   @protected

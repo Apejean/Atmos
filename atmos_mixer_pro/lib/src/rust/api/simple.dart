@@ -8,7 +8,7 @@ import '../frb_generated.dart';
 import 'error.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `ENGINE_ACTIVE`, `ENGINE_GENERATION`, `ENGINE_THREAD`, `VU_THREAD_RUNNING`
+// These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `ENGINE_ACTIVE`, `ENGINE_GENERATION`, `ENGINE_THREAD`, `SpatialConfigPayload`, `VU_THREAD_RUNNING`
 // These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `deref`, `deref`, `deref`, `deref`, `fmt`, `fmt`, `initialize`, `initialize`, `initialize`, `initialize`
 
 Future<AppConfig> apiGetConfig({required String path}) =>
@@ -186,6 +186,11 @@ Future<void> apiApplyGlobalTuning({
   masterHeadroomDb: masterHeadroomDb,
   peakLimiterEnabled: peakLimiterEnabled,
 );
+
+Future<void> apiUpdateSpatialConfigJson({required String jsonPayload}) =>
+    RustLib.instance.api.crateApiSimpleApiUpdateSpatialConfigJson(
+      jsonPayload: jsonPayload,
+    );
 
 class ChannelTuningParams {
   final int channel;

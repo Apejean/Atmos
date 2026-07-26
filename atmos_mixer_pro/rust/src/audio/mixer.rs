@@ -54,6 +54,8 @@ pub struct AudioMixer {
     pub limiters: Vec<crate::audio::limiter::PeakLimiter>,
     pub temp_room_vols: Vec<f32>,
     pub channel_spatial_gains: Vec<f32>,
+    pub channel_spatial_gains_target: Vec<f32>,
+    pub temp_spatial_weights: Vec<f32>,
 }
 
 impl AudioMixer {
@@ -161,6 +163,8 @@ impl AudioMixer {
             limiters,
             temp_room_vols: vec![1.0; 4096],
             channel_spatial_gains: vec![1.0; channels],
+            channel_spatial_gains_target: vec![1.0; channels],
+            temp_spatial_weights: vec![0.0; channels],
         }
     }
 
@@ -221,11 +225,26 @@ impl AudioMixer {
             }
         }
 
+        if self.channel_spatial_gains_target.len() < out_channels {
+            self.channel_spatial_gains_target.resize(out_channels, 1.0);
+        } else {
+            self.channel_spatial_gains_target.fill(1.0);
+        }
+
         if self.channel_spatial_gains.len() < out_channels {
             self.channel_spatial_gains.resize(out_channels, 1.0);
-        } else {
-            self.channel_spatial_gains.fill(1.0);
         }
+
+        if self.temp_spatial_weights.len() < out_channels {
+            self.temp_spatial_weights.resize(out_channels, 0.0);
+        } else {
+            self.temp_spatial_weights.fill(0.0);
+        }
+
+        let mut sum_sq = 0.0;
+        let mut min_dist = f32::MAX;
+        let blur_radius = 2.0f32;
+
         for ch in 0..out_channels {
             let mut gain = 1.0;
             if ch < self.channel_positions.len() {
@@ -249,22 +268,43 @@ impl AudioMixer {
                         }
                     }
                     
-                    // 2. Trajectory Auto-Pan Engine
+                    // 2. Trajectory DBAP Weight Collection
                     if let Some(traj) = &self.trajectory {
                         let dx = pos.x - traj.current_position.x;
                         let dy = pos.y - traj.current_position.y;
                         let dz = pos.z - traj.current_position.z;
                         let dist = (dx*dx + dy*dy + dz*dz).sqrt();
-                        // Inverse distance attenuation (roll-off)
-                        let pan_gain = 1.0 / (1.0 + dist * 0.1); 
-                        gain *= pan_gain;
+                        
+                        if dist < min_dist {
+                            min_dist = dist;
+                        }
+                        
+                        let weight = 1.0 / (dist.powi(2) + blur_radius.powi(2));
+                        self.temp_spatial_weights[ch] = weight;
+                        sum_sq += weight * weight;
                     }
                 }
             }
-            self.channel_spatial_gains[ch] = gain;
+            self.channel_spatial_gains_target[ch] = gain;
+        }
+
+        // Apply DBAP Normalization & Global Distance Attenuation
+        if self.trajectory.is_some() {
+            let norm_factor = if sum_sq > 0.0 { 1.0 / sum_sq.sqrt() } else { 0.0 };
+            let distance_attenuation = 1.0 / min_dist.max(1.0);
+
+            for ch in 0..out_channels {
+                let pan_ratio = self.temp_spatial_weights[ch] * norm_factor;
+                self.channel_spatial_gains_target[ch] *= pan_ratio * distance_attenuation;
+            }
         }
 
         for frame in 0..frames {
+            // Anti-zipper smoothing for spatial automation (~4ms time constant)
+            for ch in 0..out_channels {
+                self.channel_spatial_gains[ch] += 0.005 * (self.channel_spatial_gains_target[ch] - self.channel_spatial_gains[ch]);
+            }
+
             // Update ducking weight per frame
             if self.ducking.is_ducking {
                 if self.ducking.ducking_weight > 0.3 {

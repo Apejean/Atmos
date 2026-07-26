@@ -1331,3 +1331,29 @@ pub fn api_apply_global_tuning(master_headroom_db: f32, peak_limiter_enabled: bo
     }
     Ok(())
 }
+
+#[derive(serde::Deserialize)]
+struct SpatialConfigPayload {
+    channel_positions: Vec<Option<crate::common::config::Point3D>>,
+    room_zones: Vec<crate::common::config::RoomZone>,
+    trajectory: Option<crate::common::config::Trajectory>,
+}
+
+pub fn api_update_spatial_config_json(json_payload: String) -> Result<(), AtmosError> {
+    let payload: SpatialConfigPayload = serde_json::from_str(&json_payload).map_err(|e| AtmosError {
+        message: format!("Failed to parse spatial config JSON: {}", e),
+    })?;
+
+    GLOBAL_STATE
+        .command_sender
+        .try_send(AudioCommand::UpdateSpatialConfig {
+            channel_positions: payload.channel_positions,
+            room_zones: payload.room_zones,
+            trajectory: payload.trajectory,
+        })
+        .map_err(|e| AtmosError {
+            message: format!("Failed to send UpdateSpatialConfig: {}", e),
+        })?;
+
+    Ok(())
+}
