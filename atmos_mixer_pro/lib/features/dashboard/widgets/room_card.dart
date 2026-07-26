@@ -211,6 +211,8 @@ class _RoomCardState extends ConsumerState<RoomCard> {
           multiConfigs: currentConfig.multiConfigs,
           rooms: newRooms,
           isExhibitionMode: currentConfig.isExhibitionMode,
+          globalTrajectory: currentConfig.globalTrajectory,
+          roomZones: currentConfig.roomZones,
         ),
       );
     }
@@ -266,6 +268,8 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                 multiConfigs: config.multiConfigs,
                 rooms: newRooms,
                 isExhibitionMode: config.isExhibitionMode,
+          globalTrajectory: config.globalTrajectory,
+          roomZones: config.roomZones,
               ),
             );
       }
@@ -456,8 +460,9 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                                             multiConfigs:
                                                 currentConfig.multiConfigs,
                                             rooms: newRooms,
-                                            isExhibitionMode:
-                                                currentConfig.isExhibitionMode,
+                                            isExhibitionMode: currentConfig.isExhibitionMode,
+          globalTrajectory: currentConfig.globalTrajectory,
+          roomZones: currentConfig.roomZones,
                                           ),
                                           skipPreload: true,
                                         );
@@ -499,8 +504,9 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                                         multiConfigs:
                                             currentConfig.multiConfigs,
                                         rooms: newRooms,
-                                        isExhibitionMode:
-                                            currentConfig.isExhibitionMode,
+                                        isExhibitionMode: currentConfig.isExhibitionMode,
+          globalTrajectory: currentConfig.globalTrajectory,
+          roomZones: currentConfig.roomZones,
                                       ),
                                     );
                               }
@@ -738,8 +744,9 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                                           multiConfigs:
                                               currentConfig.multiConfigs,
                                           rooms: newRooms,
-                                          isExhibitionMode:
-                                              currentConfig.isExhibitionMode,
+                                          isExhibitionMode: currentConfig.isExhibitionMode,
+          globalTrajectory: currentConfig.globalTrajectory,
+          roomZones: currentConfig.roomZones,
                                         ),
                                       );
                                 }
@@ -808,8 +815,9 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                                           multiConfigs:
                                               currentConfig.multiConfigs,
                                           rooms: newRooms,
-                                          isExhibitionMode:
-                                              currentConfig.isExhibitionMode,
+                                          isExhibitionMode: currentConfig.isExhibitionMode,
+          globalTrajectory: currentConfig.globalTrajectory,
+          roomZones: currentConfig.roomZones,
                                         ),
                                         skipPreload: true,
                                       );
@@ -872,8 +880,9 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                                           multiConfigs:
                                               currentConfig.multiConfigs,
                                           rooms: newRooms,
-                                          isExhibitionMode:
-                                              currentConfig.isExhibitionMode,
+                                          isExhibitionMode: currentConfig.isExhibitionMode,
+          globalTrajectory: currentConfig.globalTrajectory,
+          roomZones: currentConfig.roomZones,
                                         ),
                                       );
                                 }
@@ -935,8 +944,9 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                                           multiConfigs:
                                               currentConfig.multiConfigs,
                                           rooms: newRooms,
-                                          isExhibitionMode:
-                                              currentConfig.isExhibitionMode,
+                                          isExhibitionMode: currentConfig.isExhibitionMode,
+          globalTrajectory: currentConfig.globalTrajectory,
+          roomZones: currentConfig.roomZones,
                                         ),
                                       );
                                 }
@@ -998,8 +1008,9 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                                           multiConfigs:
                                               currentConfig.multiConfigs,
                                           rooms: newRooms,
-                                          isExhibitionMode:
-                                              currentConfig.isExhibitionMode,
+                                          isExhibitionMode: currentConfig.isExhibitionMode,
+          globalTrajectory: currentConfig.globalTrajectory,
+          roomZones: currentConfig.roomZones,
                                         ),
                                       );
                                 }
@@ -1067,8 +1078,9 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                                           multiConfigs:
                                               currentConfig.multiConfigs,
                                           rooms: newRooms,
-                                          isExhibitionMode:
-                                              currentConfig.isExhibitionMode,
+                                          isExhibitionMode: currentConfig.isExhibitionMode,
+          globalTrajectory: currentConfig.globalTrajectory,
+          roomZones: currentConfig.roomZones,
                                         ),
                                         skipPreload: true,
                                       );

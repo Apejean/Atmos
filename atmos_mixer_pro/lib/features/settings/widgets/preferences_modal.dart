@@ -79,6 +79,8 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
             multiConfigs: {},
             rooms: [],
             isExhibitionMode: false,
+          globalTrajectory: null,
+          roomZones: [],
           );
 
     if (_tempConfig.deviceName != null && GlobalDeviceCache.devices == null) {
@@ -176,6 +178,8 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
           multiConfigs: _tempConfig.multiConfigs,
           rooms: _tempConfig.rooms,
           isExhibitionMode: _tempConfig.isExhibitionMode,
+          globalTrajectory: _tempConfig.globalTrajectory,
+          roomZones: _tempConfig.roomZones,
         );
       });
     }
@@ -234,6 +238,8 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
               multiConfigs: _tempConfig.multiConfigs,
               rooms: _tempConfig.rooms,
               isExhibitionMode: _tempConfig.isExhibitionMode,
+          globalTrajectory: _tempConfig.globalTrajectory,
+          roomZones: _tempConfig.roomZones,
             );
           } else {
             final cleanTarget = _getCleanDeviceName(
@@ -255,6 +261,8 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                 multiConfigs: _tempConfig.multiConfigs,
                 rooms: _tempConfig.rooms,
                 isExhibitionMode: _tempConfig.isExhibitionMode,
+          globalTrajectory: _tempConfig.globalTrajectory,
+          roomZones: _tempConfig.roomZones,
               );
             }
           }
@@ -314,6 +322,8 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
       stereoConfigs: Map.from(config.stereoConfigs),
       multiConfigs: Map.from(config.multiConfigs),
       isExhibitionMode: config.isExhibitionMode,
+          globalTrajectory: config.globalTrajectory,
+          roomZones: config.roomZones,
       rooms: config.rooms
           .map(
             (r) => RoomConfig(
@@ -390,6 +400,8 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
       multiConfigs: _tempConfig.multiConfigs,
       rooms: newRooms,
       isExhibitionMode: _tempConfig.isExhibitionMode,
+          globalTrajectory: _tempConfig.globalTrajectory,
+          roomZones: _tempConfig.roomZones,
     );
     ref.read(configProvider.notifier).saveConfig(finalConfig);
     Navigator.of(context).pop();
@@ -444,6 +456,8 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
             multiConfigs: Map.from(next.multiConfigs),
             rooms: updatedRooms,
             isExhibitionMode: _tempConfig.isExhibitionMode,
+          globalTrajectory: _tempConfig.globalTrajectory,
+          roomZones: _tempConfig.roomZones,
           );
         });
       }
@@ -701,6 +715,8 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                         multiConfigs: _tempConfig.multiConfigs,
                         rooms: _tempConfig.rooms,
                         isExhibitionMode: _tempConfig.isExhibitionMode,
+          globalTrajectory: _tempConfig.globalTrajectory,
+          roomZones: _tempConfig.roomZones,
                       );
                     });
                     _loadDeviceChannels(_tempConfig.deviceName);
@@ -782,6 +798,8 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                       multiConfigs: _tempConfig.multiConfigs,
                       rooms: _tempConfig.rooms,
                       isExhibitionMode: _tempConfig.isExhibitionMode,
+          globalTrajectory: _tempConfig.globalTrajectory,
+          roomZones: _tempConfig.roomZones,
                     );
                   });
                   _loadDeviceChannels(val);
@@ -864,6 +882,8 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                         multiConfigs: _tempConfig.multiConfigs,
                         rooms: _tempConfig.rooms,
                         isExhibitionMode: _tempConfig.isExhibitionMode,
+          globalTrajectory: _tempConfig.globalTrajectory,
+          roomZones: _tempConfig.roomZones,
                       );
                     });
                   }
@@ -943,6 +963,8 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                         multiConfigs: result['multi']!,
                         rooms: _tempConfig.rooms,
                         isExhibitionMode: _tempConfig.isExhibitionMode,
+          globalTrajectory: _tempConfig.globalTrajectory,
+          roomZones: _tempConfig.roomZones,
                       );
                     });
                   }
@@ -1186,8 +1208,9 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                                   stereoConfigs: _tempConfig.stereoConfigs,
                                   multiConfigs: _tempConfig.multiConfigs,
                                   rooms: newRooms,
-                                  isExhibitionMode:
-                                      _tempConfig.isExhibitionMode,
+                                  isExhibitionMode: _tempConfig.isExhibitionMode,
+          globalTrajectory: _tempConfig.globalTrajectory,
+          roomZones: _tempConfig.roomZones,
                                 );
                               });
                             }
@@ -1259,6 +1282,8 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                         multiConfigs: _tempConfig.multiConfigs,
                         rooms: _tempConfig.rooms,
                         isExhibitionMode: _tempConfig.isExhibitionMode,
+          globalTrajectory: _tempConfig.globalTrajectory,
+          roomZones: _tempConfig.roomZones,
                       );
                     });
                   },
@@ -1308,6 +1333,8 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                         multiConfigs: _tempConfig.multiConfigs,
                         rooms: _tempConfig.rooms,
                         isExhibitionMode: _tempConfig.isExhibitionMode,
+          globalTrajectory: _tempConfig.globalTrajectory,
+          roomZones: _tempConfig.roomZones,
                       );
                     });
                   },
@@ -1384,6 +1411,8 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                               multiConfigs: _tempConfig.multiConfigs,
                               rooms: newRooms,
                               isExhibitionMode: _tempConfig.isExhibitionMode,
+          globalTrajectory: _tempConfig.globalTrajectory,
+          roomZones: _tempConfig.roomZones,
                             );
                           });
                         },
@@ -1461,8 +1490,9 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                                   stereoConfigs: _tempConfig.stereoConfigs,
                                   multiConfigs: _tempConfig.multiConfigs,
                                   rooms: newRooms,
-                                  isExhibitionMode:
-                                      _tempConfig.isExhibitionMode,
+                                  isExhibitionMode: _tempConfig.isExhibitionMode,
+          globalTrajectory: _tempConfig.globalTrajectory,
+          roomZones: _tempConfig.roomZones,
                                 );
                               });
                             },
@@ -1522,8 +1552,9 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                                   stereoConfigs: _tempConfig.stereoConfigs,
                                   multiConfigs: _tempConfig.multiConfigs,
                                   rooms: newRooms,
-                                  isExhibitionMode:
-                                      _tempConfig.isExhibitionMode,
+                                  isExhibitionMode: _tempConfig.isExhibitionMode,
+          globalTrajectory: _tempConfig.globalTrajectory,
+          roomZones: _tempConfig.roomZones,
                                 );
                               });
                             },
@@ -1578,6 +1609,8 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                         multiConfigs: _tempConfig.multiConfigs,
                         rooms: _tempConfig.rooms,
                         isExhibitionMode: _tempConfig.isExhibitionMode,
+          globalTrajectory: _tempConfig.globalTrajectory,
+          roomZones: _tempConfig.roomZones,
                       );
                     });
                   }

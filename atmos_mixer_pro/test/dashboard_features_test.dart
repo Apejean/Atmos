@@ -70,6 +70,8 @@ void main() {
       multiConfigs: {},
       rooms: [],
       isExhibitionMode: false,
+          globalTrajectory: null,
+          roomZones: [],
     );
 
     final track = const TrackConfig(
