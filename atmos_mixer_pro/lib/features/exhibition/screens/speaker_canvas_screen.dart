@@ -1103,6 +1103,52 @@ class _DraggableRoomWidgetState extends ConsumerState<_DraggableRoomWidget> {
     );
   }
 
+  Widget _buildRotateHandle() {
+    return Positioned(
+      top: -36,
+      left: _localW / 2 - 14,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onPanStart: (_) => setState(() => _isInteracting = true),
+        onPanUpdate: (details) {
+          final renderBox = context.findRenderObject() as RenderBox?;
+          if (renderBox != null) {
+            final localTouch = renderBox.globalToLocal(details.globalPosition);
+            final roomCenterLocal = Offset(_localW / 2, _localH / 2);
+            final dx = localTouch.dx - roomCenterLocal.dx;
+            final dy = localTouch.dy - roomCenterLocal.dy;
+            double angleRad = math.atan2(dy, dx) + math.pi / 2;
+            double angleDeg = (angleRad * 180 / math.pi) % 360;
+            if (angleDeg < 0) angleDeg += 360;
+
+            ref.read(roomZoneProvider.notifier).updateRoomZone(
+                  widget.room.copyWith(rotation: angleDeg),
+                  immediate: true,
+                );
+          }
+        },
+        onPanEnd: (_) => setState(() => _isInteracting = false),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 22,
+              height: 20,
+              decoration: BoxDecoration(
+                color: AppColors.primaryNeon,
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.black, width: 2),
+                boxShadow: const [BoxShadow(color: Colors.black54, blurRadius: 4)],
+              ),
+              child: const Icon(Icons.rotate_right, size: 12, color: Colors.black),
+            ),
+            Container(width: 2, height: 16, color: AppColors.primaryNeon),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final roomColor = Color(widget.room.color);
@@ -1111,174 +1157,175 @@ class _DraggableRoomWidgetState extends ConsumerState<_DraggableRoomWidget> {
       top: _localY,
       width: _localW,
       height: _localH,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          Transform.rotate(
-            angle: widget.room.rotation * math.pi / 180.0,
-            child: RepaintBoundary(
+      child: Transform.rotate(
+        angle: widget.room.rotation * math.pi / 180.0,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            RepaintBoundary(
               child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: widget.onEdit,
-              onPanStart: (details) {
-                setState(() => _isInteracting = true);
-                _draggedSpeakersOffsets = {
-                  for (var s in widget.containedSpeakers) s.id: Offset(s.x, s.y)
-                };
-              },
-              onPanUpdate: (details) {
-                final scale = widget.transformationController.value.getMaxScaleOnAxis();
-                final currentScale = scale > 0 ? scale : 1.0;
-                final dx = details.delta.dx / currentScale;
-                final dy = details.delta.dy / currentScale;
+                behavior: HitTestBehavior.opaque,
+                onTap: widget.onEdit,
+                onPanStart: (details) {
+                  setState(() => _isInteracting = true);
+                  _draggedSpeakersOffsets = {
+                    for (var s in widget.containedSpeakers) s.id: Offset(s.x, s.y)
+                  };
+                },
+                onPanUpdate: (details) {
+                  final scale = widget.transformationController.value.getMaxScaleOnAxis();
+                  final currentScale = scale > 0 ? scale : 1.0;
+                  final dx = details.delta.dx / currentScale;
+                  final dy = details.delta.dy / currentScale;
 
-                setState(() {
-                  _localX = (_localX + dx).clamp(0.0, _canvasWidth - _localW);
-                  _localY = (_localY + dy).clamp(0.0, _canvasHeight - _localH);
+                  setState(() {
+                    _localX = (_localX + dx).clamp(0.0, _canvasWidth - _localW);
+                    _localY = (_localY + dy).clamp(0.0, _canvasHeight - _localH);
+
+                    final currentNodes = ref.read(speakerLayoutProvider);
+                    for (final nodeId in _draggedSpeakersOffsets.keys) {
+                      final prev = _draggedSpeakersOffsets[nodeId]!;
+                      final nx = (prev.dx + dx).clamp(0.0, _canvasWidth - _speakerSize);
+                      final ny = (prev.dy + dy).clamp(0.0, _canvasHeight - _speakerSize);
+                      _draggedSpeakersOffsets[nodeId] = Offset(nx, ny);
+                      try {
+                        final node = currentNodes.firstWhere((n) => n.id == nodeId);
+                        ref.read(speakerLayoutProvider.notifier).updateSpeaker(node.copyWith(x: nx, y: ny));
+                      } catch (_) {}
+                    }
+                  });
+                  ref.read(roomZoneProvider.notifier).updateRoomZone(
+                        widget.room.copyWith(x: _localX, y: _localY),
+                        immediate: true,
+                      );
+                  widget.onDragUpdate?.call();
+                },
+                onPanEnd: (details) {
+                  double snappedX = (_localX / _gridSize).round() * _gridSize;
+                  double snappedY = (_localY / _gridSize).round() * _gridSize;
+                  snappedX = snappedX.clamp(0.0, _canvasWidth - _localW);
+                  snappedY = snappedY.clamp(0.0, _canvasHeight - _localH);
+
+                  setState(() {
+                    _localX = snappedX;
+                    _localY = snappedY;
+                    _isInteracting = false;
+                  });
+
+                  ref.read(roomZoneProvider.notifier).updateRoomZone(
+                        widget.room.copyWith(x: snappedX, y: snappedY),
+                        immediate: true,
+                      );
 
                   final currentNodes = ref.read(speakerLayoutProvider);
                   for (final nodeId in _draggedSpeakersOffsets.keys) {
-                    final prev = _draggedSpeakersOffsets[nodeId]!;
-                    final nx = (prev.dx + dx).clamp(0.0, _canvasWidth - _speakerSize);
-                    final ny = (prev.dy + dy).clamp(0.0, _canvasHeight - _speakerSize);
-                    _draggedSpeakersOffsets[nodeId] = Offset(nx, ny);
                     try {
                       final node = currentNodes.firstWhere((n) => n.id == nodeId);
-                      ref.read(speakerLayoutProvider.notifier).updateSpeaker(node.copyWith(x: nx, y: ny));
+                      final nX = (node.x / _gridSize).round() * _gridSize;
+                      final nY = (node.y / _gridSize).round() * _gridSize;
+                      ref.read(speakerLayoutProvider.notifier).updateSpeaker(
+                            node.copyWith(
+                              x: nX.clamp(0.0, _canvasWidth - _speakerSize),
+                              y: nY.clamp(0.0, _canvasHeight - _speakerSize),
+                            ),
+                            immediate: true,
+                          );
                     } catch (_) {}
                   }
-                });
-                ref.read(roomZoneProvider.notifier).updateRoomZone(
-                      widget.room.copyWith(x: _localX, y: _localY),
-                      immediate: true,
-                    );
-                widget.onDragUpdate?.call();
-              },
-              onPanEnd: (details) {
-                double snappedX = (_localX / _gridSize).round() * _gridSize;
-                double snappedY = (_localY / _gridSize).round() * _gridSize;
-                snappedX = snappedX.clamp(0.0, _canvasWidth - _localW);
-                snappedY = snappedY.clamp(0.0, _canvasHeight - _localH);
-
-                setState(() {
-                  _localX = snappedX;
-                  _localY = snappedY;
-                  _isInteracting = false;
-                });
-
-                ref.read(roomZoneProvider.notifier).updateRoomZone(
-                      widget.room.copyWith(x: snappedX, y: snappedY),
-                      immediate: true,
-                    );
-
-                final currentNodes = ref.read(speakerLayoutProvider);
-                for (final nodeId in _draggedSpeakersOffsets.keys) {
-                  try {
-                    final node = currentNodes.firstWhere((n) => n.id == nodeId);
-                    final nX = (node.x / _gridSize).round() * _gridSize;
-                    final nY = (node.y / _gridSize).round() * _gridSize;
-                    ref.read(speakerLayoutProvider.notifier).updateSpeaker(
-                          node.copyWith(
-                            x: nX.clamp(0.0, _canvasWidth - _speakerSize),
-                            y: nY.clamp(0.0, _canvasHeight - _speakerSize),
-                          ),
-                          immediate: true,
-                        );
-                  } catch (_) {}
-                }
-                _draggedSpeakersOffsets.clear();
-                widget.onDragUpdate?.call();
-              },
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: roomColor.withValues(alpha: 0.18),
-                      border: Border.all(
-                        color: roomColor,
-                        width: 2.5,
-                      ),
-                      borderRadius: BorderRadius.circular(8),
-                      boxShadow: [
-                        BoxShadow(
-                          color: roomColor.withValues(alpha: 0.25),
-                          blurRadius: 12,
-                          spreadRadius: 1,
+                  _draggedSpeakersOffsets.clear();
+                  widget.onDragUpdate?.call();
+                },
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: roomColor.withValues(alpha: 0.18),
+                        border: Border.all(
+                          color: roomColor,
+                          width: 2.5,
                         ),
-                      ],
-                    ),
-                    child: Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                widget.room.label,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                  letterSpacing: 0.5,
-                                ),
-                              ),
-                              const SizedBox(width: 6),
-                              const Icon(Icons.edit, size: 14, color: Colors.white70),
-                            ],
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            '${widget.room.physicalWidth.toStringAsFixed(1)}m × ${widget.room.physicalHeight.toStringAsFixed(1)}m',
-                            style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.7),
-                              fontSize: 11,
-                              fontWeight: FontWeight.w500,
-                            ),
+                        borderRadius: BorderRadius.circular(8),
+                        boxShadow: [
+                          BoxShadow(
+                            color: roomColor.withValues(alpha: 0.25),
+                            blurRadius: 12,
+                            spreadRadius: 1,
                           ),
                         ],
                       ),
-                    ),
+                      child: Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  widget.room.label,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                const Icon(Icons.edit, size: 14, color: Colors.white70),
+                              ],
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              '${widget.room.physicalWidth.toStringAsFixed(1)}m × ${widget.room.physicalHeight.toStringAsFixed(1)}m (${widget.room.rotation.toInt()}°)',
+                              style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.7),
+                                fontSize: 11,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
                 ),
               ),
             ),
-          ),
-          if (widget.room.hasDoor) _buildDoorHandle(),
-          Positioned(
-            top: -28,
-            left: 0,
-            child: Wrap(
-              spacing: 4,
-              children: widget.containedSpeakers.map((s) => Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: roomColor,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(
-                      '[Ch ${s.channel + 1}]',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
+            if (widget.room.hasDoor) _buildDoorHandle(),
+            _buildRotateHandle(),
+            Positioned(
+              top: -28,
+              left: 0,
+              child: Wrap(
+                spacing: 4,
+                children: widget.containedSpeakers.map((s) => Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: roomColor,
+                        borderRadius: BorderRadius.circular(4),
                       ),
-                    ),
-                  )).toList(),
+                      child: Text(
+                        '[Ch ${s.channel + 1}]',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    )).toList(),
+              ),
             ),
-          ),
-          _buildResizeHandle(Alignment.topLeft),
-          _buildResizeHandle(Alignment.topCenter),
-          _buildResizeHandle(Alignment.topRight),
-          _buildResizeHandle(Alignment.centerLeft),
-          _buildResizeHandle(Alignment.centerRight),
-          _buildResizeHandle(Alignment.bottomLeft),
-          _buildResizeHandle(Alignment.bottomCenter),
-          _buildResizeHandle(Alignment.bottomRight),
-        ],
+            _buildResizeHandle(Alignment.topLeft),
+            _buildResizeHandle(Alignment.topCenter),
+            _buildResizeHandle(Alignment.topRight),
+            _buildResizeHandle(Alignment.centerLeft),
+            _buildResizeHandle(Alignment.centerRight),
+            _buildResizeHandle(Alignment.bottomLeft),
+            _buildResizeHandle(Alignment.bottomCenter),
+            _buildResizeHandle(Alignment.bottomRight),
+          ],
+        ),
       ),
     );
   }

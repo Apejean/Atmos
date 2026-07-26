@@ -36,62 +36,62 @@ impl SvfFilter {
     }
 
     pub fn update_coefficients(&mut self, eq_type: &EqType, fs: f32, freq: f32, q: f32, gain_db: f32) {
-        // Linear trapezoidal integrated SVF from Andy Simper (Cytomic)
-        let a = 10.0f32.powf(gain_db / 40.0);
-        let g = (PI * freq / fs).tan();
-        let k = 1.0 / q;
+        let safe_q = q.max(0.01);
+        let safe_freq = freq.clamp(10.0, fs * 0.49);
+        let g = (PI * safe_freq / fs).tan();
+        let k = 1.0 / safe_q;
 
         match eq_type {
             EqType::Bell => {
+                let a = 10.0f32.powf(gain_db / 40.0);
                 self.a1 = 1.0 / (1.0 + g * (k / a) + g * g);
                 self.a2 = g * self.a1;
                 self.a3 = g * self.a2;
                 self.m0 = 1.0;
-                self.m1 = 0.0;
-                self.m2 = k * (a - 1.0 / a);
+                self.m1 = k * (a - 1.0 / a);
+                self.m2 = 0.0;
             }
             EqType::LowShelf => {
+                let a = 10.0f32.powf(gain_db / 40.0);
                 self.a1 = 1.0 / (1.0 + g * (k / a) + g * g);
                 self.a2 = g * self.a1;
                 self.a3 = g * self.a2;
                 self.m0 = 1.0;
-                self.m1 = a * a - 1.0;
-                self.m2 = k * (a - 1.0 / a);
+                self.m1 = k * (a - 1.0 / a);
+                self.m2 = a * a - 1.0;
             }
             EqType::HighShelf => {
                 let a = 10.0f32.powf(gain_db / 40.0);
-                let g = (PI * freq / fs).tan();
-                let k = 1.0 / q;
                 self.a1 = 1.0 / (1.0 + g * (k * a) + g * g);
                 self.a2 = g * self.a1;
                 self.a3 = g * self.a2;
                 self.m0 = a * a;
-                self.m1 = 1.0 - a * a;
-                self.m2 = k * (1.0 / a - a) * a * a;
+                self.m1 = k * (1.0 / a - a) * a * a;
+                self.m2 = 1.0 - a * a;
             }
-            EqType::LowCut => { // HighPass
+            EqType::LowCut => { // HighPass Filter (Cuts low frequencies)
                 self.a1 = 1.0 / (1.0 + g * k + g * g);
                 self.a2 = g * self.a1;
                 self.a3 = g * self.a2;
                 self.m0 = 1.0;
-                self.m1 = -1.0;
-                self.m2 = -k;
+                self.m1 = -k;
+                self.m2 = -1.0;
             }
-            EqType::HighCut => { // LowPass
+            EqType::HighCut => { // LowPass Filter (Cuts high frequencies)
                 self.a1 = 1.0 / (1.0 + g * k + g * g);
                 self.a2 = g * self.a1;
                 self.a3 = g * self.a2;
                 self.m0 = 0.0;
-                self.m1 = 1.0;
-                self.m2 = 0.0;
+                self.m1 = 0.0;
+                self.m2 = 1.0;
             }
             EqType::Notch => {
                 self.a1 = 1.0 / (1.0 + g * k + g * g);
                 self.a2 = g * self.a1;
                 self.a3 = g * self.a2;
                 self.m0 = 1.0;
-                self.m1 = 0.0;
-                self.m2 = -k;
+                self.m1 = -k;
+                self.m2 = 0.0;
             }
         }
     }
