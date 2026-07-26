@@ -16,9 +16,9 @@ jobs:
   build:
     strategy:
       matrix:
-        os: [windows-2019, macos-latest]
+        os: [windows-latest, macos-latest]
         include:
-          - os: windows-2019
+          - os: windows-latest
             artifact_name: atmos_mixer_pro_windows.zip
             build_cmd: flutter build windows
             artifact_path: build/windows/x64/runner/Release/*
@@ -42,20 +42,20 @@ jobs:
           channel: 'stable'
 
       - name: Setup Windows LLVM for ASIO
-        if: matrix.os == 'windows-2019'
+        if: matrix.os == 'windows-latest'
         uses: KyleMayes/install-llvm-action@v2
         with:
           version: "15.0"
           directory: ${{ runner.temp }}/llvm
           
       - name: Set LIBCLANG_PATH
-        if: matrix.os == 'windows-2019'
+        if: matrix.os == 'windows-latest'
         shell: pwsh
         run: |
           echo "LIBCLANG_PATH=${{ env.LLVM_PATH }}/bin" >> $env:GITHUB_ENV
 
       - name: Download and Extract ASIO SDK
-        if: matrix.os == 'windows-2019'
+        if: matrix.os == 'windows-latest'
         shell: pwsh
         run: |
           Invoke-WebRequest -Uri "https://download.steinberg.net/sdk_downloads/ASIO-SDK_2.3.4_2025-10-15.zip" -OutFile "asio.zip"
@@ -64,7 +64,7 @@ jobs:
           echo "CPAL_ASIO_DIR=$($asioDir.FullName)" >> $env:GITHUB_ENV
 
       - name: Patch pdfx CMakeLists for Windows
-        if: matrix.os == 'windows-2019'
+        if: matrix.os == 'windows-latest'
         shell: pwsh
         run: |
           $cmakePath = "atmos_mixer_pro/windows/flutter/ephemeral/.plugin_symlinks/pdfx/windows/CMakeLists.txt"
@@ -85,7 +85,7 @@ jobs:
         working-directory: atmos_mixer_pro
         
       - name: Archive Release (Windows)
-        if: matrix.os == 'windows-2019'
+        if: matrix.os == 'windows-latest'
         uses: thedoctor0/zip-release@0.7.6
         with:
           type: 'zip'
