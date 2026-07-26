@@ -6,7 +6,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:pdfx/pdfx.dart';
+
 import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 import 'package:atmos_mixer_pro/features/exhibition/models/speaker_node.dart';
@@ -66,7 +66,6 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
   void dispose() {
     _automationTimer?.cancel();
     _transformationController.dispose();
-    _pdfDocument?.close();
     super.dispose();
   }
 
@@ -190,51 +189,10 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
       await targetFile.writeAsBytes(result.files.single.bytes!);
       
       ref.read(blueprintProvider.notifier).setBlueprint(targetFile.path);
-      _initPdfDocument(targetFile.path);
     }
   }
 
-  PdfDocument? _pdfDocument;
-  PdfPageImage? _pdfImage;
 
-  Future<void> _initPdfDocument(String path) async {
-    final prevDoc = _pdfDocument;
-
-    if (!path.toLowerCase().endsWith('.pdf')) {
-      setState(() {
-        _pdfDocument = null;
-        _pdfImage = null;
-      });
-      prevDoc?.close();
-      return;
-    }
-    try {
-      final document = await PdfDocument.openFile(path);
-      final page = await document.getPage(1);
-      final pageImage = await page.render(
-        width: page.width * 2.0, // Retain some sharpness, prevent OOM
-        height: page.height * 2.0,
-      );
-      setState(() {
-        _pdfDocument = document;
-        _pdfImage = pageImage;
-      });
-      await page.close();
-
-      prevDoc?.close();
-    } catch (e) {
-      debugPrint('Error loading PDF: \$e');
-    }
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    final blueprint = ref.read(blueprintProvider);
-    if (blueprint.imagePath != null && _pdfDocument == null) {
-      _initPdfDocument(blueprint.imagePath!);
-    }
-  }
 
   Offset _getCanvasCenter() {
     final centerMatrix = _transformationController.value.clone()..invert();
@@ -344,7 +302,6 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
               ref.read(roomZoneProvider.notifier).clearAll();
               _clearTrajectories();
               ref.read(blueprintProvider.notifier).clearBlueprint();
-              _initPdfDocument(''); // Clear cached PDF or Image if any
               Navigator.pop(context);
             },
             child: const Text('Clear All', style: TextStyle(color: Colors.redAccent)),
@@ -797,21 +754,12 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                   ),
                   if (blueprint.imagePath != null)
                     Positioned.fill(
-                      child: blueprint.imagePath!.toLowerCase().endsWith('.pdf')
-                          ? (_pdfImage != null
-                              ? Image.memory(
-                                  _pdfImage!.bytes,
-                                  fit: BoxFit.contain,
-                                  color: Colors.white.withValues(alpha: blueprint.opacity),
-                                  colorBlendMode: BlendMode.modulate,
-                                )
-                              : const Center(child: CircularProgressIndicator()))
-                          : Image.file(
-                              File(blueprint.imagePath!),
-                              fit: BoxFit.contain,
-                              color: Colors.white.withValues(alpha: blueprint.opacity),
-                              colorBlendMode: BlendMode.modulate,
-                            ),
+                      child: Image.file(
+                        File(blueprint.imagePath!),
+                        fit: BoxFit.contain,
+                        color: Colors.white.withValues(alpha: blueprint.opacity),
+                        colorBlendMode: BlendMode.modulate,
+                      ),
                     ),
                   if (_showHeatmap)
                     Consumer(
