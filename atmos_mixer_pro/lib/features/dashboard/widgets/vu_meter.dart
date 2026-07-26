@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'dart:async';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:atmos_mixer_pro/core/theme/colors.dart';
-import 'package:atmos_mixer_pro/src/rust/api/simple.dart' as rust_api;
+import 'package:atmos_mixer_pro/core/state/global_state.dart';
 
 class VUMeterPainter extends CustomPainter {
   final ValueNotifier<double> levelNotifier; // 0.0 to 1.0
@@ -49,27 +49,31 @@ class VUMeterPainter extends CustomPainter {
   }
 }
 
-class NeonVUMeter extends StatefulWidget {
+class NeonVUMeter extends ConsumerStatefulWidget {
   final int outputChannel;
 
   const NeonVUMeter({super.key, required this.outputChannel});
 
   @override
-  State<NeonVUMeter> createState() => _NeonVUMeterState();
+  ConsumerState<NeonVUMeter> createState() => _NeonVUMeterState();
 }
 
-class _NeonVUMeterState extends State<NeonVUMeter> {
-  StreamSubscription<List<double>>? _vuSubscription;
+class _NeonVUMeterState extends ConsumerState<NeonVUMeter> {
   final ValueNotifier<double> _levelNotifier = ValueNotifier<double>(0.0);
 
   @override
-  void initState() {
-    super.initState();
-    _vuSubscription = rust_api.apiCreateVuStream().listen((levels) {
-      if (widget.outputChannel >= 0 && widget.outputChannel < levels.length) {
+  void dispose() {
+    _levelNotifier.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    ref.listen(vuStreamProvider, (previous, next) {
+      final levels = next.value;
+      if (levels != null && widget.outputChannel >= 0 && widget.outputChannel < levels.length) {
         final newLevel = levels[widget.outputChannel];
         double currentLevel = _levelNotifier.value;
-        // Apply some basic decay for smoother visual
         if (newLevel > currentLevel) {
           currentLevel = newLevel;
         } else {
@@ -79,17 +83,6 @@ class _NeonVUMeterState extends State<NeonVUMeter> {
         _levelNotifier.value = currentLevel;
       }
     });
-  }
-
-  @override
-  void dispose() {
-    _vuSubscription?.cancel();
-    _levelNotifier.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
     return SizedBox(
       width: 12,
       height: double.infinity,

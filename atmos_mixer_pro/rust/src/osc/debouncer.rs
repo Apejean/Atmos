@@ -22,7 +22,11 @@ impl OscDebouncer {
     }
 
     pub fn should_process(&self, address: &str) -> bool {
-        let mut map = self.last_triggers.lock().unwrap_or_else(|e| e.into_inner());
+        // Fast-fail with try_lock to prevent blocking under UDP flooding
+        let mut map = match self.last_triggers.try_lock() {
+            Ok(guard) => guard,
+            Err(_) => return false, // If lock is contended, drop the packet
+        };
         let now = Instant::now();
         if let Some(&last_time) = map.get(address) {
             if now.duration_since(last_time) < Duration::from_millis(DEBOUNCE_MS) {

@@ -175,6 +175,14 @@ final configProvider = NotifierProvider<ConfigNotifier, AppConfig?>(
   ConfigNotifier.new,
 );
 
+final vuStreamProvider = StreamProvider<List<double>>((ref) {
+  return rust_api.apiCreateVuStream().asBroadcastStream();
+});
+
+final deviceEventStreamProvider = StreamProvider<String>((ref) {
+  return rust_api.apiCreateDeviceEventStream().asBroadcastStream();
+});
+
 final hardwareChannelsProvider = FutureProvider<List<String>>((ref) async {
   final deviceName = ref.watch(configProvider.select((c) => c?.deviceName));
   if (deviceName != null &&
@@ -301,14 +309,12 @@ class GlobalErrorNotifier extends Notifier<String?> {
   @override
   String? build() {
     try {
-      // Listen for backend device events
-      final sub = rust_api.apiCreateDeviceEventStream().listen((event) {
-        if (event.contains("DeviceNotAvailable") ||
-            event.contains("Disconnected")) {
+      ref.listen(deviceEventStreamProvider, (previous, next) {
+        final event = next.value;
+        if (event != null && (event.contains("DeviceNotAvailable") || event.contains("Disconnected"))) {
           state = "오디오 장치와 연결이 끊어졌습니다. 설정에서 오디오 장치를 다시 확인해 주세요.";
         }
       });
-      ref.onDispose(() => sub.cancel());
     } catch (_) {}
     return null;
   }

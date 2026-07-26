@@ -44,9 +44,9 @@ class _AudioInitSplashScreenState extends ConsumerState<AudioInitSplashScreen> {
           await rust_api
               .apiCreateDeviceEventStream()
               .firstWhere((e) => e == 'EngineReady')
-              .timeout(const Duration(milliseconds: 2000));
-        } catch (_) {
-          // fallback
+              .timeout(const Duration(milliseconds: 5000));
+        } catch (e) {
+          // Ignore
         }
       }
 

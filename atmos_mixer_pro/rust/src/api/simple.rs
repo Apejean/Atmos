@@ -380,8 +380,10 @@ pub fn api_set_active_room(room_id: Option<String>) -> Result<(), AtmosError> {
 }
 
 pub fn api_clear_room(room_id: String) -> Result<(), AtmosError> {
-    // When a room is cleared, we might want to just clear playing tracks, but usually it stops them too.
-    let _lock = GLOBAL_STATE.broadcast_lock.lock().unwrap_or_else(|e| e.into_inner());
+    // Acquire locks in a strict hierarchy to prevent deadlocks:
+    // 1. active_room_id
+    // 2. playing_track_ids
+    // 3. broadcast_lock (held ONLY during the channel send, not wrapping others)
     {
         let mut guard = GLOBAL_STATE.active_room_id.write().unwrap_or_else(|e| e.into_inner());
         if guard.as_ref() != Some(&room_id) {
@@ -396,6 +398,8 @@ pub fn api_clear_room(room_id: String) -> Result<(), AtmosError> {
         guard.clear();
     }
     GLOBAL_STATE.broadcast_state();
+
+    let _lock = GLOBAL_STATE.broadcast_lock.lock().unwrap_or_else(|e| e.into_inner());
     GLOBAL_STATE
         .command_sender
         .try_send(AudioCommand::ClearRoom {
@@ -518,7 +522,9 @@ pub fn api_create_vu_stream(sink: StreamSink<Vec<f32>>) {
             .iter()
             .map(|v| f32::from_bits(v.load(std::sync::atomic::Ordering::Relaxed)))
             .collect();
-        let _ = sink.add(levels);
+        if sink.add(levels).is_err() {
+            break; // Stop thread if port is closed
+        }
         std::thread::sleep(std::time::Duration::from_millis(16));
     });
 }
@@ -562,18 +568,25 @@ pub fn api_init_audio_system(device_name: Option<String>) -> Result<(), AtmosErr
         }
         
         let mut engine = crate::audio::engine::AudioEngine::new();
-        crate::audio::engine::CALLBACK_FIRED.store(false, std::sync::atomic::Ordering::SeqCst);
+        {
+            let (lock, _) = &**crate::audio::engine::ENGINE_INIT_SIGNAL;
+            let mut fired = lock.lock().unwrap();
+            *fired = false;
+        }
         let device_name_clone = device_name.clone();
         let dummy_rx = rx.clone();
         match engine.start(device_name_clone, rx) {
             Ok(_) => {
                 ENGINE_ACTIVE.store(true, std::sync::atomic::Ordering::SeqCst);
                 
-                // Wait for callback to actually fire
-                let mut waited = 0;
-                while !crate::audio::engine::CALLBACK_FIRED.load(std::sync::atomic::Ordering::Acquire) && waited < 200 {
-                    std::thread::sleep(std::time::Duration::from_millis(10));
-                    waited += 1;
+                // Wait for callback to actually fire using Condvar
+                {
+                    let (lock, cvar) = &**crate::audio::engine::ENGINE_INIT_SIGNAL;
+                    let mut fired = lock.lock().unwrap();
+                    if !*fired {
+                        let result = cvar.wait_timeout(fired, std::time::Duration::from_millis(2000)).unwrap();
+                        fired = result.0;
+                    }
                 }
                 
                 let _ = tx.send(Ok(()));
@@ -639,7 +652,15 @@ pub fn api_start_audio_engine(device_name: Option<String>) {
 }
 
 pub fn api_is_engine_ready() -> bool {
-    ENGINE_ACTIVE.load(std::sync::atomic::Ordering::SeqCst) && crate::audio::engine::CALLBACK_FIRED.load(std::sync::atomic::Ordering::SeqCst)
+    if !ENGINE_ACTIVE.load(std::sync::atomic::Ordering::SeqCst) {
+        return false;
+    }
+    let (lock, _) = &**crate::audio::engine::ENGINE_INIT_SIGNAL;
+    if let Ok(fired) = lock.lock() {
+        *fired
+    } else {
+        false
+    }
 }
 
 pub fn api_stop_audio_engine() {
@@ -663,7 +684,9 @@ pub fn api_create_device_event_stream(sink: StreamSink<String>) {
             if current_err != last_err {
                 if let Some(ref err) = current_err {
                     if err == "DeviceNotAvailable" || err.contains("Disconnected") {
-                        let _ = sink.add(err.clone());
+                        if sink.add(err.clone()).is_err() {
+                            break; // Stop thread if port is closed
+                        }
                     }
                 }
                 last_err = current_err;

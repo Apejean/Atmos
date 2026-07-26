@@ -1,12 +1,10 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:atmos_mixer_pro/features/exhibition/models/speaker_node.dart';
-import 'package:atmos_mixer_pro/src/rust/api/simple.dart' as rust_api;
 import 'package:atmos_mixer_pro/core/theme/colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:atmos_mixer_pro/core/state/global_state.dart';
 
-class SpeakerNodeWidget extends StatefulWidget {
+class SpeakerNodeWidget extends ConsumerStatefulWidget {
   final SpeakerNode node;
   final bool isDuplicateChannel;
   final ValueChanged<int> onChannelChanged;
@@ -23,45 +21,35 @@ class SpeakerNodeWidget extends StatefulWidget {
   });
 
   @override
-  State<SpeakerNodeWidget> createState() => _SpeakerNodeWidgetState();
+  ConsumerState<SpeakerNodeWidget> createState() => _SpeakerNodeWidgetState();
 }
 
-class _SpeakerNodeWidgetState extends State<SpeakerNodeWidget> {
-  StreamSubscription<List<double>>? _vuSubscription;
-  double _currentLevel = 0.0;
+class _SpeakerNodeWidgetState extends ConsumerState<SpeakerNodeWidget> {
+  final ValueNotifier<double> _levelNotifier = ValueNotifier<double>(0.0);
   bool _isHovered = false;
 
   @override
-  void initState() {
-    super.initState();
-    _vuSubscription = rust_api.apiCreateVuStream().listen((levels) {
-      if (mounted &&
-          widget.node.channel >= 0 &&
-          widget.node.channel < levels.length) {
-        final newLevel = levels[widget.node.channel];
-        setState(() {
-          if (newLevel > _currentLevel) {
-            _currentLevel = newLevel;
-          } else {
-            _currentLevel -= 0.1; // Decay rate
-            if (_currentLevel < 0) _currentLevel = 0;
-          }
-        });
-      }
-    });
-  }
-
-  @override
   void dispose() {
-    _vuSubscription?.cancel();
+    _levelNotifier.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    // 0.0 to 1.0 glow intensity
-    final glowOpacity = (_currentLevel * 0.8).clamp(0.0, 1.0);
-    final glowRadius = _currentLevel * 30.0;
+    ref.listen(vuStreamProvider, (previous, next) {
+      final levels = next.value;
+      if (levels != null && mounted && widget.node.channel >= 0 && widget.node.channel < levels.length) {
+        final newLevel = levels[widget.node.channel];
+        double currentLevel = _levelNotifier.value;
+        if (newLevel > currentLevel) {
+          currentLevel = newLevel;
+        } else {
+          currentLevel -= 0.1; // Decay rate
+          if (currentLevel < 0) currentLevel = 0;
+        }
+        _levelNotifier.value = currentLevel;
+      }
+    });
 
     final baseColor = widget.roomColor ?? AppColors.primaryNeon;
     final borderColor = widget.isDuplicateChannel
@@ -98,33 +86,42 @@ class _SpeakerNodeWidgetState extends State<SpeakerNodeWidget> {
             scale: _isHovered ? 1.05 : 1.0,
             duration: const Duration(milliseconds: 200),
             curve: Curves.easeOutCubic,
-            child: Container(
-              width: 100,
-              height: 120,
-              decoration: BoxDecoration(
-                color: Colors.black54,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: _isHovered ? baseColor : borderColor,
-                  width: widget.isDuplicateChannel ? 2.5 : (_isHovered ? 2.0 : 1.0),
-                ),
-                boxShadow: [
-                  if (glowOpacity > 0 || _isHovered)
-                    BoxShadow(
-                      color: baseColor.withOpacity(
-                        _isHovered ? 0.8 : glowOpacity,
-                      ),
-                      blurRadius: _isHovered ? 15.0 : glowRadius,
-                      spreadRadius: _isHovered ? 2.0 : glowRadius / 2,
+            child: ValueListenableBuilder<double>(
+              valueListenable: _levelNotifier,
+              builder: (context, currentLevel, child) {
+                final glowOpacity = (currentLevel * 0.8).clamp(0.0, 1.0);
+                final glowRadius = currentLevel * 30.0;
+                
+                return Container(
+                  width: 100,
+                  height: 120,
+                  decoration: BoxDecoration(
+                    color: Colors.black54,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: _isHovered ? baseColor : borderColor,
+                      width: widget.isDuplicateChannel ? 2.5 : (_isHovered ? 2.0 : 1.0),
                     ),
-                  if (widget.isDuplicateChannel)
-                    const BoxShadow(
-                      color: Colors.orangeAccent,
-                      blurRadius: 8,
-                      spreadRadius: 1,
-                    ),
-                ],
-              ),
+                    boxShadow: [
+                      if (glowOpacity > 0 || _isHovered)
+                        BoxShadow(
+                          color: baseColor.withOpacity(
+                            _isHovered ? 0.8 : glowOpacity,
+                          ),
+                          blurRadius: _isHovered ? 15.0 : glowRadius,
+                          spreadRadius: _isHovered ? 2.0 : glowRadius / 2,
+                        ),
+                      if (widget.isDuplicateChannel)
+                        const BoxShadow(
+                          color: Colors.orangeAccent,
+                          blurRadius: 8,
+                          spreadRadius: 1,
+                        ),
+                    ],
+                  ),
+                  child: child,
+                );
+              },
               child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -145,10 +142,15 @@ class _SpeakerNodeWidgetState extends State<SpeakerNodeWidget> {
                     )
                   else
                     const SizedBox(width: 20),
-                  Icon(
-                    Icons.speaker,
-                    size: 38,
-                    color: _currentLevel > 0.1 ? baseColor : Colors.white70,
+                  ValueListenableBuilder<double>(
+                    valueListenable: _levelNotifier,
+                    builder: (context, currentLevel, child) {
+                      return Icon(
+                        Icons.speaker,
+                        size: 38,
+                        color: currentLevel > 0.1 ? baseColor : Colors.white70,
+                      );
+                    },
                   ),
                   InkWell(
                     onTap: widget.onDelete,
@@ -218,7 +220,7 @@ class _SpeakerNodeWidgetState extends State<SpeakerNodeWidget> {
               ),
             ],
           ),
-        ),
+            ),
           ),
         ),
       ],

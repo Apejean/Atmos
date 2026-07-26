@@ -35,8 +35,8 @@ class AppConfig {
     this.globalTrajectory,
     required this.roomZones,
     required this.isExhibitionMode,
-    required this.masterHeadroomDb,
-    required this.peakLimiterEnabled,
+    this.masterHeadroomDb = -3.0,
+    this.peakLimiterEnabled = true,
   });
 
   @override

@@ -3,9 +3,11 @@ use crate::common::commands::AudioCommand;
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::{OutputCallbackInfo, SampleFormat, Stream, StreamConfig};
 use crossbeam_channel::Receiver;
-use std::sync::atomic::AtomicBool;
+use std::sync::{Arc, Mutex, Condvar};
 
-pub static CALLBACK_FIRED: AtomicBool = AtomicBool::new(false);
+lazy_static::lazy_static! {
+    pub static ref ENGINE_INIT_SIGNAL: Arc<(Mutex<bool>, Condvar)> = Arc::new((Mutex::new(false), Condvar::new()));
+}
 
 pub struct AudioEngine {
     stream: Option<Stream>,
@@ -258,6 +260,12 @@ impl AudioEngine {
             SampleFormat::F32 => device.build_output_stream(
                 &config,
                 move |data: &mut [f32], _: &OutputCallbackInfo| {
+                    let (lock, cvar) = &**ENGINE_INIT_SIGNAL;
+                    let mut fired = lock.lock().unwrap();
+                    if !*fired {
+                        *fired = true;
+                        cvar.notify_all();
+                    }
                     Self::process_commands(&mut mixer, &cmd_receiver);
                     mixer.process(data, config.channels as usize);
                 },
@@ -269,6 +277,12 @@ impl AudioEngine {
                 device.build_output_stream(
                     &config,
                     move |data: &mut [i16], _: &OutputCallbackInfo| {
+                        let (lock, cvar) = &**ENGINE_INIT_SIGNAL;
+                        let mut fired = lock.lock().unwrap();
+                        if !*fired {
+                            *fired = true;
+                            cvar.notify_all();
+                        }
                         Self::process_commands(&mut mixer, &cmd_receiver);
                         if temp_buf.len() < data.len() {
                             temp_buf.resize(data.len(), 0.0);
@@ -288,6 +302,12 @@ impl AudioEngine {
                 device.build_output_stream(
                     &config,
                     move |data: &mut [i32], _: &OutputCallbackInfo| {
+                        let (lock, cvar) = &**ENGINE_INIT_SIGNAL;
+                        let mut fired = lock.lock().unwrap();
+                        if !*fired {
+                            *fired = true;
+                            cvar.notify_all();
+                        }
                         Self::process_commands(&mut mixer, &cmd_receiver);
                         if temp_buf.len() < data.len() {
                             temp_buf.resize(data.len(), 0.0);
