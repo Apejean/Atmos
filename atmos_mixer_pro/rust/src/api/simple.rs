@@ -156,6 +156,12 @@ pub fn api_preload_sound(file_path: String) -> Result<(), AtmosError> {
     }
 }
 
+pub fn api_clear_preloaded_sounds() -> Result<(), AtmosError> {
+    let mut preloaded = GLOBAL_STATE.preloaded_sounds.write().unwrap_or_else(|e| e.into_inner());
+    preloaded.clear();
+    Ok(())
+}
+
 pub fn api_play_track(room_id: String, track_id: String) -> Result<(), AtmosError> {
     let config_guard = GLOBAL_STATE.config.read().unwrap_or_else(|e| e.into_inner());
     if let Some(config) = config_guard.as_ref() {

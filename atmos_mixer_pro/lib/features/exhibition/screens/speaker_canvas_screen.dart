@@ -357,10 +357,6 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final nodes = ref.watch(speakerLayoutProvider);
-    final rooms = ref.watch(roomZoneProvider);
-    final trajectories = ref.watch(trajectoryProvider);
-
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -407,34 +403,42 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                   engineStateProvider.select((state) => state.masterMuteActive),
                 );
                 if (!isMasterMuted) return const SizedBox.shrink();
-                return Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.orange.shade800,
+                return RepaintBoundary(
+                  child: ClipRRect(
                     borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.warning_amber_rounded,
-                        color: Colors.white,
-                        size: 16,
-                      ),
-                      SizedBox(width: 8),
-                      Text(
-                        'MASTER MUTE ACTIVE',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
-                          letterSpacing: 1.0,
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.shade800.withValues(alpha: 0.8),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.warning_amber_rounded,
+                              color: Colors.white,
+                              size: 16,
+                            ),
+                            SizedBox(width: 8),
+                            Text(
+                              'MASTER MUTE ACTIVE',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                                letterSpacing: 1.0,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                    ],
+                    ),
                   ),
                 );
               },
@@ -480,8 +484,14 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                     ),
 
                     // Rooms
-                    ...rooms.map((room) {
-                      final containedSpeakers = _getSpeakersInRoom(room, nodes);
+                    Consumer(
+                      builder: (context, ref, _) {
+                        final rooms = ref.watch(roomZoneProvider);
+                        final nodes = ref.watch(speakerLayoutProvider);
+                        return Stack(
+                          clipBehavior: Clip.none,
+                          children: rooms.map((room) {
+                            final containedSpeakers = _getSpeakersInRoom(room, nodes);
                       final roomColor = Color(room.color);
 
                       return Positioned(
@@ -493,14 +503,15 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                           clipBehavior: Clip.none,
                           children: [
                             // Room Body
-                            GestureDetector(
-                              onPanStart: _currentMode == CanvasMode.room
-                                  ? (details) {
-                                      _draggedSpeakerIds = containedSpeakers
-                                          .map((e) => e.id)
-                                          .toList();
-                                    }
-                                  : null,
+                            RepaintBoundary(
+                              child: GestureDetector(
+                                onPanStart: _currentMode == CanvasMode.room
+                                    ? (details) {
+                                        _draggedSpeakerIds = containedSpeakers
+                                            .map((e) => e.id)
+                                            .toList();
+                                      }
+                                    : null,
                               onPanUpdate: _currentMode == CanvasMode.room
                                   ? (details) {
                                       final scale = _transformationController
@@ -662,6 +673,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                                 ),
                               ),
                             ),
+                            ),
 
                             // Channel Badges (above room)
                             Positioned(
@@ -710,20 +722,33 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                           ],
                         ),
                       );
-                    }),
+                    }).toList(),
+                  );
+                }),
 
                     // Trajectories
-                    Positioned.fill(
-                      child: RepaintBoundary(
-                        child: CustomPaint(
-                          painter: _TrajectoryPainter(trajectories),
-                        ),
-                      ),
+                    Consumer(
+                      builder: (context, ref, _) {
+                        final trajectories = ref.watch(trajectoryProvider);
+                        return Positioned.fill(
+                          child: RepaintBoundary(
+                            child: CustomPaint(
+                              painter: _TrajectoryPainter(trajectories),
+                            ),
+                          ),
+                        );
+                      },
                     ),
 
                     // Speaker Nodes
-                    ...nodes.map((node) {
-                      final isDuplicate = nodes
+                    Consumer(
+                      builder: (context, ref, _) {
+                        final nodes = ref.watch(speakerLayoutProvider);
+                        final rooms = ref.watch(roomZoneProvider);
+                        return Stack(
+                          clipBehavior: Clip.none,
+                          children: nodes.map((node) {
+                            final isDuplicate = nodes
                           .where(
                             (n) => n.id != node.id && n.channel == node.channel,
                           )
@@ -821,7 +846,9 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                           ),
                         ),
                       );
-                    }),
+                    }).toList(),
+                  );
+                }),
                   ],
                 ),
               ),

@@ -26,6 +26,9 @@ Future<void> apiPlayTestNoise({required int channel}) =>
 Future<void> apiPreloadSound({required String filePath}) =>
     RustLib.instance.api.crateApiSimpleApiPreloadSound(filePath: filePath);
 
+Future<void> apiClearPreloadedSounds() =>
+    RustLib.instance.api.crateApiSimpleApiClearPreloadedSounds();
+
 Future<void> apiPlayTrack({required String roomId, required String trackId}) =>
     RustLib.instance.api.crateApiSimpleApiPlayTrack(
       roomId: roomId,

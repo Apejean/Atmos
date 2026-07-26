@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:atmos_mixer_pro/features/exhibition/models/room_zone.dart';
 
 const _kRoomZonePrefsKey = 'exhibition_room_zone_layout';
+const _kRoomZonePrefsBackupKey = 'exhibition_room_zone_layout_backup';
 
 class RoomZoneState extends Notifier<List<RoomZone>> {
   Timer? _saveDebounceTimer;
@@ -21,11 +22,27 @@ class RoomZoneState extends Notifier<List<RoomZone>> {
   Future<void> _loadFromPrefs() async {
     final prefs = await SharedPreferences.getInstance();
     final jsonString = prefs.getString(_kRoomZonePrefsKey);
+    bool useBackup = false;
+
     if (jsonString != null) {
       try {
         final List<dynamic> decoded = jsonDecode(jsonString);
         state = decoded.map((e) => RoomZone.fromJson(e)).toList();
       } catch (e) {
+        useBackup = true;
+      }
+    }
+
+    if (useBackup) {
+      final backupString = prefs.getString(_kRoomZonePrefsBackupKey);
+      if (backupString != null) {
+        try {
+          final List<dynamic> decoded = jsonDecode(backupString);
+          state = decoded.map((e) => RoomZone.fromJson(e)).toList();
+        } catch (e) {
+          state = [];
+        }
+      } else {
         state = [];
       }
     }
@@ -40,8 +57,18 @@ class RoomZoneState extends Notifier<List<RoomZone>> {
 
   Future<void> _saveToPrefsImmediate() async {
     final prefs = await SharedPreferences.getInstance();
-    final jsonString = jsonEncode(state.map((e) => e.toJson()).toList());
-    await prefs.setString(_kRoomZonePrefsKey, jsonString);
+    
+    final currentString = prefs.getString(_kRoomZonePrefsKey);
+    if (currentString != null) {
+      await prefs.setString(_kRoomZonePrefsBackupKey, currentString);
+    }
+
+    try {
+      final jsonString = jsonEncode(state.map((e) => e.toJson()).toList());
+      await prefs.setString(_kRoomZonePrefsKey, jsonString);
+    } catch (e) {
+      // Ignore save error to prevent crash
+    }
   }
 
   void addRoomZone(RoomZone room) {

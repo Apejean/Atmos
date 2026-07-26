@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:atmos_mixer_pro/features/exhibition/models/speaker_node.dart';
 
 const _kSpeakerLayoutPrefsKey = 'exhibition_speaker_layout';
+const _kSpeakerLayoutPrefsBackupKey = 'exhibition_speaker_layout_backup';
 
 class SpeakerLayoutState extends Notifier<List<SpeakerNode>> {
   Timer? _saveDebounceTimer;
@@ -21,12 +22,29 @@ class SpeakerLayoutState extends Notifier<List<SpeakerNode>> {
   Future<void> _loadFromPrefs() async {
     final prefs = await SharedPreferences.getInstance();
     final jsonString = prefs.getString(_kSpeakerLayoutPrefsKey);
+    bool useBackup = false;
+
     if (jsonString != null) {
       try {
         final List<dynamic> decoded = jsonDecode(jsonString);
         state = decoded.map((e) => SpeakerNode.fromJson(e)).toList();
         _notifyBackend();
       } catch (e) {
+        useBackup = true;
+      }
+    }
+
+    if (useBackup) {
+      final backupString = prefs.getString(_kSpeakerLayoutPrefsBackupKey);
+      if (backupString != null) {
+        try {
+          final List<dynamic> decoded = jsonDecode(backupString);
+          state = decoded.map((e) => SpeakerNode.fromJson(e)).toList();
+          _notifyBackend();
+        } catch (e) {
+          state = [];
+        }
+      } else {
         state = [];
       }
     }
@@ -41,9 +59,19 @@ class SpeakerLayoutState extends Notifier<List<SpeakerNode>> {
 
   Future<void> _saveToPrefsImmediate() async {
     final prefs = await SharedPreferences.getInstance();
-    final jsonString = jsonEncode(state.map((e) => e.toJson()).toList());
-    await prefs.setString(_kSpeakerLayoutPrefsKey, jsonString);
-    _notifyBackend();
+    
+    final currentString = prefs.getString(_kSpeakerLayoutPrefsKey);
+    if (currentString != null) {
+      await prefs.setString(_kSpeakerLayoutPrefsBackupKey, currentString);
+    }
+    
+    try {
+      final jsonString = jsonEncode(state.map((e) => e.toJson()).toList());
+      await prefs.setString(_kSpeakerLayoutPrefsKey, jsonString);
+      _notifyBackend();
+    } catch (e) {
+      // Ignore save error to prevent crash
+    }
   }
 
   void _notifyBackend() {

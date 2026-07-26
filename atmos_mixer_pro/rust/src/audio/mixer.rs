@@ -45,6 +45,8 @@ pub struct AudioMixer {
     pub master_headroom_db: f32,
     pub peak_limiter_enabled: bool,
     pub limiters: Vec<crate::audio::limiter::PeakLimiter>,
+    pub temp_room_vols: Vec<f32>,
+    pub channel_spatial_gains: Vec<f32>,
 }
 
 impl AudioMixer {
@@ -142,6 +144,8 @@ impl AudioMixer {
             master_headroom_db,
             peak_limiter_enabled,
             limiters,
+            temp_room_vols: vec![1.0; 4096],
+            channel_spatial_gains: vec![1.0; channels],
         }
     }
 
@@ -188,13 +192,13 @@ impl AudioMixer {
             }
         }
 
-        let mut temp_room_vols = [1.0f32; 4096];
+        self.temp_room_vols.fill(1.0);
         for (i, inst_opt) in self.instances.iter().enumerate() {
             if let Some(inst) = inst_opt {
                 if inst.is_playing {
                     for (rid, rvol) in self.room_volumes.iter().flatten() {
                         if *rid == inst.room_id {
-                            temp_room_vols[i] = *rvol;
+                            self.temp_room_vols[i] = *rvol;
                             break;
                         }
                     }
@@ -202,7 +206,11 @@ impl AudioMixer {
             }
         }
 
-        let mut channel_spatial_gains = vec![1.0f32; out_channels];
+        if self.channel_spatial_gains.len() < out_channels {
+            self.channel_spatial_gains.resize(out_channels, 1.0);
+        } else {
+            self.channel_spatial_gains.fill(1.0);
+        }
         for ch in 0..out_channels {
             let mut gain = 1.0;
             if ch < self.channel_positions.len() {
@@ -238,7 +246,7 @@ impl AudioMixer {
                     }
                 }
             }
-            channel_spatial_gains[ch] = gain;
+            self.channel_spatial_gains[ch] = gain;
         }
 
         for frame in 0..frames {
@@ -285,7 +293,7 @@ impl AudioMixer {
                 }
 
                 let smoothed_volume = instance.volume_smoother.next();
-                let mut current_vol = smoothed_volume * instance.fade_weight * temp_room_vols[i];
+                let mut current_vol = smoothed_volume * instance.fade_weight * self.temp_room_vols[i];
                 if instance.is_loop {
                     current_vol *= self.ducking.ducking_weight; // Ducking only affects BGM
                 }
@@ -424,7 +432,7 @@ impl AudioMixer {
                             };
                             let out_idx = frame * out_channels + hw_ch;
                             if is_enabled && out_idx < output.len() {
-                                output[out_idx] += mono_val * current_vol * channel_spatial_gains[hw_ch];
+                                output[out_idx] += mono_val * current_vol * self.channel_spatial_gains[hw_ch];
                             }
                         }
                     } else {
@@ -439,7 +447,7 @@ impl AudioMixer {
                                 };
                                 let out_idx = frame * out_channels + hw_ch;
                                 if is_enabled && out_idx < output.len() {
-                                    output[out_idx] += val * current_vol * channel_spatial_gains[hw_ch];
+                                    output[out_idx] += val * current_vol * self.channel_spatial_gains[hw_ch];
                                 }
                             }
                         }
@@ -455,7 +463,7 @@ impl AudioMixer {
                                 };
                                 let out_idx_r = frame * out_channels + hw_ch_r;
                                 if is_r_enabled && out_idx_r < output.len() {
-                                    output[out_idx_r] += vals[0] * current_vol * channel_spatial_gains[hw_ch_r];
+                                    output[out_idx_r] += vals[0] * current_vol * self.channel_spatial_gains[hw_ch_r];
                                 }
                             }
                         }

@@ -139,9 +139,9 @@ class ConfigNotifier extends Notifier<AppConfig?> {
               await rust_api
                   .apiCreateDeviceEventStream()
                   .firstWhere((e) => e == 'EngineReady')
-                  .timeout(const Duration(milliseconds: 2000));
-            } catch (_) {
-              // fallback
+                  .timeout(const Duration(milliseconds: 5000));
+            } catch (e) {
+              ref.read(globalErrorProvider.notifier).showError('오디오 엔진 연결 시간 초과 (Timeout). 오디오 장치 연결 상태를 확인해주세요.');
             }
           }
           ref.read(tuningStateProvider.notifier).applyAllToBackend();
