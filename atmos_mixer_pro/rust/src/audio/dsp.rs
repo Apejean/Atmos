@@ -99,6 +99,12 @@ pub mod dsp_utils {
         r: f32,
     }
     
+    impl Default for DcBlocker {
+        fn default() -> Self {
+            Self::new()
+        }
+    }
+
     impl DcBlocker {
         pub fn new() -> Self {
             Self {
@@ -169,8 +175,7 @@ pub mod dsp_utils {
         pub fn update_eq_targets(&mut self, target_bands: &[EqBand], fs: f32) {
             let limit = target_bands.len().min(MAX_EQ_BANDS);
             
-            for i in 0..limit {
-                let band = &target_bands[i];
+            for (i, band) in target_bands.iter().enumerate().take(limit) {
                 self.target_bands[i] = band.clone();
                 self.current_bands[i] = band.clone();
                 self.eq_filters[i].update(band, fs);
@@ -249,7 +254,7 @@ pub mod dsp_utils {
         pub fn set_target(&mut self, new_target: f32) { self.target = new_target; }
         
         #[inline(always)]
-        pub fn next(&mut self) -> f32 {
+        pub fn get_next(&mut self) -> f32 {
             self.current += self.alpha * (self.target - self.current);
             self.current
         }

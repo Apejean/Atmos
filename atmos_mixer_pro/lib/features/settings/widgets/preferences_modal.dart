@@ -832,7 +832,7 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
               height: 48,
               child: ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blueAccent.withOpacity(0.2),
+                  backgroundColor: Colors.blueAccent.withValues(alpha: 0.2),
                   foregroundColor: Colors.blueAccent,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(4),
@@ -1071,7 +1071,7 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
           decoration: BoxDecoration(
             color: AppColors.cardSurface,
             borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: Colors.white.withOpacity(0.05)),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1421,7 +1421,7 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
           decoration: BoxDecoration(
             color: AppColors.cardSurface,
             borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: Colors.white.withOpacity(0.05)),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
           ),
           child: Row(
             children: [
@@ -1475,7 +1475,7 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
           decoration: BoxDecoration(
             color: AppColors.cardSurface,
             borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: Colors.white.withOpacity(0.05)),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
           ),
           child: Row(
             children: [
@@ -1531,7 +1531,7 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
             decoration: BoxDecoration(
               color: AppColors.cardSurface,
               borderRadius: BorderRadius.circular(4),
-              border: Border.all(color: Colors.white.withOpacity(0.05)),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

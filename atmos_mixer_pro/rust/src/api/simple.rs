@@ -582,10 +582,9 @@ pub fn api_init_audio_system(device_name: Option<String>) -> Result<(), AtmosErr
                 // Wait for callback to actually fire using Condvar
                 {
                     let (lock, cvar) = &**crate::audio::engine::ENGINE_INIT_SIGNAL;
-                    let mut fired = lock.lock().unwrap();
+                    let fired = lock.lock().unwrap();
                     if !*fired {
-                        let result = cvar.wait_timeout(fired, std::time::Duration::from_millis(2000)).unwrap();
-                        fired = result.0;
+                        let _ = cvar.wait_timeout(fired, std::time::Duration::from_millis(2000)).unwrap();
                     }
                 }
                 
@@ -683,10 +682,8 @@ pub fn api_create_device_event_stream(sink: StreamSink<String>) {
             let current_err = GLOBAL_STATE.engine_error.read().unwrap_or_else(|e| e.into_inner()).clone();
             if current_err != last_err {
                 if let Some(ref err) = current_err {
-                    if err == "DeviceNotAvailable" || err.contains("Disconnected") {
-                        if sink.add(err.clone()).is_err() {
-                            break; // Stop thread if port is closed
-                        }
+                    if (err == "DeviceNotAvailable" || err.contains("Disconnected")) && sink.add(err.clone()).is_err() {
+                        break; // Stop thread if port is closed
                     }
                 }
                 last_err = current_err;

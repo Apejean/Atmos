@@ -292,7 +292,7 @@ impl AudioMixer {
                     }
                 }
 
-                let smoothed_volume = instance.volume_smoother.next();
+                let smoothed_volume = instance.volume_smoother.get_next();
                 let mut current_vol = smoothed_volume * instance.fade_weight * self.temp_room_vols[i];
                 if instance.is_loop {
                     current_vol *= self.ducking.ducking_weight; // Ducking only affects BGM

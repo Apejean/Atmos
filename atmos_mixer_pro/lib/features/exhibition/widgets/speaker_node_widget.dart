@@ -54,7 +54,7 @@ class _SpeakerNodeWidgetState extends ConsumerState<SpeakerNodeWidget> {
     final baseColor = widget.roomColor ?? AppColors.primaryNeon;
     final borderColor = widget.isDuplicateChannel
         ? Colors.orangeAccent
-        : baseColor.withOpacity(0.5);
+        : baseColor.withValues(alpha: 0.5);
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -105,8 +105,8 @@ class _SpeakerNodeWidgetState extends ConsumerState<SpeakerNodeWidget> {
                     boxShadow: [
                       if (glowOpacity > 0 || _isHovered)
                         BoxShadow(
-                          color: baseColor.withOpacity(
-                            _isHovered ? 0.8 : glowOpacity,
+                          color: baseColor.withValues(
+                            alpha: _isHovered ? 0.8 : glowOpacity,
                           ),
                           blurRadius: _isHovered ? 15.0 : glowRadius,
                           spreadRadius: _isHovered ? 2.0 : glowRadius / 2,

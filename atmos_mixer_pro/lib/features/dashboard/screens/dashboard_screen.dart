@@ -499,12 +499,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   color: AppColors.background,
                   borderRadius: BorderRadius.circular(4),
                   border: Border.all(
-                    color: AppColors.danger.withOpacity(0.5),
+                    color: AppColors.danger.withValues(alpha: 0.5),
                     width: 1.0,
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: AppColors.danger.withOpacity(0.15),
+                      color: AppColors.danger.withValues(alpha: 0.15),
                       blurRadius: 12,
                       spreadRadius: 2,
                     ),
@@ -902,7 +902,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                         vertical: 4,
                       ),
                       decoration: BoxDecoration(
-                        color: AppColors.accentOrange.withOpacity(0.2),
+                        color: AppColors.accentOrange.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(4),
                         border: Border.all(color: AppColors.accentOrange),
                       ),

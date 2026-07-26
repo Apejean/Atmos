@@ -92,7 +92,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
 
     final colorValue = AppColors
         .roomAccents[_roomColorIndex % AppColors.roomAccents.length]
-        .value;
+        .toARGB32();
     _roomColorIndex++;
 
     final newRoom = RoomZone(
@@ -172,9 +172,9 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                 spacing: 12,
                 runSpacing: 12,
                 children: AppColors.roomAccents.map((color) {
-                  final isSelected = color.value == selectedColor;
+                  final isSelected = color.toARGB32() == selectedColor;
                   return GestureDetector(
-                    onTap: () => setState(() => selectedColor = color.value),
+                    onTap: () => setState(() => selectedColor = color.toARGB32()),
                     child: Container(
                       width: 40,
                       height: 40,
@@ -378,7 +378,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
               },
               color: Colors.white70,
               selectedColor: AppColors.primaryNeon,
-              fillColor: AppColors.primaryNeon.withOpacity(0.1),
+              fillColor: AppColors.primaryNeon.withValues(alpha: 0.1),
               borderColor: Colors.white24,
               selectedBorderColor: AppColors.primaryNeon,
               children: const [

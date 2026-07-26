@@ -32,7 +32,7 @@ class VUMeterPainter extends CustomPainter {
       }
 
       // Draw dimmed background
-      paint.color = color.withOpacity(0.2);
+      paint.color = color.withValues(alpha: 0.2);
       canvas.drawRect(Rect.fromLTWH(0, y, size.width, segmentHeight), paint);
 
       // Draw active foreground if level > threshold

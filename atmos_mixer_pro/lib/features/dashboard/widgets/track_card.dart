@@ -279,10 +279,10 @@ class _TrackCardState extends ConsumerState<TrackCard> {
       margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: AppColors.background.withOpacity(0.35),
+        color: AppColors.background.withValues(alpha: 0.35),
         borderRadius: BorderRadius.circular(4),
         border: Border.all(
-          color: widget.accentColor.withOpacity(0.15),
+          color: widget.accentColor.withValues(alpha: 0.15),
           width: 1.0,
         ),
       ),
@@ -358,13 +358,13 @@ class _TrackCardState extends ConsumerState<TrackCard> {
                           Container(
                             decoration: BoxDecoration(
                               color: widget.track.isLoop
-                                  ? widget.accentColor.withOpacity(0.12)
+                                  ? widget.accentColor.withValues(alpha: 0.12)
                                   : Colors.transparent,
                               borderRadius: BorderRadius.circular(4),
                               border: Border.all(
                                 color: widget.track.isLoop
-                                    ? widget.accentColor.withOpacity(0.7)
-                                    : Colors.white.withOpacity(0.05),
+                                    ? widget.accentColor.withValues(alpha: 0.7)
+                                    : Colors.white.withValues(alpha: 0.05),
                                 width: 1.0,
                               ),
                             ),
@@ -389,13 +389,13 @@ class _TrackCardState extends ConsumerState<TrackCard> {
                           Container(
                             decoration: BoxDecoration(
                               color: widget.track.isStreaming
-                                  ? widget.accentColor.withOpacity(0.12)
+                                  ? widget.accentColor.withValues(alpha: 0.12)
                                   : Colors.transparent,
                               borderRadius: BorderRadius.circular(4),
                               border: Border.all(
                                 color: widget.track.isStreaming
-                                    ? widget.accentColor.withOpacity(0.7)
-                                    : Colors.white.withOpacity(0.05),
+                                    ? widget.accentColor.withValues(alpha: 0.7)
+                                    : Colors.white.withValues(alpha: 0.05),
                                 width: 1.0,
                               ),
                             ),
