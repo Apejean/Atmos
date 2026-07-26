@@ -78,7 +78,35 @@ impl OscListener {
 fn handle_packet(packet: OscPacket, debouncer: &OscDebouncer) {
     match packet {
         OscPacket::Message(msg) => {
-            // Drop if arg <= 0.0 or debounce fails
+            // First check if it's a tracking update
+            {
+                let config_guard = crate::core::state::GLOBAL_STATE.config.read().unwrap_or_else(|e| e.into_inner());
+                if let Some(ref config) = *config_guard {
+                    if let Some(ref tracking_addr) = config.tracking_osc_address {
+                        if !tracking_addr.is_empty() && msg.addr == *tracking_addr {
+                            // Assuming 3 floats: x, y, z
+                            if msg.args.len() >= 3 {
+                                let mut coords = [0.0; 3];
+                                for (i, arg) in msg.args.iter().take(3).enumerate() {
+                                    if let rosc::OscType::Float(f) = arg {
+                                        coords[i] = *f;
+                                    }
+                                }
+                                let _ = crate::core::state::GLOBAL_STATE.command_sender.try_send(crate::common::commands::AudioCommand::UpdateTrajectoryPosition {
+                                    position: crate::common::config::Point3D {
+                                        x: coords[0],
+                                        y: coords[1],
+                                        z: coords[2],
+                                    },
+                                });
+                            }
+                            return; // Done handling tracking
+                        }
+                    }
+                }
+            }
+
+            // Drop if arg <= 0.0 or debounce fails (for normal triggers)
             let is_trigger = msg.args.iter().any(|arg| match arg {
                 rosc::OscType::Float(f) => *f > 0.0,
                 rosc::OscType::Int(i) => *i > 0,
@@ -130,6 +158,27 @@ fn handle_packet(packet: OscPacket, debouncer: &OscDebouncer) {
             if is_system_reset {
                 let _ = crate::api::simple::api_stop_all();
                 crate::core::state::GLOBAL_STATE.log("OSC Triggered: System Reset".to_string());
+                return;
+            }
+            
+            // Trajectory Tracking via OSC
+            if msg.addr == "/audience/pos" {
+                if msg.args.len() >= 3 {
+                    let mut x = 0.0;
+                    let mut y = 0.0;
+                    let mut z = 0.0;
+                    
+                    if let rosc::OscType::Float(f) = msg.args[0] { x = f; }
+                    if let rosc::OscType::Float(f) = msg.args[1] { y = f; }
+                    if let rosc::OscType::Float(f) = msg.args[2] { z = f; }
+                    
+                    let pos = crate::common::config::Point3D { x, y, z };
+                    let _ = crate::core::state::GLOBAL_STATE.command_sender.try_send(
+                        crate::common::commands::AudioCommand::UpdateTrajectoryPosition {
+                            position: pos,
+                        }
+                    );
+                }
                 return;
             }
 

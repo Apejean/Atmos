@@ -568,24 +568,18 @@ pub fn api_init_audio_system(device_name: Option<String>) -> Result<(), AtmosErr
         }
         
         let mut engine = crate::audio::engine::AudioEngine::new();
-        {
-            let (lock, _) = &**crate::audio::engine::ENGINE_INIT_SIGNAL;
-            let mut fired = lock.lock().unwrap();
-            *fired = false;
-        }
+        crate::audio::engine::ENGINE_INIT_SIGNAL.store(false, std::sync::atomic::Ordering::SeqCst);
         let device_name_clone = device_name.clone();
         let dummy_rx = rx.clone();
         match engine.start(device_name_clone, rx) {
             Ok(_) => {
                 ENGINE_ACTIVE.store(true, std::sync::atomic::Ordering::SeqCst);
                 
-                // Wait for callback to actually fire using Condvar
-                {
-                    let (lock, cvar) = &**crate::audio::engine::ENGINE_INIT_SIGNAL;
-                    let fired = lock.lock().unwrap();
-                    if !*fired {
-                        let _ = cvar.wait_timeout(fired, std::time::Duration::from_millis(2000)).unwrap();
-                    }
+                // Wait for callback to actually fire (Atomic spin-wait)
+                let start = std::time::Instant::now();
+                while !crate::audio::engine::ENGINE_INIT_SIGNAL.load(std::sync::atomic::Ordering::Acquire) {
+                    if start.elapsed().as_millis() > 2000 { break; }
+                    std::thread::sleep(std::time::Duration::from_millis(10));
                 }
                 
                 let _ = tx.send(Ok(()));
@@ -654,12 +648,7 @@ pub fn api_is_engine_ready() -> bool {
     if !ENGINE_ACTIVE.load(std::sync::atomic::Ordering::SeqCst) {
         return false;
     }
-    let (lock, _) = &**crate::audio::engine::ENGINE_INIT_SIGNAL;
-    if let Ok(fired) = lock.lock() {
-        *fired
-    } else {
-        false
-    }
+    crate::audio::engine::ENGINE_INIT_SIGNAL.load(std::sync::atomic::Ordering::Acquire)
 }
 
 pub fn api_stop_audio_engine() {
@@ -1356,4 +1345,57 @@ pub fn api_update_spatial_config_json(json_payload: String) -> Result<(), AtmosE
         })?;
 
     Ok(())
+}
+
+use crate::common::config::Point3D;
+
+pub fn api_calculate_bezier_point(t: f32, p0: Point3D, p1: Point3D, p2: Point3D, p3: Point3D) -> Point3D {
+    let u = 1.0 - t;
+    let tt = t * t;
+    let uu = u * u;
+    let uuu = uu * u;
+    let ttt = tt * t;
+
+    let mut p = Point3D { x: 0.0, y: 0.0, z: 0.0 };
+    
+    p.x = uuu * p0.x;
+    p.x += 3.0 * uu * t * p1.x;
+    p.x += 3.0 * u * tt * p2.x;
+    p.x += ttt * p3.x;
+
+    p.y = uuu * p0.y;
+    p.y += 3.0 * uu * t * p1.y;
+    p.y += 3.0 * u * tt * p2.y;
+    p.y += ttt * p3.y;
+
+    p.z = uuu * p0.z;
+    p.z += 3.0 * uu * t * p1.z;
+    p.z += 3.0 * u * tt * p2.z;
+    p.z += ttt * p3.z;
+
+    p
+}
+
+pub fn api_calculate_dbap_heatmap(listener_pos: Point3D, channel_positions: Vec<Point3D>) -> Vec<f32> {
+    let blur_radius = 2.0f32;
+    let mut weights = Vec::with_capacity(channel_positions.len());
+    let mut sum_sq = 0.0;
+
+    for pos in &channel_positions {
+        let dx = pos.x - listener_pos.x;
+        let dy = pos.y - listener_pos.y;
+        let dz = pos.z - listener_pos.z;
+        let dist = (dx * dx + dy * dy + dz * dz).sqrt();
+        let weight = 1.0 / (dist.powi(2) + blur_radius.powi(2));
+        weights.push(weight);
+        sum_sq += weight * weight;
+    }
+
+    let norm_factor = if sum_sq > 0.0 { 1.0 / sum_sq.sqrt() } else { 0.0 };
+    
+    for w in &mut weights {
+        *w *= norm_factor;
+    }
+
+    weights
 }

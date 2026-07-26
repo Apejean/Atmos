@@ -192,6 +192,28 @@ Future<void> apiUpdateSpatialConfigJson({required String jsonPayload}) =>
       jsonPayload: jsonPayload,
     );
 
+Future<Point3D> apiCalculateBezierPoint({
+  required double t,
+  required Point3D p0,
+  required Point3D p1,
+  required Point3D p2,
+  required Point3D p3,
+}) => RustLib.instance.api.crateApiSimpleApiCalculateBezierPoint(
+  t: t,
+  p0: p0,
+  p1: p1,
+  p2: p2,
+  p3: p3,
+);
+
+Future<Float32List> apiCalculateDbapHeatmap({
+  required Point3D listenerPos,
+  required List<Point3D> channelPositions,
+}) => RustLib.instance.api.crateApiSimpleApiCalculateDbapHeatmap(
+  listenerPos: listenerPos,
+  channelPositions: channelPositions,
+);
+
 class ChannelTuningParams {
   final int channel;
   final double delayMs;

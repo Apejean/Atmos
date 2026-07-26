@@ -133,6 +133,58 @@ impl AudioMixer {
                         }
                     }
                 }
+                
+                // --- V1.0.80 Calibration DSP: Auto Boundary EQ and Acoustic Delay ---
+                // We use distance from center of active RoomZone or polygon centroid as delay reference point
+                for ch_idx in 0..channel_dsp.len() {
+                    if let Some(pos) = &channel_positions[ch_idx] {
+                        let mut matched_zone = None;
+                        for zone in &config.room_zones {
+                            if pos.x >= zone.boundary_min.x && pos.x <= zone.boundary_max.x &&
+                               pos.y >= zone.boundary_min.y && pos.y <= zone.boundary_max.y {
+                                matched_zone = Some(zone);
+                                break;
+                            }
+                        }
+
+                        if let Some(zone) = matched_zone {
+                            // Centroid for delay ref (center of AABB)
+                            let cx = (zone.boundary_min.x + zone.boundary_max.x) / 2.0;
+                            let cz = (zone.boundary_min.y + zone.boundary_max.y) / 2.0; // Using Y as Z for 2D top-down
+                            let center = crate::common::config::Point3D { x: cx, y: pos.y, z: cz };
+                            let dist = crate::audio::acoustic::distance_3d(pos, &center);
+                            let acoustic_delay = crate::audio::acoustic::calculate_acoustic_delay_ms(dist);
+
+                            let current_target = channel_dsp[ch_idx].target_delay_ms;
+                            // Add acoustic_delay + boundary_delay_ms from zone
+                            channel_dsp[ch_idx].update_delay_target(current_target + acoustic_delay + zone.boundary_delay_ms);
+
+                            // Boundary EQ
+                            if !zone.boundary_eq_bands.is_empty() {
+                                let mut new_targets = channel_dsp[ch_idx].target_bands.clone();
+                                for b_eq in &zone.boundary_eq_bands {
+                                    if new_targets.is_empty() {
+                                        new_targets.push(b_eq.clone());
+                                    } else {
+                                        let mut applied = false;
+                                        for band in &mut new_targets {
+                                            if !band.enabled {
+                                                *band = b_eq.clone();
+                                                applied = true;
+                                                break;
+                                            }
+                                        }
+                                        if !applied && new_targets.len() < crate::audio::dsp::dsp_utils::MAX_EQ_BANDS {
+                                            new_targets.push(b_eq.clone());
+                                        }
+                                    }
+                                }
+                                channel_dsp[ch_idx].update_eq_targets(&new_targets, sample_rate as f32);
+                            }
+                        }
+                    }
+                }
+                // --------------------------------------------------------------------
                 room_zones = config.room_zones.clone();
                 trajectory = config.global_trajectory.clone();
                 master_headroom_db = config.master_headroom_db;
@@ -253,8 +305,7 @@ impl AudioMixer {
                     let mut bound_room_id = None;
                     for zone in &self.room_zones {
                         if pos.x >= zone.boundary_min.x && pos.x <= zone.boundary_max.x &&
-                           pos.y >= zone.boundary_min.y && pos.y <= zone.boundary_max.y &&
-                           pos.z >= zone.boundary_min.z && pos.z <= zone.boundary_max.z {
+                           pos.y >= zone.boundary_min.y && pos.y <= zone.boundary_max.y {
                             bound_room_id = Some(zone.room_id);
                             break;
                         }

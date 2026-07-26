@@ -53,7 +53,7 @@ class _SpeakerNodeWidgetState extends ConsumerState<SpeakerNodeWidget> {
 
     final baseColor = widget.roomColor ?? AppColors.primaryNeon;
     final borderColor = widget.isDuplicateChannel
-        ? Colors.orangeAccent
+        ? Colors.redAccent
         : baseColor.withValues(alpha: 0.5);
 
     return Column(
@@ -72,7 +72,7 @@ class _SpeakerNodeWidgetState extends ConsumerState<SpeakerNodeWidget> {
             style: TextStyle(
               fontSize: 10,
               color: widget.isDuplicateChannel
-                  ? Colors.orangeAccent
+                  ? Colors.redAccent
                   : Colors.white70,
               fontWeight: FontWeight.bold,
             ),
@@ -113,7 +113,7 @@ class _SpeakerNodeWidgetState extends ConsumerState<SpeakerNodeWidget> {
                         ),
                       if (widget.isDuplicateChannel)
                         const BoxShadow(
-                          color: Colors.orangeAccent,
+                          color: Colors.redAccent,
                           blurRadius: 8,
                           spreadRadius: 1,
                         ),
@@ -136,7 +136,7 @@ class _SpeakerNodeWidgetState extends ConsumerState<SpeakerNodeWidget> {
                         child: Icon(
                           Icons.warning_amber_rounded,
                           size: 16,
-                          color: Colors.orangeAccent,
+                          color: Colors.redAccent,
                         ),
                       ),
                     )
@@ -173,7 +173,7 @@ class _SpeakerNodeWidgetState extends ConsumerState<SpeakerNodeWidget> {
                   color: Colors.black87,
                   borderRadius: BorderRadius.circular(6),
                   border: widget.isDuplicateChannel
-                      ? Border.all(color: Colors.orangeAccent, width: 1.0)
+                      ? Border.all(color: Colors.redAccent, width: 1.0)
                       : null,
                 ),
                 child: DropdownButtonHideUnderline(

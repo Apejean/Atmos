@@ -12,6 +12,7 @@ class AppConfig {
   final int bufferSize;
   final String themeStartOscAddress;
   final String systemResetOscAddress;
+  final String? trackingOscAddress;
   final Map<int, ChannelSetting> monoConfigs;
   final Map<int, ChannelSetting> stereoConfigs;
   final Map<int, ChannelSetting> multiConfigs;
@@ -28,6 +29,7 @@ class AppConfig {
     required this.bufferSize,
     required this.themeStartOscAddress,
     required this.systemResetOscAddress,
+    this.trackingOscAddress,
     required this.monoConfigs,
     required this.stereoConfigs,
     required this.multiConfigs,
@@ -46,6 +48,7 @@ class AppConfig {
       bufferSize.hashCode ^
       themeStartOscAddress.hashCode ^
       systemResetOscAddress.hashCode ^
+      trackingOscAddress.hashCode ^
       monoConfigs.hashCode ^
       stereoConfigs.hashCode ^
       multiConfigs.hashCode ^
@@ -66,6 +69,7 @@ class AppConfig {
           bufferSize == other.bufferSize &&
           themeStartOscAddress == other.themeStartOscAddress &&
           systemResetOscAddress == other.systemResetOscAddress &&
+          trackingOscAddress == other.trackingOscAddress &&
           monoConfigs == other.monoConfigs &&
           stereoConfigs == other.stereoConfigs &&
           multiConfigs == other.multiConfigs &&
@@ -212,16 +216,24 @@ class RoomZone {
   final int roomId;
   final Point3D boundaryMin;
   final Point3D boundaryMax;
+  final double boundaryDelayMs;
+  final List<EqBand> boundaryEqBands;
 
   const RoomZone({
     required this.roomId,
     required this.boundaryMin,
     required this.boundaryMax,
+    required this.boundaryDelayMs,
+    required this.boundaryEqBands,
   });
 
   @override
   int get hashCode =>
-      roomId.hashCode ^ boundaryMin.hashCode ^ boundaryMax.hashCode;
+      roomId.hashCode ^
+      boundaryMin.hashCode ^
+      boundaryMax.hashCode ^
+      boundaryDelayMs.hashCode ^
+      boundaryEqBands.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -230,7 +242,9 @@ class RoomZone {
           runtimeType == other.runtimeType &&
           roomId == other.roomId &&
           boundaryMin == other.boundaryMin &&
-          boundaryMax == other.boundaryMax;
+          boundaryMax == other.boundaryMax &&
+          boundaryDelayMs == other.boundaryDelayMs &&
+          boundaryEqBands == other.boundaryEqBands;
 }
 
 class TrackConfig {

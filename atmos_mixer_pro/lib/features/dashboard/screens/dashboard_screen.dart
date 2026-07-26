@@ -226,6 +226,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   isExhibitionMode: !config.isExhibitionMode,
                   globalTrajectory: config.globalTrajectory,
                   roomZones: config.roomZones,
+                  masterHeadroomDb: config.masterHeadroomDb,
+                  peakLimiterEnabled: config.peakLimiterEnabled,
                 );
                 ref.read(configProvider.notifier).saveConfig(updated);
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -440,6 +442,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                           isExhibitionMode: !config.isExhibitionMode,
                           globalTrajectory: config.globalTrajectory,
                           roomZones: config.roomZones,
+                          masterHeadroomDb: config.masterHeadroomDb,
+                          peakLimiterEnabled: config.peakLimiterEnabled,
                         );
                         ref.read(configProvider.notifier).saveConfig(updated);
                         ScaffoldMessenger.of(context).showSnackBar(
@@ -841,6 +845,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       isExhibitionMode: config.isExhibitionMode,
                       globalTrajectory: config.globalTrajectory,
                       roomZones: config.roomZones,
+                      masterHeadroomDb: config.masterHeadroomDb,
+                      peakLimiterEnabled: config.peakLimiterEnabled,
                     );
                     ref.read(configProvider.notifier).saveConfig(updated);
                   }

@@ -15,6 +15,10 @@ pub struct RoomZone {
     pub room_id: u32,
     pub boundary_min: Point3D,
     pub boundary_max: Point3D,
+    #[serde(default)]
+    pub boundary_delay_ms: f32,
+    #[serde(default)]
+    pub boundary_eq_bands: Vec<EqBand>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -33,7 +37,7 @@ pub enum EqType {
     HighCut,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct EqBand {
     pub enabled: bool,
     pub freq: f32,
@@ -76,6 +80,8 @@ pub struct AppConfig {
     #[serde(default)]
     pub system_reset_osc_address: String,
     #[serde(default)]
+    pub tracking_osc_address: Option<String>,
+    #[serde(default)]
     pub mono_configs: HashMap<u32, ChannelSetting>,
     #[serde(default)]
     pub stereo_configs: HashMap<u32, ChannelSetting>,
@@ -107,6 +113,7 @@ impl Default for AppConfig {
             buffer_size: 256,
             theme_start_osc_address: String::new(),
             system_reset_osc_address: String::new(),
+            tracking_osc_address: Some("/tracker/pos".to_string()),
             mono_configs: HashMap::new(),
             stereo_configs: HashMap::new(),
             multi_configs: HashMap::new(),

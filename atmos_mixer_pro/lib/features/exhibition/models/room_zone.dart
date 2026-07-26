@@ -8,6 +8,9 @@ class RoomZone {
   final int color;
   final double physicalWidth;
   final double physicalHeight;
+  final bool hasDoor;
+  final int doorWall; // 0: Top, 1: Right, 2: Bottom, 3: Left
+  final double doorOffset; // 0.0 to 1.0
 
   const RoomZone({
     required this.id,
@@ -19,6 +22,9 @@ class RoomZone {
     this.color = 0xFF2E9A75,
     this.physicalWidth = 5.0,
     this.physicalHeight = 5.0,
+    this.hasDoor = false,
+    this.doorWall = 0,
+    this.doorOffset = 0.5,
   });
 
   bool containsPoint(double px, double py) {
@@ -35,6 +41,9 @@ class RoomZone {
     int? color,
     double? physicalWidth,
     double? physicalHeight,
+    bool? hasDoor,
+    int? doorWall,
+    double? doorOffset,
   }) {
     return RoomZone(
       id: id ?? this.id,
@@ -46,6 +55,9 @@ class RoomZone {
       color: color ?? this.color,
       physicalWidth: physicalWidth ?? this.physicalWidth,
       physicalHeight: physicalHeight ?? this.physicalHeight,
+      hasDoor: hasDoor ?? this.hasDoor,
+      doorWall: doorWall ?? this.doorWall,
+      doorOffset: doorOffset ?? this.doorOffset,
     );
   }
 
@@ -60,6 +72,9 @@ class RoomZone {
       'color': color,
       'physicalWidth': physicalWidth,
       'physicalHeight': physicalHeight,
+      'hasDoor': hasDoor,
+      'doorWall': doorWall,
+      'doorOffset': doorOffset,
     };
   }
 
@@ -74,6 +89,9 @@ class RoomZone {
       color: json['color'] as int? ?? 0xFF2E9A75,
       physicalWidth: (json['physicalWidth'] as num?)?.toDouble() ?? 5.0,
       physicalHeight: (json['physicalHeight'] as num?)?.toDouble() ?? 5.0,
+      hasDoor: json['hasDoor'] as bool? ?? false,
+      doorWall: json['doorWall'] as int? ?? 0,
+      doorOffset: (json['doorOffset'] as num?)?.toDouble() ?? 0.5,
     );
   }
 }

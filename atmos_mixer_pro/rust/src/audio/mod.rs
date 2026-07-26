@@ -5,6 +5,6 @@ pub mod player;
 pub mod streaming;
 pub mod spatial;
 pub mod dsp;
+pub mod acoustic;
 pub mod svf;
 pub mod limiter;
-

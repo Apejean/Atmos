@@ -206,7 +206,8 @@ class _RoomCardState extends ConsumerState<RoomCard> {
           .saveConfig(
             AppConfig(
               masterHeadroomDb: currentConfig.masterHeadroomDb,
-                                              oscPort: currentConfig.oscPort,
+              peakLimiterEnabled: currentConfig.peakLimiterEnabled,
+              oscPort: currentConfig.oscPort,
               deviceName: currentConfig.deviceName,
               bufferSize: currentConfig.bufferSize,
               themeStartOscAddress: currentConfig.themeStartOscAddress,
@@ -264,6 +265,7 @@ class _RoomCardState extends ConsumerState<RoomCard> {
             .saveConfig(
               AppConfig(
                 masterHeadroomDb: config.masterHeadroomDb,
+                peakLimiterEnabled: config.peakLimiterEnabled,
                 oscPort: config.oscPort,
                 deviceName: config.deviceName,
                 bufferSize: config.bufferSize,
@@ -469,6 +471,7 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                                           .saveConfig(
                                             AppConfig(
                                               masterHeadroomDb: currentConfig.masterHeadroomDb,
+                                              peakLimiterEnabled: currentConfig.peakLimiterEnabled,
                                               oscPort: currentConfig.oscPort,
                                               deviceName:
                                                   currentConfig.deviceName,
@@ -522,7 +525,8 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                                       .saveConfig(
                                         AppConfig(
                                           masterHeadroomDb: currentConfig.masterHeadroomDb,
-                                              oscPort: currentConfig.oscPort,
+                                          peakLimiterEnabled: currentConfig.peakLimiterEnabled,
+                                          oscPort: currentConfig.oscPort,
                                           deviceName: currentConfig.deviceName,
                                           bufferSize: currentConfig.bufferSize,
                                           themeStartOscAddress: currentConfig
@@ -773,6 +777,7 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                                         .saveConfig(
                                           AppConfig(
                                             masterHeadroomDb: currentConfig.masterHeadroomDb,
+                                            peakLimiterEnabled: currentConfig.peakLimiterEnabled,
                                               oscPort: currentConfig.oscPort,
                                             deviceName:
                                                 currentConfig.deviceName,
@@ -849,6 +854,7 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                                         .saveConfig(
                                           AppConfig(
                                             masterHeadroomDb: currentConfig.masterHeadroomDb,
+                                            peakLimiterEnabled: currentConfig.peakLimiterEnabled,
                                               oscPort: currentConfig.oscPort,
                                             deviceName:
                                                 currentConfig.deviceName,
@@ -919,6 +925,7 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                                         .saveConfig(
                                           AppConfig(
                                             masterHeadroomDb: currentConfig.masterHeadroomDb,
+                                            peakLimiterEnabled: currentConfig.peakLimiterEnabled,
                                               oscPort: currentConfig.oscPort,
                                             deviceName:
                                                 currentConfig.deviceName,
@@ -988,6 +995,7 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                                         .saveConfig(
                                           AppConfig(
                                             masterHeadroomDb: currentConfig.masterHeadroomDb,
+                                            peakLimiterEnabled: currentConfig.peakLimiterEnabled,
                                               oscPort: currentConfig.oscPort,
                                             deviceName:
                                                 currentConfig.deviceName,
@@ -1057,6 +1065,7 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                                         .saveConfig(
                                           AppConfig(
                                             masterHeadroomDb: currentConfig.masterHeadroomDb,
+                                            peakLimiterEnabled: currentConfig.peakLimiterEnabled,
                                               oscPort: currentConfig.oscPort,
                                             deviceName:
                                                 currentConfig.deviceName,
@@ -1132,6 +1141,7 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                                         .saveConfig(
                                           AppConfig(
                                             masterHeadroomDb: currentConfig.masterHeadroomDb,
+                                            peakLimiterEnabled: currentConfig.peakLimiterEnabled,
                                               oscPort: currentConfig.oscPort,
                                             deviceName:
                                                 currentConfig.deviceName,

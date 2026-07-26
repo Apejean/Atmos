@@ -1,7 +1,12 @@
 import 'dart:ui';
+import 'dart:io';
+import 'dart:async';
+import 'dart:convert';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:pdfx/pdfx.dart';
 import 'package:uuid/uuid.dart';
 import 'package:atmos_mixer_pro/features/exhibition/models/speaker_node.dart';
 import 'package:atmos_mixer_pro/features/exhibition/state/speaker_layout_state.dart';
@@ -10,8 +15,10 @@ import 'package:atmos_mixer_pro/features/exhibition/models/room_zone.dart';
 import 'package:atmos_mixer_pro/features/exhibition/state/room_zone_state.dart';
 import 'package:atmos_mixer_pro/features/exhibition/models/trajectory.dart';
 import 'package:atmos_mixer_pro/features/exhibition/state/trajectory_state.dart';
+import 'package:atmos_mixer_pro/features/exhibition/state/blueprint_state.dart';
 import 'package:atmos_mixer_pro/core/theme/colors.dart';
 import 'package:atmos_mixer_pro/core/state/global_state.dart';
+import 'package:atmos_mixer_pro/src/rust/api/simple.dart';
 
 const double _gridSize = 50.0;
 const double _canvasWidth = 2000.0;
@@ -33,6 +40,16 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
 
   static int _roomColorIndex = 0;
 
+  Timer? _automationTimer;
+  double _automationProgress = 0.0;
+  bool _isPlayingAutomation = false;
+  Offset? _currentAutomationPos;
+
+  bool _showSpeakers = true;
+  bool _showRooms = true;
+  bool _showTrajectories = true;
+  bool _showHeatmap = true;
+
   @override
   void initState() {
     super.initState();
@@ -46,8 +63,143 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
 
   @override
   void dispose() {
+    _automationTimer?.cancel();
     _transformationController.dispose();
     super.dispose();
+  }
+
+  DateTime? _lastSyncTime;
+
+  void _syncSpatialConfigRealtime() {
+    final now = DateTime.now();
+    if (_lastSyncTime != null && now.difference(_lastSyncTime!).inMilliseconds < 16) {
+      return;
+    }
+    _lastSyncTime = now;
+
+    final nodes = ref.read(speakerLayoutProvider);
+    final rooms = ref.read(roomZoneProvider);
+    final trajectories = ref.read(trajectoryProvider);
+
+    final payload = {
+      'channel_positions': List.generate(64, (index) {
+        final node = nodes.where((n) => n.channel == index).firstOrNull;
+        if (node == null) return null;
+        return {
+          'x': node.x / _gridSize,
+          'y': node.y / _gridSize,
+          'z': 0.0,
+        };
+      }),
+      'room_zones': rooms.map((r) {
+        return {
+          'room_id': r.id.hashCode.abs(),
+          'boundary_min': {'x': r.x / _gridSize, 'y': r.y / _gridSize, 'z': 0.0},
+          'boundary_max': {'x': (r.x + r.width) / _gridSize, 'y': (r.y + r.height) / _gridSize, 'z': 2.0},
+        };
+      }).toList(),
+      'trajectory': trajectories.isNotEmpty && trajectories.first.waypoints.isNotEmpty ? {
+        'waypoints': trajectories.first.waypoints.map((w) => {'x': w.x / _gridSize, 'y': w.y / _gridSize, 'z': 0.0}).toList(),
+        'current_position': _currentAutomationPos != null 
+            ? {'x': _currentAutomationPos!.dx / _gridSize, 'y': _currentAutomationPos!.dy / _gridSize, 'z': 0.0} 
+            : {'x': trajectories.first.waypoints.first.x / _gridSize, 'y': trajectories.first.waypoints.first.y / _gridSize, 'z': 0.0},
+      } : null,
+    };
+
+    apiUpdateSpatialConfigJson(jsonPayload: jsonEncode(payload)).catchError((e) {
+      debugPrint('Real-time FFI sync error: $e');
+    });
+  }
+
+  void _toggleAutomation() {
+    final trajectories = ref.read(trajectoryProvider);
+    if (trajectories.isEmpty || trajectories.first.waypoints.isEmpty) return;
+
+    if (_isPlayingAutomation) {
+      setState(() {
+        _isPlayingAutomation = false;
+        _automationTimer?.cancel();
+        _automationTimer = null;
+      });
+    } else {
+      setState(() {
+        _isPlayingAutomation = true;
+      });
+      final waypoints = trajectories.first.waypoints;
+      _automationTimer = Timer.periodic(const Duration(milliseconds: 16), (timer) {
+        setState(() {
+          _automationProgress += 0.002;
+          if (_automationProgress > 1.0) _automationProgress = 0.0;
+          
+          final totalPoints = waypoints.length;
+          if (totalPoints == 1) {
+            _currentAutomationPos = Offset(waypoints.first.x, waypoints.first.y);
+          } else {
+            final fIndex = _automationProgress * totalPoints;
+            final iIndex = fIndex.floor();
+            final nextIndex = (iIndex + 1) % totalPoints;
+            final t = fIndex - iIndex;
+            
+            final w1 = waypoints[iIndex];
+            final w2 = waypoints[nextIndex];
+            _currentAutomationPos = Offset(
+              w1.x + (w2.x - w1.x) * t,
+              w1.y + (w2.y - w1.y) * t,
+            );
+          }
+        });
+        _syncSpatialConfigRealtime();
+      });
+    }
+  }
+
+
+  Future<void> _pickBlueprint() async {
+    final result = await FilePicker.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['png', 'jpg', 'jpeg', 'pdf'],
+    );
+    if (result != null && result.files.single.path != null) {
+      ref.read(blueprintProvider.notifier).setBlueprint(result.files.single.path!);
+      _initPdfDocument(result.files.single.path!);
+    }
+  }
+
+  PdfDocument? _pdfDocument;
+  PdfPageImage? _pdfImage;
+
+  Future<void> _initPdfDocument(String path) async {
+    if (!path.toLowerCase().endsWith('.pdf')) {
+      setState(() {
+        _pdfDocument = null;
+        _pdfImage = null;
+      });
+      return;
+    }
+    try {
+      final document = await PdfDocument.openFile(path);
+      final page = await document.getPage(1);
+      final pageImage = await page.render(
+        width: page.width * 2.0, // Retain some sharpness, prevent OOM
+        height: page.height * 2.0,
+      );
+      setState(() {
+        _pdfDocument = document;
+        _pdfImage = pageImage;
+      });
+      await page.close();
+    } catch (e) {
+      debugPrint('Error loading PDF: \$e');
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final blueprint = ref.read(blueprintProvider);
+    if (blueprint.imagePath != null && _pdfDocument == null) {
+      _initPdfDocument(blueprint.imagePath!);
+    }
   }
 
   Offset _getCanvasCenter() {
@@ -141,6 +293,8 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
 
   Future<void> _editRoom(RoomZone room) async {
     final controller = TextEditingController(text: room.label);
+    final widthController = TextEditingController(text: room.physicalWidth.toString());
+    final heightController = TextEditingController(text: room.physicalHeight.toString());
     int selectedColor = room.color;
 
     await showDialog(
@@ -165,6 +319,38 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                     borderSide: BorderSide(color: AppColors.primaryNeon),
                   ),
                 ),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: widthController,
+                      style: const TextStyle(color: Colors.white),
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      decoration: const InputDecoration(
+                        labelText: 'Width (m)',
+                        labelStyle: TextStyle(color: Colors.white70),
+                        enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
+                        focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: AppColors.primaryNeon)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: TextField(
+                      controller: heightController,
+                      style: const TextStyle(color: Colors.white),
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      decoration: const InputDecoration(
+                        labelText: 'Height (m)',
+                        labelStyle: TextStyle(color: Colors.white70),
+                        enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
+                        focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: AppColors.primaryNeon)),
+                      ),
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 24),
               const Text('Theme Color', style: TextStyle(color: Colors.white70)),
@@ -191,6 +377,51 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                   );
                 }).toList(),
               ),
+              const SizedBox(height: 24),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('Enable Door', style: TextStyle(color: Colors.white)),
+                  Switch(
+                    value: room.hasDoor,
+                    onChanged: (val) {
+                      ref.read(roomZoneProvider.notifier).updateRoomZone(
+                            room.copyWith(hasDoor: val),
+                            immediate: true,
+                          );
+                      Navigator.pop(context);
+                      _editRoom(room.copyWith(hasDoor: val));
+                    },
+                    activeColor: AppColors.primaryNeon,
+                  ),
+                ],
+              ),
+              if (room.hasDoor) ...[
+                const SizedBox(height: 16),
+                const Text('Door Wall', style: TextStyle(color: Colors.white70)),
+                DropdownButton<int>(
+                  value: room.doorWall,
+                  dropdownColor: AppColors.background,
+                  isExpanded: true,
+                  style: const TextStyle(color: Colors.white),
+                  items: const [
+                    DropdownMenuItem(value: 0, child: Text('Top')),
+                    DropdownMenuItem(value: 1, child: Text('Right')),
+                    DropdownMenuItem(value: 2, child: Text('Bottom')),
+                    DropdownMenuItem(value: 3, child: Text('Left')),
+                  ],
+                  onChanged: (val) {
+                    if (val != null) {
+                      ref.read(roomZoneProvider.notifier).updateRoomZone(
+                            room.copyWith(doorWall: val),
+                            immediate: true,
+                          );
+                      Navigator.pop(context);
+                      _editRoom(room.copyWith(doorWall: val));
+                    }
+                  },
+                ),
+              ],
             ],
           ),
           actions: [
@@ -211,6 +442,8 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                       room.copyWith(
                         label: controller.text,
                         color: selectedColor,
+                        physicalWidth: double.tryParse(widthController.text) ?? 5.0,
+                        physicalHeight: double.tryParse(heightController.text) ?? 5.0,
                       ),
                       immediate: true,
                     );
@@ -239,8 +472,38 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
     return null;
   }
 
+  Widget _buildLayerToggle(String tooltip, IconData icon, bool isActive, VoidCallback onTap) {
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: isActive ? AppColors.primaryNeon.withValues(alpha: 0.2) : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: isActive ? AppColors.primaryNeon : Colors.white24,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, color: isActive ? AppColors.primaryNeon : Colors.white54, size: 18),
+              const SizedBox(width: 6),
+              Text(tooltip.split(' ')[0], style: TextStyle(color: isActive ? AppColors.primaryNeon : Colors.white54, fontSize: 12, fontWeight: FontWeight.bold)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final blueprint = ref.watch(blueprintProvider);
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -289,6 +552,106 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
             ),
             const SizedBox(width: 16),
             IconButton(
+              tooltip: _isPlayingAutomation ? 'Stop Automation' : 'Play Automation',
+              icon: Icon(_isPlayingAutomation ? Icons.stop : Icons.play_arrow, color: _isPlayingAutomation ? Colors.redAccent : AppColors.primaryNeon),
+              onPressed: _toggleAutomation,
+            ),
+            const SizedBox(width: 8),
+            IconButton(
+              tooltip: 'Set Blueprint',
+              icon: const Icon(Icons.image, color: Colors.white70),
+              onPressed: _pickBlueprint,
+            ),
+            const SizedBox(width: 8),
+            IconButton(
+              tooltip: 'Set Scale',
+              icon: const Icon(Icons.aspect_ratio, color: Colors.white70),
+              onPressed: () {
+                showDialog(
+                  context: context,
+                  builder: (context) {
+                    double currentScale = blueprint.scale;
+                    return AlertDialog(
+                      backgroundColor: Colors.grey.shade900,
+                      title: const Text('Set Physical Scale', style: TextStyle(color: Colors.white)),
+                      content: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Text('Pixels per Meter', style: TextStyle(color: Colors.white70)),
+                          const SizedBox(height: 16),
+                          StatefulBuilder(
+                            builder: (context, setDialogState) {
+                              return Row(
+                                children: [
+                                  Text('${currentScale.toInt()} px/m', style: const TextStyle(color: Colors.white)),
+                                  Expanded(
+                                    child: Slider(
+                                      value: currentScale,
+                                      min: 10.0,
+                                      max: 200.0,
+                                      activeThumbColor: AppColors.primaryNeon,
+                                      onChanged: (val) {
+                                        setDialogState(() {
+                                          currentScale = val;
+                                        });
+                                        ref.read(blueprintProvider.notifier).setScale(val);
+                                      },
+                                    ),
+                                  ),
+                                ],
+                              );
+                            },
+                          ),
+                        ],
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: const Text('Close', style: TextStyle(color: AppColors.primaryNeon)),
+                        ),
+                      ],
+                    );
+                  },
+                );
+              },
+            ),
+            const SizedBox(width: 8),
+            Container(
+              height: 24,
+              width: 1,
+              color: Colors.white24,
+            ),
+            const SizedBox(width: 8),
+              Wrap(
+                spacing: 8,
+                children: [
+                  _buildLayerToggle('Speaker Layer', Icons.speaker, _showSpeakers, () {
+                    setState(() => _showSpeakers = !_showSpeakers);
+                  }),
+                  _buildLayerToggle('Room Layer', Icons.meeting_room, _showRooms, () {
+                    setState(() => _showRooms = !_showRooms);
+                  }),
+                  _buildLayerToggle('Trajectory Layer', Icons.route, _showTrajectories, () {
+                    setState(() {
+                      _showTrajectories = !_showTrajectories;
+                      if (!_showTrajectories && _isPlayingAutomation) {
+                        _toggleAutomation(); // Pauses if playing
+                      }
+                    });
+                  }),
+                  _buildLayerToggle('Heatmap Layer', Icons.wb_sunny, _showHeatmap, () {
+                    setState(() => _showHeatmap = !_showHeatmap);
+                  }),
+                ],
+              ),
+            const SizedBox(width: 8),
+            Container(
+              height: 24,
+              width: 1,
+              color: Colors.white24,
+            ),
+            const SizedBox(width: 8),
+            IconButton(
               icon: const Icon(Icons.delete_sweep, color: Colors.redAccent),
               onPressed: _clearCanvas,
               tooltip: 'Clear Canvas',
@@ -314,29 +677,63 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                 children: [
                   Positioned.fill(
                     child: RepaintBoundary(
-                      child: CustomPaint(painter: _GridPainter()),
+                      child: CustomPaint(painter: _GridPainter(blueprint.scale)),
                     ),
                   ),
-                  Consumer(
-                    builder: (context, ref, _) {
-                      final rooms = ref.watch(roomZoneProvider);
-                      final nodes = ref.watch(speakerLayoutProvider);
-                      return Stack(
-                        clipBehavior: Clip.none,
-                        children: rooms.map((room) {
-                          final containedSpeakers = _getSpeakersInRoom(room, nodes);
-                          return _DraggableRoomWidget(
-                            key: ValueKey(room.id),
-                            room: room,
-                            containedSpeakers: containedSpeakers,
-                            transformationController: _transformationController,
-                            onEdit: () => _editRoom(room),
-                          );
-                        }).toList(),
-                      );
-                    },
-                  ),
-                  Consumer(
+                  if (blueprint.imagePath != null)
+                    Positioned.fill(
+                      child: blueprint.imagePath!.toLowerCase().endsWith('.pdf')
+                          ? (_pdfImage != null
+                              ? Image.memory(
+                                  _pdfImage!.bytes,
+                                  fit: BoxFit.contain,
+                                  color: Colors.white.withValues(alpha: blueprint.opacity),
+                                  colorBlendMode: BlendMode.modulate,
+                                )
+                              : const Center(child: CircularProgressIndicator()))
+                          : Image.file(
+                              File(blueprint.imagePath!),
+                              fit: BoxFit.contain,
+                              color: Colors.white.withValues(alpha: blueprint.opacity),
+                              colorBlendMode: BlendMode.modulate,
+                            ),
+                    ),
+                  if (_showHeatmap)
+                    Consumer(
+                      builder: (context, ref, _) {
+                        final nodes = ref.watch(speakerLayoutProvider);
+                        return Positioned.fill(
+                          child: RepaintBoundary(
+                            child: CustomPaint(
+                              painter: _HeatmapPainter(nodes),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  if (_showRooms)
+                    Consumer(
+                      builder: (context, ref, _) {
+                        final rooms = ref.watch(roomZoneProvider);
+                        final nodes = ref.watch(speakerLayoutProvider);
+                        return Stack(
+                          clipBehavior: Clip.none,
+                          children: rooms.map((room) {
+                            final containedSpeakers = _getSpeakersInRoom(room, nodes);
+                            return _DraggableRoomWidget(
+                              key: ValueKey(room.id),
+                              room: room,
+                              containedSpeakers: containedSpeakers,
+                              transformationController: _transformationController,
+                              onEdit: () => _editRoom(room),
+                              onDragUpdate: _syncSpatialConfigRealtime,
+                            );
+                          }).toList(),
+                        );
+                      },
+                    ),
+                  if (_showTrajectories)
+                    Consumer(
                     builder: (context, ref, _) {
                       final trajectories = ref.watch(trajectoryProvider);
                       return Stack(
@@ -358,6 +755,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                                 waypointIndex: idx,
                                 waypoint: wp,
                                 transformationController: _transformationController,
+                                onDragUpdate: _syncSpatialConfigRealtime,
                               );
                             });
                           }),
@@ -365,9 +763,10 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                       );
                     },
                   ),
-                  Consumer(
-                    builder: (context, ref, _) {
-                      final nodes = ref.watch(speakerLayoutProvider);
+                  if (_showSpeakers)
+                    Consumer(
+                      builder: (context, ref, _) {
+                        final nodes = ref.watch(speakerLayoutProvider);
                       final rooms = ref.watch(roomZoneProvider);
                       return Stack(
                         clipBehavior: Clip.none,
@@ -379,7 +778,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                           return _DraggableSpeakerWidget(
                             key: ValueKey(node.id),
                             node: node,
-                            roomColor: roomColor,
+                            roomColor: roomColor ?? AppColors.primaryNeon,
                             isDuplicate: isDuplicate,
                             transformationController: _transformationController,
                           );
@@ -419,6 +818,7 @@ class _DraggableRoomWidget extends ConsumerStatefulWidget {
   final List<SpeakerNode> containedSpeakers;
   final TransformationController transformationController;
   final VoidCallback onEdit;
+  final VoidCallback? onDragUpdate;
 
   const _DraggableRoomWidget({
     super.key,
@@ -426,6 +826,7 @@ class _DraggableRoomWidget extends ConsumerStatefulWidget {
     required this.containedSpeakers,
     required this.transformationController,
     required this.onEdit,
+    this.onDragUpdate,
   });
 
   @override
@@ -528,6 +929,64 @@ class _DraggableRoomWidgetState extends ConsumerState<_DraggableRoomWidget> {
     );
   }
 
+  Widget _buildDoorHandle() {
+    if (!widget.room.hasDoor) return const SizedBox.shrink();
+
+    double left = 0, top = 0;
+    final double doorWidth = 40.0;
+    
+    if (widget.room.doorWall == 0) {
+      left = widget.room.doorOffset * _localW - doorWidth / 2;
+      top = -doorWidth / 2;
+    } else if (widget.room.doorWall == 1) {
+      left = _localW - doorWidth / 2;
+      top = widget.room.doorOffset * _localH - doorWidth / 2;
+    } else if (widget.room.doorWall == 2) {
+      left = widget.room.doorOffset * _localW - doorWidth / 2;
+      top = _localH - doorWidth / 2;
+    } else if (widget.room.doorWall == 3) {
+      left = -doorWidth / 2;
+      top = widget.room.doorOffset * _localH - doorWidth / 2;
+    }
+
+    return Positioned(
+      left: left,
+      top: top,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onPanUpdate: (details) {
+          final scale = widget.transformationController.value.getMaxScaleOnAxis();
+          final currentScale = scale > 0 ? scale : 1.0;
+          final dx = details.delta.dx / currentScale;
+          final dy = details.delta.dy / currentScale;
+          
+          double newOffset = widget.room.doorOffset;
+          if (widget.room.doorWall == 0 || widget.room.doorWall == 2) {
+            newOffset += dx / _localW;
+          } else {
+            newOffset += dy / _localH;
+          }
+          newOffset = newOffset.clamp(0.0, 1.0);
+          
+          ref.read(roomZoneProvider.notifier).updateRoomZone(
+            widget.room.copyWith(doorOffset: newOffset),
+            immediate: true,
+          );
+        },
+        child: SizedBox(
+          width: doorWidth,
+          height: doorWidth,
+          child: CustomPaint(
+            painter: _CadDoorPainter(
+              color: Colors.cyanAccent,
+              wall: widget.room.doorWall,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final roomColor = Color(widget.room.color);
@@ -568,6 +1027,11 @@ class _DraggableRoomWidgetState extends ConsumerState<_DraggableRoomWidget> {
                     } catch (_) {}
                   }
                 });
+                ref.read(roomZoneProvider.notifier).updateRoomZone(
+                      widget.room.copyWith(x: _localX, y: _localY),
+                      immediate: true,
+                    );
+                widget.onDragUpdate?.call();
               },
               onPanEnd: (details) {
                 double snappedX = (_localX / _gridSize).round() * _gridSize;
@@ -626,28 +1090,7 @@ class _DraggableRoomWidgetState extends ConsumerState<_DraggableRoomWidget> {
               ),
             ),
           ),
-          // Door IN
-          Positioned(
-            left: -12,
-            top: _localH / 2 - 20,
-            child: const Column(
-              children: [
-                Icon(Icons.door_front_door, color: Colors.greenAccent, size: 24),
-                Text('IN', style: TextStyle(color: Colors.greenAccent, fontSize: 10, fontWeight: FontWeight.bold)),
-              ],
-            ),
-          ),
-          // Door OUT
-          Positioned(
-            right: -12,
-            top: _localH / 2 - 20,
-            child: const Column(
-              children: [
-                Icon(Icons.door_front_door, color: Colors.redAccent, size: 24),
-                Text('OUT', style: TextStyle(color: Colors.redAccent, fontSize: 10, fontWeight: FontWeight.bold)),
-              ],
-            ),
-          ),
+          if (widget.room.hasDoor) _buildDoorHandle(),
           Positioned(
             top: -28,
             left: 0,
@@ -734,6 +1177,10 @@ class _DraggableSpeakerWidgetState extends ConsumerState<_DraggableSpeakerWidget
               _localX = (_localX + details.delta.dx / currentScale).clamp(0.0, _canvasWidth - _speakerSize);
               _localY = (_localY + details.delta.dy / currentScale).clamp(0.0, _canvasHeight - _speakerSize);
             });
+            ref.read(speakerLayoutProvider.notifier).updateSpeaker(
+              widget.node.copyWith(x: _localX, y: _localY),
+              immediate: true,
+            );
           },
           onPanEnd: (details) {
             final snappedX = (_localX / _gridSize).round() * _gridSize;
@@ -766,6 +1213,7 @@ class _DraggableWaypointWidget extends ConsumerStatefulWidget {
   final int waypointIndex;
   final TrajectoryWaypoint waypoint;
   final TransformationController transformationController;
+  final VoidCallback onDragUpdate;
 
   const _DraggableWaypointWidget({
     super.key,
@@ -773,6 +1221,7 @@ class _DraggableWaypointWidget extends ConsumerStatefulWidget {
     required this.waypointIndex,
     required this.waypoint,
     required this.transformationController,
+    required this.onDragUpdate,
   });
 
   @override
@@ -816,7 +1265,9 @@ class _DraggableWaypointWidgetState extends ConsumerState<_DraggableWaypointWidg
           wps[widget.waypointIndex] = TrajectoryWaypoint(_localX, _localY);
           ref.read(trajectoryProvider.notifier).updateTrajectory(
             widget.trajectory.copyWith(waypoints: wps),
+            immediate: true,
           );
+          widget.onDragUpdate();
         },
         onDoubleTap: () {
           // 더블클릭시 삭제 (최소 2개의 점은 유지해야 함)
@@ -852,22 +1303,50 @@ class _DraggableWaypointWidgetState extends ConsumerState<_DraggableWaypointWidg
 }
 
 class _GridPainter extends CustomPainter {
+  final double scale;
+
+  _GridPainter(this.scale);
+
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
       ..color = Colors.white12
       ..strokeWidth = 1.0;
 
+    final textPainter = TextPainter(
+      textDirection: TextDirection.ltr,
+    );
+
     for (double i = 0; i <= size.width; i += _gridSize) {
       canvas.drawLine(Offset(i, 0), Offset(i, size.height), paint);
+      
+      if (i > 0 && i % (_gridSize * 5) == 0) {
+        final meters = (i / scale).toStringAsFixed(1);
+        textPainter.text = TextSpan(
+          text: '${meters}m',
+          style: const TextStyle(color: Colors.white38, fontSize: 10),
+        );
+        textPainter.layout();
+        textPainter.paint(canvas, Offset(i + 2, 2));
+      }
     }
     for (double i = 0; i <= size.height; i += _gridSize) {
       canvas.drawLine(Offset(0, i), Offset(size.width, i), paint);
+
+      if (i > 0 && i % (_gridSize * 5) == 0) {
+        final meters = (i / scale).toStringAsFixed(1);
+        textPainter.text = TextSpan(
+          text: '${meters}m',
+          style: const TextStyle(color: Colors.white38, fontSize: 10),
+        );
+        textPainter.layout();
+        textPainter.paint(canvas, Offset(2, i + 2));
+      }
     }
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _GridPainter oldDelegate) => oldDelegate.scale != scale;
 }
 
 class _TrajectoryPainter extends CustomPainter {
@@ -892,8 +1371,23 @@ class _TrajectoryPainter extends CustomPainter {
       final path = Path();
       path.moveTo(t.waypoints.first.x, t.waypoints.first.y);
 
-      for (int i = 1; i < t.waypoints.length; i++) {
-        path.lineTo(t.waypoints[i].x, t.waypoints[i].y);
+      if (t.waypoints.length == 2) {
+        path.lineTo(t.waypoints.last.x, t.waypoints.last.y);
+      } else {
+        for (int i = 0; i < t.waypoints.length - 1; i++) {
+          final p0 = i == 0 ? t.waypoints[i] : t.waypoints[i - 1];
+          final p1 = t.waypoints[i];
+          final p2 = t.waypoints[i + 1];
+          final p3 = i == t.waypoints.length - 2 ? t.waypoints[i + 1] : t.waypoints[i + 2];
+          
+          final double tension = 0.25;
+          final cp1x = p1.x + (p2.x - p0.x) * tension;
+          final cp1y = p1.y + (p2.y - p0.y) * tension;
+          final cp2x = p2.x - (p3.x - p1.x) * tension;
+          final cp2y = p2.y - (p3.y - p1.y) * tension;
+          
+          path.cubicTo(cp1x, cp1y, cp2x, cp2y, p2.x, p2.y);
+        }
       }
       canvas.drawPath(path, paint);
 
@@ -924,3 +1418,76 @@ class _TrajectoryPainter extends CustomPainter {
     return true;
   }
 }
+
+class _HeatmapPainter extends CustomPainter {
+  final List<SpeakerNode> nodes;
+
+  _HeatmapPainter(this.nodes);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    for (var node in nodes) {
+      final center = Offset(node.x + _speakerSize / 2, node.y + _speakerSize / 2);
+      
+      // Draw coverage ring
+      final ringPaint = Paint()
+        ..color = Colors.redAccent.withValues(alpha: 0.3)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.0;
+      canvas.drawCircle(center, 150.0, ringPaint);
+
+      // Draw heatmap gradient
+      final Rect rect = Rect.fromCircle(center: center, radius: 150.0);
+      final gradient = RadialGradient(
+        colors: [
+          Colors.redAccent.withValues(alpha: 0.4),
+          Colors.orangeAccent.withValues(alpha: 0.15),
+          Colors.transparent,
+        ],
+        stops: const [0.0, 0.5, 1.0],
+      );
+      final paint = Paint()..shader = gradient.createShader(rect);
+      canvas.drawCircle(center, 150.0, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _HeatmapPainter oldDelegate) => true;
+}
+
+class _CadDoorPainter extends CustomPainter {
+  final Color color;
+  final int wall; // 0: Top, 1: Right, 2: Bottom, 3: Left
+  
+  _CadDoorPainter({required this.color, required this.wall});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.0;
+
+    canvas.save();
+    canvas.translate(size.width / 2, size.height / 2);
+    canvas.rotate(wall * math.pi / 2);
+    canvas.translate(-size.width / 2, -size.height / 2);
+
+    final center = Offset(size.width, size.height);
+    canvas.drawLine(center, Offset(0, size.height), paint);
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: size.width),
+      math.pi,
+      math.pi / 2,
+      false,
+      paint,
+    );
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(covariant _CadDoorPainter oldDelegate) {
+    return oldDelegate.color != color || oldDelegate.wall != wall;
+  }
+}
+
