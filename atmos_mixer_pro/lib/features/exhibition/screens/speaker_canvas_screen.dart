@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:pdfx/pdfx.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 import 'package:atmos_mixer_pro/features/exhibition/models/speaker_node.dart';
 import 'package:atmos_mixer_pro/features/exhibition/state/speaker_layout_state.dart';
@@ -180,10 +181,16 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
     final result = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['png', 'jpg', 'jpeg', 'pdf'],
+      withData: true,
     );
-    if (result != null && result.files.single.path != null) {
-      ref.read(blueprintProvider.notifier).setBlueprint(result.files.single.path!);
-      _initPdfDocument(result.files.single.path!);
+    if (result != null && result.files.single.bytes != null) {
+      final ext = result.files.single.extension ?? 'png';
+      final docDir = await getApplicationDocumentsDirectory();
+      final targetFile = File('${docDir.path}/atmos_blueprint_cache.$ext');
+      await targetFile.writeAsBytes(result.files.single.bytes!);
+      
+      ref.read(blueprintProvider.notifier).setBlueprint(targetFile.path);
+      _initPdfDocument(targetFile.path);
     }
   }
 
@@ -240,8 +247,16 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
 
   void _addSpeaker() {
     final canvasCenter = _getCanvasCenter();
+    final scale = _transformationController.value.getMaxScaleOnAxis();
+    final effectiveScale = scale > 0 ? scale : 1.0;
+    
     double cx = (canvasCenter.dx / _gridSize).round() * _gridSize;
     double cy = (canvasCenter.dy / _gridSize).round() * _gridSize;
+    
+    // Offset for intuitive mouse drop
+    cx -= (_speakerSize / 2) / effectiveScale;
+    cy -= (_speakerSize / 2) / effectiveScale;
+    
     cx = cx.clamp(0.0, _canvasWidth - _speakerSize);
     cy = cy.clamp(0.0, _canvasHeight - _speakerSize);
 
@@ -256,8 +271,16 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
 
   void _addRoom() {
     final canvasCenter = _getCanvasCenter();
+    final scale = _transformationController.value.getMaxScaleOnAxis();
+    final effectiveScale = scale > 0 ? scale : 1.0;
+    
     double cx = (canvasCenter.dx / _gridSize).round() * _gridSize;
     double cy = (canvasCenter.dy / _gridSize).round() * _gridSize;
+    
+    // Offset for intuitive mouse drop
+    cx -= (300.0 / 2) / effectiveScale;
+    cy -= (200.0 / 2) / effectiveScale;
+    
     cx = cx.clamp(0.0, _canvasWidth - 300.0);
     cy = cy.clamp(0.0, _canvasHeight - 200.0);
 
@@ -292,6 +315,17 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
     ref.read(trajectoryProvider.notifier).addTrajectory(t);
   }
 
+  void _clearTrajectories() {
+    ref.read(trajectoryProvider.notifier).clearAll();
+    setState(() {
+      _isPlayingAutomation = false;
+      _automationTimer?.cancel();
+      _automationTimer = null;
+      _currentAutomationPos = null;
+    });
+    _syncSpatialConfigRealtime();
+  }
+
   void _clearCanvas() {
     showDialog(
       context: context,
@@ -308,7 +342,9 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
             onPressed: () {
               ref.read(speakerLayoutProvider.notifier).clearAll();
               ref.read(roomZoneProvider.notifier).clearAll();
-              ref.read(trajectoryProvider.notifier).clearAll();
+              _clearTrajectories();
+              ref.read(blueprintProvider.notifier).clearBlueprint();
+              _initPdfDocument(''); // Clear cached PDF or Image if any
               Navigator.pop(context);
             },
             child: const Text('Clear All', style: TextStyle(color: Colors.redAccent)),
@@ -327,6 +363,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
     bool hasDoor = room.hasDoor;
     int doorWall = room.doorWall;
     double doorOffset = room.doorOffset;
+    double rotation = room.rotation;
 
     await showDialog(
       context: context,
@@ -421,6 +458,22 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
+                    Text('Rotation: ${rotation.toInt()}°', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                  ],
+                ),
+                Slider(
+                  value: rotation,
+                  min: 0.0,
+                  max: 360.0,
+                  activeColor: AppColors.primaryNeon,
+                  onChanged: (val) => setDialogState(() => rotation = val),
+                ),
+                const SizedBox(height: 20),
+                const Divider(color: Colors.white24),
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
                     const Text('CAD Entrance Marker (Door)', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
                     Switch(
                       value: hasDoor,
@@ -500,6 +553,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                         hasDoor: hasDoor,
                         doorWall: doorWall,
                         doorOffset: doorOffset,
+                        rotation: rotation,
                       ),
                       immediate: true,
                     );
@@ -707,6 +761,11 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
               color: Colors.white24,
             ),
             const SizedBox(width: 8),
+            IconButton(
+              icon: const Icon(Icons.route_outlined, color: Colors.orangeAccent),
+              onPressed: _clearTrajectories,
+              tooltip: 'Clear Trajectories',
+            ),
             IconButton(
               icon: const Icon(Icons.delete_sweep, color: Colors.redAccent),
               onPressed: _clearCanvas,
@@ -1107,8 +1166,10 @@ class _DraggableRoomWidgetState extends ConsumerState<_DraggableRoomWidget> {
       child: Stack(
         clipBehavior: Clip.none,
         children: [
-          RepaintBoundary(
-            child: GestureDetector(
+          Transform.rotate(
+            angle: widget.room.rotation * math.pi / 180.0,
+            child: RepaintBoundary(
+              child: GestureDetector(
               behavior: HitTestBehavior.opaque,
               onTap: widget.onEdit,
               onPanStart: (details) {
@@ -1231,6 +1292,7 @@ class _DraggableRoomWidgetState extends ConsumerState<_DraggableRoomWidget> {
                           ),
                         ],
                       ),
+                    ),
                     ),
                   ),
                 ),
