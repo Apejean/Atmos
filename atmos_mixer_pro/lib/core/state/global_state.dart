@@ -182,6 +182,7 @@ class EngineState {
   final bool themeStarted;
   final List<String> playingTrackIds;
   final bool masterMuteActive;
+  final int outputChannelCount;
 
   EngineState({
     this.activeRoomId,
@@ -190,6 +191,7 @@ class EngineState {
     this.themeStarted = false,
     this.playingTrackIds = const [],
     this.masterMuteActive = false,
+    this.outputChannelCount = 2,
   });
 
   EngineState copyWith({
@@ -200,6 +202,7 @@ class EngineState {
     bool? themeStarted,
     List<String>? playingTrackIds,
     bool? masterMuteActive,
+    int? outputChannelCount,
   }) {
     return EngineState(
       activeRoomId: forceNullActiveRoom
@@ -210,6 +213,7 @@ class EngineState {
       themeStarted: themeStarted ?? this.themeStarted,
       playingTrackIds: playingTrackIds ?? this.playingTrackIds,
       masterMuteActive: masterMuteActive ?? this.masterMuteActive,
+      outputChannelCount: outputChannelCount ?? this.outputChannelCount,
     );
   }
 }
@@ -225,6 +229,7 @@ class EngineStateNotifier extends Notifier<EngineState> {
         forceNullActiveRoom: update.activeRoomId == null,
         duckingActive: update.duckingActive,
         playingTrackIds: update.playingTrackIds,
+        outputChannelCount: update.outputChannelCount,
       );
     });
     ref.onDispose(() => sub.cancel());

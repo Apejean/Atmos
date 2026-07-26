@@ -56,6 +56,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   AppConfig dco_decode_box_autoadd_app_config(dynamic raw);
 
   @protected
+  Point3D dco_decode_box_autoadd_point_3_d(dynamic raw);
+
+  @protected
+  Trajectory dco_decode_box_autoadd_trajectory(dynamic raw);
+
+  @protected
   ChannelSetting dco_decode_channel_setting(dynamic raw);
 
   @protected
@@ -89,6 +95,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<OutputDeviceInfo> dco_decode_list_output_device_info(dynamic raw);
 
   @protected
+  List<Point3D> dco_decode_list_point_3_d(dynamic raw);
+
+  @protected
   Float32List dco_decode_list_prim_f_32_strict(dynamic raw);
 
   @protected
@@ -103,13 +112,25 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<RoomConfig> dco_decode_list_room_config(dynamic raw);
 
   @protected
+  List<RoomZone> dco_decode_list_room_zone(dynamic raw);
+
+  @protected
   List<TrackConfig> dco_decode_list_track_config(dynamic raw);
 
   @protected
   String? dco_decode_opt_String(dynamic raw);
 
   @protected
+  Point3D? dco_decode_opt_box_autoadd_point_3_d(dynamic raw);
+
+  @protected
+  Trajectory? dco_decode_opt_box_autoadd_trajectory(dynamic raw);
+
+  @protected
   OutputDeviceInfo dco_decode_output_device_info(dynamic raw);
+
+  @protected
+  Point3D dco_decode_point_3_d(dynamic raw);
 
   @protected
   (int, ChannelSetting) dco_decode_record_u_32_channel_setting(dynamic raw);
@@ -118,7 +139,13 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   RoomConfig dco_decode_room_config(dynamic raw);
 
   @protected
+  RoomZone dco_decode_room_zone(dynamic raw);
+
+  @protected
   TrackConfig dco_decode_track_config(dynamic raw);
+
+  @protected
+  Trajectory dco_decode_trajectory(dynamic raw);
 
   @protected
   int dco_decode_u_16(dynamic raw);
@@ -173,6 +200,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   AppConfig sse_decode_box_autoadd_app_config(SseDeserializer deserializer);
 
   @protected
+  Point3D sse_decode_box_autoadd_point_3_d(SseDeserializer deserializer);
+
+  @protected
+  Trajectory sse_decode_box_autoadd_trajectory(SseDeserializer deserializer);
+
+  @protected
   ChannelSetting sse_decode_channel_setting(SseDeserializer deserializer);
 
   @protected
@@ -214,6 +247,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  List<Point3D> sse_decode_list_point_3_d(SseDeserializer deserializer);
+
+  @protected
   Float32List sse_decode_list_prim_f_32_strict(SseDeserializer deserializer);
 
   @protected
@@ -228,13 +264,27 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<RoomConfig> sse_decode_list_room_config(SseDeserializer deserializer);
 
   @protected
+  List<RoomZone> sse_decode_list_room_zone(SseDeserializer deserializer);
+
+  @protected
   List<TrackConfig> sse_decode_list_track_config(SseDeserializer deserializer);
 
   @protected
   String? sse_decode_opt_String(SseDeserializer deserializer);
 
   @protected
+  Point3D? sse_decode_opt_box_autoadd_point_3_d(SseDeserializer deserializer);
+
+  @protected
+  Trajectory? sse_decode_opt_box_autoadd_trajectory(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   OutputDeviceInfo sse_decode_output_device_info(SseDeserializer deserializer);
+
+  @protected
+  Point3D sse_decode_point_3_d(SseDeserializer deserializer);
 
   @protected
   (int, ChannelSetting) sse_decode_record_u_32_channel_setting(
@@ -245,7 +295,13 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   RoomConfig sse_decode_room_config(SseDeserializer deserializer);
 
   @protected
+  RoomZone sse_decode_room_zone(SseDeserializer deserializer);
+
+  @protected
   TrackConfig sse_decode_track_config(SseDeserializer deserializer);
+
+  @protected
+  Trajectory sse_decode_trajectory(SseDeserializer deserializer);
 
   @protected
   int sse_decode_u_16(SseDeserializer deserializer);
@@ -311,6 +367,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_box_autoadd_point_3_d(Point3D self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_box_autoadd_trajectory(
+    Trajectory self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_channel_setting(
     ChannelSetting self,
     SseSerializer serializer,
@@ -359,6 +424,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_list_point_3_d(List<Point3D> self, SseSerializer serializer);
+
+  @protected
   void sse_encode_list_prim_f_32_strict(
     Float32List self,
     SseSerializer serializer,
@@ -383,6 +451,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_list_room_zone(List<RoomZone> self, SseSerializer serializer);
+
+  @protected
   void sse_encode_list_track_config(
     List<TrackConfig> self,
     SseSerializer serializer,
@@ -392,10 +463,25 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_opt_String(String? self, SseSerializer serializer);
 
   @protected
+  void sse_encode_opt_box_autoadd_point_3_d(
+    Point3D? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_trajectory(
+    Trajectory? self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_output_device_info(
     OutputDeviceInfo self,
     SseSerializer serializer,
   );
+
+  @protected
+  void sse_encode_point_3_d(Point3D self, SseSerializer serializer);
 
   @protected
   void sse_encode_record_u_32_channel_setting(
@@ -407,7 +493,13 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_room_config(RoomConfig self, SseSerializer serializer);
 
   @protected
+  void sse_encode_room_zone(RoomZone self, SseSerializer serializer);
+
+  @protected
   void sse_encode_track_config(TrackConfig self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_trajectory(Trajectory self, SseSerializer serializer);
 
   @protected
   void sse_encode_u_16(int self, SseSerializer serializer);

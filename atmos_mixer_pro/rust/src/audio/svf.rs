@@ -47,16 +47,16 @@ impl SvfFilter {
                 self.a2 = g * self.a1;
                 self.a3 = g * self.a2;
                 self.m0 = 1.0;
-                self.m1 = k * (a - 1.0 / a);
-                self.m2 = 0.0;
+                self.m1 = 0.0;
+                self.m2 = k * (a - 1.0 / a);
             }
             EqType::LowShelf => {
                 self.a1 = 1.0 / (1.0 + g * (k / a) + g * g);
                 self.a2 = g * self.a1;
                 self.a3 = g * self.a2;
                 self.m0 = 1.0;
-                self.m1 = k * (a - 1.0 / a);
-                self.m2 = a * a - 1.0;
+                self.m1 = a * a - 1.0;
+                self.m2 = k * (a - 1.0 / a);
             }
             EqType::HighShelf => {
                 let a = 10.0f32.powf(gain_db / 40.0);
@@ -66,32 +66,32 @@ impl SvfFilter {
                 self.a2 = g * self.a1;
                 self.a3 = g * self.a2;
                 self.m0 = a * a;
-                self.m1 = k * (1.0 / a - a) * a * a; // Equivalent
-                self.m2 = 1.0 - a * a;
+                self.m1 = 1.0 - a * a;
+                self.m2 = k * (1.0 / a - a) * a * a;
             }
             EqType::LowCut => { // HighPass
                 self.a1 = 1.0 / (1.0 + g * k + g * g);
                 self.a2 = g * self.a1;
                 self.a3 = g * self.a2;
                 self.m0 = 1.0;
-                self.m1 = -k;
-                self.m2 = -1.0;
+                self.m1 = -1.0;
+                self.m2 = -k;
             }
             EqType::HighCut => { // LowPass
                 self.a1 = 1.0 / (1.0 + g * k + g * g);
                 self.a2 = g * self.a1;
                 self.a3 = g * self.a2;
                 self.m0 = 0.0;
-                self.m1 = 0.0;
-                self.m2 = 1.0;
+                self.m1 = 1.0;
+                self.m2 = 0.0;
             }
             EqType::Notch => {
                 self.a1 = 1.0 / (1.0 + g * k + g * g);
                 self.a2 = g * self.a1;
                 self.a3 = g * self.a2;
                 self.m0 = 1.0;
-                self.m1 = -k;
-                self.m2 = 0.0;
+                self.m1 = 0.0;
+                self.m2 = -k;
             }
         }
     }

@@ -10,6 +10,7 @@ import 'package:atmos_mixer_pro/core/state/global_state.dart';
 const double _gridSize = 50.0;
 const double _canvasWidth = 2000.0;
 const double _canvasHeight = 2000.0;
+const double _speakerSize = 60.0;
 
 class SpeakerCanvasScreen extends ConsumerStatefulWidget {
   const SpeakerCanvasScreen({super.key});
@@ -20,6 +21,7 @@ class SpeakerCanvasScreen extends ConsumerStatefulWidget {
 
 class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
   final TransformationController _transformationController = TransformationController();
+  Size _viewportSize = const Size(800, 600);
 
   @override
   void initState() {
@@ -37,12 +39,15 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
 
   void _addSpeaker() {
     final centerMatrix = _transformationController.value.clone()..invert();
-    // Approximate center of screen mapped to canvas
-    double cx = centerMatrix.getTranslation().x + 400;
-    double cy = centerMatrix.getTranslation().y + 300;
     
-    cx = (cx / _gridSize).round() * _gridSize;
-    cy = (cy / _gridSize).round() * _gridSize;
+    final viewportCenter = Offset(_viewportSize.width / 2, _viewportSize.height / 2);
+    final canvasCenter = MatrixUtils.transformPoint(centerMatrix, viewportCenter);
+    
+    double cx = (canvasCenter.dx / _gridSize).round() * _gridSize;
+    double cy = (canvasCenter.dy / _gridSize).round() * _gridSize;
+    
+    cx = cx.clamp(0.0, _canvasWidth - _speakerSize);
+    cy = cy.clamp(0.0, _canvasHeight - _speakerSize);
 
     final newNode = SpeakerNode(
       id: const Uuid().v4(),
@@ -97,69 +102,76 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
         ),
         backgroundColor: Colors.black,
       ),
-      body: InteractiveViewer(
-        transformationController: _transformationController,
-        boundaryMargin: const EdgeInsets.all(double.infinity),
-        minScale: 0.1,
-        maxScale: 2.0,
-        constrained: false,
-        child: SizedBox(
-          width: _canvasWidth,
-          height: _canvasHeight,
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              // Grid Background
-              Positioned.fill(
-                child: CustomPaint(
-                  painter: _GridPainter(),
-                ),
-              ),
-              
-              // Speaker Nodes
-              ...nodes.map((node) {
-                // Check if this speaker's channel is duplicated among other nodes
-                final isDuplicate = nodes.where((n) => n.id != node.id && n.channel == node.channel).isNotEmpty;
-
-                return Positioned(
-                  left: node.x,
-                  top: node.y,
-                  child: GestureDetector(
-                    onPanUpdate: (details) {
-                      // Get current zoom scale from InteractiveViewer transformation matrix
-                      final scale = _transformationController.value.getMaxScaleOnAxis();
-                      final currentScale = scale > 0 ? scale : 1.0;
-
-                      // Normalize drag delta by current scale so movement tracks pointer accurately
-                      final updated = node.copyWith(
-                        x: node.x + (details.delta.dx / currentScale),
-                        y: node.y + (details.delta.dy / currentScale),
-                      );
-                      ref.read(speakerLayoutProvider.notifier).updateSpeaker(updated);
-                    },
-                    onPanEnd: (details) {
-                      // Snap to grid on release and save immediately
-                      final snappedX = (node.x / _gridSize).round() * _gridSize;
-                      final snappedY = (node.y / _gridSize).round() * _gridSize;
-                      final updated = node.copyWith(x: snappedX, y: snappedY);
-                      ref.read(speakerLayoutProvider.notifier).updateSpeaker(updated, immediate: true);
-                    },
-                    child: SpeakerNodeWidget(
-                      node: node,
-                      isDuplicateChannel: isDuplicate,
-                      onChannelChanged: (ch) {
-                        ref.read(speakerLayoutProvider.notifier).updateSpeaker(node.copyWith(channel: ch));
-                      },
-                      onDelete: () {
-                        ref.read(speakerLayoutProvider.notifier).removeSpeaker(node.id);
-                      },
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          _viewportSize = Size(constraints.maxWidth, constraints.maxHeight);
+          return InteractiveViewer(
+            transformationController: _transformationController,
+            boundaryMargin: const EdgeInsets.all(double.infinity),
+            minScale: 0.1,
+            maxScale: 2.0,
+            constrained: false,
+            child: SizedBox(
+              width: _canvasWidth,
+              height: _canvasHeight,
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  // Grid Background
+                  Positioned.fill(
+                    child: CustomPaint(
+                      painter: _GridPainter(),
                     ),
                   ),
-                );
-              }),
-            ],
-          ),
-        ),
+                  
+                  // Speaker Nodes
+                  ...nodes.map((node) {
+                    final isDuplicate = nodes.where((n) => n.id != node.id && n.channel == node.channel).isNotEmpty;
+
+                    return Positioned(
+                      left: node.x,
+                      top: node.y,
+                      child: GestureDetector(
+                        onPanUpdate: (details) {
+                          final scale = _transformationController.value.getMaxScaleOnAxis();
+                          final currentScale = scale > 0 ? scale : 1.0;
+
+                          double newX = node.x + (details.delta.dx / currentScale);
+                          double newY = node.y + (details.delta.dy / currentScale);
+                          
+                          final updated = node.copyWith(
+                            x: newX.clamp(0.0, _canvasWidth - _speakerSize),
+                            y: newY.clamp(0.0, _canvasHeight - _speakerSize),
+                          );
+                          ref.read(speakerLayoutProvider.notifier).updateSpeaker(updated);
+                        },
+                        onPanEnd: (details) {
+                          final snappedX = (node.x / _gridSize).round() * _gridSize;
+                          final snappedY = (node.y / _gridSize).round() * _gridSize;
+                          final updated = node.copyWith(
+                            x: snappedX.clamp(0.0, _canvasWidth - _speakerSize),
+                            y: snappedY.clamp(0.0, _canvasHeight - _speakerSize)
+                          );
+                          ref.read(speakerLayoutProvider.notifier).updateSpeaker(updated, immediate: true);
+                        },
+                        child: SpeakerNodeWidget(
+                          node: node,
+                          onChannelChanged: (ch) {
+                            ref.read(speakerLayoutProvider.notifier).updateSpeaker(node.copyWith(channel: ch));
+                          },
+                          onDelete: () {
+                            ref.read(speakerLayoutProvider.notifier).removeSpeaker(node.id);
+                          },
+                          isDuplicateChannel: isDuplicate,
+                        ),
+                      ),
+                    );
+                  }),
+                ],
+              ),
+            ),
+          );
+        },
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: _addSpeaker,

@@ -39,10 +39,13 @@ pub struct AudioMixer {
     pub startup_ramp: StartupMuteRamp,
     pub master_mute: bool,
     pub channel_dsp: Vec<ChannelDspState>,
+    pub channel_positions: Vec<Option<crate::common::config::Point3D>>,
+    pub room_zones: Vec<crate::common::config::RoomZone>,
+    pub trajectory: Option<crate::common::config::Trajectory>,
 }
 
 impl AudioMixer {
-    pub fn new(sample_rate: u32, gc_sender: crossbeam_channel::Sender<SoundInstance>) -> Self {
+    pub fn new(sample_rate: u32, channels: usize, gc_sender: crossbeam_channel::Sender<SoundInstance>) -> Self {
         let (buf_gc_tx, buf_gc_rx) = crossbeam_channel::bounded::<Vec<f32>>(8192);
         std::thread::spawn(move || {
             while let Ok(_buf) = buf_gc_rx.recv() {
@@ -54,10 +57,13 @@ impl AudioMixer {
         for _ in 0..4096 {
             instances.push(None);
         }
-        let mut channel_dsp = Vec::with_capacity(24);
-        for _ in 0..24 {
+        let mut channel_dsp = Vec::with_capacity(channels);
+        for _ in 0..channels {
             channel_dsp.push(ChannelDspState::new());
         }
+        let mut channel_positions = vec![None; channels];
+        let mut room_zones = Vec::new();
+        let mut trajectory = None;
 
         if let Ok(config_guard) = GLOBAL_STATE.config.read() {
             if let Some(config) = config_guard.as_ref() {
@@ -67,6 +73,7 @@ impl AudioMixer {
                         if ch_idx < channel_dsp.len() {
                             channel_dsp[ch_idx].update_delay_target(setting.delay_ms);
                             channel_dsp[ch_idx].update_eq_targets(&setting.eq_bands.clone(), sample_rate as f32);
+                            channel_positions[ch_idx] = setting.position.clone();
                         }
                     }
                 }
@@ -77,10 +84,12 @@ impl AudioMixer {
                         if ch_idx1 < channel_dsp.len() {
                             channel_dsp[ch_idx1].update_delay_target(setting.delay_ms);
                             channel_dsp[ch_idx1].update_eq_targets(&setting.eq_bands.clone(), sample_rate as f32);
+                            channel_positions[ch_idx1] = setting.position.clone();
                         }
                         if ch_idx2 < channel_dsp.len() {
                             channel_dsp[ch_idx2].update_delay_target(setting.delay_ms);
                             channel_dsp[ch_idx2].update_eq_targets(&setting.eq_bands.clone(), sample_rate as f32);
+                            channel_positions[ch_idx2] = setting.position.clone();
                         }
                     }
                 }
@@ -92,10 +101,13 @@ impl AudioMixer {
                             if ch_idx < channel_dsp.len() {
                                 channel_dsp[ch_idx].update_delay_target(setting.delay_ms);
                                 channel_dsp[ch_idx].update_eq_targets(&setting.eq_bands.clone(), sample_rate as f32);
+                                channel_positions[ch_idx] = setting.position.clone();
                             }
                         }
                     }
                 }
+                room_zones = config.room_zones.clone();
+                trajectory = config.global_trajectory.clone();
             }
         }
 
@@ -108,11 +120,14 @@ impl AudioMixer {
             },
             gc_sender,
             buf_gc_tx,
-            room_volumes: vec![None; 128],
+            room_volumes: vec![None; channels],
             local_recycle: Vec::with_capacity(8192),
             startup_ramp: StartupMuteRamp::new(sample_rate as f32),
             master_mute: false,
             channel_dsp,
+            channel_positions,
+            room_zones,
+            trajectory,
         }
     }
 
@@ -164,6 +179,45 @@ impl AudioMixer {
                     }
                 }
             }
+        }
+
+        let mut channel_spatial_gains = vec![1.0f32; out_channels];
+        for ch in 0..out_channels {
+            let mut gain = 1.0;
+            if ch < self.channel_positions.len() {
+                if let Some(pos) = &self.channel_positions[ch] {
+                    // 1. Point-in-Room Auto-Binding
+                    let mut bound_room_id = None;
+                    for zone in &self.room_zones {
+                        if pos.x >= zone.boundary_min.x && pos.x <= zone.boundary_max.x &&
+                           pos.y >= zone.boundary_min.y && pos.y <= zone.boundary_max.y &&
+                           pos.z >= zone.boundary_min.z && pos.z <= zone.boundary_max.z {
+                            bound_room_id = Some(zone.room_id);
+                            break;
+                        }
+                    }
+                    if let Some(rid) = bound_room_id {
+                        for (room_id, rvol) in self.room_volumes.iter().flatten() {
+                            if *room_id == rid {
+                                gain *= *rvol;
+                                break;
+                            }
+                        }
+                    }
+                    
+                    // 2. Trajectory Auto-Pan Engine
+                    if let Some(traj) = &self.trajectory {
+                        let dx = pos.x - traj.current_position.x;
+                        let dy = pos.y - traj.current_position.y;
+                        let dz = pos.z - traj.current_position.z;
+                        let dist = (dx*dx + dy*dy + dz*dz).sqrt();
+                        // Inverse distance attenuation (roll-off)
+                        let pan_gain = 1.0 / (1.0 + dist * 0.1); 
+                        gain *= pan_gain;
+                    }
+                }
+            }
+            channel_spatial_gains[ch] = gain;
         }
 
         for frame in 0..frames {
@@ -349,7 +403,7 @@ impl AudioMixer {
                             };
                             let out_idx = frame * out_channels + hw_ch;
                             if is_enabled && out_idx < output.len() {
-                                output[out_idx] += mono_val * current_vol;
+                                output[out_idx] += mono_val * current_vol * channel_spatial_gains[hw_ch];
                             }
                         }
                     } else {
@@ -364,7 +418,7 @@ impl AudioMixer {
                                 };
                                 let out_idx = frame * out_channels + hw_ch;
                                 if is_enabled && out_idx < output.len() {
-                                    output[out_idx] += val * current_vol;
+                                    output[out_idx] += val * current_vol * channel_spatial_gains[hw_ch];
                                 }
                             }
                         }
@@ -380,7 +434,7 @@ impl AudioMixer {
                                 };
                                 let out_idx_r = frame * out_channels + hw_ch_r;
                                 if is_r_enabled && out_idx_r < output.len() {
-                                    output[out_idx_r] += vals[0] * current_vol;
+                                    output[out_idx_r] += vals[0] * current_vol * channel_spatial_gains[hw_ch_r];
                                 }
                             }
                         }
@@ -399,8 +453,8 @@ impl AudioMixer {
 
         // Apply Channel DSP
         let fs = self.sample_rate as f32;
-        for ch in 0..out_channels {
-            if ch >= 24 { break; } // We only have 24 DSP states
+        let dsp_limit = self.channel_dsp.len().min(out_channels);
+        for ch in 0..dsp_limit {
             let is_enabled = if ch < GLOBAL_STATE.enabled_channels.len() {
                 GLOBAL_STATE.enabled_channels[ch].load(Ordering::Relaxed)
             } else {
@@ -442,13 +496,11 @@ impl AudioMixer {
                 if sample_idx < output.len() {
                     let mut val = output[sample_idx];
 
-                    // Soft clipping
-                    if val <= -1.0 {
-                        val = -1.0;
-                    } else if val >= 1.0 {
-                        val = 1.0;
-                    } else {
-                        val = 1.5 * val - 0.5 * val * val * val;
+                    // Transparent Soft Clipping (Pure Linear Pass-through within 0dBFS)
+                    if val > 1.0 {
+                        val = 0.99;
+                    } else if val < -1.0 {
+                        val = -0.99;
                     }
                     
                     val = self.startup_ramp.apply(val);

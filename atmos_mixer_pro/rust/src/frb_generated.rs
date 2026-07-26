@@ -1396,6 +1396,9 @@ impl SseDecode for crate::common::config::AppConfig {
             crate::common::config::ChannelSetting,
         >>::sse_decode(deserializer);
         let mut var_rooms = <Vec<crate::common::config::RoomConfig>>::sse_decode(deserializer);
+        let mut var_globalTrajectory =
+            <Option<crate::common::config::Trajectory>>::sse_decode(deserializer);
+        let mut var_roomZones = <Vec<crate::common::config::RoomZone>>::sse_decode(deserializer);
         let mut var_isExhibitionMode = <bool>::sse_decode(deserializer);
         return crate::common::config::AppConfig {
             osc_port: var_oscPort,
@@ -1407,6 +1410,8 @@ impl SseDecode for crate::common::config::AppConfig {
             stereo_configs: var_stereoConfigs,
             multi_configs: var_multiConfigs,
             rooms: var_rooms,
+            global_trajectory: var_globalTrajectory,
+            room_zones: var_roomZones,
             is_exhibition_mode: var_isExhibitionMode,
         };
     }
@@ -1436,11 +1441,13 @@ impl SseDecode for crate::common::config::ChannelSetting {
         let mut var_customName = <String>::sse_decode(deserializer);
         let mut var_delayMs = <f32>::sse_decode(deserializer);
         let mut var_eqBands = <Vec<crate::common::config::EqBand>>::sse_decode(deserializer);
+        let mut var_position = <Option<crate::common::config::Point3D>>::sse_decode(deserializer);
         return crate::common::config::ChannelSetting {
             enabled: var_enabled,
             custom_name: var_customName,
             delay_ms: var_delayMs,
             eq_bands: var_eqBands,
+            position: var_position,
         };
     }
 }
@@ -1466,11 +1473,13 @@ impl SseDecode for crate::api::simple::EngineStateUpdate {
         let mut var_duckingActive = <bool>::sse_decode(deserializer);
         let mut var_playingTrackIds = <Vec<String>>::sse_decode(deserializer);
         let mut var_engineError = <Option<String>>::sse_decode(deserializer);
+        let mut var_outputChannelCount = <u32>::sse_decode(deserializer);
         return crate::api::simple::EngineStateUpdate {
             active_room_id: var_activeRoomId,
             ducking_active: var_duckingActive,
             playing_track_ids: var_playingTrackIds,
             engine_error: var_engineError,
+            output_channel_count: var_outputChannelCount,
         };
     }
 }
@@ -1575,6 +1584,18 @@ impl SseDecode for Vec<crate::api::simple::OutputDeviceInfo> {
     }
 }
 
+impl SseDecode for Vec<crate::common::config::Point3D> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = Vec::with_capacity(len_ as usize);
+        for idx_ in 0..len_ {
+            ans_.push(<crate::common::config::Point3D>::sse_decode(deserializer));
+        }
+        return ans_;
+    }
+}
+
 impl SseDecode for Vec<f32> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -1627,6 +1648,18 @@ impl SseDecode for Vec<crate::common::config::RoomConfig> {
     }
 }
 
+impl SseDecode for Vec<crate::common::config::RoomZone> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = Vec::with_capacity(len_ as usize);
+        for idx_ in 0..len_ {
+            ans_.push(<crate::common::config::RoomZone>::sse_decode(deserializer));
+        }
+        return ans_;
+    }
+}
+
 impl SseDecode for Vec<crate::common::config::TrackConfig> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -1652,6 +1685,30 @@ impl SseDecode for Option<String> {
     }
 }
 
+impl SseDecode for Option<crate::common::config::Point3D> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        if (<bool>::sse_decode(deserializer)) {
+            return Some(<crate::common::config::Point3D>::sse_decode(deserializer));
+        } else {
+            return None;
+        }
+    }
+}
+
+impl SseDecode for Option<crate::common::config::Trajectory> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        if (<bool>::sse_decode(deserializer)) {
+            return Some(<crate::common::config::Trajectory>::sse_decode(
+                deserializer,
+            ));
+        } else {
+            return None;
+        }
+    }
+}
+
 impl SseDecode for crate::api::simple::OutputDeviceInfo {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -1662,6 +1719,20 @@ impl SseDecode for crate::api::simple::OutputDeviceInfo {
             name: var_name,
             max_channels: var_maxChannels,
             channel_names: var_channelNames,
+        };
+    }
+}
+
+impl SseDecode for crate::common::config::Point3D {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_x = <f32>::sse_decode(deserializer);
+        let mut var_y = <f32>::sse_decode(deserializer);
+        let mut var_z = <f32>::sse_decode(deserializer);
+        return crate::common::config::Point3D {
+            x: var_x,
+            y: var_y,
+            z: var_z,
         };
     }
 }
@@ -1695,6 +1766,20 @@ impl SseDecode for crate::common::config::RoomConfig {
     }
 }
 
+impl SseDecode for crate::common::config::RoomZone {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_roomId = <u32>::sse_decode(deserializer);
+        let mut var_boundaryMin = <crate::common::config::Point3D>::sse_decode(deserializer);
+        let mut var_boundaryMax = <crate::common::config::Point3D>::sse_decode(deserializer);
+        return crate::common::config::RoomZone {
+            room_id: var_roomId,
+            boundary_min: var_boundaryMin,
+            boundary_max: var_boundaryMax,
+        };
+    }
+}
+
 impl SseDecode for crate::common::config::TrackConfig {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -1719,6 +1804,18 @@ impl SseDecode for crate::common::config::TrackConfig {
             output_stereo: var_outputStereo,
             play_osc_address: var_playOscAddress,
             stop_osc_address: var_stopOscAddress,
+        };
+    }
+}
+
+impl SseDecode for crate::common::config::Trajectory {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_waypoints = <Vec<crate::common::config::Point3D>>::sse_decode(deserializer);
+        let mut var_currentPosition = <crate::common::config::Point3D>::sse_decode(deserializer);
+        return crate::common::config::Trajectory {
+            waypoints: var_waypoints,
+            current_position: var_currentPosition,
         };
     }
 }
@@ -1898,6 +1995,8 @@ impl flutter_rust_bridge::IntoDart for crate::common::config::AppConfig {
             self.stereo_configs.into_into_dart().into_dart(),
             self.multi_configs.into_into_dart().into_dart(),
             self.rooms.into_into_dart().into_dart(),
+            self.global_trajectory.into_into_dart().into_dart(),
+            self.room_zones.into_into_dart().into_dart(),
             self.is_exhibition_mode.into_into_dart().into_dart(),
         ]
         .into_dart()
@@ -1936,6 +2035,7 @@ impl flutter_rust_bridge::IntoDart for crate::common::config::ChannelSetting {
             self.custom_name.into_into_dart().into_dart(),
             self.delay_ms.into_into_dart().into_dart(),
             self.eq_bands.into_into_dart().into_dart(),
+            self.position.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
@@ -1981,6 +2081,7 @@ impl flutter_rust_bridge::IntoDart for crate::api::simple::EngineStateUpdate {
             self.ducking_active.into_into_dart().into_dart(),
             self.playing_track_ids.into_into_dart().into_dart(),
             self.engine_error.into_into_dart().into_dart(),
+            self.output_channel_count.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
@@ -2062,6 +2163,28 @@ impl flutter_rust_bridge::IntoIntoDart<crate::api::simple::OutputDeviceInfo>
     }
 }
 // Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::common::config::Point3D {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.x.into_into_dart().into_dart(),
+            self.y.into_into_dart().into_dart(),
+            self.z.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::common::config::Point3D
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::common::config::Point3D>
+    for crate::common::config::Point3D
+{
+    fn into_into_dart(self) -> crate::common::config::Point3D {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
 impl flutter_rust_bridge::IntoDart for crate::common::config::RoomConfig {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         [
@@ -2083,6 +2206,28 @@ impl flutter_rust_bridge::IntoIntoDart<crate::common::config::RoomConfig>
     for crate::common::config::RoomConfig
 {
     fn into_into_dart(self) -> crate::common::config::RoomConfig {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::common::config::RoomZone {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.room_id.into_into_dart().into_dart(),
+            self.boundary_min.into_into_dart().into_dart(),
+            self.boundary_max.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::common::config::RoomZone
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::common::config::RoomZone>
+    for crate::common::config::RoomZone
+{
+    fn into_into_dart(self) -> crate::common::config::RoomZone {
         self
     }
 }
@@ -2112,6 +2257,27 @@ impl flutter_rust_bridge::IntoIntoDart<crate::common::config::TrackConfig>
     for crate::common::config::TrackConfig
 {
     fn into_into_dart(self) -> crate::common::config::TrackConfig {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::common::config::Trajectory {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.waypoints.into_into_dart().into_dart(),
+            self.current_position.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::common::config::Trajectory
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::common::config::Trajectory>
+    for crate::common::config::Trajectory
+{
+    fn into_into_dart(self) -> crate::common::config::Trajectory {
         self
     }
 }
@@ -2187,6 +2353,8 @@ impl SseEncode for crate::common::config::AppConfig {
             serializer,
         );
         <Vec<crate::common::config::RoomConfig>>::sse_encode(self.rooms, serializer);
+        <Option<crate::common::config::Trajectory>>::sse_encode(self.global_trajectory, serializer);
+        <Vec<crate::common::config::RoomZone>>::sse_encode(self.room_zones, serializer);
         <bool>::sse_encode(self.is_exhibition_mode, serializer);
     }
 }
@@ -2212,6 +2380,7 @@ impl SseEncode for crate::common::config::ChannelSetting {
         <String>::sse_encode(self.custom_name, serializer);
         <f32>::sse_encode(self.delay_ms, serializer);
         <Vec<crate::common::config::EqBand>>::sse_encode(self.eq_bands, serializer);
+        <Option<crate::common::config::Point3D>>::sse_encode(self.position, serializer);
     }
 }
 
@@ -2231,6 +2400,7 @@ impl SseEncode for crate::api::simple::EngineStateUpdate {
         <bool>::sse_encode(self.ducking_active, serializer);
         <Vec<String>>::sse_encode(self.playing_track_ids, serializer);
         <Option<String>>::sse_encode(self.engine_error, serializer);
+        <u32>::sse_encode(self.output_channel_count, serializer);
     }
 }
 
@@ -2319,6 +2489,16 @@ impl SseEncode for Vec<crate::api::simple::OutputDeviceInfo> {
     }
 }
 
+impl SseEncode for Vec<crate::common::config::Point3D> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <crate::common::config::Point3D>::sse_encode(item, serializer);
+        }
+    }
+}
+
 impl SseEncode for Vec<f32> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -2359,6 +2539,16 @@ impl SseEncode for Vec<crate::common::config::RoomConfig> {
     }
 }
 
+impl SseEncode for Vec<crate::common::config::RoomZone> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <crate::common::config::RoomZone>::sse_encode(item, serializer);
+        }
+    }
+}
+
 impl SseEncode for Vec<crate::common::config::TrackConfig> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -2379,12 +2569,41 @@ impl SseEncode for Option<String> {
     }
 }
 
+impl SseEncode for Option<crate::common::config::Point3D> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <bool>::sse_encode(self.is_some(), serializer);
+        if let Some(value) = self {
+            <crate::common::config::Point3D>::sse_encode(value, serializer);
+        }
+    }
+}
+
+impl SseEncode for Option<crate::common::config::Trajectory> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <bool>::sse_encode(self.is_some(), serializer);
+        if let Some(value) = self {
+            <crate::common::config::Trajectory>::sse_encode(value, serializer);
+        }
+    }
+}
+
 impl SseEncode for crate::api::simple::OutputDeviceInfo {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
         <String>::sse_encode(self.name, serializer);
         <u32>::sse_encode(self.max_channels, serializer);
         <Vec<String>>::sse_encode(self.channel_names, serializer);
+    }
+}
+
+impl SseEncode for crate::common::config::Point3D {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <f32>::sse_encode(self.x, serializer);
+        <f32>::sse_encode(self.y, serializer);
+        <f32>::sse_encode(self.z, serializer);
     }
 }
 
@@ -2408,6 +2627,15 @@ impl SseEncode for crate::common::config::RoomConfig {
     }
 }
 
+impl SseEncode for crate::common::config::RoomZone {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <u32>::sse_encode(self.room_id, serializer);
+        <crate::common::config::Point3D>::sse_encode(self.boundary_min, serializer);
+        <crate::common::config::Point3D>::sse_encode(self.boundary_max, serializer);
+    }
+}
+
 impl SseEncode for crate::common::config::TrackConfig {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -2421,6 +2649,14 @@ impl SseEncode for crate::common::config::TrackConfig {
         <bool>::sse_encode(self.output_stereo, serializer);
         <String>::sse_encode(self.play_osc_address, serializer);
         <String>::sse_encode(self.stop_osc_address, serializer);
+    }
+}
+
+impl SseEncode for crate::common::config::Trajectory {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <Vec<crate::common::config::Point3D>>::sse_encode(self.waypoints, serializer);
+        <crate::common::config::Point3D>::sse_encode(self.current_position, serializer);
     }
 }
 

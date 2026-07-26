@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:atmos_mixer_pro/features/exhibition/models/speaker_node.dart';
 import 'package:atmos_mixer_pro/src/rust/api/simple.dart' as rust_api;
 import 'package:atmos_mixer_pro/core/theme/colors.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:atmos_mixer_pro/core/state/global_state.dart';
 
 class SpeakerNodeWidget extends StatefulWidget {
   final SpeakerNode node;
@@ -148,21 +150,29 @@ class _SpeakerNodeWidgetState extends State<SpeakerNodeWidget> {
                       : null,
                 ),
                 child: DropdownButtonHideUnderline(
-                  child: DropdownButton<int>(
-                    value: widget.node.channel,
-                    dropdownColor: AppColors.background,
-                    icon: const Icon(Icons.arrow_drop_down, size: 16, color: Colors.white54),
-                    style: const TextStyle(fontSize: 12, color: Colors.white),
-                    items: List.generate(24, (index) {
-                      return DropdownMenuItem<int>(
-                        value: index,
-                        child: Text('Ch ${index + 1}'),
+                  child: Consumer(
+                    builder: (context, ref, child) {
+                      final maxChannels = ref.watch(engineStateProvider.select((s) => s.outputChannelCount));
+                      // Ensure current channel is within valid range
+                      final currentValue = widget.node.channel < maxChannels ? widget.node.channel : 0;
+                      
+                      return DropdownButton<int>(
+                        value: currentValue,
+                        dropdownColor: AppColors.background,
+                        icon: const Icon(Icons.arrow_drop_down, size: 16, color: Colors.white54),
+                        style: const TextStyle(fontSize: 12, color: Colors.white),
+                        items: List.generate(maxChannels > 0 ? maxChannels : 2, (index) {
+                          return DropdownMenuItem<int>(
+                            value: index,
+                            child: Text('Ch ${index + 1}'),
+                          );
+                        }),
+                        onChanged: (val) {
+                          if (val != null) {
+                            widget.onChannelChanged(val);
+                          }
+                        },
                       );
-                    }),
-                    onChanged: (val) {
-                      if (val != null) {
-                        widget.onChannelChanged(val);
-                      }
                     },
                   ),
                 ),

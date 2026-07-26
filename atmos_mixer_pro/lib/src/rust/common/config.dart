@@ -16,6 +16,8 @@ class AppConfig {
   final Map<int, ChannelSetting> stereoConfigs;
   final Map<int, ChannelSetting> multiConfigs;
   final List<RoomConfig> rooms;
+  final Trajectory? globalTrajectory;
+  final List<RoomZone> roomZones;
   final bool isExhibitionMode;
 
   const AppConfig({
@@ -28,6 +30,8 @@ class AppConfig {
     required this.stereoConfigs,
     required this.multiConfigs,
     required this.rooms,
+    this.globalTrajectory,
+    required this.roomZones,
     required this.isExhibitionMode,
   });
 
@@ -42,6 +46,8 @@ class AppConfig {
       stereoConfigs.hashCode ^
       multiConfigs.hashCode ^
       rooms.hashCode ^
+      globalTrajectory.hashCode ^
+      roomZones.hashCode ^
       isExhibitionMode.hashCode;
 
   @override
@@ -58,6 +64,8 @@ class AppConfig {
           stereoConfigs == other.stereoConfigs &&
           multiConfigs == other.multiConfigs &&
           rooms == other.rooms &&
+          globalTrajectory == other.globalTrajectory &&
+          roomZones == other.roomZones &&
           isExhibitionMode == other.isExhibitionMode;
 }
 
@@ -66,12 +74,14 @@ class ChannelSetting {
   final String customName;
   final double delayMs;
   final List<EqBand> eqBands;
+  final Point3D? position;
 
   const ChannelSetting({
     required this.enabled,
     required this.customName,
     required this.delayMs,
     required this.eqBands,
+    this.position,
   });
 
   @override
@@ -79,7 +89,8 @@ class ChannelSetting {
       enabled.hashCode ^
       customName.hashCode ^
       delayMs.hashCode ^
-      eqBands.hashCode;
+      eqBands.hashCode ^
+      position.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -89,7 +100,8 @@ class ChannelSetting {
           enabled == other.enabled &&
           customName == other.customName &&
           delayMs == other.delayMs &&
-          eqBands == other.eqBands;
+          eqBands == other.eqBands &&
+          position == other.position;
 }
 
 class EqBand {
@@ -129,6 +141,26 @@ class EqBand {
 
 enum EqType { lowCut, lowShelf, bell, notch, highShelf, highCut }
 
+class Point3D {
+  final double x;
+  final double y;
+  final double z;
+
+  const Point3D({required this.x, required this.y, required this.z});
+
+  @override
+  int get hashCode => x.hashCode ^ y.hashCode ^ z.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is Point3D &&
+          runtimeType == other.runtimeType &&
+          x == other.x &&
+          y == other.y &&
+          z == other.z;
+}
+
 class RoomConfig {
   final String id;
   final String name;
@@ -166,6 +198,31 @@ class RoomConfig {
           volume == other.volume &&
           clearOscAddress == other.clearOscAddress &&
           tracks == other.tracks;
+}
+
+class RoomZone {
+  final int roomId;
+  final Point3D boundaryMin;
+  final Point3D boundaryMax;
+
+  const RoomZone({
+    required this.roomId,
+    required this.boundaryMin,
+    required this.boundaryMax,
+  });
+
+  @override
+  int get hashCode =>
+      roomId.hashCode ^ boundaryMin.hashCode ^ boundaryMax.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is RoomZone &&
+          runtimeType == other.runtimeType &&
+          roomId == other.roomId &&
+          boundaryMin == other.boundaryMin &&
+          boundaryMax == other.boundaryMax;
 }
 
 class TrackConfig {
@@ -221,4 +278,22 @@ class TrackConfig {
           outputStereo == other.outputStereo &&
           playOscAddress == other.playOscAddress &&
           stopOscAddress == other.stopOscAddress;
+}
+
+class Trajectory {
+  final List<Point3D> waypoints;
+  final Point3D currentPosition;
+
+  const Trajectory({required this.waypoints, required this.currentPosition});
+
+  @override
+  int get hashCode => waypoints.hashCode ^ currentPosition.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is Trajectory &&
+          runtimeType == other.runtimeType &&
+          waypoints == other.waypoints &&
+          currentPosition == other.currentPosition;
 }

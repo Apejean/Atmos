@@ -240,7 +240,7 @@ impl AudioEngine {
             }
         });
 
-        let mut mixer = AudioMixer::new(config.sample_rate.0, gc_tx);
+        let mut mixer = AudioMixer::new(config.sample_rate.0, config.channels as usize, gc_tx);
 
         let err_fn = |err: cpal::StreamError| {
             eprintln!("an error occurred on stream: {}", err);
@@ -451,6 +451,33 @@ impl AudioEngine {
                     if channel < mixer.channel_dsp.len() {
                         mixer.channel_dsp[channel].update_delay_target(delay_ms);
                         mixer.channel_dsp[channel].update_eq_targets(&eq_bands, mixer.sample_rate as f32);
+                    }
+                }
+                AudioCommand::UpdateSpatialConfig { channel_positions, room_zones, trajectory } => {
+                    for (ch, pos) in channel_positions.into_iter().enumerate() {
+                        if ch < mixer.channel_positions.len() {
+                            mixer.channel_positions[ch] = pos;
+                        }
+                    }
+                    mixer.room_zones = room_zones;
+                    mixer.trajectory = trajectory;
+                }
+                AudioCommand::UpdateTrajectoryPosition { position } => {
+                    if let Some(traj) = &mut mixer.trajectory {
+                        traj.current_position = position;
+                    } else {
+                        mixer.trajectory = Some(crate::common::config::Trajectory {
+                            waypoints: vec![],
+                            current_position: position,
+                        });
+                    }
+                }
+                AudioCommand::ApplyAllChannelTunings { tunings } => {
+                    for (channel, delay_ms, eq_bands) in tunings {
+                        if channel < mixer.channel_dsp.len() {
+                            mixer.channel_dsp[channel].update_delay_target(delay_ms);
+                            mixer.channel_dsp[channel].update_eq_targets(&eq_bands, mixer.sample_rate as f32);
+                        }
                     }
                 }
                 _ => {}

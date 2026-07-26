@@ -62,4 +62,12 @@ pub enum AudioCommand {
         delay_ms: f32,
         eq_bands: Vec<crate::common::config::EqBand>,
     },
+    UpdateSpatialConfig {
+        channel_positions: Vec<Option<crate::common::config::Point3D>>,
+        room_zones: Vec<crate::common::config::RoomZone>,
+        trajectory: Option<crate::common::config::Trajectory>,
+    },
+    UpdateTrajectoryPosition {
+        position: crate::common::config::Point3D,
+    },
 }

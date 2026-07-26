@@ -2,7 +2,7 @@ pub mod dsp_utils {
     use crate::common::config::{EqBand, EqType};
     use crate::audio::svf::SvfFilter;
     
-    pub const MAX_DSP_CHANNELS: usize = 24;
+    pub const MAX_DSP_CHANNELS: usize = 128;
     pub const MAX_EQ_BANDS: usize = 8;
     pub const DELAY_BUFFER_SIZE: usize = 48000; // 1 second at 48kHz
     

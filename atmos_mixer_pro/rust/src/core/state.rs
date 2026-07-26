@@ -97,6 +97,7 @@ impl GlobalEngineState {
             ducking_active: ducking,
             playing_track_ids,
             engine_error: self.engine_error.read().unwrap_or_else(|e| e.into_inner()).clone(),
+            output_channel_count: self.active_device_channels.load(Ordering::Relaxed),
         };
 
         if let Some(sink) = self.state_sink.read().unwrap_or_else(|e| e.into_inner()).as_ref() {

@@ -685,6 +685,7 @@ pub struct EngineStateUpdate {
     pub ducking_active: bool,
     pub playing_track_ids: Vec<String>,
     pub engine_error: Option<String>,
+    pub output_channel_count: u32,
 }
 
 pub fn api_create_engine_state_stream(sink: StreamSink<EngineStateUpdate>) {
@@ -703,6 +704,7 @@ pub fn api_create_engine_state_stream(sink: StreamSink<EngineStateUpdate>) {
             .load(std::sync::atomic::Ordering::Relaxed),
         playing_track_ids,
         engine_error: GLOBAL_STATE.engine_error.read().unwrap_or_else(|e| e.into_inner()).clone(),
+        output_channel_count: GLOBAL_STATE.active_device_channels.load(std::sync::atomic::Ordering::Relaxed),
     };
     let _ = sink.add(initial_state);
     *GLOBAL_STATE.state_sink.write().unwrap_or_else(|e| e.into_inner()) = Some(sink);

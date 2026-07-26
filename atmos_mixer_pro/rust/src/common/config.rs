@@ -4,6 +4,26 @@ use std::fs;
 use std::path::Path;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct Point3D {
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct RoomZone {
+    pub room_id: u32,
+    pub boundary_min: Point3D,
+    pub boundary_max: Point3D,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct Trajectory {
+    pub waypoints: Vec<Point3D>,
+    pub current_position: Point3D,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum EqType {
     LowCut,
     LowShelf,
@@ -42,6 +62,8 @@ pub struct ChannelSetting {
     pub delay_ms: f32,
     #[serde(default)]
     pub eq_bands: Vec<EqBand>,
+    #[serde(default)]
+    pub position: Option<Point3D>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -62,6 +84,10 @@ pub struct AppConfig {
     #[serde(default)]
     pub rooms: Vec<RoomConfig>,
     #[serde(default)]
+    pub global_trajectory: Option<Trajectory>,
+    #[serde(default)]
+    pub room_zones: Vec<RoomZone>,
+    #[serde(default)]
     pub is_exhibition_mode: bool,
 }
 
@@ -77,6 +103,8 @@ impl Default for AppConfig {
             stereo_configs: HashMap::new(),
             multi_configs: HashMap::new(),
             rooms: Vec::new(),
+            global_trajectory: None,
+            room_zones: Vec::new(),
             is_exhibition_mode: false,
         }
     }
