@@ -79,10 +79,10 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
             multiConfigs: {},
             rooms: [],
             isExhibitionMode: false,
-          masterHeadroomDb: 0.0,
-          peakLimiterEnabled: true,
-          globalTrajectory: null,
-          roomZones: [],
+            masterHeadroomDb: 0.0,
+            peakLimiterEnabled: true,
+            globalTrajectory: null,
+            roomZones: [],
           );
 
     if (_tempConfig.deviceName != null && GlobalDeviceCache.devices == null) {
@@ -111,7 +111,9 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
       for (final track in room.tracks) {
         if (track.filePath.isNotEmpty) {
           try {
-            final ch = await rust_api.apiGetAudioFileChannels(filePath: track.filePath);
+            final ch = await rust_api.apiGetAudioFileChannels(
+              filePath: track.filePath,
+            );
             if (mounted) {
               setState(() {
                 _trackChannels[track.id] = ch;
@@ -130,7 +132,9 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
     if (fileChannels != null && fileChannels > 2) {
       return ChannelDropdownValueHelper.getMultiValue(track.outputChannel);
     } else {
-      return track.outputStereo ? ChannelDropdownValueHelper.getStereoValue(track.outputChannel) : ChannelDropdownValueHelper.getMonoValue(track.outputChannel);
+      return track.outputStereo
+          ? ChannelDropdownValueHelper.getStereoValue(track.outputChannel)
+          : ChannelDropdownValueHelper.getMonoValue(track.outputChannel);
     }
   }
 
@@ -242,10 +246,10 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
               multiConfigs: _tempConfig.multiConfigs,
               rooms: _tempConfig.rooms,
               isExhibitionMode: _tempConfig.isExhibitionMode,
-          masterHeadroomDb: _tempConfig.masterHeadroomDb,
-          peakLimiterEnabled: _tempConfig.peakLimiterEnabled,
-          globalTrajectory: _tempConfig.globalTrajectory,
-          roomZones: _tempConfig.roomZones,
+              masterHeadroomDb: _tempConfig.masterHeadroomDb,
+              peakLimiterEnabled: _tempConfig.peakLimiterEnabled,
+              globalTrajectory: _tempConfig.globalTrajectory,
+              roomZones: _tempConfig.roomZones,
             );
           } else {
             final cleanTarget = _getCleanDeviceName(
@@ -267,10 +271,10 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                 multiConfigs: _tempConfig.multiConfigs,
                 rooms: _tempConfig.rooms,
                 isExhibitionMode: _tempConfig.isExhibitionMode,
-          masterHeadroomDb: _tempConfig.masterHeadroomDb,
-          peakLimiterEnabled: _tempConfig.peakLimiterEnabled,
-          globalTrajectory: _tempConfig.globalTrajectory,
-          roomZones: _tempConfig.roomZones,
+                masterHeadroomDb: _tempConfig.masterHeadroomDb,
+                peakLimiterEnabled: _tempConfig.peakLimiterEnabled,
+                globalTrajectory: _tempConfig.globalTrajectory,
+                roomZones: _tempConfig.roomZones,
               );
             }
           }
@@ -330,10 +334,10 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
       stereoConfigs: Map.from(config.stereoConfigs),
       multiConfigs: Map.from(config.multiConfigs),
       isExhibitionMode: config.isExhibitionMode,
-          masterHeadroomDb: config.masterHeadroomDb,
-          peakLimiterEnabled: config.peakLimiterEnabled,
-          globalTrajectory: config.globalTrajectory,
-          roomZones: config.roomZones,
+      masterHeadroomDb: config.masterHeadroomDb,
+      peakLimiterEnabled: config.peakLimiterEnabled,
+      globalTrajectory: config.globalTrajectory,
+      roomZones: config.roomZones,
       rooms: config.rooms
           .map(
             (r) => RoomConfig(
@@ -410,10 +414,10 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
       multiConfigs: _tempConfig.multiConfigs,
       rooms: newRooms,
       isExhibitionMode: _tempConfig.isExhibitionMode,
-          masterHeadroomDb: _tempConfig.masterHeadroomDb,
-          peakLimiterEnabled: _tempConfig.peakLimiterEnabled,
-          globalTrajectory: _tempConfig.globalTrajectory,
-          roomZones: _tempConfig.roomZones,
+      masterHeadroomDb: _tempConfig.masterHeadroomDb,
+      peakLimiterEnabled: _tempConfig.peakLimiterEnabled,
+      globalTrajectory: _tempConfig.globalTrajectory,
+      roomZones: _tempConfig.roomZones,
     );
     ref.read(configProvider.notifier).saveConfig(finalConfig);
     Navigator.of(context).pop();
@@ -468,10 +472,10 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
             multiConfigs: Map.from(next.multiConfigs),
             rooms: updatedRooms,
             isExhibitionMode: _tempConfig.isExhibitionMode,
-          masterHeadroomDb: _tempConfig.masterHeadroomDb,
-          peakLimiterEnabled: _tempConfig.peakLimiterEnabled,
-          globalTrajectory: _tempConfig.globalTrajectory,
-          roomZones: _tempConfig.roomZones,
+            masterHeadroomDb: _tempConfig.masterHeadroomDb,
+            peakLimiterEnabled: _tempConfig.peakLimiterEnabled,
+            globalTrajectory: _tempConfig.globalTrajectory,
+            roomZones: _tempConfig.roomZones,
           );
         });
       }
@@ -648,7 +652,6 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
       }
     }
 
-
     final uniqueDriverTypes = Platform.isMacOS
         ? ['CoreAudio']
         : ['WASAPI', 'ASIO'];
@@ -729,10 +732,10 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                         multiConfigs: _tempConfig.multiConfigs,
                         rooms: _tempConfig.rooms,
                         isExhibitionMode: _tempConfig.isExhibitionMode,
-          masterHeadroomDb: _tempConfig.masterHeadroomDb,
-          peakLimiterEnabled: _tempConfig.peakLimiterEnabled,
-          globalTrajectory: _tempConfig.globalTrajectory,
-          roomZones: _tempConfig.roomZones,
+                        masterHeadroomDb: _tempConfig.masterHeadroomDb,
+                        peakLimiterEnabled: _tempConfig.peakLimiterEnabled,
+                        globalTrajectory: _tempConfig.globalTrajectory,
+                        roomZones: _tempConfig.roomZones,
                       );
                     });
                     _loadDeviceChannels(_tempConfig.deviceName);
@@ -814,10 +817,10 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                       multiConfigs: _tempConfig.multiConfigs,
                       rooms: _tempConfig.rooms,
                       isExhibitionMode: _tempConfig.isExhibitionMode,
-          masterHeadroomDb: _tempConfig.masterHeadroomDb,
-          peakLimiterEnabled: _tempConfig.peakLimiterEnabled,
-          globalTrajectory: _tempConfig.globalTrajectory,
-          roomZones: _tempConfig.roomZones,
+                      masterHeadroomDb: _tempConfig.masterHeadroomDb,
+                      peakLimiterEnabled: _tempConfig.peakLimiterEnabled,
+                      globalTrajectory: _tempConfig.globalTrajectory,
+                      roomZones: _tempConfig.roomZones,
                     );
                   });
                   _loadDeviceChannels(val);
@@ -900,10 +903,10 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                         multiConfigs: _tempConfig.multiConfigs,
                         rooms: _tempConfig.rooms,
                         isExhibitionMode: _tempConfig.isExhibitionMode,
-          masterHeadroomDb: _tempConfig.masterHeadroomDb,
-          peakLimiterEnabled: _tempConfig.peakLimiterEnabled,
-          globalTrajectory: _tempConfig.globalTrajectory,
-          roomZones: _tempConfig.roomZones,
+                        masterHeadroomDb: _tempConfig.masterHeadroomDb,
+                        peakLimiterEnabled: _tempConfig.peakLimiterEnabled,
+                        globalTrajectory: _tempConfig.globalTrajectory,
+                        roomZones: _tempConfig.roomZones,
                       );
                     });
                   }
@@ -936,57 +939,48 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
             ),
             SegmentedButton<double>(
               segments: const [
-                ButtonSegment<double>(
-                  value: 0.0,
-                  label: Text('0 dB'),
-                ),
-                ButtonSegment<double>(
-                  value: -3.0,
-                  label: Text('-3 dB'),
-                ),
-                ButtonSegment<double>(
-                  value: -6.0,
-                  label: Text('-6 dB'),
-                ),
+                ButtonSegment<double>(value: 0.0, label: Text('0 dB')),
+                ButtonSegment<double>(value: -3.0, label: Text('-3 dB')),
+                ButtonSegment<double>(value: -6.0, label: Text('-6 dB')),
               ],
               selected: {_tempConfig.masterHeadroomDb},
               onSelectionChanged: (Set<double> newSelection) {
                 setState(() {
                   _tempConfig = AppConfig(
-                        oscPort: _tempConfig.oscPort,
-                        deviceName: _tempConfig.deviceName,
-                        bufferSize: _tempConfig.bufferSize,
-                        themeStartOscAddress: _tempConfig.themeStartOscAddress,
-                        systemResetOscAddress: _tempConfig.systemResetOscAddress,
-                        monoConfigs: _tempConfig.monoConfigs,
-                        stereoConfigs: _tempConfig.stereoConfigs,
-                        multiConfigs: _tempConfig.multiConfigs,
-                        rooms: _tempConfig.rooms,
-                        isExhibitionMode: _tempConfig.isExhibitionMode,
-                        masterHeadroomDb: newSelection.first,
-                        peakLimiterEnabled: _tempConfig.peakLimiterEnabled,
-                        globalTrajectory: _tempConfig.globalTrajectory,
-                        roomZones: _tempConfig.roomZones,
-                      );
+                    oscPort: _tempConfig.oscPort,
+                    deviceName: _tempConfig.deviceName,
+                    bufferSize: _tempConfig.bufferSize,
+                    themeStartOscAddress: _tempConfig.themeStartOscAddress,
+                    systemResetOscAddress: _tempConfig.systemResetOscAddress,
+                    monoConfigs: _tempConfig.monoConfigs,
+                    stereoConfigs: _tempConfig.stereoConfigs,
+                    multiConfigs: _tempConfig.multiConfigs,
+                    rooms: _tempConfig.rooms,
+                    isExhibitionMode: _tempConfig.isExhibitionMode,
+                    masterHeadroomDb: newSelection.first,
+                    peakLimiterEnabled: _tempConfig.peakLimiterEnabled,
+                    globalTrajectory: _tempConfig.globalTrajectory,
+                    roomZones: _tempConfig.roomZones,
+                  );
                 });
               },
               style: ButtonStyle(
-                backgroundColor: WidgetStateProperty.resolveWith<Color>(
-                  (Set<WidgetState> states) {
-                    if (states.contains(WidgetState.selected)) {
-                      return AppColors.primaryNeon.withValues(alpha: 0.2);
-                    }
-                    return AppColors.cardSurfaceSolid;
-                  },
-                ),
-                foregroundColor: WidgetStateProperty.resolveWith<Color>(
-                  (Set<WidgetState> states) {
-                    if (states.contains(WidgetState.selected)) {
-                      return AppColors.primaryNeon;
-                    }
-                    return Colors.white70;
-                  },
-                ),
+                backgroundColor: WidgetStateProperty.resolveWith<Color>((
+                  Set<WidgetState> states,
+                ) {
+                  if (states.contains(WidgetState.selected)) {
+                    return AppColors.primaryNeon.withValues(alpha: 0.2);
+                  }
+                  return AppColors.cardSurfaceSolid;
+                }),
+                foregroundColor: WidgetStateProperty.resolveWith<Color>((
+                  Set<WidgetState> states,
+                ) {
+                  if (states.contains(WidgetState.selected)) {
+                    return AppColors.primaryNeon;
+                  }
+                  return Colors.white70;
+                }),
               ),
             ),
           ],
@@ -1012,21 +1006,21 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
               onChanged: (val) {
                 setState(() {
                   _tempConfig = AppConfig(
-                        oscPort: _tempConfig.oscPort,
-                        deviceName: _tempConfig.deviceName,
-                        bufferSize: _tempConfig.bufferSize,
-                        themeStartOscAddress: _tempConfig.themeStartOscAddress,
-                        systemResetOscAddress: _tempConfig.systemResetOscAddress,
-                        monoConfigs: _tempConfig.monoConfigs,
-                        stereoConfigs: _tempConfig.stereoConfigs,
-                        multiConfigs: _tempConfig.multiConfigs,
-                        rooms: _tempConfig.rooms,
-                        isExhibitionMode: _tempConfig.isExhibitionMode,
-                        masterHeadroomDb: _tempConfig.masterHeadroomDb,
-                        peakLimiterEnabled: val,
-                        globalTrajectory: _tempConfig.globalTrajectory,
-                        roomZones: _tempConfig.roomZones,
-                      );
+                    oscPort: _tempConfig.oscPort,
+                    deviceName: _tempConfig.deviceName,
+                    bufferSize: _tempConfig.bufferSize,
+                    themeStartOscAddress: _tempConfig.themeStartOscAddress,
+                    systemResetOscAddress: _tempConfig.systemResetOscAddress,
+                    monoConfigs: _tempConfig.monoConfigs,
+                    stereoConfigs: _tempConfig.stereoConfigs,
+                    multiConfigs: _tempConfig.multiConfigs,
+                    rooms: _tempConfig.rooms,
+                    isExhibitionMode: _tempConfig.isExhibitionMode,
+                    masterHeadroomDb: _tempConfig.masterHeadroomDb,
+                    peakLimiterEnabled: val,
+                    globalTrajectory: _tempConfig.globalTrajectory,
+                    roomZones: _tempConfig.roomZones,
+                  );
                 });
               },
             ),
@@ -1042,7 +1036,7 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
             ),
           ],
         ),
-        
+
         if (Platform.isWindows) ...[
           const SizedBox(height: 16),
           Row(
@@ -1113,10 +1107,10 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                         multiConfigs: result['multi']!,
                         rooms: _tempConfig.rooms,
                         isExhibitionMode: _tempConfig.isExhibitionMode,
-          masterHeadroomDb: _tempConfig.masterHeadroomDb,
-          peakLimiterEnabled: _tempConfig.peakLimiterEnabled,
-          globalTrajectory: _tempConfig.globalTrajectory,
-          roomZones: _tempConfig.roomZones,
+                        masterHeadroomDb: _tempConfig.masterHeadroomDb,
+                        peakLimiterEnabled: _tempConfig.peakLimiterEnabled,
+                        globalTrajectory: _tempConfig.globalTrajectory,
+                        roomZones: _tempConfig.roomZones,
                       );
                     });
                   }
@@ -1168,10 +1162,11 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                 final isMono = fileChannels == 1;
 
                 if (!isMulti) {
-                  final sortedMono = _tempConfig.monoConfigs.entries
-                      .where((e) => e.value.enabled)
-                      .toList()
-                    ..sort((a, b) => a.key.compareTo(b.key));
+                  final sortedMono =
+                      _tempConfig.monoConfigs.entries
+                          .where((e) => e.value.enabled)
+                          .toList()
+                        ..sort((a, b) => a.key.compareTo(b.key));
                   for (final e in sortedMono) {
                     final key = e.key;
                     final setting = e.value;
@@ -1183,7 +1178,9 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                           : '$key';
                       trackDropdownItems.add(
                         DropdownMenuItem<String>(
-                          value: ChannelDropdownValueHelper.getMonoValue(realCh1),
+                          value: ChannelDropdownValueHelper.getMonoValue(
+                            realCh1,
+                          ),
                           child: Text(
                             'Mono $name1',
                             style: const TextStyle(fontSize: 12),
@@ -1201,7 +1198,9 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                           : '$displayCh2';
                       trackDropdownItems.add(
                         DropdownMenuItem<String>(
-                          value: ChannelDropdownValueHelper.getMonoValue(realCh2),
+                          value: ChannelDropdownValueHelper.getMonoValue(
+                            realCh2,
+                          ),
                           child: Text(
                             'Mono $name2',
                             style: const TextStyle(fontSize: 12),
@@ -1214,10 +1213,11 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                 }
 
                 if (!isMono && !isMulti) {
-                  final sortedStereo = _tempConfig.stereoConfigs.entries
-                      .where((e) => e.value.enabled)
-                      .toList()
-                    ..sort((a, b) => a.key.compareTo(b.key));
+                  final sortedStereo =
+                      _tempConfig.stereoConfigs.entries
+                          .where((e) => e.value.enabled)
+                          .toList()
+                        ..sort((a, b) => a.key.compareTo(b.key));
                   for (final e in sortedStereo) {
                     final key = e.key;
                     final setting = e.value;
@@ -1229,7 +1229,9 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                           : '$key/$displayCh2';
                       trackDropdownItems.add(
                         DropdownMenuItem<String>(
-                          value: ChannelDropdownValueHelper.getStereoValue(realCh),
+                          value: ChannelDropdownValueHelper.getStereoValue(
+                            realCh,
+                          ),
                           child: Text(
                             '2-Ch (Stereo) $displayName',
                             style: const TextStyle(fontSize: 12),
@@ -1242,23 +1244,30 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                 }
 
                 if (isMulti) {
-                  final sortedMulti = _tempConfig.multiConfigs.entries
-                      .where((e) => e.value.enabled)
-                      .toList()
-                    ..sort((a, b) => a.key.compareTo(b.key));
+                  final sortedMulti =
+                      _tempConfig.multiConfigs.entries
+                          .where((e) => e.value.enabled)
+                          .toList()
+                        ..sort((a, b) => a.key.compareTo(b.key));
                   for (final e in sortedMulti) {
                     final key = e.key;
                     final setting = e.value;
                     final realCh = key - 1;
                     if (realCh < _channelNames.length) {
-                      final endCh = (key - 1 + fileChannels).clamp(1, _channelNames.length);
-                      var labelText = 'N-Ch (다채널) Ch $key~$endCh (${fileChannels}ch)';
+                      final endCh = (key - 1 + fileChannels).clamp(
+                        1,
+                        _channelNames.length,
+                      );
+                      var labelText =
+                          'N-Ch (다채널) Ch $key~$endCh (${fileChannels}ch)';
                       if (setting.customName.isNotEmpty) {
                         labelText += ' (${setting.customName})';
                       }
                       trackDropdownItems.add(
                         DropdownMenuItem<String>(
-                          value: ChannelDropdownValueHelper.getMultiValue(realCh),
+                          value: ChannelDropdownValueHelper.getMultiValue(
+                            realCh,
+                          ),
                           child: Text(
                             labelText,
                             style: const TextStyle(fontSize: 12),
@@ -1271,7 +1280,9 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                 }
 
                 final currentVal = _getDropdownValueForTrack(track);
-                final bool valueExists = trackDropdownItems.any((item) => item.value == currentVal);
+                final bool valueExists = trackDropdownItems.any(
+                  (item) => item.value == currentVal,
+                );
 
                 return Padding(
                   padding: const EdgeInsets.only(left: 16, bottom: 8),
@@ -1311,15 +1322,21 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                                 value: currentVal,
                                 child: Text(
                                   '${track.outputChannel + 1} (Missing)',
-                                  style: const TextStyle(color: Colors.redAccent),
+                                  style: const TextStyle(
+                                    color: Colors.redAccent,
+                                  ),
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
                           ],
                           onChanged: (val) {
                             if (val != null) {
-                              final parsedChannel = ChannelDropdownValueHelper.getChannel(val) ?? 0;
-                              final isStereo = ChannelDropdownValueHelper.isStereo(val) || ChannelDropdownValueHelper.isMulti(val);
+                              final parsedChannel =
+                                  ChannelDropdownValueHelper.getChannel(val) ??
+                                  0;
+                              final isStereo =
+                                  ChannelDropdownValueHelper.isStereo(val) ||
+                                  ChannelDropdownValueHelper.isMulti(val);
 
                               final newRooms = List<RoomConfig>.from(
                                 _tempConfig.rooms,
@@ -1360,11 +1377,15 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                                   stereoConfigs: _tempConfig.stereoConfigs,
                                   multiConfigs: _tempConfig.multiConfigs,
                                   rooms: newRooms,
-                                  isExhibitionMode: _tempConfig.isExhibitionMode,
-          masterHeadroomDb: _tempConfig.masterHeadroomDb,
-          peakLimiterEnabled: _tempConfig.peakLimiterEnabled,
-          globalTrajectory: _tempConfig.globalTrajectory,
-          roomZones: _tempConfig.roomZones,
+                                  isExhibitionMode:
+                                      _tempConfig.isExhibitionMode,
+                                  masterHeadroomDb:
+                                      _tempConfig.masterHeadroomDb,
+                                  peakLimiterEnabled:
+                                      _tempConfig.peakLimiterEnabled,
+                                  globalTrajectory:
+                                      _tempConfig.globalTrajectory,
+                                  roomZones: _tempConfig.roomZones,
                                 );
                               });
                             }
@@ -1436,10 +1457,10 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                         multiConfigs: _tempConfig.multiConfigs,
                         rooms: _tempConfig.rooms,
                         isExhibitionMode: _tempConfig.isExhibitionMode,
-          masterHeadroomDb: _tempConfig.masterHeadroomDb,
-          peakLimiterEnabled: _tempConfig.peakLimiterEnabled,
-          globalTrajectory: _tempConfig.globalTrajectory,
-          roomZones: _tempConfig.roomZones,
+                        masterHeadroomDb: _tempConfig.masterHeadroomDb,
+                        peakLimiterEnabled: _tempConfig.peakLimiterEnabled,
+                        globalTrajectory: _tempConfig.globalTrajectory,
+                        roomZones: _tempConfig.roomZones,
                       );
                     });
                   },
@@ -1489,10 +1510,10 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                         multiConfigs: _tempConfig.multiConfigs,
                         rooms: _tempConfig.rooms,
                         isExhibitionMode: _tempConfig.isExhibitionMode,
-          masterHeadroomDb: _tempConfig.masterHeadroomDb,
-          peakLimiterEnabled: _tempConfig.peakLimiterEnabled,
-          globalTrajectory: _tempConfig.globalTrajectory,
-          roomZones: _tempConfig.roomZones,
+                        masterHeadroomDb: _tempConfig.masterHeadroomDb,
+                        peakLimiterEnabled: _tempConfig.peakLimiterEnabled,
+                        globalTrajectory: _tempConfig.globalTrajectory,
+                        roomZones: _tempConfig.roomZones,
                       );
                     });
                   },
@@ -1569,10 +1590,11 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                               multiConfigs: _tempConfig.multiConfigs,
                               rooms: newRooms,
                               isExhibitionMode: _tempConfig.isExhibitionMode,
-          masterHeadroomDb: _tempConfig.masterHeadroomDb,
-          peakLimiterEnabled: _tempConfig.peakLimiterEnabled,
-          globalTrajectory: _tempConfig.globalTrajectory,
-          roomZones: _tempConfig.roomZones,
+                              masterHeadroomDb: _tempConfig.masterHeadroomDb,
+                              peakLimiterEnabled:
+                                  _tempConfig.peakLimiterEnabled,
+                              globalTrajectory: _tempConfig.globalTrajectory,
+                              roomZones: _tempConfig.roomZones,
                             );
                           });
                         },
@@ -1650,11 +1672,15 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                                   stereoConfigs: _tempConfig.stereoConfigs,
                                   multiConfigs: _tempConfig.multiConfigs,
                                   rooms: newRooms,
-                                  isExhibitionMode: _tempConfig.isExhibitionMode,
-          masterHeadroomDb: _tempConfig.masterHeadroomDb,
-          peakLimiterEnabled: _tempConfig.peakLimiterEnabled,
-          globalTrajectory: _tempConfig.globalTrajectory,
-          roomZones: _tempConfig.roomZones,
+                                  isExhibitionMode:
+                                      _tempConfig.isExhibitionMode,
+                                  masterHeadroomDb:
+                                      _tempConfig.masterHeadroomDb,
+                                  peakLimiterEnabled:
+                                      _tempConfig.peakLimiterEnabled,
+                                  globalTrajectory:
+                                      _tempConfig.globalTrajectory,
+                                  roomZones: _tempConfig.roomZones,
                                 );
                               });
                             },
@@ -1714,11 +1740,15 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                                   stereoConfigs: _tempConfig.stereoConfigs,
                                   multiConfigs: _tempConfig.multiConfigs,
                                   rooms: newRooms,
-                                  isExhibitionMode: _tempConfig.isExhibitionMode,
-          masterHeadroomDb: _tempConfig.masterHeadroomDb,
-          peakLimiterEnabled: _tempConfig.peakLimiterEnabled,
-          globalTrajectory: _tempConfig.globalTrajectory,
-          roomZones: _tempConfig.roomZones,
+                                  isExhibitionMode:
+                                      _tempConfig.isExhibitionMode,
+                                  masterHeadroomDb:
+                                      _tempConfig.masterHeadroomDb,
+                                  peakLimiterEnabled:
+                                      _tempConfig.peakLimiterEnabled,
+                                  globalTrajectory:
+                                      _tempConfig.globalTrajectory,
+                                  roomZones: _tempConfig.roomZones,
                                 );
                               });
                             },
@@ -1773,10 +1803,10 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                         multiConfigs: _tempConfig.multiConfigs,
                         rooms: _tempConfig.rooms,
                         isExhibitionMode: _tempConfig.isExhibitionMode,
-          masterHeadroomDb: _tempConfig.masterHeadroomDb,
-          peakLimiterEnabled: _tempConfig.peakLimiterEnabled,
-          globalTrajectory: _tempConfig.globalTrajectory,
-          roomZones: _tempConfig.roomZones,
+                        masterHeadroomDb: _tempConfig.masterHeadroomDb,
+                        peakLimiterEnabled: _tempConfig.peakLimiterEnabled,
+                        globalTrajectory: _tempConfig.globalTrajectory,
+                        roomZones: _tempConfig.roomZones,
                       );
                     });
                   }
@@ -1884,7 +1914,12 @@ class _OutputConfigDialogState extends ConsumerState<OutputConfigDialog> {
                 ),
                 onChanged: (val) {
                   onChanged(
-                    ChannelSetting(enabled: setting.enabled, customName: val, delayMs: setting.delayMs, eqBands: setting.eqBands),
+                    ChannelSetting(
+                      enabled: setting.enabled,
+                      customName: val,
+                      delayMs: setting.delayMs,
+                      eqBands: setting.eqBands,
+                    ),
                   );
                 },
               ),
@@ -1972,15 +2007,13 @@ class _OutputConfigDialogState extends ConsumerState<OutputConfigDialog> {
                                     eqBands: [],
                                   );
 
-                              return _buildChannelRow(
-                                '$displayCh1',
-                                setting,
-                                (newSetting) {
-                                  setState(() {
-                                    monoConfigs[key] = newSetting;
-                                  });
-                                },
-                              );
+                              return _buildChannelRow('$displayCh1', setting, (
+                                newSetting,
+                              ) {
+                                setState(() {
+                                  monoConfigs[key] = newSetting;
+                                });
+                              });
                             },
                           ),
                         ),
@@ -2113,9 +2146,11 @@ class _OutputConfigDialogState extends ConsumerState<OutputConfigDialog> {
                       backgroundColor: AppColors.primaryBlue,
                     ),
                     onPressed: () {
-                      Navigator.of(
-                        context,
-                      ).pop({'mono': monoConfigs, 'stereo': stereoConfigs, 'multi': multiConfigs});
+                      Navigator.of(context).pop({
+                        'mono': monoConfigs,
+                        'stereo': stereoConfigs,
+                        'multi': multiConfigs,
+                      });
                     },
                     child: const Text(
                       'OK',

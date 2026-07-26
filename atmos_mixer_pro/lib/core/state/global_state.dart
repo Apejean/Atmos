@@ -130,11 +130,14 @@ class ConfigNotifier extends Notifier<AppConfig?> {
         }
 
         if (engineNeedsRestart) {
-          await rust_api.apiInitAudioSystem(deviceName: configToSave.deviceName);
-          
+          await rust_api.apiInitAudioSystem(
+            deviceName: configToSave.deviceName,
+          );
+
           if (!(await rust_api.apiIsEngineReady())) {
             try {
-              await rust_api.apiCreateDeviceEventStream()
+              await rust_api
+                  .apiCreateDeviceEventStream()
                   .firstWhere((e) => e == 'EngineReady')
                   .timeout(const Duration(milliseconds: 2000));
             } catch (_) {
@@ -282,7 +285,11 @@ class EngineStateNotifier extends Notifier<EngineState> {
   }
 
   void reset() {
-    state = state.copyWith(themeStarted: false, clearedRoomIds: {}, masterMuteActive: false);
+    state = state.copyWith(
+      themeStarted: false,
+      clearedRoomIds: {},
+      masterMuteActive: false,
+    );
   }
 }
 
@@ -296,7 +303,8 @@ class GlobalErrorNotifier extends Notifier<String?> {
     try {
       // Listen for backend device events
       final sub = rust_api.apiCreateDeviceEventStream().listen((event) {
-        if (event.contains("DeviceNotAvailable") || event.contains("Disconnected")) {
+        if (event.contains("DeviceNotAvailable") ||
+            event.contains("Disconnected")) {
           state = "오디오 장치와 연결이 끊어졌습니다. 설정에서 오디오 장치를 다시 확인해 주세요.";
         }
       });
