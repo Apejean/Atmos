@@ -3,6 +3,12 @@ use crate::core::state::GLOBAL_STATE;
 use std::sync::atomic::Ordering;
 use crate::audio::dsp::dsp_utils::ChannelDspState;
 
+pub enum SpatialGarbage {
+    RoomZones(Vec<crate::common::config::RoomZone>),
+    Trajectory(Option<crate::common::config::Trajectory>),
+    ChannelPositions(Vec<Option<crate::common::config::Point3D>>),
+}
+
 pub struct DuckingState {
     pub is_ducking: bool,
     pub ducking_weight: f32, // 1.0 down to 0.3
@@ -34,6 +40,7 @@ pub struct AudioMixer {
     pub ducking: DuckingState,
     pub gc_sender: crossbeam_channel::Sender<SoundInstance>,
     pub buf_gc_tx: crossbeam_channel::Sender<Vec<f32>>,
+    pub spatial_gc_tx: crossbeam_channel::Sender<SpatialGarbage>,
     pub room_volumes: Vec<Option<(u32, f32)>>,
     pub local_recycle: Vec<Vec<f32>>,
     pub startup_ramp: StartupMuteRamp,
@@ -55,6 +62,13 @@ impl AudioMixer {
         std::thread::spawn(move || {
             while let Ok(_buf) = buf_gc_rx.recv() {
                 // Buffer is dropped here in a background thread, preventing heap deallocation in the audio thread
+            }
+        });
+
+        let (spatial_gc_tx, spatial_gc_rx) = crossbeam_channel::bounded::<SpatialGarbage>(1024);
+        std::thread::spawn(move || {
+            while let Ok(_garbage) = spatial_gc_rx.recv() {
+                // Vecs drop here, preventing OS allocations in the audio thread
             }
         });
 
@@ -133,6 +147,7 @@ impl AudioMixer {
             },
             gc_sender,
             buf_gc_tx,
+            spatial_gc_tx,
             room_volumes: vec![None; channels],
             local_recycle: Vec::with_capacity(8192),
             startup_ramp: StartupMuteRamp::new(sample_rate as f32),

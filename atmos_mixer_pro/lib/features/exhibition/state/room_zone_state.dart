@@ -92,6 +92,11 @@ class RoomZoneState extends Notifier<List<RoomZone>> {
     state = state.where((r) => r.id != id).toList();
     _saveToPrefsImmediate();
   }
+
+  void clearAll() {
+    state = [];
+    _saveToPrefsImmediate();
+  }
 }
 
 final roomZoneProvider = NotifierProvider<RoomZoneState, List<RoomZone>>(

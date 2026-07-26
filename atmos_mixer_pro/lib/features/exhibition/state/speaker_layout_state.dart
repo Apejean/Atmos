@@ -103,6 +103,11 @@ class SpeakerLayoutState extends Notifier<List<SpeakerNode>> {
     state = state.where((n) => n.id != id).toList();
     _saveToPrefsImmediate();
   }
+
+  void clearAll() {
+    state = [];
+    _saveToPrefsImmediate();
+  }
 }
 
 final speakerLayoutProvider =

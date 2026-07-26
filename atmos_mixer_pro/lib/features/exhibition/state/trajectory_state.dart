@@ -65,6 +65,11 @@ class TrajectoryState extends Notifier<List<Trajectory>> {
     state = state.where((t) => t.id != id).toList();
     _saveToPrefsImmediate();
   }
+
+  void clearAll() {
+    state = [];
+    _saveToPrefsImmediate();
+  }
 }
 
 final trajectoryProvider = NotifierProvider<TrajectoryState, List<Trajectory>>(

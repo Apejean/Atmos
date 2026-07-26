@@ -474,13 +474,12 @@ impl AudioEngine {
                     }
                 }
                 AudioCommand::UpdateSpatialConfig { channel_positions, room_zones, trajectory } => {
-                    for (ch, pos) in channel_positions.into_iter().enumerate() {
-                        if ch < mixer.channel_positions.len() {
-                            mixer.channel_positions[ch] = pos;
-                        }
-                    }
-                    mixer.room_zones = room_zones;
-                    mixer.trajectory = trajectory;
+                    let old_positions = std::mem::replace(&mut mixer.channel_positions, channel_positions);
+                    let old_zones = std::mem::replace(&mut mixer.room_zones, room_zones);
+                    let old_traj = std::mem::replace(&mut mixer.trajectory, trajectory);
+                    let _ = mixer.spatial_gc_tx.try_send(crate::audio::mixer::SpatialGarbage::ChannelPositions(old_positions));
+                    let _ = mixer.spatial_gc_tx.try_send(crate::audio::mixer::SpatialGarbage::RoomZones(old_zones));
+                    let _ = mixer.spatial_gc_tx.try_send(crate::audio::mixer::SpatialGarbage::Trajectory(old_traj));
                 }
                 AudioCommand::UpdateTrajectoryPosition { position } => {
                     if let Some(traj) = &mut mixer.trajectory {
