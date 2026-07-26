@@ -319,137 +319,153 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
   }
 
   Future<void> _editRoom(RoomZone room) async {
-    final controller = TextEditingController(text: room.label);
-    final widthController = TextEditingController(text: room.physicalWidth.toString());
-    final heightController = TextEditingController(text: room.physicalHeight.toString());
+    final blueprint = ref.read(blueprintProvider);
+    final nameController = TextEditingController(text: room.label);
+    final widthController = TextEditingController(text: room.physicalWidth.toStringAsFixed(1));
+    final heightController = TextEditingController(text: room.physicalHeight.toStringAsFixed(1));
     int selectedColor = room.color;
+    bool hasDoor = room.hasDoor;
+    int doorWall = room.doorWall;
+    double doorOffset = room.doorOffset;
 
     await showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
-        builder: (context, setState) => AlertDialog(
+        builder: (context, setDialogState) => AlertDialog(
           backgroundColor: AppColors.cardSurface,
-          title: const Text('Edit Room', style: TextStyle(color: Colors.white)),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
+          title: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              TextField(
-                controller: controller,
-                style: const TextStyle(color: Colors.white),
-                decoration: const InputDecoration(
-                  labelText: 'Room Name',
-                  labelStyle: TextStyle(color: Colors.white70),
-                  enabledBorder: UnderlineInputBorder(
-                    borderSide: BorderSide(color: Colors.white24),
-                  ),
-                  focusedBorder: UnderlineInputBorder(
-                    borderSide: BorderSide(color: AppColors.primaryNeon),
+              const Text('Edit Room Settings', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              IconButton(
+                icon: const Icon(Icons.close, color: Colors.white54),
+                onPressed: () => Navigator.pop(context),
+              ),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TextField(
+                  controller: nameController,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: const InputDecoration(
+                    labelText: 'Room Name',
+                    labelStyle: TextStyle(color: Colors.white70),
+                    enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
+                    focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: AppColors.primaryNeon)),
                   ),
                 ),
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: widthController,
-                      style: const TextStyle(color: Colors.white),
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                      decoration: const InputDecoration(
-                        labelText: 'Width (m)',
-                        labelStyle: TextStyle(color: Colors.white70),
-                        enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
-                        focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: AppColors.primaryNeon)),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: TextField(
-                      controller: heightController,
-                      style: const TextStyle(color: Colors.white),
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                      decoration: const InputDecoration(
-                        labelText: 'Height (m)',
-                        labelStyle: TextStyle(color: Colors.white70),
-                        enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
-                        focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: AppColors.primaryNeon)),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
-              const Text('Theme Color', style: TextStyle(color: Colors.white70)),
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 12,
-                runSpacing: 12,
-                children: AppColors.roomAccents.map((color) {
-                  final isSelected = color.toARGB32() == selectedColor;
-                  return GestureDetector(
-                    onTap: () => setState(() => selectedColor = color.toARGB32()),
-                    child: Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: color,
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: isSelected ? Colors.white : Colors.transparent,
-                          width: 3,
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: widthController,
+                        style: const TextStyle(color: Colors.white),
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        decoration: const InputDecoration(
+                          labelText: 'Width (m)',
+                          labelStyle: TextStyle(color: Colors.white70),
+                          enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
+                          focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: AppColors.primaryNeon)),
                         ),
                       ),
                     ),
-                  );
-                }).toList(),
-              ),
-              const SizedBox(height: 24),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text('Enable Door', style: TextStyle(color: Colors.white)),
-                  Switch(
-                    value: room.hasDoor,
-                    activeTrackColor: AppColors.primaryNeon,
-                    onChanged: (val) {
-                      ref.read(roomZoneProvider.notifier).updateRoomZone(
-                            room.copyWith(hasDoor: val),
-                            immediate: true,
-                          );
-                      Navigator.pop(context);
-                      _editRoom(room.copyWith(hasDoor: val));
-                    },
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: TextField(
+                        controller: heightController,
+                        style: const TextStyle(color: Colors.white),
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        decoration: const InputDecoration(
+                          labelText: 'Height (m)',
+                          labelStyle: TextStyle(color: Colors.white70),
+                          enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
+                          focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: AppColors.primaryNeon)),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                const Text('Theme Color', style: TextStyle(color: Colors.white70, fontSize: 13)),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: AppColors.roomAccents.map((color) {
+                    final isSelected = color.toARGB32() == selectedColor;
+                    return GestureDetector(
+                      onTap: () => setDialogState(() => selectedColor = color.toARGB32()),
+                      child: Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: color,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: isSelected ? Colors.white : Colors.transparent,
+                            width: 3,
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 20),
+                const Divider(color: Colors.white24),
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('CAD Entrance Marker (Door)', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                    Switch(
+                      value: hasDoor,
+                      activeTrackColor: AppColors.primaryNeon,
+                      onChanged: (val) => setDialogState(() => hasDoor = val),
+                    ),
+                  ],
+                ),
+                if (hasDoor) ...[
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      const Text('Door Wall: ', style: TextStyle(color: Colors.white70, fontSize: 13)),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: DropdownButton<int>(
+                          value: doorWall,
+                          dropdownColor: AppColors.cardSurface,
+                          isExpanded: true,
+                          style: const TextStyle(color: Colors.white),
+                          items: const [
+                            DropdownMenuItem(value: 0, child: Text('Top Wall')),
+                            DropdownMenuItem(value: 1, child: Text('Right Wall')),
+                            DropdownMenuItem(value: 2, child: Text('Bottom Wall')),
+                            DropdownMenuItem(value: 3, child: Text('Left Wall')),
+                          ],
+                          onChanged: (val) {
+                            if (val != null) setDialogState(() => doorWall = val);
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Text('Door Position: ${(doorOffset * 100).toInt()}%', style: const TextStyle(color: Colors.white70, fontSize: 13)),
+                  Slider(
+                    value: doorOffset,
+                    min: 0.0,
+                    max: 1.0,
+                    activeColor: AppColors.primaryNeon,
+                    onChanged: (val) => setDialogState(() => doorOffset = val),
                   ),
                 ],
-              ),
-              if (room.hasDoor) ...[
-                const SizedBox(height: 16),
-                const Text('Door Wall', style: TextStyle(color: Colors.white70)),
-                DropdownButton<int>(
-                  value: room.doorWall,
-                  dropdownColor: AppColors.background,
-                  isExpanded: true,
-                  style: const TextStyle(color: Colors.white),
-                  items: const [
-                    DropdownMenuItem(value: 0, child: Text('Top')),
-                    DropdownMenuItem(value: 1, child: Text('Right')),
-                    DropdownMenuItem(value: 2, child: Text('Bottom')),
-                    DropdownMenuItem(value: 3, child: Text('Left')),
-                  ],
-                  onChanged: (val) {
-                    if (val != null) {
-                      ref.read(roomZoneProvider.notifier).updateRoomZone(
-                            room.copyWith(doorWall: val),
-                            immediate: true,
-                          );
-                      Navigator.pop(context);
-                      _editRoom(room.copyWith(doorWall: val));
-                    }
-                  },
-                ),
               ],
-            ],
+            ),
           ),
           actions: [
             TextButton(
@@ -463,20 +479,33 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
               onPressed: () => Navigator.pop(context),
               child: const Text('Cancel', style: TextStyle(color: Colors.white70)),
             ),
-            TextButton(
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primaryNeon,
+                foregroundColor: Colors.black,
+              ),
               onPressed: () {
+                final newWidthM = double.tryParse(widthController.text) ?? room.physicalWidth;
+                final newHeightM = double.tryParse(heightController.text) ?? room.physicalHeight;
+                final scale = blueprint.scale > 0 ? blueprint.scale : 40.0;
+                
                 ref.read(roomZoneProvider.notifier).updateRoomZone(
                       room.copyWith(
-                        label: controller.text,
+                        label: nameController.text.trim().isNotEmpty ? nameController.text.trim() : room.label,
                         color: selectedColor,
-                        physicalWidth: double.tryParse(widthController.text) ?? 5.0,
-                        physicalHeight: double.tryParse(heightController.text) ?? 5.0,
+                        physicalWidth: newWidthM,
+                        physicalHeight: newHeightM,
+                        width: newWidthM * scale,
+                        height: newHeightM * scale,
+                        hasDoor: hasDoor,
+                        doorWall: doorWall,
+                        doorOffset: doorOffset,
                       ),
                       immediate: true,
                     );
                 Navigator.pop(context);
               },
-              child: const Text('Save', style: TextStyle(color: AppColors.primaryNeon)),
+              child: const Text('Save Changes', style: TextStyle(fontWeight: FontWeight.bold)),
             ),
           ],
         ),
@@ -865,6 +894,7 @@ class _DraggableRoomWidgetState extends ConsumerState<_DraggableRoomWidget> {
   late double _localY;
   late double _localW;
   late double _localH;
+  bool _isInteracting = false;
   Map<String, Offset> _draggedSpeakersOffsets = {};
 
   @override
@@ -879,7 +909,7 @@ class _DraggableRoomWidgetState extends ConsumerState<_DraggableRoomWidget> {
   @override
   void didUpdateWidget(covariant _DraggableRoomWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.room.id != widget.room.id) {
+    if (!_isInteracting) {
       _localX = widget.room.x;
       _localY = widget.room.y;
       _localW = widget.room.width;
@@ -892,6 +922,9 @@ class _DraggableRoomWidgetState extends ConsumerState<_DraggableRoomWidget> {
       alignment: alignment,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
+        onPanStart: (_) {
+          setState(() => _isInteracting = true);
+        },
         onPanUpdate: (details) {
           final scale = widget.transformationController.value.getMaxScaleOnAxis();
           final currentScale = scale > 0 ? scale : 1.0;
@@ -902,34 +935,49 @@ class _DraggableRoomWidgetState extends ConsumerState<_DraggableRoomWidget> {
             if (alignment.x < 0) {
               _localX += dx;
               _localW -= dx;
-              if (_localW < 100) {
-                _localX -= (100 - _localW);
-                _localW = 100;
+              if (_localW < 80) {
+                _localX -= (80 - _localW);
+                _localW = 80;
               }
             } else if (alignment.x > 0) {
               _localW += dx;
-              if (_localW < 100) _localW = 100;
+              if (_localW < 80) _localW = 80;
             }
 
             if (alignment.y < 0) {
               _localY += dy;
               _localH -= dy;
-              if (_localH < 100) {
-                _localY -= (100 - _localH);
-                _localH = 100;
+              if (_localH < 80) {
+                _localY -= (80 - _localH);
+                _localH = 80;
               }
             } else if (alignment.y > 0) {
               _localH += dy;
-              if (_localH < 100) _localH = 100;
+              if (_localH < 80) _localH = 80;
             }
 
             _localX = _localX.clamp(0.0, _canvasWidth - _localW);
             _localY = _localY.clamp(0.0, _canvasHeight - _localH);
-            _localW = _localW.clamp(100.0, _canvasWidth - _localX);
-            _localH = _localH.clamp(100.0, _canvasHeight - _localY);
+            _localW = _localW.clamp(80.0, _canvasWidth - _localX);
+            _localH = _localH.clamp(80.0, _canvasHeight - _localY);
           });
+
+          final blueprint = ref.read(blueprintProvider);
+          final scaleM = blueprint.scale > 0 ? blueprint.scale : 40.0;
+          ref.read(roomZoneProvider.notifier).updateRoomZone(
+                widget.room.copyWith(
+                  x: _localX,
+                  y: _localY,
+                  width: _localW,
+                  height: _localH,
+                  physicalWidth: _localW / scaleM,
+                  physicalHeight: _localH / scaleM,
+                ),
+                immediate: true,
+              );
+          widget.onDragUpdate?.call();
         },
-        onPanEnd: (details) {
+        onPanEnd: (_) {
           double snappedX = (_localX / _gridSize).round() * _gridSize;
           double snappedY = (_localY / _gridSize).round() * _gridSize;
           double snappedW = (_localW / _gridSize).round() * _gridSize;
@@ -937,21 +985,50 @@ class _DraggableRoomWidgetState extends ConsumerState<_DraggableRoomWidget> {
 
           snappedX = snappedX.clamp(0.0, _canvasWidth - snappedW);
           snappedY = snappedY.clamp(0.0, _canvasHeight - snappedH);
-          snappedW = snappedW.clamp(100.0, _canvasWidth - snappedX);
-          snappedH = snappedH.clamp(100.0, _canvasHeight - snappedY);
+          snappedW = snappedW.clamp(80.0, _canvasWidth - snappedX);
+          snappedH = snappedH.clamp(80.0, _canvasHeight - snappedY);
+
+          final blueprint = ref.read(blueprintProvider);
+          final scaleM = blueprint.scale > 0 ? blueprint.scale : 40.0;
+
+          setState(() {
+            _localX = snappedX;
+            _localY = snappedY;
+            _localW = snappedW;
+            _localH = snappedH;
+            _isInteracting = false;
+          });
 
           ref.read(roomZoneProvider.notifier).updateRoomZone(
-                widget.room.copyWith(x: snappedX, y: snappedY, width: snappedW, height: snappedH),
+                widget.room.copyWith(
+                  x: snappedX,
+                  y: snappedY,
+                  width: snappedW,
+                  height: snappedH,
+                  physicalWidth: snappedW / scaleM,
+                  physicalHeight: snappedH / scaleM,
+                ),
                 immediate: true,
               );
+          widget.onDragUpdate?.call();
         },
         child: Container(
-          width: 14,
-          height: 14,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border.all(color: Colors.black, width: 2),
-            shape: BoxShape.circle,
+          width: 28,
+          height: 28,
+          color: Colors.transparent,
+          child: Center(
+            child: Container(
+              width: 12,
+              height: 12,
+              decoration: BoxDecoration(
+                color: AppColors.primaryNeon,
+                border: Border.all(color: Colors.black, width: 2),
+                shape: BoxShape.circle,
+                boxShadow: const [
+                  BoxShadow(color: Colors.black54, blurRadius: 4),
+                ],
+              ),
+            ),
           ),
         ),
       ),
@@ -962,20 +1039,20 @@ class _DraggableRoomWidgetState extends ConsumerState<_DraggableRoomWidget> {
     if (!widget.room.hasDoor) return const SizedBox.shrink();
 
     double left = 0, top = 0;
-    final double doorWidth = 40.0;
+    final double doorWidth = 44.0;
     
     if (widget.room.doorWall == 0) {
-      left = widget.room.doorOffset * _localW - doorWidth / 2;
+      left = (widget.room.doorOffset * _localW - doorWidth / 2).clamp(0.0, _localW - doorWidth);
       top = -doorWidth / 2;
     } else if (widget.room.doorWall == 1) {
       left = _localW - doorWidth / 2;
-      top = widget.room.doorOffset * _localH - doorWidth / 2;
+      top = (widget.room.doorOffset * _localH - doorWidth / 2).clamp(0.0, _localH - doorWidth);
     } else if (widget.room.doorWall == 2) {
-      left = widget.room.doorOffset * _localW - doorWidth / 2;
+      left = (widget.room.doorOffset * _localW - doorWidth / 2).clamp(0.0, _localW - doorWidth);
       top = _localH - doorWidth / 2;
     } else if (widget.room.doorWall == 3) {
       left = -doorWidth / 2;
-      top = widget.room.doorOffset * _localH - doorWidth / 2;
+      top = (widget.room.doorOffset * _localH - doorWidth / 2).clamp(0.0, _localH - doorWidth);
     }
 
     return Positioned(
@@ -983,6 +1060,7 @@ class _DraggableRoomWidgetState extends ConsumerState<_DraggableRoomWidget> {
       top: top,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
+        onPanStart: (_) => setState(() => _isInteracting = true),
         onPanUpdate: (details) {
           final scale = widget.transformationController.value.getMaxScaleOnAxis();
           final currentScale = scale > 0 ? scale : 1.0;
@@ -991,9 +1069,9 @@ class _DraggableRoomWidgetState extends ConsumerState<_DraggableRoomWidget> {
           
           double newOffset = widget.room.doorOffset;
           if (widget.room.doorWall == 0 || widget.room.doorWall == 2) {
-            newOffset += dx / _localW;
+            newOffset += dx / (_localW > 0 ? _localW : 1.0);
           } else {
-            newOffset += dy / _localH;
+            newOffset += dy / (_localH > 0 ? _localH : 1.0);
           }
           newOffset = newOffset.clamp(0.0, 1.0);
           
@@ -1002,9 +1080,11 @@ class _DraggableRoomWidgetState extends ConsumerState<_DraggableRoomWidget> {
             immediate: true,
           );
         },
-        child: SizedBox(
+        onPanEnd: (_) => setState(() => _isInteracting = false),
+        child: Container(
           width: doorWidth,
           height: doorWidth,
+          color: Colors.transparent,
           child: CustomPaint(
             painter: _CadDoorPainter(
               color: Colors.cyanAccent,
@@ -1029,7 +1109,10 @@ class _DraggableRoomWidgetState extends ConsumerState<_DraggableRoomWidget> {
         children: [
           RepaintBoundary(
             child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: widget.onEdit,
               onPanStart: (details) {
+                setState(() => _isInteracting = true);
                 _draggedSpeakersOffsets = {
                   for (var s in widget.containedSpeakers) s.id: Offset(s.x, s.y)
                 };
@@ -1068,6 +1151,12 @@ class _DraggableRoomWidgetState extends ConsumerState<_DraggableRoomWidget> {
                 snappedX = snappedX.clamp(0.0, _canvasWidth - _localW);
                 snappedY = snappedY.clamp(0.0, _canvasHeight - _localH);
 
+                setState(() {
+                  _localX = snappedX;
+                  _localY = snappedY;
+                  _isInteracting = false;
+                });
+
                 ref.read(roomZoneProvider.notifier).updateRoomZone(
                       widget.room.copyWith(x: snappedX, y: snappedY),
                       immediate: true,
@@ -1091,28 +1180,56 @@ class _DraggableRoomWidgetState extends ConsumerState<_DraggableRoomWidget> {
                 _draggedSpeakersOffsets.clear();
                 widget.onDragUpdate?.call();
               },
-              onDoubleTap: widget.onEdit,
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(8),
                 child: BackdropFilter(
                   filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
                   child: Container(
                     decoration: BoxDecoration(
-                      color: roomColor.withValues(alpha: 0.15),
+                      color: roomColor.withValues(alpha: 0.18),
                       border: Border.all(
-                        color: roomColor.withValues(alpha: 0.8),
-                        width: 2,
+                        color: roomColor,
+                        width: 2.5,
                       ),
                       borderRadius: BorderRadius.circular(8),
+                      boxShadow: [
+                        BoxShadow(
+                          color: roomColor.withValues(alpha: 0.25),
+                          blurRadius: 12,
+                          spreadRadius: 1,
+                        ),
+                      ],
                     ),
                     child: Center(
-                      child: Text(
-                        widget.room.label,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                widget.room.label,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              const Icon(Icons.edit, size: 14, color: Colors.white70),
+                            ],
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '${widget.room.physicalWidth.toStringAsFixed(1)}m × ${widget.room.physicalHeight.toStringAsFixed(1)}m',
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.7),
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
@@ -1178,6 +1295,7 @@ class _DraggableSpeakerWidget extends ConsumerStatefulWidget {
 class _DraggableSpeakerWidgetState extends ConsumerState<_DraggableSpeakerWidget> {
   late double _localX;
   late double _localY;
+  bool _isDragging = false;
 
   @override
   void initState() {
@@ -1189,7 +1307,7 @@ class _DraggableSpeakerWidgetState extends ConsumerState<_DraggableSpeakerWidget
   @override
   void didUpdateWidget(covariant _DraggableSpeakerWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.node.id != widget.node.id) {
+    if (!_isDragging) {
       _localX = widget.node.x;
       _localY = widget.node.y;
     }
@@ -1201,6 +1319,7 @@ class _DraggableSpeakerWidgetState extends ConsumerState<_DraggableSpeakerWidget
       left: _localX,
       top: _localY,
       child: GestureDetector(
+        onPanStart: (_) => setState(() => _isDragging = true),
         onPanUpdate: (details) {
           final scale = widget.transformationController.value.getMaxScaleOnAxis();
           final currentScale = scale > 0 ? scale : 1.0;
@@ -1220,7 +1339,11 @@ class _DraggableSpeakerWidgetState extends ConsumerState<_DraggableSpeakerWidget
             x: snappedX.clamp(0.0, _canvasWidth - _speakerSize),
             y: snappedY.clamp(0.0, _canvasHeight - _speakerSize),
           );
-          // 강제 동기화 보장 (Trailing Edge 유실 방지)
+          setState(() {
+            _localX = updated.x;
+            _localY = updated.y;
+            _isDragging = false;
+          });
           ref.read(speakerLayoutProvider.notifier).updateSpeaker(updated, immediate: true);
         },
         child: SpeakerNodeWidget(
