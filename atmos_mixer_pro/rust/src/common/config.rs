@@ -89,6 +89,14 @@ pub struct AppConfig {
     pub room_zones: Vec<RoomZone>,
     #[serde(default)]
     pub is_exhibition_mode: bool,
+    #[serde(default = "default_master_headroom")]
+    pub master_headroom_db: f32,
+    #[serde(default = "default_true")]
+    pub peak_limiter_enabled: bool,
+}
+
+fn default_master_headroom() -> f32 {
+    0.0
 }
 
 impl Default for AppConfig {
@@ -106,6 +114,8 @@ impl Default for AppConfig {
             global_trajectory: None,
             room_zones: Vec::new(),
             is_exhibition_mode: false,
+            master_headroom_db: 0.0,
+            peak_limiter_enabled: true,
         }
     }
 }

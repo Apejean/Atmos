@@ -472,6 +472,10 @@ impl AudioEngine {
                         });
                     }
                 }
+                AudioCommand::ApplyGlobalTuning { master_headroom_db, peak_limiter_enabled } => {
+                    mixer.master_headroom_db = master_headroom_db;
+                    mixer.peak_limiter_enabled = peak_limiter_enabled;
+                }
                 AudioCommand::ApplyAllChannelTunings { tunings } => {
                     for (channel, delay_ms, eq_bands) in tunings {
                         if channel < mixer.channel_dsp.len() {

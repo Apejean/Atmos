@@ -176,6 +176,14 @@ Future<void> apiApplyChannelTuning({
   eqBands: eqBands,
 );
 
+Future<void> apiApplyGlobalTuning({
+  required double masterHeadroomDb,
+  required bool peakLimiterEnabled,
+}) => RustLib.instance.api.crateApiSimpleApiApplyGlobalTuning(
+  masterHeadroomDb: masterHeadroomDb,
+  peakLimiterEnabled: peakLimiterEnabled,
+);
+
 class ChannelTuningParams {
   final int channel;
   final double delayMs;

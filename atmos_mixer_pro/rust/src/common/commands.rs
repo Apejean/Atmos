@@ -70,4 +70,8 @@ pub enum AudioCommand {
     UpdateTrajectoryPosition {
         position: crate::common::config::Point3D,
     },
+    ApplyGlobalTuning {
+        master_headroom_db: f32,
+        peak_limiter_enabled: bool,
+    },
 }

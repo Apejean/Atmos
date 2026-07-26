@@ -42,6 +42,9 @@ pub struct AudioMixer {
     pub channel_positions: Vec<Option<crate::common::config::Point3D>>,
     pub room_zones: Vec<crate::common::config::RoomZone>,
     pub trajectory: Option<crate::common::config::Trajectory>,
+    pub master_headroom_db: f32,
+    pub peak_limiter_enabled: bool,
+    pub limiters: Vec<crate::audio::limiter::PeakLimiter>,
 }
 
 impl AudioMixer {
@@ -64,6 +67,12 @@ impl AudioMixer {
         let mut channel_positions = vec![None; channels];
         let mut room_zones = Vec::new();
         let mut trajectory = None;
+        let mut master_headroom_db = 0.0;
+        let mut peak_limiter_enabled = true;
+        let mut limiters = Vec::with_capacity(channels);
+        for _ in 0..channels {
+            limiters.push(crate::audio::limiter::PeakLimiter::new(sample_rate as f32, 0.1, 100.0, 1.0));
+        }
 
         if let Ok(config_guard) = GLOBAL_STATE.config.read() {
             if let Some(config) = config_guard.as_ref() {
@@ -108,6 +117,8 @@ impl AudioMixer {
                 }
                 room_zones = config.room_zones.clone();
                 trajectory = config.global_trajectory.clone();
+                master_headroom_db = config.master_headroom_db;
+                peak_limiter_enabled = config.peak_limiter_enabled;
             }
         }
 
@@ -128,6 +139,9 @@ impl AudioMixer {
             channel_positions,
             room_zones,
             trajectory,
+            master_headroom_db,
+            peak_limiter_enabled,
+            limiters,
         }
     }
 
@@ -146,6 +160,13 @@ impl AudioMixer {
         let fade_frames = (self.sample_rate as f32 * 0.3) as usize; // 300ms fade
         let duck_down_frames = (self.sample_rate as f32 * 0.15) as usize; // 150ms duck down
         let duck_up_frames = (self.sample_rate as f32 * 0.3) as usize; // 300ms duck up
+
+        if let Ok(config_guard) = GLOBAL_STATE.config.try_read() {
+            if let Some(config) = config_guard.as_ref() {
+                self.master_headroom_db = config.master_headroom_db;
+                self.peak_limiter_enabled = config.peak_limiter_enabled;
+            }
+        }
 
         // Check if any SFX is playing (not loop)
         let has_sfx = self.instances.iter().any(|inst| {
@@ -473,6 +494,8 @@ impl AudioMixer {
         }
 
         // Compute VU levels (Peak per channel) and apply soft clipping
+        let headroom_gain = 10.0f32.powf(self.master_headroom_db / 20.0);
+        
         for ch in 0..out_channels {
             if ch >= GLOBAL_STATE.enabled_channels.len() {
                 break;
@@ -496,13 +519,20 @@ impl AudioMixer {
                 if sample_idx < output.len() {
                     let mut val = output[sample_idx];
 
-                    // Transparent Soft Clipping (Pure Linear Pass-through within 0dBFS)
-                    if val > 1.0 {
-                        val = 0.99;
-                    } else if val < -1.0 {
-                        val = -0.99;
+                    // Apply Master Headroom Padding
+                    val *= headroom_gain;
+
+                    // Output Peak Limiter Guard
+                    if self.peak_limiter_enabled && ch < self.limiters.len() {
+                        val = self.limiters[ch].process(val);
+                    } else {
+                        // Fallback absolute hard clamp if limiter is disabled
+                        if val > 1.0 {
+                            val = 0.99;
+                        } else if val < -1.0 {
+                            val = -0.99;
+                        }
                     }
-                    
                     val = self.startup_ramp.apply(val);
                     if self.master_mute {
                         val = 0.0;

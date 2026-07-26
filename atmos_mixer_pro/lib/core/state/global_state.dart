@@ -148,6 +148,16 @@ class ConfigNotifier extends Notifier<AppConfig?> {
           await rust_api.apiStartOscListener(port: configToSave.oscPort);
         }
 
+        // Apply Global DSP Settings dynamically
+        if (oldConfig == null ||
+            oldConfig.masterHeadroomDb != configToSave.masterHeadroomDb ||
+            oldConfig.peakLimiterEnabled != configToSave.peakLimiterEnabled) {
+          await rust_api.apiApplyGlobalTuning(
+            masterHeadroomDb: configToSave.masterHeadroomDb,
+            peakLimiterEnabled: configToSave.peakLimiterEnabled,
+          );
+        }
+
         _lastProcessedConfig = configToSave;
       } catch (e) {
         ref.read(globalErrorProvider.notifier).showError('설정 저장 실패: $e');

@@ -19,6 +19,8 @@ class AppConfig {
   final Trajectory? globalTrajectory;
   final List<RoomZone> roomZones;
   final bool isExhibitionMode;
+  final double masterHeadroomDb;
+  final bool peakLimiterEnabled;
 
   const AppConfig({
     required this.oscPort,
@@ -33,6 +35,8 @@ class AppConfig {
     this.globalTrajectory,
     required this.roomZones,
     required this.isExhibitionMode,
+    required this.masterHeadroomDb,
+    required this.peakLimiterEnabled,
   });
 
   @override
@@ -48,7 +52,9 @@ class AppConfig {
       rooms.hashCode ^
       globalTrajectory.hashCode ^
       roomZones.hashCode ^
-      isExhibitionMode.hashCode;
+      isExhibitionMode.hashCode ^
+      masterHeadroomDb.hashCode ^
+      peakLimiterEnabled.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -66,7 +72,9 @@ class AppConfig {
           rooms == other.rooms &&
           globalTrajectory == other.globalTrajectory &&
           roomZones == other.roomZones &&
-          isExhibitionMode == other.isExhibitionMode;
+          isExhibitionMode == other.isExhibitionMode &&
+          masterHeadroomDb == other.masterHeadroomDb &&
+          peakLimiterEnabled == other.peakLimiterEnabled;
 }
 
 class ChannelSetting {

@@ -70,8 +70,10 @@ void main() {
       multiConfigs: {},
       rooms: [],
       isExhibitionMode: false,
-          globalTrajectory: null,
-          roomZones: [],
+      masterHeadroomDb: 0.0,
+      peakLimiterEnabled: true,
+      globalTrajectory: null,
+      roomZones: [],
     );
 
     final track = const TrackConfig(

@@ -79,6 +79,8 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
             multiConfigs: {},
             rooms: [],
             isExhibitionMode: false,
+          masterHeadroomDb: 0.0,
+          peakLimiterEnabled: true,
           globalTrajectory: null,
           roomZones: [],
           );
@@ -178,6 +180,8 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
           multiConfigs: _tempConfig.multiConfigs,
           rooms: _tempConfig.rooms,
           isExhibitionMode: _tempConfig.isExhibitionMode,
+          masterHeadroomDb: _tempConfig.masterHeadroomDb,
+          peakLimiterEnabled: _tempConfig.peakLimiterEnabled,
           globalTrajectory: _tempConfig.globalTrajectory,
           roomZones: _tempConfig.roomZones,
         );
@@ -238,6 +242,8 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
               multiConfigs: _tempConfig.multiConfigs,
               rooms: _tempConfig.rooms,
               isExhibitionMode: _tempConfig.isExhibitionMode,
+          masterHeadroomDb: _tempConfig.masterHeadroomDb,
+          peakLimiterEnabled: _tempConfig.peakLimiterEnabled,
           globalTrajectory: _tempConfig.globalTrajectory,
           roomZones: _tempConfig.roomZones,
             );
@@ -261,6 +267,8 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                 multiConfigs: _tempConfig.multiConfigs,
                 rooms: _tempConfig.rooms,
                 isExhibitionMode: _tempConfig.isExhibitionMode,
+          masterHeadroomDb: _tempConfig.masterHeadroomDb,
+          peakLimiterEnabled: _tempConfig.peakLimiterEnabled,
           globalTrajectory: _tempConfig.globalTrajectory,
           roomZones: _tempConfig.roomZones,
               );
@@ -322,6 +330,8 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
       stereoConfigs: Map.from(config.stereoConfigs),
       multiConfigs: Map.from(config.multiConfigs),
       isExhibitionMode: config.isExhibitionMode,
+          masterHeadroomDb: config.masterHeadroomDb,
+          peakLimiterEnabled: config.peakLimiterEnabled,
           globalTrajectory: config.globalTrajectory,
           roomZones: config.roomZones,
       rooms: config.rooms
@@ -400,6 +410,8 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
       multiConfigs: _tempConfig.multiConfigs,
       rooms: newRooms,
       isExhibitionMode: _tempConfig.isExhibitionMode,
+          masterHeadroomDb: _tempConfig.masterHeadroomDb,
+          peakLimiterEnabled: _tempConfig.peakLimiterEnabled,
           globalTrajectory: _tempConfig.globalTrajectory,
           roomZones: _tempConfig.roomZones,
     );
@@ -456,6 +468,8 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
             multiConfigs: Map.from(next.multiConfigs),
             rooms: updatedRooms,
             isExhibitionMode: _tempConfig.isExhibitionMode,
+          masterHeadroomDb: _tempConfig.masterHeadroomDb,
+          peakLimiterEnabled: _tempConfig.peakLimiterEnabled,
           globalTrajectory: _tempConfig.globalTrajectory,
           roomZones: _tempConfig.roomZones,
           );
@@ -715,6 +729,8 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                         multiConfigs: _tempConfig.multiConfigs,
                         rooms: _tempConfig.rooms,
                         isExhibitionMode: _tempConfig.isExhibitionMode,
+          masterHeadroomDb: _tempConfig.masterHeadroomDb,
+          peakLimiterEnabled: _tempConfig.peakLimiterEnabled,
           globalTrajectory: _tempConfig.globalTrajectory,
           roomZones: _tempConfig.roomZones,
                       );
@@ -798,6 +814,8 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                       multiConfigs: _tempConfig.multiConfigs,
                       rooms: _tempConfig.rooms,
                       isExhibitionMode: _tempConfig.isExhibitionMode,
+          masterHeadroomDb: _tempConfig.masterHeadroomDb,
+          peakLimiterEnabled: _tempConfig.peakLimiterEnabled,
           globalTrajectory: _tempConfig.globalTrajectory,
           roomZones: _tempConfig.roomZones,
                     );
@@ -882,12 +900,144 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                         multiConfigs: _tempConfig.multiConfigs,
                         rooms: _tempConfig.rooms,
                         isExhibitionMode: _tempConfig.isExhibitionMode,
+          masterHeadroomDb: _tempConfig.masterHeadroomDb,
+          peakLimiterEnabled: _tempConfig.peakLimiterEnabled,
           globalTrajectory: _tempConfig.globalTrajectory,
           roomZones: _tempConfig.roomZones,
                       );
                     });
                   }
                 },
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 24),
+        const Text(
+          '글로벌 DSP 설정 (Global DSP Settings)',
+          style: TextStyle(
+            color: AppColors.primaryNeon,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            const SizedBox(
+              width: 120,
+              child: Text(
+                'Master Headroom',
+                style: TextStyle(
+                  color: Colors.white70,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
+              ),
+            ),
+            SegmentedButton<double>(
+              segments: const [
+                ButtonSegment<double>(
+                  value: 0.0,
+                  label: Text('0 dB'),
+                ),
+                ButtonSegment<double>(
+                  value: -3.0,
+                  label: Text('-3 dB'),
+                ),
+                ButtonSegment<double>(
+                  value: -6.0,
+                  label: Text('-6 dB'),
+                ),
+              ],
+              selected: {_tempConfig.masterHeadroomDb},
+              onSelectionChanged: (Set<double> newSelection) {
+                setState(() {
+                  _tempConfig = AppConfig(
+                        oscPort: _tempConfig.oscPort,
+                        deviceName: _tempConfig.deviceName,
+                        bufferSize: _tempConfig.bufferSize,
+                        themeStartOscAddress: _tempConfig.themeStartOscAddress,
+                        systemResetOscAddress: _tempConfig.systemResetOscAddress,
+                        monoConfigs: _tempConfig.monoConfigs,
+                        stereoConfigs: _tempConfig.stereoConfigs,
+                        multiConfigs: _tempConfig.multiConfigs,
+                        rooms: _tempConfig.rooms,
+                        isExhibitionMode: _tempConfig.isExhibitionMode,
+                        masterHeadroomDb: newSelection.first,
+                        peakLimiterEnabled: _tempConfig.peakLimiterEnabled,
+                        globalTrajectory: _tempConfig.globalTrajectory,
+                        roomZones: _tempConfig.roomZones,
+                      );
+                });
+              },
+              style: ButtonStyle(
+                backgroundColor: WidgetStateProperty.resolveWith<Color>(
+                  (Set<WidgetState> states) {
+                    if (states.contains(WidgetState.selected)) {
+                      return AppColors.primaryNeon.withValues(alpha: 0.2);
+                    }
+                    return AppColors.cardSurfaceSolid;
+                  },
+                ),
+                foregroundColor: WidgetStateProperty.resolveWith<Color>(
+                  (Set<WidgetState> states) {
+                    if (states.contains(WidgetState.selected)) {
+                      return AppColors.primaryNeon;
+                    }
+                    return Colors.white70;
+                  },
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            const SizedBox(
+              width: 120,
+              child: Text(
+                'Peak Limiter Guard',
+                style: TextStyle(
+                  color: Colors.white70,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
+              ),
+            ),
+            Switch(
+              value: _tempConfig.peakLimiterEnabled,
+              activeTrackColor: AppColors.primaryNeon.withValues(alpha: 0.5),
+              activeThumbColor: AppColors.primaryNeon,
+              onChanged: (val) {
+                setState(() {
+                  _tempConfig = AppConfig(
+                        oscPort: _tempConfig.oscPort,
+                        deviceName: _tempConfig.deviceName,
+                        bufferSize: _tempConfig.bufferSize,
+                        themeStartOscAddress: _tempConfig.themeStartOscAddress,
+                        systemResetOscAddress: _tempConfig.systemResetOscAddress,
+                        monoConfigs: _tempConfig.monoConfigs,
+                        stereoConfigs: _tempConfig.stereoConfigs,
+                        multiConfigs: _tempConfig.multiConfigs,
+                        rooms: _tempConfig.rooms,
+                        isExhibitionMode: _tempConfig.isExhibitionMode,
+                        masterHeadroomDb: _tempConfig.masterHeadroomDb,
+                        peakLimiterEnabled: val,
+                        globalTrajectory: _tempConfig.globalTrajectory,
+                        roomZones: _tempConfig.roomZones,
+                      );
+                });
+              },
+            ),
+            const SizedBox(width: 8),
+            Text(
+              _tempConfig.peakLimiterEnabled ? 'On' : 'Off',
+              style: TextStyle(
+                color: _tempConfig.peakLimiterEnabled
+                    ? AppColors.primaryNeon
+                    : Colors.white54,
+                fontWeight: FontWeight.bold,
               ),
             ),
           ],
@@ -963,6 +1113,8 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                         multiConfigs: result['multi']!,
                         rooms: _tempConfig.rooms,
                         isExhibitionMode: _tempConfig.isExhibitionMode,
+          masterHeadroomDb: _tempConfig.masterHeadroomDb,
+          peakLimiterEnabled: _tempConfig.peakLimiterEnabled,
           globalTrajectory: _tempConfig.globalTrajectory,
           roomZones: _tempConfig.roomZones,
                       );
@@ -1209,6 +1361,8 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                                   multiConfigs: _tempConfig.multiConfigs,
                                   rooms: newRooms,
                                   isExhibitionMode: _tempConfig.isExhibitionMode,
+          masterHeadroomDb: _tempConfig.masterHeadroomDb,
+          peakLimiterEnabled: _tempConfig.peakLimiterEnabled,
           globalTrajectory: _tempConfig.globalTrajectory,
           roomZones: _tempConfig.roomZones,
                                 );
@@ -1282,6 +1436,8 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                         multiConfigs: _tempConfig.multiConfigs,
                         rooms: _tempConfig.rooms,
                         isExhibitionMode: _tempConfig.isExhibitionMode,
+          masterHeadroomDb: _tempConfig.masterHeadroomDb,
+          peakLimiterEnabled: _tempConfig.peakLimiterEnabled,
           globalTrajectory: _tempConfig.globalTrajectory,
           roomZones: _tempConfig.roomZones,
                       );
@@ -1333,6 +1489,8 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                         multiConfigs: _tempConfig.multiConfigs,
                         rooms: _tempConfig.rooms,
                         isExhibitionMode: _tempConfig.isExhibitionMode,
+          masterHeadroomDb: _tempConfig.masterHeadroomDb,
+          peakLimiterEnabled: _tempConfig.peakLimiterEnabled,
           globalTrajectory: _tempConfig.globalTrajectory,
           roomZones: _tempConfig.roomZones,
                       );
@@ -1411,6 +1569,8 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                               multiConfigs: _tempConfig.multiConfigs,
                               rooms: newRooms,
                               isExhibitionMode: _tempConfig.isExhibitionMode,
+          masterHeadroomDb: _tempConfig.masterHeadroomDb,
+          peakLimiterEnabled: _tempConfig.peakLimiterEnabled,
           globalTrajectory: _tempConfig.globalTrajectory,
           roomZones: _tempConfig.roomZones,
                             );
@@ -1491,6 +1651,8 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                                   multiConfigs: _tempConfig.multiConfigs,
                                   rooms: newRooms,
                                   isExhibitionMode: _tempConfig.isExhibitionMode,
+          masterHeadroomDb: _tempConfig.masterHeadroomDb,
+          peakLimiterEnabled: _tempConfig.peakLimiterEnabled,
           globalTrajectory: _tempConfig.globalTrajectory,
           roomZones: _tempConfig.roomZones,
                                 );
@@ -1553,6 +1715,8 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                                   multiConfigs: _tempConfig.multiConfigs,
                                   rooms: newRooms,
                                   isExhibitionMode: _tempConfig.isExhibitionMode,
+          masterHeadroomDb: _tempConfig.masterHeadroomDb,
+          peakLimiterEnabled: _tempConfig.peakLimiterEnabled,
           globalTrajectory: _tempConfig.globalTrajectory,
           roomZones: _tempConfig.roomZones,
                                 );
@@ -1609,6 +1773,8 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                         multiConfigs: _tempConfig.multiConfigs,
                         rooms: _tempConfig.rooms,
                         isExhibitionMode: _tempConfig.isExhibitionMode,
+          masterHeadroomDb: _tempConfig.masterHeadroomDb,
+          peakLimiterEnabled: _tempConfig.peakLimiterEnabled,
           globalTrajectory: _tempConfig.globalTrajectory,
           roomZones: _tempConfig.roomZones,
                       );

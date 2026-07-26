@@ -6,3 +6,5 @@ pub mod streaming;
 pub mod spatial;
 pub mod dsp;
 pub mod svf;
+pub mod limiter;
+

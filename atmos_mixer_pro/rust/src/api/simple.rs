@@ -1285,3 +1285,23 @@ pub fn api_apply_channel_tuning(channel: u32, delay_ms: f32, eq_bands: Vec<EqBan
     Ok(())
 }
 
+
+pub fn api_apply_global_tuning(master_headroom_db: f32, peak_limiter_enabled: bool) -> Result<(), AtmosError> {
+    GLOBAL_STATE
+        .command_sender
+        .try_send(AudioCommand::ApplyGlobalTuning {
+            master_headroom_db,
+            peak_limiter_enabled,
+        })
+        .map_err(|e| AtmosError {
+            message: format!("Failed to apply global tuning: {}", e),
+        })?;
+
+    if let Ok(mut config_guard) = GLOBAL_STATE.config.write() {
+        if let Some(config) = config_guard.as_mut() {
+            config.master_headroom_db = master_headroom_db;
+            config.peak_limiter_enabled = peak_limiter_enabled;
+        }
+    }
+    Ok(())
+}
