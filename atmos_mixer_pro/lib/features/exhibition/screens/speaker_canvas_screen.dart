@@ -879,10 +879,12 @@ class _DraggableRoomWidgetState extends ConsumerState<_DraggableRoomWidget> {
   @override
   void didUpdateWidget(covariant _DraggableRoomWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
-    _localX = widget.room.x;
-    _localY = widget.room.y;
-    _localW = widget.room.width;
-    _localH = widget.room.height;
+    if (oldWidget.room.id != widget.room.id) {
+      _localX = widget.room.x;
+      _localY = widget.room.y;
+      _localW = widget.room.width;
+      _localH = widget.room.height;
+    }
   }
 
   Widget _buildResizeHandle(Alignment alignment) {
@@ -1187,8 +1189,10 @@ class _DraggableSpeakerWidgetState extends ConsumerState<_DraggableSpeakerWidget
   @override
   void didUpdateWidget(covariant _DraggableSpeakerWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
-    _localX = widget.node.x;
-    _localY = widget.node.y;
+    if (oldWidget.node.id != widget.node.id) {
+      _localX = widget.node.x;
+      _localY = widget.node.y;
+    }
   }
 
   @override
