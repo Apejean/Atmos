@@ -65,6 +65,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
   void dispose() {
     _automationTimer?.cancel();
     _transformationController.dispose();
+    _pdfDocument?.close();
     super.dispose();
   }
 
@@ -111,6 +112,8 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
     });
   }
 
+  bool _automationReverse = false;
+
   void _toggleAutomation() {
     final trajectories = ref.read(trajectoryProvider);
     if (trajectories.isEmpty || trajectories.first.waypoints.isEmpty) return;
@@ -125,20 +128,39 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
       setState(() {
         _isPlayingAutomation = true;
       });
-      final waypoints = trajectories.first.waypoints;
+      final trajectory = trajectories.first;
+      final waypoints = trajectory.waypoints;
       _automationTimer = Timer.periodic(const Duration(milliseconds: 16), (timer) {
         setState(() {
-          _automationProgress += 0.002;
-          if (_automationProgress > 1.0) _automationProgress = 0.0;
+          double delta = 0.002 * trajectory.speed;
+          if (_automationReverse) {
+            _automationProgress -= delta;
+          } else {
+            _automationProgress += delta;
+          }
+
+          if (trajectory.isPingPong) {
+            if (_automationProgress >= 1.0) {
+              _automationProgress = 1.0;
+              _automationReverse = true;
+            } else if (_automationProgress <= 0.0) {
+              _automationProgress = 0.0;
+              _automationReverse = false;
+            }
+          } else {
+            if (_automationProgress >= 1.0) _automationProgress = 0.0;
+            if (_automationProgress <= 0.0) _automationProgress = 1.0;
+            _automationReverse = false;
+          }
           
           final totalPoints = waypoints.length;
           if (totalPoints == 1) {
             _currentAutomationPos = Offset(waypoints.first.x, waypoints.first.y);
           } else {
             final fIndex = _automationProgress * totalPoints;
-            final iIndex = fIndex.floor();
+            final iIndex = fIndex.floor() % totalPoints;
             final nextIndex = (iIndex + 1) % totalPoints;
-            final t = fIndex - iIndex;
+            final t = fIndex - fIndex.floor();
             
             final w1 = waypoints[iIndex];
             final w2 = waypoints[nextIndex];
@@ -169,11 +191,14 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
   PdfPageImage? _pdfImage;
 
   Future<void> _initPdfDocument(String path) async {
+    final prevDoc = _pdfDocument;
+
     if (!path.toLowerCase().endsWith('.pdf')) {
       setState(() {
         _pdfDocument = null;
         _pdfImage = null;
       });
+      prevDoc?.close();
       return;
     }
     try {
@@ -188,6 +213,8 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
         _pdfImage = pageImage;
       });
       await page.close();
+
+      prevDoc?.close();
     } catch (e) {
       debugPrint('Error loading PDF: \$e');
     }
@@ -384,6 +411,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                   const Text('Enable Door', style: TextStyle(color: Colors.white)),
                   Switch(
                     value: room.hasDoor,
+                    activeTrackColor: AppColors.primaryNeon,
                     onChanged: (val) {
                       ref.read(roomZoneProvider.notifier).updateRoomZone(
                             room.copyWith(hasDoor: val),
@@ -392,7 +420,6 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                       Navigator.pop(context);
                       _editRoom(room.copyWith(hasDoor: val));
                     },
-                    activeColor: AppColors.primaryNeon,
                   ),
                 ],
               ),
@@ -589,7 +616,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                                       value: currentScale,
                                       min: 10.0,
                                       max: 200.0,
-                                      activeThumbColor: AppColors.primaryNeon,
+                                      activeColor: AppColors.primaryNeon,
                                       onChanged: (val) {
                                         setDialogState(() {
                                           currentScale = val;
@@ -1060,6 +1087,7 @@ class _DraggableRoomWidgetState extends ConsumerState<_DraggableRoomWidget> {
                   } catch (_) {}
                 }
                 _draggedSpeakersOffsets.clear();
+                widget.onDragUpdate?.call();
               },
               onDoubleTap: widget.onEdit,
               child: ClipRRect(
@@ -1168,40 +1196,39 @@ class _DraggableSpeakerWidgetState extends ConsumerState<_DraggableSpeakerWidget
     return Positioned(
       left: _localX,
       top: _localY,
-      child: RepaintBoundary(
-        child: GestureDetector(
-          onPanUpdate: (details) {
-            final scale = widget.transformationController.value.getMaxScaleOnAxis();
-            final currentScale = scale > 0 ? scale : 1.0;
-            setState(() {
-              _localX = (_localX + details.delta.dx / currentScale).clamp(0.0, _canvasWidth - _speakerSize);
-              _localY = (_localY + details.delta.dy / currentScale).clamp(0.0, _canvasHeight - _speakerSize);
-            });
-            ref.read(speakerLayoutProvider.notifier).updateSpeaker(
-              widget.node.copyWith(x: _localX, y: _localY),
-              immediate: true,
-            );
+      child: GestureDetector(
+        onPanUpdate: (details) {
+          final scale = widget.transformationController.value.getMaxScaleOnAxis();
+          final currentScale = scale > 0 ? scale : 1.0;
+          setState(() {
+            _localX = (_localX + details.delta.dx / currentScale).clamp(0.0, _canvasWidth - _speakerSize);
+            _localY = (_localY + details.delta.dy / currentScale).clamp(0.0, _canvasHeight - _speakerSize);
+          });
+          ref.read(speakerLayoutProvider.notifier).updateSpeaker(
+            widget.node.copyWith(x: _localX, y: _localY),
+            immediate: true,
+          );
+        },
+        onPanEnd: (details) {
+          final snappedX = (_localX / _gridSize).round() * _gridSize;
+          final snappedY = (_localY / _gridSize).round() * _gridSize;
+          final updated = widget.node.copyWith(
+            x: snappedX.clamp(0.0, _canvasWidth - _speakerSize),
+            y: snappedY.clamp(0.0, _canvasHeight - _speakerSize),
+          );
+          // 강제 동기화 보장 (Trailing Edge 유실 방지)
+          ref.read(speakerLayoutProvider.notifier).updateSpeaker(updated, immediate: true);
+        },
+        child: SpeakerNodeWidget(
+          node: widget.node,
+          roomColor: widget.roomColor,
+          onChannelChanged: (ch) {
+            ref.read(speakerLayoutProvider.notifier).updateSpeaker(widget.node.copyWith(channel: ch));
           },
-          onPanEnd: (details) {
-            final snappedX = (_localX / _gridSize).round() * _gridSize;
-            final snappedY = (_localY / _gridSize).round() * _gridSize;
-            final updated = widget.node.copyWith(
-              x: snappedX.clamp(0.0, _canvasWidth - _speakerSize),
-              y: snappedY.clamp(0.0, _canvasHeight - _speakerSize),
-            );
-            ref.read(speakerLayoutProvider.notifier).updateSpeaker(updated, immediate: true);
+          onDelete: () {
+            ref.read(speakerLayoutProvider.notifier).removeSpeaker(widget.node.id);
           },
-          child: SpeakerNodeWidget(
-            node: widget.node,
-            roomColor: widget.roomColor,
-            onChannelChanged: (ch) {
-              ref.read(speakerLayoutProvider.notifier).updateSpeaker(widget.node.copyWith(channel: ch));
-            },
-            onDelete: () {
-              ref.read(speakerLayoutProvider.notifier).removeSpeaker(widget.node.id);
-            },
-            isDuplicateChannel: widget.isDuplicate,
-          ),
+          isDuplicateChannel: widget.isDuplicate,
         ),
       ),
     );
@@ -1267,6 +1294,10 @@ class _DraggableWaypointWidgetState extends ConsumerState<_DraggableWaypointWidg
             widget.trajectory.copyWith(waypoints: wps),
             immediate: true,
           );
+          widget.onDragUpdate();
+        },
+        onPanEnd: (details) {
+          // 강제 동기화 보장 (Trailing Edge 유실 방지)
           widget.onDragUpdate();
         },
         onDoubleTap: () {
