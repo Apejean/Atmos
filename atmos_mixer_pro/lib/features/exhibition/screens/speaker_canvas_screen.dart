@@ -43,7 +43,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
     super.initState();
     // Center the view initially
     _transformationController.value = Matrix4.identity()
-      ..translate(-_canvasWidth / 2 + 400, -_canvasHeight / 2 + 300, 0.0);
+      ..translateByDouble(-_canvasWidth / 2 + 400, -_canvasHeight / 2 + 300, 0.0);
   }
 
   @override

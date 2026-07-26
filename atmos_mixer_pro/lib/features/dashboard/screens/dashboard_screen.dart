@@ -219,8 +219,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   multiConfigs: config.multiConfigs,
                   rooms: config.rooms,
                   isExhibitionMode: !config.isExhibitionMode,
-          globalTrajectory: !config.globalTrajectory,
-          roomZones: !config.roomZones,
                 );
                 ref.read(configProvider.notifier).saveConfig(updated);
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -419,8 +417,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       multiConfigs: config.multiConfigs,
                       rooms: config.rooms,
                       isExhibitionMode: !config.isExhibitionMode,
-          globalTrajectory: !config.globalTrajectory,
-          roomZones: !config.roomZones,
                     );
                     ref.read(configProvider.notifier).saveConfig(updated);
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -956,8 +952,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             isCleared: isCleared,
             accentColor: accentColor,
             isExhibitionMode: config.isExhibitionMode,
-          globalTrajectory: config.globalTrajectory,
-          roomZones: config.roomZones,
           );
         },
       ),
