@@ -1,6 +1,6 @@
 [package]
 name = "rust_lib_atmos_mixer_pro"
-version = "1.0.58"
+version = "1.0.79"
 edition = "2021"
 
 [lib]
