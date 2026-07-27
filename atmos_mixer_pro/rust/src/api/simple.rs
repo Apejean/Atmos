@@ -1399,3 +1399,117 @@ pub fn api_calculate_dbap_heatmap(listener_pos: Point3D, channel_positions: Vec<
 
     weights
 }
+
+#[flutter_rust_bridge::frb(sync)]
+pub fn api_calculate_eq_response_curve(
+    bands: Vec<crate::common::config::EqBand>,
+    num_points: usize,
+    sample_rate: f32,
+) -> Vec<f32> {
+    let n_pts = if num_points == 0 { 300 } else { num_points };
+    let fs = if sample_rate <= 0.0 { 48000.0 } else { sample_rate };
+    let mut response_db = vec![0.0f32; n_pts];
+
+    for i in 0..n_pts {
+        // Logarithmic frequency sampling from 20 Hz to 20,000 Hz
+        let f = 20.0 * (20000.0 / 20.0f32).powf(i as f32 / (n_pts - 1) as f32);
+        let omega = 2.0 * std::f32::consts::PI * f / fs;
+        let mut total_db = 0.0f32;
+
+        for band in &bands {
+            if !band.enabled {
+                continue;
+            }
+            let fc = band.freq.clamp(20.0, 20000.0);
+            let gain_db = band.gain;
+            let q = band.q_factor.max(0.1);
+            let w0 = 2.0 * std::f32::consts::PI * fc / fs;
+            let alpha = w0.sin() / (2.0 * q);
+            let a = 10.0f32.powf(gain_db / 40.0);
+
+            // Biquad coefficients based on EqType
+            let (b0, b1, b2, a0, a1, a2) = match band.filter_type {
+                crate::common::config::EqType::Bell => (
+                    1.0 + alpha * a,
+                    -2.0 * w0.cos(),
+                    1.0 - alpha * a,
+                    1.0 + alpha / a,
+                    -2.0 * w0.cos(),
+                    1.0 - alpha / a,
+                ),
+                crate::common::config::EqType::LowCut => (
+                    (1.0 + w0.cos()) / 2.0,
+                    -(1.0 + w0.cos()),
+                    (1.0 + w0.cos()) / 2.0,
+                    1.0 + alpha,
+                    -2.0 * w0.cos(),
+                    1.0 - alpha,
+                ),
+                crate::common::config::EqType::HighCut => (
+                    (1.0 - w0.cos()) / 2.0,
+                    1.0 - w0.cos(),
+                    (1.0 - w0.cos()) / 2.0,
+                    1.0 + alpha,
+                    -2.0 * w0.cos(),
+                    1.0 - alpha,
+                ),
+                crate::common::config::EqType::LowShelf => (
+                    a * ((a + 1.0) - (a - 1.0) * w0.cos() + 2.0 * a.sqrt() * alpha),
+                    2.0 * a * ((a - 1.0) - (a + 1.0) * w0.cos()),
+                    a * ((a + 1.0) - (a - 1.0) * w0.cos() - 2.0 * a.sqrt() * alpha),
+                    (a + 1.0) + (a - 1.0) * w0.cos() + 2.0 * a.sqrt() * alpha,
+                    -2.0 * ((a - 1.0) + (a + 1.0) * w0.cos()),
+                    (a + 1.0) + (a - 1.0) * w0.cos() - 2.0 * a.sqrt() * alpha,
+                ),
+                crate::common::config::EqType::HighShelf => (
+                    a * ((a + 1.0) + (a - 1.0) * w0.cos() + 2.0 * a.sqrt() * alpha),
+                    -2.0 * a * ((a - 1.0) + (a + 1.0) * w0.cos()),
+                    a * ((a + 1.0) + (a - 1.0) * w0.cos() - 2.0 * a.sqrt() * alpha),
+                    (a + 1.0) - (a - 1.0) * w0.cos() + 2.0 * a.sqrt() * alpha,
+                    2.0 * ((a - 1.0) - (a + 1.0) * w0.cos()),
+                    (a + 1.0) - (a - 1.0) * w0.cos() - 2.0 * a.sqrt() * alpha,
+                ),
+                crate::common::config::EqType::Notch => (
+                    1.0,
+                    -2.0 * w0.cos(),
+                    1.0,
+                    1.0 + alpha,
+                    -2.0 * w0.cos(),
+                    1.0 - alpha,
+                ),
+            };
+
+            // Normalize coefficients by a0
+            let nb0 = b0 / a0;
+            let nb1 = b1 / a0;
+            let nb2 = b2 / a0;
+            let na1 = a1 / a0;
+            let na2 = a2 / a0;
+
+            // Magnitude response calculation |H(e^{j w})|^2
+            let cos_w = omega.cos();
+            let cos_2w = (2.0 * omega).cos();
+            let sin_w = omega.sin();
+            let sin_2w = (2.0 * omega).sin();
+
+            let num_real = nb0 + nb1 * cos_w + nb2 * cos_2w;
+            let num_imag = nb1 * sin_w + nb2 * sin_2w;
+            let den_real = 1.0 + na1 * cos_w + na2 * cos_2w;
+            let den_imag = na1 * sin_w + na2 * sin_2w;
+
+            let num_sq = num_real * num_real + num_imag * num_imag;
+            let den_sq = den_real * den_real + den_imag * den_imag;
+
+            if den_sq > 0.0 {
+                let mag_sq = num_sq / den_sq;
+                if mag_sq > 0.0 {
+                    total_db += 10.0 * mag_sq.log10();
+                }
+            }
+        }
+        response_db[i] = total_db.clamp(-30.0, 30.0);
+    }
+
+    response_db
+}
+

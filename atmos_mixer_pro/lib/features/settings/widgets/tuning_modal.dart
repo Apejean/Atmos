@@ -271,8 +271,8 @@ class _TuningModalState extends ConsumerState<TuningModal> {
 
   static const double minFreq = 20.0;
   static const double maxFreq = 20000.0;
-  static const double minGain = -15.0;
-  static const double maxGain = 15.0;
+  static const double minGain = -30.0;
+  static const double maxGain = 30.0;
 
   @override
   void initState() {
@@ -852,6 +852,17 @@ class _TuningModalState extends ConsumerState<TuningModal> {
                 onHover: (event) => _handleHover(event, constraints),
                 onExit: (_) => setState(() => _hoverIndex = -1),
                 child: GestureDetector(
+                  onSecondaryTapUp: (details) {
+                    int bandIdx = _findClosestBandIndex(
+                      details.localPosition,
+                      Size(constraints.maxWidth, constraints.maxHeight),
+                    );
+                    if (bandIdx != -1) {
+                      _showBandContextMenu(context, details.globalPosition, bandIdx);
+                    } else if (_activeBandIndex != -1) {
+                      _showBandContextMenu(context, details.globalPosition, _activeBandIndex);
+                    }
+                  },
                   onPanDown: (details) => _handlePanDown(details, constraints),
                   onPanUpdate: (details) =>
                       _handlePanUpdate(details, constraints),
@@ -1166,7 +1177,7 @@ class _EqGridPainter extends CustomPainter {
       ..strokeWidth = 1;
 
     // Horizontal lines (Gain)
-    for (double g in [-12.0, -6.0, 0.0, 6.0, 12.0]) {
+    for (double g in [-24.0, -12.0, 0.0, 12.0, 24.0]) {
       double y = gainToY(g);
       canvas.drawLine(
         Offset(0, y),
@@ -1231,58 +1242,108 @@ class _EqCurvePainter extends CustomPainter {
     }
 
     // Calculate curve points
-    int resolution = 100;
+    int resolution = 300;
     List<Offset> points = [];
 
     for (int i = 0; i <= resolution; i++) {
       double x = (i / resolution) * size.width;
       double t = i / resolution;
       double f = math.exp(minLog + t * (maxLog - minLog));
+      double omega = 2.0 * math.pi * f / 48000.0;
 
       double totalDb = 0.0;
+
+      // Precise Biquad Magnitude Response for FabFilter Pro-Q3 standard
       for (int b = 0; b < 8; b++) {
         if (!bandEnabled[b]) continue;
         double bandF = freqs[b].clamp(minFreq, maxFreq);
         double bandG = gains[b];
-        double bandQ = qs[b].clamp(0.1, 10.0);
-        double distanceOctaves = (math.log(f) - math.log(bandF)) / math.ln2;
+        double bandQ = math.max(0.1, qs[b]);
+        double w0 = 2.0 * math.pi * bandF / 48000.0;
+        double alpha = math.sin(w0) / (2.0 * bandQ);
+        double A = math.pow(10.0, bandG / 40.0).toDouble();
+
+        double b0 = 1.0, b1 = 0.0, b2 = 0.0;
+        double a0 = 1.0, a1 = 0.0, a2 = 0.0;
 
         switch (bandTypes[b]) {
           case EqType.bell:
-            double width = 1.0 / bandQ;
-            totalDb +=
-                bandG *
-                math.exp(
-                  -(distanceOctaves * distanceOctaves) / (width * width),
-                );
-            break;
-          case EqType.lowShelf:
-            double width = 1.0 / bandQ;
-            totalDb += bandG / (1.0 + math.exp(distanceOctaves * 4.0 / width));
-            break;
-          case EqType.highShelf:
-            double width = 1.0 / bandQ;
-            totalDb += bandG / (1.0 + math.exp(-distanceOctaves * 4.0 / width));
+            b0 = 1.0 + alpha * A;
+            b1 = -2.0 * math.cos(w0);
+            b2 = 1.0 - alpha * A;
+            a0 = 1.0 + alpha / A;
+            a1 = -2.0 * math.cos(w0);
+            a2 = 1.0 - alpha / A;
             break;
           case EqType.lowCut:
-            if (f < bandF) {
-              totalDb -= (math.log(bandF) - math.log(f)) * 10.0 * bandQ;
-            }
+            b0 = (1.0 + math.cos(w0)) / 2.0;
+            b1 = -(1.0 + math.cos(w0));
+            b2 = (1.0 + math.cos(w0)) / 2.0;
+            a0 = 1.0 + alpha;
+            a1 = -2.0 * math.cos(w0);
+            a2 = 1.0 - alpha;
             break;
           case EqType.highCut:
-            if (f > bandF) {
-              totalDb -= (math.log(f) - math.log(bandF)) * 10.0 * bandQ;
-            }
+            b0 = (1.0 - math.cos(w0)) / 2.0;
+            b1 = 1.0 - math.cos(w0);
+            b2 = (1.0 - math.cos(w0)) / 2.0;
+            a0 = 1.0 + alpha;
+            a1 = -2.0 * math.cos(w0);
+            a2 = 1.0 - alpha;
+            break;
+          case EqType.lowShelf:
+            b0 = A * ((A + 1.0) - (A - 1.0) * math.cos(w0) + 2.0 * math.sqrt(A) * alpha);
+            b1 = 2.0 * A * ((A - 1.0) - (A + 1.0) * math.cos(w0));
+            b2 = A * ((A + 1.0) - (A - 1.0) * math.cos(w0) - 2.0 * math.sqrt(A) * alpha);
+            a0 = (A + 1.0) + (A - 1.0) * math.cos(w0) + 2.0 * math.sqrt(A) * alpha;
+            a1 = -2.0 * ((A - 1.0) + (A + 1.0) * math.cos(w0));
+            a2 = (A + 1.0) + (A - 1.0) * math.cos(w0) - 2.0 * math.sqrt(A) * alpha;
+            break;
+          case EqType.highShelf:
+            b0 = A * ((A + 1.0) + (A - 1.0) * math.cos(w0) + 2.0 * math.sqrt(A) * alpha);
+            b1 = -2.0 * A * ((A - 1.0) + (A + 1.0) * math.cos(w0));
+            b2 = A * ((A + 1.0) + (A - 1.0) * math.cos(w0) - 2.0 * math.sqrt(A) * alpha);
+            a0 = (A + 1.0) - (A - 1.0) * math.cos(w0) + 2.0 * math.sqrt(A) * alpha;
+            a1 = 2.0 * ((A - 1.0) - (A + 1.0) * math.cos(w0));
+            a2 = (A + 1.0) - (A - 1.0) * math.cos(w0) - 2.0 * math.sqrt(A) * alpha;
             break;
           case EqType.notch:
-            double width = 0.5 / bandQ;
-            if (distanceOctaves.abs() < width) {
-              totalDb -= 15.0 * (1.0 - (distanceOctaves.abs() / width));
-            }
+            b0 = 1.0;
+            b1 = -2.0 * math.cos(w0);
+            b2 = 1.0;
+            a0 = 1.0 + alpha;
+            a1 = -2.0 * math.cos(w0);
+            a2 = 1.0 - alpha;
             break;
         }
+
+        double nb0 = b0 / a0;
+        double nb1 = b1 / a0;
+        double nb2 = b2 / a0;
+        double na1 = a1 / a0;
+        double na2 = a2 / a0;
+
+        double cosW = math.cos(omega);
+        double cos2W = math.cos(2.0 * omega);
+        double sinW = math.sin(omega);
+        double sin2W = math.sin(2.0 * omega);
+
+        double numReal = nb0 + nb1 * cosW + nb2 * cos2W;
+        double numImag = nb1 * sinW + nb2 * sin2W;
+        double denReal = 1.0 + na1 * cosW + na2 * cos2W;
+        double denImag = na1 * sinW + na2 * sin2W;
+
+        double numSq = numReal * numReal + numImag * numImag;
+        double denSq = denReal * denReal + denImag * denImag;
+
+        if (denSq > 0.0) {
+          double magSq = numSq / denSq;
+          if (magSq > 0.0) {
+            totalDb += 10.0 * (math.log(magSq) / math.ln10);
+          }
+        }
       }
-      points.add(Offset(x, gainToY(totalDb)));
+      points.add(Offset(x, gainToY(totalDb.clamp(-30.0, 30.0))));
     }
 
     if (points.isNotEmpty) {

@@ -935,8 +935,15 @@ class _DraggableRoomWidgetState extends ConsumerState<_DraggableRoomWidget> {
         onPanUpdate: (details) {
           final scale = widget.transformationController.value.getMaxScaleOnAxis();
           final currentScale = scale > 0 ? scale : 1.0;
-          final dx = details.delta.dx / currentScale;
-          final dy = details.delta.dy / currentScale;
+          final dxGlobal = details.delta.dx / currentScale;
+          final dyGlobal = details.delta.dy / currentScale;
+
+          // Convert global gesture delta to room's rotated local coordinate system
+          final rad = widget.room.rotation * math.pi / 180.0;
+          final cosA = math.cos(-rad);
+          final sinA = math.sin(-rad);
+          final dx = dxGlobal * cosA - dyGlobal * sinA;
+          final dy = dxGlobal * sinA + dyGlobal * cosA;
 
           setState(() {
             if (alignment.x < 0) {
@@ -1375,45 +1382,88 @@ class _DraggableSpeakerWidgetState extends ConsumerState<_DraggableSpeakerWidget
     return Positioned(
       left: _localX,
       top: _localY,
-      child: GestureDetector(
-        onPanStart: (_) => setState(() => _isDragging = true),
-        onPanUpdate: (details) {
-          final scale = widget.transformationController.value.getMaxScaleOnAxis();
-          final currentScale = scale > 0 ? scale : 1.0;
-          setState(() {
-            _localX = (_localX + details.delta.dx / currentScale).clamp(0.0, _canvasWidth - _speakerSize);
-            _localY = (_localY + details.delta.dy / currentScale).clamp(0.0, _canvasHeight - _speakerSize);
-          });
-          ref.read(speakerLayoutProvider.notifier).updateSpeaker(
-            widget.node.copyWith(x: _localX, y: _localY),
-            immediate: true,
-          );
-        },
-        onPanEnd: (details) {
-          final snappedX = (_localX / _gridSize).round() * _gridSize;
-          final snappedY = (_localY / _gridSize).round() * _gridSize;
-          final updated = widget.node.copyWith(
-            x: snappedX.clamp(0.0, _canvasWidth - _speakerSize),
-            y: snappedY.clamp(0.0, _canvasHeight - _speakerSize),
-          );
-          setState(() {
-            _localX = updated.x;
-            _localY = updated.y;
-            _isDragging = false;
-          });
-          ref.read(speakerLayoutProvider.notifier).updateSpeaker(updated, immediate: true);
-        },
-        child: SpeakerNodeWidget(
-          node: widget.node,
-          roomColor: widget.roomColor,
-          onChannelChanged: (ch) {
-            ref.read(speakerLayoutProvider.notifier).updateSpeaker(widget.node.copyWith(channel: ch));
-          },
-          onDelete: () {
-            ref.read(speakerLayoutProvider.notifier).removeSpeaker(widget.node.id);
-          },
-          isDuplicateChannel: widget.isDuplicate,
-        ),
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Transform.rotate(
+            angle: widget.node.rotation * math.pi / 180.0,
+            child: GestureDetector(
+              onPanStart: (_) => setState(() => _isDragging = true),
+              onPanUpdate: (details) {
+                final scale = widget.transformationController.value.getMaxScaleOnAxis();
+                final currentScale = scale > 0 ? scale : 1.0;
+                setState(() {
+                  _localX = (_localX + details.delta.dx / currentScale).clamp(0.0, _canvasWidth - _speakerSize);
+                  _localY = (_localY + details.delta.dy / currentScale).clamp(0.0, _canvasHeight - _speakerSize);
+                });
+                ref.read(speakerLayoutProvider.notifier).updateSpeaker(
+                  widget.node.copyWith(x: _localX, y: _localY),
+                  immediate: true,
+                );
+              },
+              onPanEnd: (details) {
+                final snappedX = (_localX / _gridSize).round() * _gridSize;
+                final snappedY = (_localY / _gridSize).round() * _gridSize;
+                final updated = widget.node.copyWith(
+                  x: snappedX.clamp(0.0, _canvasWidth - _speakerSize),
+                  y: snappedY.clamp(0.0, _canvasHeight - _speakerSize),
+                );
+                setState(() {
+                  _localX = updated.x;
+                  _localY = updated.y;
+                  _isDragging = false;
+                });
+                ref.read(speakerLayoutProvider.notifier).updateSpeaker(updated, immediate: true);
+              },
+              child: SpeakerNodeWidget(
+                node: widget.node,
+                roomColor: widget.roomColor,
+                onChannelChanged: (ch) {
+                  ref.read(speakerLayoutProvider.notifier).updateSpeaker(widget.node.copyWith(channel: ch));
+                },
+                onDelete: () {
+                  ref.read(speakerLayoutProvider.notifier).removeSpeaker(widget.node.id);
+                },
+                isDuplicateChannel: widget.isDuplicate,
+              ),
+            ),
+          ),
+          // Speaker Rotation Handle Knob
+          Positioned(
+            top: -22,
+            left: _speakerSize / 2 - 10,
+            child: GestureDetector(
+              onPanUpdate: (details) {
+                final renderBox = context.findRenderObject() as RenderBox?;
+                if (renderBox != null) {
+                  final localTouch = renderBox.globalToLocal(details.globalPosition);
+                  final centerLocal = Offset(_speakerSize / 2, _speakerSize / 2);
+                  final dx = localTouch.dx - centerLocal.dx;
+                  final dy = localTouch.dy - centerLocal.dy;
+                  double angleRad = math.atan2(dy, dx) + math.pi / 2;
+                  double angleDeg = (angleRad * 180 / math.pi) % 360;
+                  if (angleDeg < 0) angleDeg += 360;
+
+                  ref.read(speakerLayoutProvider.notifier).updateSpeaker(
+                        widget.node.copyWith(rotation: angleDeg),
+                        immediate: true,
+                      );
+                }
+              },
+              child: Container(
+                width: 20,
+                height: 20,
+                decoration: BoxDecoration(
+                  color: Colors.orangeAccent,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.black, width: 1.5),
+                  boxShadow: const [BoxShadow(color: Colors.black45, blurRadius: 3)],
+                ),
+                child: const Icon(Icons.rotate_right, size: 11, color: Colors.black),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
