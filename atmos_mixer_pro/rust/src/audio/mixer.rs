@@ -56,6 +56,7 @@ pub struct AudioMixer {
     pub channel_spatial_gains: Vec<f32>,
     pub channel_spatial_gains_target: Vec<f32>,
     pub temp_spatial_weights: Vec<f32>,
+    pub rta_analyzer: crate::audio::rta::RtaAnalyzer,
 }
 
 impl AudioMixer {
@@ -204,7 +205,7 @@ impl AudioMixer {
             }
         }
 
-        Self {
+        let mixer = Self {
             instances,
             sample_rate,
             ducking: DuckingState {
@@ -229,7 +230,15 @@ impl AudioMixer {
             channel_spatial_gains: vec![1.0; channels],
             channel_spatial_gains_target: vec![1.0; channels],
             temp_spatial_weights: vec![0.0; channels],
+            rta_analyzer: crate::audio::rta::RtaAnalyzer::new(),
+        };
+        
+        {
+            let mut lock = GLOBAL_STATE.rta_magnitudes_ref.write().unwrap();
+            *lock = Some(mixer.rta_analyzer.get_magnitudes_arc());
         }
+        
+        mixer
     }
 
     pub fn process(&mut self, output: &mut [f32], out_channels: usize) {
@@ -673,6 +682,30 @@ impl AudioMixer {
             }
 
             GLOBAL_STATE.vu_levels[ch].store(peak.to_bits(), Ordering::Relaxed);
+        }
+        
+        // Tap Master Output (Channel 0 and 1 downmix) to RTA Analyzer
+        if out_channels > 0 {
+            // We use a simple temp buffer or slice iteration to avoid allocation
+            let mut mono_mix = vec![0.0; frames];
+            for frame in 0..frames {
+                let mut sum = 0.0;
+                let mut count = 0;
+                // Mix up to first 2 channels for RTA visualization
+                for ch in 0..out_channels.min(2) {
+                    if GLOBAL_STATE.enabled_channels[ch].load(Ordering::Relaxed) {
+                        let sample_idx = frame * out_channels + ch;
+                        if sample_idx < output.len() {
+                            sum += output[sample_idx];
+                            count += 1;
+                        }
+                    }
+                }
+                if count > 0 {
+                    mono_mix[frame] = sum / count as f32;
+                }
+            }
+            self.rta_analyzer.process_samples(&mono_mix);
         }
 
         // Remove stopped instances by moving to GC thread (heap-free drop)

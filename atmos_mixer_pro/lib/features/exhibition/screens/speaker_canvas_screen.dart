@@ -50,6 +50,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
   bool _showRooms = true;
   bool _showTrajectories = true;
   bool _showHeatmap = true;
+  String _selectedOctaveFilter = 'All'; // 'All', '125Hz', '500Hz', '1kHz', '4kHz'
 
   @override
   void initState() {
@@ -321,205 +322,264 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
     int doorWall = room.doorWall;
     double doorOffset = room.doorOffset;
     double rotation = room.rotation;
+    String selectedMaterial = room.materialName;
+    double currentCoeff = room.absorptionCoeff;
 
     await showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          backgroundColor: AppColors.cardSurface,
-          title: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text('Edit Room Settings', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-              IconButton(
-                icon: const Icon(Icons.close, color: Colors.white54),
-                onPressed: () => Navigator.pop(context),
-              ),
-            ],
-          ),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
+        builder: (context, setDialogState) {
+          final tempWidthM = double.tryParse(widthController.text) ?? room.physicalWidth;
+          final tempHeightM = double.tryParse(heightController.text) ?? room.physicalHeight;
+          final tempRoom = room.copyWith(
+            physicalWidth: tempWidthM,
+            physicalHeight: tempHeightM,
+            absorptionCoeff: currentCoeff,
+          );
+          final estimatedRt60 = tempRoom.estimatedRt60;
+
+          return AlertDialog(
+            backgroundColor: AppColors.cardSurface,
+            title: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                TextField(
-                  controller: nameController,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: const InputDecoration(
-                    labelText: 'Room Name',
-                    labelStyle: TextStyle(color: Colors.white70),
-                    enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
-                    focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: AppColors.primaryNeon)),
+                const Text('Edit Room Settings', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                IconButton(
+                  icon: const Icon(Icons.close, color: Colors.white54),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ],
+            ),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  TextField(
+                    controller: nameController,
+                    style: const TextStyle(color: Colors.white),
+                    decoration: const InputDecoration(
+                      labelText: 'Room Name',
+                      labelStyle: TextStyle(color: Colors.white70),
+                      enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
+                      focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: AppColors.primaryNeon)),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: widthController,
-                        style: const TextStyle(color: Colors.white),
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        decoration: const InputDecoration(
-                          labelText: 'Width (m)',
-                          labelStyle: TextStyle(color: Colors.white70),
-                          enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
-                          focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: AppColors.primaryNeon)),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: TextField(
-                        controller: heightController,
-                        style: const TextStyle(color: Colors.white),
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        decoration: const InputDecoration(
-                          labelText: 'Height (m)',
-                          labelStyle: TextStyle(color: Colors.white70),
-                          enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
-                          focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: AppColors.primaryNeon)),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-                const Text('Theme Color', style: TextStyle(color: Colors.white70, fontSize: 13)),
-                const SizedBox(height: 10),
-                Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
-                  children: AppColors.roomAccents.map((color) {
-                    final isSelected = color.toARGB32() == selectedColor;
-                    return GestureDetector(
-                      onTap: () => setDialogState(() => selectedColor = color.toARGB32()),
-                      child: Container(
-                        width: 36,
-                        height: 36,
-                        decoration: BoxDecoration(
-                          color: color,
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: isSelected ? Colors.white : Colors.transparent,
-                            width: 3,
-                          ),
-                        ),
-                      ),
-                    );
-                  }).toList(),
-                ),
-                const SizedBox(height: 20),
-                const Divider(color: Colors.white24),
-                const SizedBox(height: 8),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text('Rotation: ${rotation.toInt()}°', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-                  ],
-                ),
-                Slider(
-                  value: rotation,
-                  min: 0.0,
-                  max: 360.0,
-                  activeColor: AppColors.primaryNeon,
-                  onChanged: (val) => setDialogState(() => rotation = val),
-                ),
-                const SizedBox(height: 20),
-                const Divider(color: Colors.white24),
-                const SizedBox(height: 8),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text('CAD Entrance Marker (Door)', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-                    Switch(
-                      value: hasDoor,
-                      activeTrackColor: AppColors.primaryNeon,
-                      onChanged: (val) => setDialogState(() => hasDoor = val),
-                    ),
-                  ],
-                ),
-                if (hasDoor) ...[
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 16),
                   Row(
                     children: [
-                      const Text('Door Wall: ', style: TextStyle(color: Colors.white70, fontSize: 13)),
+                      Expanded(
+                        child: TextField(
+                          controller: widthController,
+                          style: const TextStyle(color: Colors.white),
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          decoration: const InputDecoration(
+                            labelText: 'Width (m)',
+                            labelStyle: TextStyle(color: Colors.white70),
+                            enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
+                            focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: AppColors.primaryNeon)),
+                          ),
+                          onChanged: (_) => setDialogState(() {}),
+                        ),
+                      ),
                       const SizedBox(width: 12),
                       Expanded(
-                        child: DropdownButton<int>(
-                          value: doorWall,
-                          dropdownColor: AppColors.cardSurface,
-                          isExpanded: true,
+                        child: TextField(
+                          controller: heightController,
                           style: const TextStyle(color: Colors.white),
-                          items: const [
-                            DropdownMenuItem(value: 0, child: Text('Top Wall')),
-                            DropdownMenuItem(value: 1, child: Text('Right Wall')),
-                            DropdownMenuItem(value: 2, child: Text('Bottom Wall')),
-                            DropdownMenuItem(value: 3, child: Text('Left Wall')),
-                          ],
-                          onChanged: (val) {
-                            if (val != null) setDialogState(() => doorWall = val);
-                          },
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          decoration: const InputDecoration(
+                            labelText: 'Height (m)',
+                            labelStyle: TextStyle(color: Colors.white70),
+                            enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
+                            focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: AppColors.primaryNeon)),
+                          ),
+                          onChanged: (_) => setDialogState(() {}),
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 12),
-                  Text('Door Position: ${(doorOffset * 100).toInt()}%', style: const TextStyle(color: Colors.white70, fontSize: 13)),
-                  Slider(
-                    value: doorOffset,
-                    min: 0.0,
-                    max: 1.0,
-                    activeColor: AppColors.primaryNeon,
-                    onChanged: (val) => setDialogState(() => doorOffset = val),
+                  const SizedBox(height: 20),
+                  const Text('Acoustic Surface Material Preset', style: TextStyle(color: AppColors.primaryNeon, fontSize: 13, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
+                  DropdownButton<RoomMaterialPreset>(
+                    value: RoomMaterialPreset.presets.firstWhere(
+                      (p) => p.name == selectedMaterial,
+                      orElse: () => RoomMaterialPreset.presets[1],
+                    ),
+                    dropdownColor: AppColors.cardSurface,
+                    isExpanded: true,
+                    style: const TextStyle(color: Colors.white, fontSize: 13),
+                    items: RoomMaterialPreset.presets.map((preset) {
+                      return DropdownMenuItem<RoomMaterialPreset>(
+                        value: preset,
+                        child: Text(preset.name),
+                      );
+                    }).toList(),
+                    onChanged: (preset) {
+                      if (preset != null) {
+                        setDialogState(() {
+                          selectedMaterial = preset.name;
+                          currentCoeff = preset.averageAlpha;
+                        });
+                      }
+                    },
                   ),
-                ],
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                ref.read(roomZoneProvider.notifier).removeRoomZone(room.id);
-                Navigator.pop(context);
-              },
-              child: const Text('Delete Room', style: TextStyle(color: Colors.redAccent)),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel', style: TextStyle(color: Colors.white70)),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primaryNeon,
-                foregroundColor: Colors.black,
-              ),
-              onPressed: () {
-                final newWidthM = double.tryParse(widthController.text) ?? room.physicalWidth;
-                final newHeightM = double.tryParse(heightController.text) ?? room.physicalHeight;
-                final scale = blueprint.scale > 0 ? blueprint.scale : 40.0;
-                
-                ref.read(roomZoneProvider.notifier).updateRoomZone(
-                      room.copyWith(
-                        label: nameController.text.trim().isNotEmpty ? nameController.text.trim() : room.label,
-                        color: selectedColor,
-                        physicalWidth: newWidthM,
-                        physicalHeight: newHeightM,
-                        width: newWidthM * scale,
-                        height: newHeightM * scale,
-                        hasDoor: hasDoor,
-                        doorWall: doorWall,
-                        doorOffset: doorOffset,
-                        rotation: rotation,
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.black38,
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: Colors.white12),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('Absorption Coeff (α): ${currentCoeff.toStringAsFixed(2)}', style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                        Text('Sabine RT60: ${estimatedRt60.toStringAsFixed(2)}s', style: const TextStyle(color: AppColors.primaryNeon, fontSize: 12, fontWeight: FontWeight.bold)),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  const Text('Theme Color', style: TextStyle(color: Colors.white70, fontSize: 13)),
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
+                    children: AppColors.roomAccents.map((color) {
+                      final isSelected = color.toARGB32() == selectedColor;
+                      return GestureDetector(
+                        onTap: () => setDialogState(() => selectedColor = color.toARGB32()),
+                        child: Container(
+                          width: 36,
+                          height: 36,
+                          decoration: BoxDecoration(
+                            color: color,
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: isSelected ? Colors.white : Colors.transparent,
+                              width: 3,
+                            ),
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 20),
+                  const Divider(color: Colors.white24),
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('Rotation: ${rotation.toInt()}°', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                    ],
+                  ),
+                  Slider(
+                    value: rotation,
+                    min: 0.0,
+                    max: 360.0,
+                    activeColor: AppColors.primaryNeon,
+                    onChanged: (val) => setDialogState(() => rotation = val),
+                  ),
+                  const SizedBox(height: 20),
+                  const Divider(color: Colors.white24),
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('CAD Entrance Marker (Door)', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                      Switch(
+                        value: hasDoor,
+                        activeTrackColor: AppColors.primaryNeon,
+                        onChanged: (val) => setDialogState(() => hasDoor = val),
                       ),
-                      immediate: true,
-                    );
-                Navigator.pop(context);
-              },
-              child: const Text('Save Changes', style: TextStyle(fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                  if (hasDoor) ...[
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        const Text('Door Wall: ', style: TextStyle(color: Colors.white70, fontSize: 13)),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: DropdownButton<int>(
+                            value: doorWall,
+                            dropdownColor: AppColors.cardSurface,
+                            isExpanded: true,
+                            style: const TextStyle(color: Colors.white),
+                            items: const [
+                              DropdownMenuItem(value: 0, child: Text('Top Wall')),
+                              DropdownMenuItem(value: 1, child: Text('Right Wall')),
+                              DropdownMenuItem(value: 2, child: Text('Bottom Wall')),
+                              DropdownMenuItem(value: 3, child: Text('Left Wall')),
+                            ],
+                            onChanged: (val) {
+                              if (val != null) setDialogState(() => doorWall = val);
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Text('Door Position: ${(doorOffset * 100).toInt()}%', style: const TextStyle(color: Colors.white70, fontSize: 13)),
+                    Slider(
+                      value: doorOffset,
+                      min: 0.0,
+                      max: 1.0,
+                      activeColor: AppColors.primaryNeon,
+                      onChanged: (val) => setDialogState(() => doorOffset = val),
+                    ),
+                  ],
+                ],
+              ),
             ),
-          ],
-        ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  ref.read(roomZoneProvider.notifier).removeRoomZone(room.id);
+                  Navigator.pop(context);
+                },
+                child: const Text('Delete Room', style: TextStyle(color: Colors.redAccent)),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel', style: TextStyle(color: Colors.white70)),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primaryNeon,
+                  foregroundColor: Colors.black,
+                ),
+                onPressed: () {
+                  final newWidthM = double.tryParse(widthController.text) ?? room.physicalWidth;
+                  final newHeightM = double.tryParse(heightController.text) ?? room.physicalHeight;
+                  final scale = blueprint.scale > 0 ? blueprint.scale : 40.0;
+                  
+                  ref.read(roomZoneProvider.notifier).updateRoomZone(
+                        room.copyWith(
+                          label: nameController.text.trim().isNotEmpty ? nameController.text.trim() : room.label,
+                          color: selectedColor,
+                          physicalWidth: newWidthM,
+                          physicalHeight: newHeightM,
+                          width: newWidthM * scale,
+                          height: newHeightM * scale,
+                          hasDoor: hasDoor,
+                          doorWall: doorWall,
+                          doorOffset: doorOffset,
+                          rotation: rotation,
+                          materialName: selectedMaterial,
+                          absorptionCoeff: currentCoeff,
+                        ),
+                        immediate: true,
+                      );
+                  Navigator.pop(context);
+                },
+                child: const Text('Save Changes', style: TextStyle(fontWeight: FontWeight.bold)),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -718,6 +778,34 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
               color: Colors.white24,
             ),
             const SizedBox(width: 8),
+            Row(
+              children: ['All', '125Hz', '500Hz', '1kHz', '4kHz'].map((oct) {
+                final isSelected = _selectedOctaveFilter == oct;
+                return Padding(
+                  padding: const EdgeInsets.only(right: 4.0),
+                  child: FilterChip(
+                    label: Text(oct, style: TextStyle(fontSize: 11, color: isSelected ? Colors.black : Colors.white70, fontWeight: FontWeight.bold)),
+                    selected: isSelected,
+                    selectedColor: AppColors.primaryNeon,
+                    backgroundColor: Colors.black45,
+                    checkmarkColor: Colors.black,
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
+                    onSelected: (val) {
+                      if (val) {
+                        setState(() => _selectedOctaveFilter = oct);
+                      }
+                    },
+                  ),
+                );
+              }).toList(),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              height: 24,
+              width: 1,
+              color: Colors.white24,
+            ),
+            const SizedBox(width: 8),
             IconButton(
               icon: const Icon(Icons.route_outlined, color: Colors.orangeAccent),
               onPressed: _clearTrajectories,
@@ -765,10 +853,15 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                     Consumer(
                       builder: (context, ref, _) {
                         final nodes = ref.watch(speakerLayoutProvider);
+                        final rooms = ref.watch(roomZoneProvider);
                         return Positioned.fill(
                           child: RepaintBoundary(
                             child: CustomPaint(
-                              painter: _HeatmapPainter(nodes),
+                              painter: _HeatmapPainter(
+                                nodes: nodes,
+                                rooms: rooms,
+                                selectedOctave: _selectedOctaveFilter,
+                              ),
                             ),
                           ),
                         );
@@ -950,7 +1043,7 @@ class _DraggableRoomWidgetState extends ConsumerState<_DraggableRoomWidget> {
       child: MouseRegion(
         cursor: cursor,
         child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
+          behavior: HitTestBehavior.translucent,
           onPanStart: (details) {
             setState(() {
               _isInteracting = true;
@@ -1135,7 +1228,7 @@ class _DraggableRoomWidgetState extends ConsumerState<_DraggableRoomWidget> {
       left: left,
       top: top,
       child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
+        behavior: HitTestBehavior.translucent,
         onPanStart: (_) => setState(() => _isInteracting = true),
         onPanUpdate: (details) {
           final scale = widget.transformationController.value.getMaxScaleOnAxis();
@@ -1181,7 +1274,7 @@ class _DraggableRoomWidgetState extends ConsumerState<_DraggableRoomWidget> {
       child: MouseRegion(
         cursor: SystemMouseCursors.click,
         child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
+          behavior: HitTestBehavior.translucent,
           onPanStart: (details) {
             setState(() => _isInteracting = true);
             final renderBox = roomContext.findRenderObject() as RenderBox?;
@@ -1251,7 +1344,7 @@ class _DraggableRoomWidgetState extends ConsumerState<_DraggableRoomWidget> {
             MouseRegion(
               cursor: SystemMouseCursors.move,
               child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
+                behavior: HitTestBehavior.translucent,
                 onPanStart: (details) {
                   setState(() => _isInteracting = true);
                   _draggedSpeakersOffsets = {
@@ -1789,33 +1882,131 @@ class _TrajectoryPainter extends CustomPainter {
 
 class _HeatmapPainter extends CustomPainter {
   final List<SpeakerNode> nodes;
+  final List<RoomZone> rooms;
+  final String selectedOctave;
 
-  _HeatmapPainter(this.nodes);
+  _HeatmapPainter({
+    required this.nodes,
+    required this.rooms,
+    this.selectedOctave = 'All',
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
     for (var node in nodes) {
       final center = Offset(node.x + _speakerSize / 2, node.y + _speakerSize / 2);
+      final double rotRad = (node.rotation - 90.0) * math.pi / 180.0; // Front axis
       
-      // Draw coverage ring
-      final ringPaint = Paint()
-        ..color = Colors.redAccent.withValues(alpha: 0.3)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 2.0;
-      canvas.drawCircle(center, 150.0, ringPaint);
+      // 1. Octave-dependent directivity angle Q(f)
+      final double effectiveDispAngle = selectedOctave == 'All'
+          ? node.dispersionAngle
+          : node.getEffectiveDispersionAngle(selectedOctave);
+      final double dispRad = effectiveDispAngle * math.pi / 180.0;
 
-      // Draw heatmap gradient
-      final Rect rect = Rect.fromCircle(center: center, radius: 150.0);
-      final gradient = RadialGradient(
+      // 2. 3D Pitch Tilt Projection (Elliptical Footprint)
+      final double pitchRad = node.pitchTilt * math.pi / 180.0;
+      final double tiltOffset = node.heightZ * math.tan(pitchRad) * 40.0; // Floor projection offset in px
+      final Offset projectedCenter = Offset(
+        center.dx + tiltOffset * math.cos(rotRad),
+        center.dy + tiltOffset * math.sin(rotRad),
+      );
+      final double dist = node.dispersionDistance;
+
+      // 3. Outer Elliptical Dispersion Beam Contour (-6dB)
+      canvas.save();
+      canvas.translate(projectedCenter.dx, projectedCenter.dy);
+      canvas.rotate(rotRad);
+
+      final double axisX = dist * math.cos(pitchRad); // Scaled by tilt
+      final double axisY = dist * math.sin(dispRad / 2);
+
+      final Path ellipticalPath = Path()
+        ..moveTo(0, 0)
+        ..lineTo(axisX, -axisY)
+        ..arcToPoint(
+          Offset(axisX, axisY),
+          radius: Radius.elliptical(axisX, axisY),
+          clockwise: true,
+        )
+        ..close();
+
+      final outerGradient = RadialGradient(
         colors: [
-          Colors.redAccent.withValues(alpha: 0.4),
-          Colors.orangeAccent.withValues(alpha: 0.15),
+          AppColors.primaryNeon.withValues(alpha: 0.45),
+          Colors.orangeAccent.withValues(alpha: 0.25),
+          Colors.redAccent.withValues(alpha: 0.08),
           Colors.transparent,
         ],
-        stops: const [0.0, 0.5, 1.0],
+        stops: const [0.0, 0.4, 0.75, 1.0],
       );
-      final paint = Paint()..shader = gradient.createShader(rect);
-      canvas.drawCircle(center, 150.0, paint);
+
+      final Paint conePaint = Paint()
+        ..shader = outerGradient.createShader(Rect.fromLTWH(0, -axisY, axisX, axisY * 2))
+        ..style = PaintingStyle.fill;
+
+      canvas.drawPath(ellipticalPath, conePaint);
+
+      // On-Axis Inner High-SPL Core Beam (-3dB)
+      final Path innerCorePath = Path()
+        ..moveTo(0, 0)
+        ..lineTo(axisX * 0.6, -axisY * 0.5)
+        ..arcToPoint(
+          Offset(axisX * 0.6, axisY * 0.5),
+          radius: Radius.elliptical(axisX * 0.6, axisY * 0.5),
+          clockwise: true,
+        )
+        ..close();
+
+      final Paint innerCorePaint = Paint()
+        ..color = AppColors.primaryNeon.withValues(alpha: 0.35)
+        ..style = PaintingStyle.fill;
+
+      canvas.drawPath(innerCorePath, innerCorePaint);
+
+      // Iso-SPL Elliptical Contours (-3dB, -6dB, -12dB)
+      final arcStrokePaint = Paint()
+        ..color = AppColors.primaryNeon.withValues(alpha: 0.6)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.5;
+
+      for (var ratio in [0.33, 0.66, 1.0]) {
+        canvas.drawArc(
+          Rect.fromCenter(
+            center: Offset(axisX * ratio / 2, 0),
+            width: axisX * ratio,
+            height: axisY * 2 * ratio,
+          ),
+          -dispRad / 2,
+          dispRad,
+          false,
+          arcStrokePaint,
+        );
+      }
+
+      // Aiming axis line
+      final axisPaint = Paint()
+        ..color = Colors.white.withValues(alpha: 0.8)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.2;
+      canvas.drawLine(Offset.zero, Offset(axisX, 0), axisPaint);
+
+      canvas.restore();
+
+      // 4. Wall Transmission Loss (TL) Cross-talk Leakage Visualization
+      for (var room in rooms) {
+        if (room.containsPoint(projectedCenter.dx, projectedCenter.dy)) {
+          // Inside a room, draw subtle attenuation glow for wall leakage
+          final tlFactor = math.pow(10, -room.wallTransmissionLoss / 20.0).toDouble(); // TL attenuation
+          final Paint leakagePaint = Paint()
+            ..color = Colors.purpleAccent.withValues(alpha: 0.15 * tlFactor)
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 4.0;
+          canvas.drawRect(
+            Rect.fromLTWH(room.x, room.y, room.width, room.height),
+            leakagePaint,
+          );
+        }
+      }
     }
   }
 

@@ -6,5 +6,7 @@ pub mod streaming;
 pub mod spatial;
 pub mod dsp;
 pub mod acoustic;
+pub mod eq_response;
+pub mod rta;
 pub mod svf;
 pub mod limiter;

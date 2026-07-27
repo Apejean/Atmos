@@ -59,7 +59,7 @@ class _SpeakerNodeWidgetState extends ConsumerState<SpeakerNodeWidget> {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Coordinate Badge
+        // Coordinate & 3D Orientation Badge
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
           decoration: BoxDecoration(
@@ -68,9 +68,9 @@ class _SpeakerNodeWidgetState extends ConsumerState<SpeakerNodeWidget> {
             border: Border.all(color: Colors.white24, width: 0.5),
           ),
           child: Text(
-            'X: ${widget.node.x.round()}, Y: ${widget.node.y.round()}',
+            'X: ${widget.node.x.round()}, Y: ${widget.node.y.round()} | Z: ${widget.node.heightZ.toStringAsFixed(1)}m, ∠${widget.node.pitchTilt.toInt()}°',
             style: TextStyle(
-              fontSize: 10,
+              fontSize: 9,
               color: widget.isDuplicateChannel
                   ? Colors.redAccent
                   : Colors.white70,

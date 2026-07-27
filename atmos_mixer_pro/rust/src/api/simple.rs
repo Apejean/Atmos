@@ -162,6 +162,21 @@ pub fn api_clear_preloaded_sounds() -> Result<(), AtmosError> {
     Ok(())
 }
 
+pub fn api_get_rta_magnitudes() -> Vec<f32> {
+    if let Ok(guard) = GLOBAL_STATE.rta_magnitudes_ref.read() {
+        if let Some(rta) = guard.as_ref() {
+            let lock = rta.read();
+            return lock.clone();
+        }
+    }
+    vec![-140.0; crate::audio::rta::RTA_BIN_COUNT]
+}
+
+pub fn api_calculate_eq_response(bands: Vec<crate::common::config::EqBand>) -> Vec<f32> {
+    let freqs = crate::audio::eq_response::generate_log_frequencies(20.0, 20000.0, 100);
+    crate::audio::eq_response::calculate_total_eq_curve(&bands, 48000.0, &freqs)
+}
+
 pub fn api_play_track(room_id: String, track_id: String) -> Result<(), AtmosError> {
     let config_guard = GLOBAL_STATE.config.read().unwrap_or_else(|e| e.into_inner());
     if let Some(config) = config_guard.as_ref() {

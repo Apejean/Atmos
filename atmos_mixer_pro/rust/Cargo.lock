@@ -1278,6 +1278,7 @@ dependencies = [
  "parking_lot",
  "rosc",
  "rubato",
+ "rustfft",
  "serde",
  "serde_json",
  "socket2",

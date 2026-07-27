@@ -29,6 +29,12 @@ Future<void> apiPreloadSound({required String filePath}) =>
 Future<void> apiClearPreloadedSounds() =>
     RustLib.instance.api.crateApiSimpleApiClearPreloadedSounds();
 
+Future<Float32List> apiGetRtaMagnitudes() =>
+    RustLib.instance.api.crateApiSimpleApiGetRtaMagnitudes();
+
+Future<Float32List> apiCalculateEqResponse({required List<EqBand> bands}) =>
+    RustLib.instance.api.crateApiSimpleApiCalculateEqResponse(bands: bands);
+
 Future<void> apiPlayTrack({required String roomId, required String trackId}) =>
     RustLib.instance.api.crateApiSimpleApiPlayTrack(
       roomId: roomId,
@@ -212,6 +218,16 @@ Future<Float32List> apiCalculateDbapHeatmap({
 }) => RustLib.instance.api.crateApiSimpleApiCalculateDbapHeatmap(
   listenerPos: listenerPos,
   channelPositions: channelPositions,
+);
+
+Float32List apiCalculateEqResponseCurve({
+  required List<EqBand> bands,
+  required BigInt numPoints,
+  required double sampleRate,
+}) => RustLib.instance.api.crateApiSimpleApiCalculateEqResponseCurve(
+  bands: bands,
+  numPoints: numPoints,
+  sampleRate: sampleRate,
 );
 
 class ChannelTuningParams {
