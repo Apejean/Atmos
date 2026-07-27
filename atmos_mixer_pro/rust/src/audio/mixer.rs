@@ -57,6 +57,9 @@ pub struct AudioMixer {
     pub channel_spatial_gains_target: Vec<f32>,
     pub temp_spatial_weights: Vec<f32>,
     pub rta_analyzer: crate::audio::rta::RtaAnalyzer,
+    pub mono_mix_buffer: Vec<f32>,
+    pub temp_vals: Vec<f32>,
+    pub master_clock: f64,
 }
 
 impl AudioMixer {
@@ -231,6 +234,9 @@ impl AudioMixer {
             channel_spatial_gains_target: vec![1.0; channels],
             temp_spatial_weights: vec![0.0; channels],
             rta_analyzer: crate::audio::rta::RtaAnalyzer::new(),
+            mono_mix_buffer: vec![0.0; 8192], // Pre-allocated to prevent heap allocation in callback
+            temp_vals: vec![0.0; channels],
+            master_clock: 0.0,
         };
         
         {
@@ -256,6 +262,8 @@ impl AudioMixer {
         let fade_frames = (self.sample_rate as f32 * 0.3) as usize; // 300ms fade
         let duck_down_frames = (self.sample_rate as f32 * 0.15) as usize; // 150ms duck down
         let duck_up_frames = (self.sample_rate as f32 * 0.3) as usize; // 300ms duck up
+        
+        self.master_clock += frames as f64;
 
         if let Ok(config_guard) = GLOBAL_STATE.config.try_read() {
             if let Some(config) = config_guard.as_ref() {
@@ -298,27 +306,16 @@ impl AudioMixer {
             }
         }
 
-        if self.channel_spatial_gains_target.len() < out_channels {
-            self.channel_spatial_gains_target.resize(out_channels, 1.0);
-        } else {
-            self.channel_spatial_gains_target.fill(1.0);
-        }
-
-        if self.channel_spatial_gains.len() < out_channels {
-            self.channel_spatial_gains.resize(out_channels, 1.0);
-        }
-
-        if self.temp_spatial_weights.len() < out_channels {
-            self.temp_spatial_weights.resize(out_channels, 0.0);
-        } else {
-            self.temp_spatial_weights.fill(0.0);
-        }
+        let active_ch = out_channels.min(self.channel_spatial_gains_target.len());
+        
+        self.channel_spatial_gains_target[..active_ch].fill(1.0);
+        self.temp_spatial_weights[..active_ch].fill(0.0);
 
         let mut sum_sq = 0.0;
         let mut min_dist = f32::MAX;
         let blur_radius = 2.0f32;
 
-        for ch in 0..out_channels {
+        for ch in 0..active_ch {
             let mut gain = 1.0;
             if ch < self.channel_positions.len() {
                 if let Some(pos) = &self.channel_positions[ch] {
@@ -365,16 +362,62 @@ impl AudioMixer {
             let norm_factor = if sum_sq > 0.0 { 1.0 / sum_sq.sqrt() } else { 0.0 };
             let distance_attenuation = 1.0 / min_dist.max(1.0);
 
-            for ch in 0..out_channels {
+            for ch in 0..active_ch {
                 let pan_ratio = self.temp_spatial_weights[ch] * norm_factor;
                 self.channel_spatial_gains_target[ch] *= pan_ratio * distance_attenuation;
             }
         }
 
+        let mut temp_vals = std::mem::take(&mut self.temp_vals);
+
+        // Phase 2: Centralized Global Audio Clock / Block Fetch Loop
+        // We fetch chunks once per process block for all instances to ensure 100% sync
+        // and avoid lock-free channel overhead in the tight inner loop.
+        for instance_opt in self.instances.iter_mut() {
+            if let Some(instance) = instance_opt {
+                if !instance.is_playing { continue; }
+                if let Some(stream_rx) = &instance.stream_receiver {
+                    let channels = (instance.stream_channels as usize).max(1);
+                    let idx_i = instance.cursor as usize * channels;
+                    if idx_i >= instance.stream_buffer.len() {
+                        match stream_rx.try_recv() {
+                            Ok(new_chunk) => {
+                                let frames_in_chunk = if instance.stream_buffer.is_empty() {
+                                    0.0
+                                } else {
+                                    (instance.stream_buffer.len() / channels) as f64
+                                };
+                                let old_chunk = std::mem::replace(&mut instance.stream_buffer, new_chunk);
+                                if let Err(e) = self.buf_gc_tx.try_send(old_chunk) {
+                                    let v = e.into_inner();
+                                    if self.local_recycle.len() < self.local_recycle.capacity() {
+                                        self.local_recycle.push(v);
+                                    } else {
+                                        let _ = v;
+                                    }
+                                }
+                                instance.cursor -= frames_in_chunk;
+                                if instance.cursor < 0.0 {
+                                    instance.cursor = 0.0;
+                                }
+                            }
+                            Err(crossbeam_channel::TryRecvError::Disconnected) => {
+                                instance.is_stopping = true;
+                            }
+                            Err(crossbeam_channel::TryRecvError::Empty) => {}
+                        }
+                    }
+                }
+            }
+        }
+
         for frame in 0..frames {
             // Anti-zipper smoothing for spatial automation (~4ms time constant)
-            for ch in 0..out_channels {
+            for ch in 0..active_ch {
                 self.channel_spatial_gains[ch] += 0.005 * (self.channel_spatial_gains_target[ch] - self.channel_spatial_gains[ch]);
+                if ch < GLOBAL_STATE.spatial_gains.len() {
+                    GLOBAL_STATE.spatial_gains[ch].store(self.channel_spatial_gains[ch].to_bits(), Ordering::Relaxed);
+                }
             }
 
             // Update ducking weight per frame
@@ -434,52 +477,12 @@ impl AudioMixer {
                 let mut frac = (idx_f - (idx_base as f64)) as f32;
                 let mut idx_i = idx_base * channels;
 
-                let mut vals = [0.0; 256]; // N-channel temp buffer (up to 256 channels)
-                let ch_limit = channels.min(256);
+                let ch_limit = channels.min(temp_vals.len());
+                let vals = &mut temp_vals[..ch_limit];
                 let mut has_sample = false;
 
-                if let Some(stream_rx) = &instance.stream_receiver {
-                    if idx_i >= instance.stream_buffer.len() {
-                        match stream_rx.try_recv() {
-                            Ok(new_chunk) => {
-                                let frames_in_chunk = if instance.stream_buffer.is_empty() {
-                                    0.0
-                                } else {
-                                    (instance.stream_buffer.len() / channels) as f64
-                                };
-                                let old_chunk =
-                                    std::mem::replace(&mut instance.stream_buffer, new_chunk);
-                                if let Err(e) = self.buf_gc_tx.try_send(old_chunk) {
-                                    let v = e.into_inner();
-                                    if self.local_recycle.len() < self.local_recycle.capacity() {
-                                        self.local_recycle.push(v);
-                                    } else {
-                                        // Channel is full and local recycle is full.
-                                        // We must drop it to prevent a fatal OOM memory leak.
-                                        // Dropping here might theoretically acquire a heap lock, 
-                                        // but it's vastly better than guaranteed OOM.
-                                        let _ = v;
-                                    }
-                                }
-
-                                instance.cursor -= frames_in_chunk;
-                                if instance.cursor < 0.0 {
-                                    instance.cursor = 0.0;
-                                } // safety bound
-                                idx_f = instance.cursor;
-                                idx_base = idx_f as usize;
-                                frac = (idx_f - (idx_base as f64)) as f32;
-                                idx_i = idx_base * channels;
-                            }
-                            Err(crossbeam_channel::TryRecvError::Disconnected) => {
-                                // Stream finished or errored permanently
-                                instance.is_stopping = true;
-                            }
-                            Err(crossbeam_channel::TryRecvError::Empty) => {
-                                // Stream is lagging, just output silence and don't advance cursor
-                            }
-                        }
-                    }
+                if instance.stream_receiver.is_some() {
+                    // Try_recv was done in the outer Block Fetch loop.
 
                     if idx_i < instance.stream_buffer.len() {
                         has_sample = true;
@@ -606,6 +609,8 @@ impl AudioMixer {
                 }
             }
         }
+        
+        self.temp_vals = temp_vals;
 
         // Apply Channel DSP
         let fs = self.sample_rate as f32;
@@ -686,9 +691,13 @@ impl AudioMixer {
         
         // Tap Master Output (Channel 0 and 1 downmix) to RTA Analyzer
         if out_channels > 0 {
-            // We use a simple temp buffer or slice iteration to avoid allocation
-            let mut mono_mix = vec![0.0; frames];
-            for frame in 0..frames {
+            // Ensure capacity to prevent dynamic allocation
+            if self.mono_mix_buffer.len() < frames {
+                self.mono_mix_buffer.resize(frames, 0.0);
+            }
+            let mono_mix = &mut self.mono_mix_buffer[..frames];
+            
+            for (frame, item) in mono_mix.iter_mut().enumerate() {
                 let mut sum = 0.0;
                 let mut count = 0;
                 // Mix up to first 2 channels for RTA visualization
@@ -702,10 +711,12 @@ impl AudioMixer {
                     }
                 }
                 if count > 0 {
-                    mono_mix[frame] = sum / count as f32;
+                    *item = sum / count as f32;
+                } else {
+                    *item = 0.0;
                 }
             }
-            self.rta_analyzer.process_samples(&mono_mix);
+            self.rta_analyzer.process_samples(mono_mix);
         }
 
         // Remove stopped instances by moving to GC thread (heap-free drop)

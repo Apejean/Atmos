@@ -24,7 +24,7 @@ class TrajectoryLayerPainter extends CustomPainter {
       double strokeWidth = isFocused ? 3.5 : 1.0;
 
       final pathPaint = Paint()
-        ..color = traj.color.withOpacity(opacity)
+        ..color = traj.color.withValues(alpha: opacity)
         ..style = PaintingStyle.stroke
         ..strokeWidth = strokeWidth
         ..strokeCap = StrokeCap.round;
@@ -33,7 +33,7 @@ class TrajectoryLayerPainter extends CustomPainter {
 
       if (isFocused && focusedTrajectoryId != null) {
         final glowPaint = Paint()
-          ..color = traj.color.withOpacity(0.6)
+          ..color = traj.color.withValues(alpha: 0.6)
           ..style = PaintingStyle.stroke
           ..strokeWidth = strokeWidth + 4.0
           ..maskFilter = const MaskFilter.blur(BlurStyle.solid, 8.0);
@@ -44,7 +44,7 @@ class TrajectoryLayerPainter extends CustomPainter {
 
       Offset currentPos = traj.getCurrentPositionMeter() * scaleMeterToPixel;
       final nodePaint = Paint()
-        ..color = isFocused ? Colors.white : traj.color.withOpacity(opacity)
+        ..color = isFocused ? Colors.white : traj.color.withValues(alpha: opacity)
         ..style = PaintingStyle.fill;
 
       canvas.drawCircle(currentPos, isFocused ? 8.0 : 4.0, nodePaint);

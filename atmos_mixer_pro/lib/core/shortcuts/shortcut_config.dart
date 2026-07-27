@@ -3,6 +3,10 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+final shortcutManagerInstance = ShortcutManagerNotifier();
+final shortcutManagerProvider = Provider<ShortcutManagerNotifier>((ref) => shortcutManagerInstance);
 
 /// Atmos Mixer Pro 지원 단축키 액션 목록
 enum ShortcutAction {

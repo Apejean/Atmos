@@ -6,6 +6,8 @@ import 'package:atmos_mixer_pro/core/state/global_state.dart';
 import 'package:atmos_mixer_pro/src/rust/common/config.dart';
 import 'package:atmos_mixer_pro/src/rust/api/simple.dart' as rust_api;
 import 'package:atmos_mixer_pro/core/utils/channel_dropdown_helper.dart';
+import 'package:atmos_mixer_pro/core/shortcuts/shortcut_config.dart';
+import 'package:atmos_mixer_pro/core/shortcuts/shortcut_remapper_dialog.dart';
 
 class PreferencesModal extends ConsumerStatefulWidget {
   const PreferencesModal({super.key});
@@ -509,6 +511,20 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                     ),
                   ),
                   const Spacer(),
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primaryNeon.withValues(alpha: 0.1),
+                      foregroundColor: AppColors.primaryNeon,
+                      side: const BorderSide(color: AppColors.primaryNeon),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    ),
+                    icon: const Icon(Icons.keyboard, size: 16),
+                    label: const Text('단축키 설정 (Keybindings)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                    onPressed: () {
+                      ShortcutRemapperDialog.show(context, shortcutManagerInstance);
+                    },
+                  ),
+                  const SizedBox(width: 16),
                   IconButton(
                     icon: const Icon(Icons.close, color: Colors.white),
                     onPressed: () => Navigator.of(context).pop(),

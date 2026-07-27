@@ -919,16 +919,8 @@ class _TuningModalState extends ConsumerState<TuningModal> {
 
   @override
   Widget build(BuildContext context) {
-    final config = ref.watch(configProvider);
-    final hwChannelsAsync = ref.watch(hardwareChannelsProvider);
-    int maxChannels = 24;
-    if (hwChannelsAsync.value != null && hwChannelsAsync.value!.isNotEmpty) {
-      maxChannels = hwChannelsAsync.value!.length;
-    } else if (config != null &&
-        config.deviceName != null &&
-        GlobalDeviceCache.channels.containsKey(config.deviceName)) {
-      maxChannels = GlobalDeviceCache.channels[config.deviceName]!.length;
-    }
+    final engineState = ref.watch(engineStateProvider);
+    int maxChannels = engineState.outputChannelCount;
 
     int safeSelectedChannel = _selectedChannel;
     if (safeSelectedChannel > maxChannels) safeSelectedChannel = 1;

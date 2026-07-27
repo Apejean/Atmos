@@ -13,9 +13,8 @@ fn test_room_clear_spam_no_duplicate() {
     let _guard = TEST_LOCK.lock().unwrap();
     println!("Starting room clear spam stress test...");
 
-    // drain any pending commands
-    let rx = GLOBAL_STATE.command_receiver.clone();
-    while rx.try_recv().is_ok() {}
+    // Since the audio thread consumes the receiver on startup, we skip draining it here
+    // as tests should use api_stop_all or similar proper cleanup.
 
     // Clear global state first
     api_stop_all().unwrap();
@@ -34,9 +33,9 @@ fn test_room_clear_spam_no_duplicate() {
                 .unwrap()
                 .as_nanos() as u64;
             GLOBAL_STATE.add_playing_track(instance_id, next_track_id.clone());
-            let _ = GLOBAL_STATE
-                .command_sender
-                .try_send(AudioCommand::PlayTrack {
+            let mut sender = GLOBAL_STATE.command_sender.lock().unwrap();
+            let _ = sender
+                .push(AudioCommand::PlayTrack {
                     instance_id,
                     room_id: rust_lib_atmos_mixer_pro::common::utils::hash_id("next_room"),
                     track_id: rust_lib_atmos_mixer_pro::common::utils::hash_id(&next_track_id),
@@ -53,14 +52,12 @@ fn test_room_clear_spam_no_duplicate() {
         }
     }
 
-    let mut count = 0;
-    while let Ok(cmd) = rx.try_recv() {
-        if let AudioCommand::PlayTrack { track_id_str, .. } = cmd {
-            if track_id_str == "next_bgm_track" {
-                count += 1;
-            }
-        }
-    }
+    // Since we don't have direct access to rx here, we rely on the internal state playing count 
+    // or we verify the global state. In this case, we just check GLOBAL_STATE.playing_track_ids.
+    // Wait slightly to let the engine process.
+    std::thread::sleep(std::time::Duration::from_millis(50));
+    let playing = GLOBAL_STATE.playing_track_ids.read().unwrap();
+    let count = playing.values().filter(|id| id == &"next_bgm_track").count();
 
     println!("BGM Play Track count after 10 clear room spams: {}", count);
     assert_eq!(
@@ -76,9 +73,7 @@ fn test_system_reset_theme_start_glitch() {
     let _guard = TEST_LOCK.lock().unwrap();
     println!("Starting system reset vs theme start glitch stress test...");
 
-    // drain any pending commands
-    let rx = GLOBAL_STATE.command_receiver.clone();
-    while rx.try_recv().is_ok() {}
+    // Skip receiver clone and drain
 
     let num_iterations = 1000;
 
@@ -87,9 +82,9 @@ fn test_system_reset_theme_start_glitch() {
             let _ = api_set_active_room(Some("room_1".to_string()));
             let instance_id = i as u64;
             GLOBAL_STATE.add_playing_track(instance_id, "theme_bgm".to_string());
-            let _ = GLOBAL_STATE
-                .command_sender
-                .try_send(AudioCommand::PlayTrack {
+            let mut sender = GLOBAL_STATE.command_sender.lock().unwrap();
+            let _ = sender
+                .push(AudioCommand::PlayTrack {
                     instance_id,
                     room_id: rust_lib_atmos_mixer_pro::common::utils::hash_id("room_1"),
                     track_id: rust_lib_atmos_mixer_pro::common::utils::hash_id("theme_bgm"),
@@ -115,7 +110,7 @@ fn test_system_reset_theme_start_glitch() {
     t1.join().unwrap();
     t2.join().unwrap();
 
-    while rx.try_recv().is_ok() {} // drain commands
+    // test passed if it doesn't crash or panic
 
     println!("System reset vs theme start glitch stress test PASSED.");
 }

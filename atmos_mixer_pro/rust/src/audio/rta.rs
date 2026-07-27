@@ -28,10 +28,10 @@ impl RtaAnalyzer {
     pub fn new() -> Self {
         // Pre-compute Hann window
         let mut hann_window = vec![0.0; RTA_FFT_SIZE];
-        for i in 0..RTA_FFT_SIZE {
+        for (i, item) in hann_window.iter_mut().enumerate().take(RTA_FFT_SIZE) {
             let n = i as f32;
             let n_minus_1 = (RTA_FFT_SIZE - 1) as f32;
-            hann_window[i] = 0.5 * (1.0 - (2.0 * std::f32::consts::PI * n / n_minus_1).cos());
+            *item = 0.5 * (1.0 - (2.0 * std::f32::consts::PI * n / n_minus_1).cos());
         }
 
         Self {
@@ -73,34 +73,29 @@ impl RtaAnalyzer {
         let fft = self.planner.plan_fft_forward(RTA_FFT_SIZE);
         fft.process_with_scratch(&mut self.input_buffer, &mut self.scratch_buffer);
 
-        // Calculate magnitude in dBFS
-        let mut mags = vec![0.0; RTA_BIN_COUNT];
         let norm_factor = 2.0 / RTA_FFT_SIZE as f32; // Normalization for single-sided spectrum
-        
-        // Window energy correction factor for Hann window
-        let window_correction = 2.0;
+        let window_correction = 2.0; // Window energy correction factor for Hann window
 
-        for i in 0..RTA_BIN_COUNT {
-            let complex = self.input_buffer[i];
-            let mag = (complex.re * complex.re + complex.im * complex.im).sqrt();
-            let mut mag_norm = mag * norm_factor * window_correction;
-            
-            // DC and Nyquist bin corrections
-            if i == 0 || i == RTA_BIN_COUNT - 1 {
-                mag_norm /= 2.0;
+        // Use try_write to avoid blocking the audio callback if FFI is reading
+        if let Some(mut lock) = self.fft_magnitudes.try_write() {
+            for (i, item) in lock.iter_mut().enumerate().take(RTA_BIN_COUNT) {
+                let complex = self.input_buffer[i];
+                let mag = (complex.re * complex.re + complex.im * complex.im).sqrt();
+                let mut mag_norm = mag * norm_factor * window_correction;
+                
+                // DC and Nyquist bin corrections
+                if i == 0 || i == RTA_BIN_COUNT - 1 {
+                    mag_norm /= 2.0;
+                }
+
+                let db = if mag_norm > 1e-7 {
+                    20.0 * mag_norm.log10()
+                } else {
+                    -140.0
+                };
+                *item = db.clamp(-140.0, 0.0);
             }
-
-            let db = if mag_norm > 1e-7 {
-                20.0 * mag_norm.log10()
-            } else {
-                -140.0
-            };
-            mags[i] = db.clamp(-140.0, 0.0);
         }
-
-        // Store into RwLock for FFI to poll
-        let mut lock = self.fft_magnitudes.write();
-        *lock = mags;
     }
 
     /// Returns a clone of the thread-safe reference to the magnitude vector.

@@ -43,9 +43,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
   static int _roomColorIndex = 0;
 
   Timer? _automationTimer;
-  double _automationProgress = 0.0;
   bool _isPlayingAutomation = false;
-  Offset? _currentAutomationPos;
 
   bool _showSpeakers = true;
   bool _showRooms = true;
@@ -85,7 +83,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
     final trajectories = ref.read(trajectoryProvider);
 
     final payload = {
-      'channel_positions': List.generate(64, (index) {
+      'channel_positions': List.generate(ref.read(engineStateProvider).outputChannelCount, (index) {
         final node = nodes.where((n) => n.channel == index).firstOrNull;
         if (node == null) return null;
         return {
@@ -111,8 +109,6 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
       debugPrint('Real-time FFI sync error: $e');
     });
   }
-
-  bool _automationReverse = false;
 
   void _toggleAutomation() {
     final trajectories = ref.read(trajectoryProvider);
@@ -241,7 +237,6 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
       _isPlayingAutomation = false;
       _automationTimer?.cancel();
       _automationTimer = null;
-      _currentAutomationPos = null;
     });
     _syncSpatialConfigRealtime();
   }
@@ -304,7 +299,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
             title: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('Edit Room Settings', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                const Text('룸 설정 및 음향 튜닝 (Room Settings & Tuning)', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
                 IconButton(
                   icon: const Icon(Icons.close, color: Colors.white54),
                   onPressed: () => Navigator.pop(context),
@@ -320,8 +315,8 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                     controller: nameController,
                     style: const TextStyle(color: Colors.white),
                     decoration: const InputDecoration(
-                      labelText: 'Room Name',
-                      labelStyle: TextStyle(color: Colors.white70),
+                      labelText: '룸 이름 (Room Name / Label)',
+                      labelStyle: TextStyle(color: AppColors.primaryNeon, fontWeight: FontWeight.bold),
                       enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
                       focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: AppColors.primaryNeon)),
                     ),
@@ -720,6 +715,110 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
     );
   }
 
+  Future<void> _editTrajectory(TrajectoryModel trajectory) async {
+    String? currentAudioPath = trajectory.audioFilePath;
+    String name = trajectory.name;
+
+    await showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            backgroundColor: AppColors.cardSurface,
+            title: const Text('Edit Trajectory', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Name', style: TextStyle(color: Colors.white70, fontSize: 13)),
+                  const SizedBox(height: 8),
+                  TextFormField(
+                    initialValue: name,
+                    style: const TextStyle(color: Colors.white),
+                    decoration: const InputDecoration(
+                      filled: true,
+                      fillColor: Colors.black45,
+                      border: OutlineInputBorder(),
+                    ),
+                    onChanged: (val) => name = val,
+                  ),
+                  const SizedBox(height: 16),
+                  const Text('Audio File Binding', style: TextStyle(color: Colors.white70, fontSize: 13)),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          currentAudioPath != null ? currentAudioPath!.split(Platform.pathSeparator).last : 'No audio selected',
+                          style: TextStyle(color: currentAudioPath != null ? AppColors.primaryNeon : Colors.white54, fontSize: 12),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.file_upload, color: Colors.white70),
+                        tooltip: 'Select Audio File',
+                        onPressed: () async {
+                          try {
+                            final result = await FilePicker.pickFiles(
+                              type: FileType.audio,
+                              allowMultiple: false,
+                            );
+                            if (result != null && result.files.isNotEmpty) {
+                              setDialogState(() {
+                                currentAudioPath = result.files.first.path;
+                              });
+                            }
+                          } catch (e) {
+                            debugPrint('File picker error: $e');
+                          }
+                        },
+                      ),
+                      if (currentAudioPath != null)
+                        IconButton(
+                          icon: const Icon(Icons.clear, color: Colors.redAccent),
+                          tooltip: 'Clear Audio',
+                          onPressed: () {
+                            setDialogState(() {
+                              currentAudioPath = null;
+                            });
+                          },
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel', style: TextStyle(color: Colors.white70)),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primaryNeon,
+                  foregroundColor: Colors.black,
+                ),
+                onPressed: () {
+                  ref.read(trajectoryProvider.notifier).updateTrajectory(
+                        trajectory.copyWith(
+                          name: name,
+                          audioFilePath: currentAudioPath,
+                          audioTrackId: currentAudioPath != null ? (trajectory.audioTrackId ?? const Uuid().v4()) : null,
+                        ),
+                        immediate: true,
+                      );
+                  Navigator.pop(context);
+                },
+                child: const Text('Save Settings', style: TextStyle(fontWeight: FontWeight.bold)),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
   List<SpeakerNode> _getSpeakersInRoom(RoomZone room, List<SpeakerNode> nodes) {
     return nodes
         .where((n) => room.containsPoint(n.x + _speakerSize / 2, n.y + _speakerSize / 2))
@@ -1047,6 +1146,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                                 trajectory: t,
                                 transformationController: _transformationController,
                                 onDragUpdate: _syncSpatialConfigRealtime,
+                                onLongPress: () => _editTrajectory(t),
                               )),
                           ...trajectories.expand((t) {
                             return t.waypoints.asMap().entries.map((entry) {
@@ -1246,34 +1346,50 @@ class _DraggableRoomWidgetState extends ConsumerState<_DraggableRoomWidget> {
             final dy = dxGlobal * sinA + dyGlobal * cosA;
 
             setState(() {
+              double dxLocal = dx;
+              double dyLocal = dy;
+              
+              double newLx = 0.0;
+              double newLy = 0.0;
+              double newW = _localW;
+              double newH = _localH;
+              
               if (alignment.x < 0) {
-                _localX += dx;
-                _localW -= dx;
-                if (_localW < 80) {
-                  _localX -= (80 - _localW);
-                  _localW = 80;
-                }
+                newLx = dxLocal;
+                newW -= dxLocal;
               } else if (alignment.x > 0) {
-                _localW += dx;
-                if (_localW < 80) _localW = 80;
+                newW += dxLocal;
               }
-
+              
               if (alignment.y < 0) {
-                _localY += dy;
-                _localH -= dy;
-                if (_localH < 80) {
-                  _localY -= (80 - _localH);
-                  _localH = 80;
-                }
+                newLy = dyLocal;
+                newH -= dyLocal;
               } else if (alignment.y > 0) {
-                _localH += dy;
-                if (_localH < 80) _localH = 80;
+                newH += dyLocal;
               }
-
-              _localX = _localX.clamp(0.0, _canvasWidth - _localW);
-              _localY = _localY.clamp(0.0, _canvasHeight - _localH);
-              _localW = _localW.clamp(80.0, _canvasWidth - _localX);
-              _localH = _localH.clamp(80.0, _canvasHeight - _localY);
+              
+              if (newW < 80.0) {
+                if (alignment.x < 0) newLx -= (80.0 - newW);
+                newW = 80.0;
+              }
+              if (newH < 80.0) {
+                if (alignment.y < 0) newLy -= (80.0 - newH);
+                newH = 80.0;
+              }
+              
+              double deltaCx = newLx + newW / 2 - _localW / 2;
+              double deltaCy = newLy + newH / 2 - _localH / 2;
+              
+              double deltaCxGlobal = deltaCx * math.cos(rad) - deltaCy * math.sin(rad);
+              double deltaCyGlobal = deltaCx * math.sin(rad) + deltaCy * math.cos(rad);
+              
+              double oldCx = _localX + _localW / 2;
+              double oldCy = _localY + _localH / 2;
+              
+              _localW = newW;
+              _localH = newH;
+              _localX = (oldCx + deltaCxGlobal) - _localW / 2;
+              _localY = (oldCy + deltaCyGlobal) - _localH / 2;
             });
 
             final blueprint = ref.read(blueprintProvider);
@@ -1493,6 +1609,7 @@ class _DraggableRoomWidgetState extends ConsumerState<_DraggableRoomWidget> {
               cursor: SystemMouseCursors.move,
               child: GestureDetector(
                 behavior: HitTestBehavior.translucent,
+                onDoubleTap: widget.onEdit,
                 onPanStart: (details) {
                   setState(() => _isInteracting = true);
                   _draggedSpeakersOffsets = {
@@ -1703,6 +1820,8 @@ class _DraggableSpeakerWidgetState extends ConsumerState<_DraggableSpeakerWidget
   late double _localX;
   late double _localY;
   bool _isDragging = false;
+  double _initialTouchAngle = 0.0;
+  double _initialSpeakerRotation = 0.0;
 
   @override
   void initState() {
@@ -1734,19 +1853,25 @@ class _DraggableSpeakerWidgetState extends ConsumerState<_DraggableSpeakerWidget
             // Speaker Rotation Handle Knob (Unified on top of speaker node)
             GestureDetector(
               behavior: HitTestBehavior.translucent,
+              onPanStart: (details) {
+                final renderBox = context.findRenderObject() as RenderBox?;
+                if (renderBox != null) {
+                  final globalCenter = renderBox.localToGlobal(const Offset(_speakerSize / 2, _speakerSize / 2 + 15));
+                  _initialTouchAngle = math.atan2(details.globalPosition.dy - globalCenter.dy, details.globalPosition.dx - globalCenter.dx);
+                  _initialSpeakerRotation = widget.node.rotation;
+                }
+              },
               onPanUpdate: (details) {
                 final renderBox = context.findRenderObject() as RenderBox?;
                 if (renderBox != null) {
-                  final localTouch = renderBox.globalToLocal(details.globalPosition);
-                  final centerLocal = Offset(_speakerSize / 2, _speakerSize / 2 + 20);
-                  final dx = localTouch.dx - centerLocal.dx;
-                  final dy = localTouch.dy - centerLocal.dy;
-                  double angleRad = math.atan2(dy, dx) + math.pi / 2;
-                  double angleDeg = (angleRad * 180 / math.pi) % 360;
-                  if (angleDeg < 0) angleDeg += 360;
+                  final globalCenter = renderBox.localToGlobal(const Offset(_speakerSize / 2, _speakerSize / 2 + 15));
+                  final currentTouchAngle = math.atan2(details.globalPosition.dy - globalCenter.dy, details.globalPosition.dx - globalCenter.dx);
+                  final deltaAngle = (currentTouchAngle - _initialTouchAngle) * 180 / math.pi;
+                  double newRotation = (_initialSpeakerRotation + deltaAngle) % 360;
+                  if (newRotation < 0) newRotation += 360;
 
                   ref.read(speakerLayoutProvider.notifier).updateSpeaker(
-                        widget.node.copyWith(rotation: angleDeg),
+                        widget.node.copyWith(rotation: newRotation),
                         immediate: true,
                       );
                 }
@@ -1915,12 +2040,14 @@ class _DraggableTrajectoryPathWidget extends ConsumerStatefulWidget {
   final TrajectoryModel trajectory;
   final TransformationController transformationController;
   final VoidCallback onDragUpdate;
+  final VoidCallback? onLongPress;
 
   const _DraggableTrajectoryPathWidget({
     super.key,
     required this.trajectory,
     required this.transformationController,
     required this.onDragUpdate,
+    this.onLongPress,
   });
 
   @override
@@ -1981,8 +2108,10 @@ class _DraggableTrajectoryPathWidgetState
                   immediate: true,
                 );
             widget.onDragUpdate();
+            widget.onDragUpdate();
           },
           onPanEnd: (_) => widget.onDragUpdate(),
+          onLongPress: widget.onLongPress,
           child: Container(
             color: Colors.transparent,
           ),

@@ -60,6 +60,9 @@ Future<void> apiClearPreloadedSounds() =>
 Future<Float32List> apiGetRtaMagnitudes() =>
     RustLib.instance.api.crateApiSimpleApiGetRtaMagnitudes();
 
+Future<Float32List> apiGetSpatialGains() =>
+    RustLib.instance.api.crateApiSimpleApiGetSpatialGains();
+
 Future<Float32List> apiCalculateEqResponse({required List<EqBand> bands}) =>
     RustLib.instance.api.crateApiSimpleApiCalculateEqResponse(bands: bands);
 

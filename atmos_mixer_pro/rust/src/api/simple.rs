@@ -199,6 +199,16 @@ pub fn api_get_rta_magnitudes() -> Vec<f32> {
     vec![-140.0; crate::audio::rta::RTA_BIN_COUNT]
 }
 
+pub fn api_get_spatial_gains() -> Vec<f32> {
+    let out_channels = GLOBAL_STATE.active_device_channels.load(std::sync::atomic::Ordering::Relaxed) as usize;
+    let limit = out_channels.min(GLOBAL_STATE.spatial_gains.len());
+    let mut gains = Vec::with_capacity(limit);
+    for i in 0..limit {
+        gains.push(f32::from_bits(GLOBAL_STATE.spatial_gains[i].load(std::sync::atomic::Ordering::Relaxed)));
+    }
+    gains
+}
+
 pub fn api_calculate_eq_response(bands: Vec<crate::common::config::EqBand>) -> Vec<f32> {
     let freqs = crate::audio::eq_response::generate_log_frequencies(20.0, 20000.0, 100);
     crate::audio::eq_response::calculate_total_eq_curve(&bands, 48000.0, &freqs)
@@ -627,6 +637,10 @@ pub fn api_init_audio_system(device_name: Option<String>) -> Result<(), AtmosErr
                 let _ = tx.send(Ok(()));
                 
                 // Keep thread alive until next generation, and watch for DeviceNotAvailable
+                let mut last_device_count: Option<usize> = None;
+                let mut last_device_names: Vec<String> = Vec::new();
+                let mut monitor_timer = 0;
+
                 loop {
                     if ENGINE_GENERATION.load(std::sync::atomic::Ordering::SeqCst) != gen {
                         break;
@@ -637,6 +651,27 @@ pub fn api_init_audio_system(device_name: Option<String>) -> Result<(), AtmosErr
                             break;
                         }
                     }
+
+                    // Device Topology Monitoring (Every 3000ms = 30 * 100ms)
+                    monitor_timer += 1;
+                    if monitor_timer >= 30 {
+                        monitor_timer = 0;
+                        if let Ok(devices) = api_get_output_devices() {
+                            let current_names: Vec<String> = devices.into_iter().map(|d| d.name).collect();
+                            if let Some(last_count) = last_device_count {
+                                if last_count != current_names.len() || last_device_names != current_names {
+                                    println!("🔄 [Device Monitor] Detected devicelist change! (Topology changed)");
+                                    let mut err_guard = crate::core::state::GLOBAL_STATE.engine_error.write().unwrap();
+                                    *err_guard = Some("DeviceListChanged".to_string());
+                                    // Trigger auto-recovery by breaking the loop (similar to Ableton's behavior)
+                                    break;
+                                }
+                            }
+                            last_device_count = Some(current_names.len());
+                            last_device_names = current_names;
+                        }
+                    }
+
                     std::thread::sleep(std::time::Duration::from_millis(100));
                 }
                 

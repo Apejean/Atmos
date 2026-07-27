@@ -198,9 +198,15 @@ class _SpeakerNodeWidgetState extends ConsumerState<SpeakerNodeWidget> {
                 child: DropdownButtonHideUnderline(
                   child: Consumer(
                     builder: (context, ref, child) {
-                      final maxChannels = ref.watch(
-                        engineStateProvider.select((s) => s.outputChannelCount),
-                      );
+                      final hwChannelsAsync = ref.watch(hardwareChannelsProvider);
+                      final config = ref.watch(configProvider);
+                      int maxChannels = 24;
+                      if (hwChannelsAsync.value != null && hwChannelsAsync.value!.isNotEmpty) {
+                        maxChannels = hwChannelsAsync.value!.length;
+                      } else if (config != null && config.deviceName != null && GlobalDeviceCache.channels.containsKey(config.deviceName)) {
+                        maxChannels = GlobalDeviceCache.channels[config.deviceName]!.length;
+                      }
+                      
                       // Ensure current channel is within valid range
                       final currentValue = widget.node.channel < maxChannels
                           ? widget.node.channel

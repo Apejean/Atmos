@@ -29,6 +29,9 @@ class TrajectoryModel extends ChangeNotifier {
   double speed;
   bool isPingPong;
   bool isVisible;
+  String? audioFilePath;
+  String? audioTrackId;
+  String? stemGroupId;
 
   double progress = 0.0;
   double direction = 1.0;
@@ -41,17 +44,23 @@ class TrajectoryModel extends ChangeNotifier {
     this.speed = 2.0,
     this.isPingPong = false,
     this.isVisible = true,
+    this.audioFilePath,
+    this.audioTrackId,
+    this.stemGroupId,
   });
 
   Map<String, dynamic> toJson() {
     return {
       'id': id,
       'name': name,
-      'color': color.value,
+      'color': color.toARGB32(),
       'waypoints': waypoints.map((w) => w.toJson()).toList(),
       'speed': speed,
       'isPingPong': isPingPong,
       'isVisible': isVisible,
+      'audioFilePath': audioFilePath,
+      'audioTrackId': audioTrackId,
+      'stemGroupId': stemGroupId,
     };
   }
 
@@ -66,6 +75,9 @@ class TrajectoryModel extends ChangeNotifier {
       speed: (json['speed'] as num?)?.toDouble() ?? 2.0,
       isPingPong: json['isPingPong'] as bool? ?? false,
       isVisible: json['isVisible'] as bool? ?? true,
+      audioFilePath: json['audioFilePath'] as String?,
+      audioTrackId: json['audioTrackId'] as String?,
+      stemGroupId: json['stemGroupId'] as String?,
     );
   }
 
@@ -165,6 +177,9 @@ class TrajectoryModel extends ChangeNotifier {
     double? speed,
     bool? isPingPong,
     bool? isVisible,
+    String? audioFilePath,
+    String? audioTrackId,
+    String? stemGroupId,
   }) {
     return TrajectoryModel(
       id: id ?? this.id,
@@ -174,6 +189,9 @@ class TrajectoryModel extends ChangeNotifier {
       speed: speed ?? this.speed,
       isPingPong: isPingPong ?? this.isPingPong,
       isVisible: isVisible ?? this.isVisible,
+      audioFilePath: audioFilePath ?? this.audioFilePath,
+      audioTrackId: audioTrackId ?? this.audioTrackId,
+      stemGroupId: stemGroupId ?? this.stemGroupId,
     );
   }
 }

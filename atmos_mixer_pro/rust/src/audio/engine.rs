@@ -103,7 +103,7 @@ impl AudioEngine {
     pub fn start(
         &mut self,
         device_name: Option<String>,
-        mut cmd_receiver: Consumer<AudioCommand>,
+        cmd_receiver: Consumer<AudioCommand>,
     ) -> Result<(), String> {
         #[cfg(target_os = "windows")]
         {
