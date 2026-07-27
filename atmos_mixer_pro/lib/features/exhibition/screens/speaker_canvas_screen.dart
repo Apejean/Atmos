@@ -904,6 +904,10 @@ class _DraggableRoomWidgetState extends ConsumerState<_DraggableRoomWidget> {
   bool _isInteracting = false;
   Map<String, Offset> _draggedSpeakersOffsets = {};
 
+  bool _isRotatingFromCorner = false;
+  double _initialRotation = 0.0;
+  double _initialAngleToCenter = 0.0;
+
   @override
   void initState() {
     super.initState();
@@ -925,122 +929,180 @@ class _DraggableRoomWidgetState extends ConsumerState<_DraggableRoomWidget> {
   }
 
   Widget _buildResizeHandle(Alignment alignment) {
+    bool isCorner = alignment == Alignment.topLeft ||
+        alignment == Alignment.topRight ||
+        alignment == Alignment.bottomLeft ||
+        alignment == Alignment.bottomRight;
+
+    MouseCursor cursor = SystemMouseCursors.basic;
+    if (alignment == Alignment.topLeft || alignment == Alignment.bottomRight) {
+      cursor = SystemMouseCursors.resizeUpLeftDownRight;
+    } else if (alignment == Alignment.topRight || alignment == Alignment.bottomLeft) {
+      cursor = SystemMouseCursors.resizeUpRightDownLeft;
+    } else if (alignment == Alignment.topCenter || alignment == Alignment.bottomCenter) {
+      cursor = SystemMouseCursors.resizeUpDown;
+    } else if (alignment == Alignment.centerLeft || alignment == Alignment.centerRight) {
+      cursor = SystemMouseCursors.resizeLeftRight;
+    }
+
     return Align(
       alignment: alignment,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onPanStart: (_) {
-          setState(() => _isInteracting = true);
-        },
-        onPanUpdate: (details) {
-          final scale = widget.transformationController.value.getMaxScaleOnAxis();
-          final currentScale = scale > 0 ? scale : 1.0;
-          final dxGlobal = details.delta.dx / currentScale;
-          final dyGlobal = details.delta.dy / currentScale;
-
-          // Convert global gesture delta to room's rotated local coordinate system
-          final rad = widget.room.rotation * math.pi / 180.0;
-          final cosA = math.cos(-rad);
-          final sinA = math.sin(-rad);
-          final dx = dxGlobal * cosA - dyGlobal * sinA;
-          final dy = dxGlobal * sinA + dyGlobal * cosA;
-
-          setState(() {
-            if (alignment.x < 0) {
-              _localX += dx;
-              _localW -= dx;
-              if (_localW < 80) {
-                _localX -= (80 - _localW);
-                _localW = 80;
+      child: MouseRegion(
+        cursor: cursor,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onPanStart: (details) {
+            setState(() {
+              _isInteracting = true;
+              if (isCorner) {
+                // Center of the 40x40 box is (20,20)
+                final dist = math.sqrt(math.pow(details.localPosition.dx - 20, 2) + math.pow(details.localPosition.dy - 20, 2));
+                _isRotatingFromCorner = dist > 10.0; // Outer part -> Rotate
+              } else {
+                _isRotatingFromCorner = false;
               }
-            } else if (alignment.x > 0) {
-              _localW += dx;
-              if (_localW < 80) _localW = 80;
+
+              if (_isRotatingFromCorner) {
+                final renderBox = context.findRenderObject() as RenderBox?;
+                if (renderBox != null) {
+                  final localTouch = renderBox.globalToLocal(details.globalPosition);
+                  final roomCenterLocal = Offset(_localW / 2, _localH / 2);
+                  _initialAngleToCenter = math.atan2(localTouch.dy - roomCenterLocal.dy, localTouch.dx - roomCenterLocal.dx);
+                  _initialRotation = widget.room.rotation;
+                }
+              }
+            });
+          },
+          onPanUpdate: (details) {
+            if (_isRotatingFromCorner) {
+              final renderBox = context.findRenderObject() as RenderBox?;
+              if (renderBox != null) {
+                final localTouch = renderBox.globalToLocal(details.globalPosition);
+                final roomCenterLocal = Offset(_localW / 2, _localH / 2);
+                final currentAngleToCenter = math.atan2(localTouch.dy - roomCenterLocal.dy, localTouch.dx - roomCenterLocal.dx);
+                final deltaAngle = (currentAngleToCenter - _initialAngleToCenter) * 180 / math.pi;
+                double newRotation = (_initialRotation + deltaAngle) % 360;
+                if (newRotation < 0) newRotation += 360;
+
+                ref.read(roomZoneProvider.notifier).updateRoomZone(
+                      widget.room.copyWith(rotation: newRotation),
+                      immediate: true,
+                    );
+              }
+              return;
             }
 
-            if (alignment.y < 0) {
-              _localY += dy;
-              _localH -= dy;
-              if (_localH < 80) {
-                _localY -= (80 - _localH);
-                _localH = 80;
+            final scale = widget.transformationController.value.getMaxScaleOnAxis();
+            final currentScale = scale > 0 ? scale : 1.0;
+            final dxGlobal = details.delta.dx / currentScale;
+            final dyGlobal = details.delta.dy / currentScale;
+
+            // Convert global gesture delta to room's rotated local coordinate system
+            final rad = widget.room.rotation * math.pi / 180.0;
+            final cosA = math.cos(-rad);
+            final sinA = math.sin(-rad);
+            final dx = dxGlobal * cosA - dyGlobal * sinA;
+            final dy = dxGlobal * sinA + dyGlobal * cosA;
+
+            setState(() {
+              if (alignment.x < 0) {
+                _localX += dx;
+                _localW -= dx;
+                if (_localW < 80) {
+                  _localX -= (80 - _localW);
+                  _localW = 80;
+                }
+              } else if (alignment.x > 0) {
+                _localW += dx;
+                if (_localW < 80) _localW = 80;
               }
-            } else if (alignment.y > 0) {
-              _localH += dy;
-              if (_localH < 80) _localH = 80;
+
+              if (alignment.y < 0) {
+                _localY += dy;
+                _localH -= dy;
+                if (_localH < 80) {
+                  _localY -= (80 - _localH);
+                  _localH = 80;
+                }
+              } else if (alignment.y > 0) {
+                _localH += dy;
+                if (_localH < 80) _localH = 80;
+              }
+
+              _localX = _localX.clamp(0.0, _canvasWidth - _localW);
+              _localY = _localY.clamp(0.0, _canvasHeight - _localH);
+              _localW = _localW.clamp(80.0, _canvasWidth - _localX);
+              _localH = _localH.clamp(80.0, _canvasHeight - _localY);
+            });
+
+            final blueprint = ref.read(blueprintProvider);
+            final scaleM = blueprint.scale > 0 ? blueprint.scale : 40.0;
+            ref.read(roomZoneProvider.notifier).updateRoomZone(
+                  widget.room.copyWith(
+                    x: _localX,
+                    y: _localY,
+                    width: _localW,
+                    height: _localH,
+                    physicalWidth: _localW / scaleM,
+                    physicalHeight: _localH / scaleM,
+                  ),
+                  immediate: true,
+                );
+            widget.onDragUpdate?.call();
+          },
+          onPanEnd: (_) {
+            if (_isRotatingFromCorner) {
+              setState(() => _isInteracting = false);
+              return;
             }
 
-            _localX = _localX.clamp(0.0, _canvasWidth - _localW);
-            _localY = _localY.clamp(0.0, _canvasHeight - _localH);
-            _localW = _localW.clamp(80.0, _canvasWidth - _localX);
-            _localH = _localH.clamp(80.0, _canvasHeight - _localY);
-          });
+            double snappedX = (_localX / _gridSize).round() * _gridSize;
+            double snappedY = (_localY / _gridSize).round() * _gridSize;
+            double snappedW = (_localW / _gridSize).round() * _gridSize;
+            double snappedH = (_localH / _gridSize).round() * _gridSize;
 
-          final blueprint = ref.read(blueprintProvider);
-          final scaleM = blueprint.scale > 0 ? blueprint.scale : 40.0;
-          ref.read(roomZoneProvider.notifier).updateRoomZone(
-                widget.room.copyWith(
-                  x: _localX,
-                  y: _localY,
-                  width: _localW,
-                  height: _localH,
-                  physicalWidth: _localW / scaleM,
-                  physicalHeight: _localH / scaleM,
+            snappedX = snappedX.clamp(0.0, _canvasWidth - snappedW);
+            snappedY = snappedY.clamp(0.0, _canvasHeight - snappedH);
+            snappedW = snappedW.clamp(80.0, _canvasWidth - snappedX);
+            snappedH = snappedH.clamp(80.0, _canvasHeight - snappedY);
+
+            final blueprint = ref.read(blueprintProvider);
+            final scaleM = blueprint.scale > 0 ? blueprint.scale : 40.0;
+
+            setState(() {
+              _localX = snappedX;
+              _localY = snappedY;
+              _localW = snappedW;
+              _localH = snappedH;
+              _isInteracting = false;
+            });
+
+            ref.read(roomZoneProvider.notifier).updateRoomZone(
+                  widget.room.copyWith(
+                    x: snappedX,
+                    y: snappedY,
+                    width: snappedW,
+                    height: snappedH,
+                    physicalWidth: snappedW / scaleM,
+                    physicalHeight: snappedH / scaleM,
+                  ),
+                  immediate: true,
+                );
+            widget.onDragUpdate?.call();
+          },
+          child: Container(
+            width: 40,
+            height: 40,
+            color: Colors.transparent,
+            child: Center(
+              child: Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  border: Border.all(color: AppColors.primaryNeon, width: 1.5),
+                  shape: BoxShape.rectangle,
                 ),
-                immediate: true,
-              );
-          widget.onDragUpdate?.call();
-        },
-        onPanEnd: (_) {
-          double snappedX = (_localX / _gridSize).round() * _gridSize;
-          double snappedY = (_localY / _gridSize).round() * _gridSize;
-          double snappedW = (_localW / _gridSize).round() * _gridSize;
-          double snappedH = (_localH / _gridSize).round() * _gridSize;
-
-          snappedX = snappedX.clamp(0.0, _canvasWidth - snappedW);
-          snappedY = snappedY.clamp(0.0, _canvasHeight - snappedH);
-          snappedW = snappedW.clamp(80.0, _canvasWidth - snappedX);
-          snappedH = snappedH.clamp(80.0, _canvasHeight - snappedY);
-
-          final blueprint = ref.read(blueprintProvider);
-          final scaleM = blueprint.scale > 0 ? blueprint.scale : 40.0;
-
-          setState(() {
-            _localX = snappedX;
-            _localY = snappedY;
-            _localW = snappedW;
-            _localH = snappedH;
-            _isInteracting = false;
-          });
-
-          ref.read(roomZoneProvider.notifier).updateRoomZone(
-                widget.room.copyWith(
-                  x: snappedX,
-                  y: snappedY,
-                  width: snappedW,
-                  height: snappedH,
-                  physicalWidth: snappedW / scaleM,
-                  physicalHeight: snappedH / scaleM,
-                ),
-                immediate: true,
-              );
-          widget.onDragUpdate?.call();
-        },
-        child: Container(
-          width: 28,
-          height: 28,
-          color: Colors.transparent,
-          child: Center(
-            child: Container(
-              width: 12,
-              height: 12,
-              decoration: BoxDecoration(
-                color: AppColors.primaryNeon,
-                border: Border.all(color: Colors.black, width: 2),
-                shape: BoxShape.circle,
-                boxShadow: const [
-                  BoxShadow(color: Colors.black54, blurRadius: 4),
-                ],
               ),
             ),
           ),
@@ -1110,47 +1172,59 @@ class _DraggableRoomWidgetState extends ConsumerState<_DraggableRoomWidget> {
     );
   }
 
+
+
   Widget _buildRotateHandle() {
     return Positioned(
       top: -36,
-      left: _localW / 2 - 14,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onPanStart: (_) => setState(() => _isInteracting = true),
-        onPanUpdate: (details) {
-          final renderBox = context.findRenderObject() as RenderBox?;
-          if (renderBox != null) {
-            final localTouch = renderBox.globalToLocal(details.globalPosition);
-            final roomCenterLocal = Offset(_localW / 2, _localH / 2);
-            final dx = localTouch.dx - roomCenterLocal.dx;
-            final dy = localTouch.dy - roomCenterLocal.dy;
-            double angleRad = math.atan2(dy, dx) + math.pi / 2;
-            double angleDeg = (angleRad * 180 / math.pi) % 360;
-            if (angleDeg < 0) angleDeg += 360;
+      left: _localW / 2 - 12,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onPanStart: (details) {
+            setState(() => _isInteracting = true);
+            final renderBox = context.findRenderObject() as RenderBox?;
+            if (renderBox != null) {
+              final localTouch = renderBox.globalToLocal(details.globalPosition);
+              final roomCenterLocal = Offset(_localW / 2, _localH / 2);
+              _initialAngleToCenter = math.atan2(localTouch.dy - roomCenterLocal.dy, localTouch.dx - roomCenterLocal.dx);
+              _initialRotation = widget.room.rotation;
+            }
+          },
+          onPanUpdate: (details) {
+            final renderBox = context.findRenderObject() as RenderBox?;
+            if (renderBox != null) {
+              final localTouch = renderBox.globalToLocal(details.globalPosition);
+              final roomCenterLocal = Offset(_localW / 2, _localH / 2);
+              final currentAngleToCenter = math.atan2(localTouch.dy - roomCenterLocal.dy, localTouch.dx - roomCenterLocal.dx);
+              final deltaAngle = (currentAngleToCenter - _initialAngleToCenter) * 180 / math.pi;
+              double newRotation = (_initialRotation + deltaAngle) % 360;
+              if (newRotation < 0) newRotation += 360;
 
-            ref.read(roomZoneProvider.notifier).updateRoomZone(
-                  widget.room.copyWith(rotation: angleDeg),
-                  immediate: true,
-                );
-          }
-        },
-        onPanEnd: (_) => setState(() => _isInteracting = false),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 22,
-              height: 20,
-              decoration: BoxDecoration(
-                color: AppColors.primaryNeon,
-                shape: BoxShape.circle,
-                border: Border.all(color: Colors.black, width: 2),
-                boxShadow: const [BoxShadow(color: Colors.black54, blurRadius: 4)],
-              ),
-              child: const Icon(Icons.rotate_right, size: 12, color: Colors.black),
+              ref.read(roomZoneProvider.notifier).updateRoomZone(
+                    widget.room.copyWith(rotation: newRotation),
+                    immediate: true,
+                  );
+            }
+          },
+          onPanEnd: (_) => setState(() => _isInteracting = false),
+          child: Container(
+            width: 24,
+            height: 24,
+            decoration: BoxDecoration(
+              color: AppColors.cardSurface,
+              shape: BoxShape.circle,
+              border: Border.all(color: AppColors.primaryNeon, width: 2),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.primaryNeon.withValues(alpha: 0.4),
+                  blurRadius: 6,
+                )
+              ],
             ),
-            Container(width: 2, height: 16, color: AppColors.primaryNeon),
-          ],
+            child: const Icon(Icons.rotate_right, size: 14, color: AppColors.primaryNeon),
+          ),
         ),
       ),
     );
@@ -1159,6 +1233,8 @@ class _DraggableRoomWidgetState extends ConsumerState<_DraggableRoomWidget> {
   @override
   Widget build(BuildContext context) {
     final roomColor = Color(widget.room.color);
+    final isHoveredOrActive = _isInteracting;
+
     return Positioned(
       left: _localX,
       top: _localY,
@@ -1169,10 +1245,11 @@ class _DraggableRoomWidgetState extends ConsumerState<_DraggableRoomWidget> {
         child: Stack(
           clipBehavior: Clip.none,
           children: [
-            RepaintBoundary(
+            // Room Main Container & Drag Move Gesture
+            MouseRegion(
+              cursor: SystemMouseCursors.move,
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
-                onTap: widget.onEdit,
                 onPanStart: (details) {
                   setState(() => _isInteracting = true);
                   _draggedSpeakersOffsets = {
@@ -1248,17 +1325,21 @@ class _DraggableRoomWidgetState extends ConsumerState<_DraggableRoomWidget> {
                     filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
                     child: Container(
                       decoration: BoxDecoration(
-                        color: roomColor.withValues(alpha: 0.18),
+                        color: isHoveredOrActive
+                            ? roomColor.withValues(alpha: 0.35)
+                            : roomColor.withValues(alpha: 0.18),
                         border: Border.all(
-                          color: roomColor,
-                          width: 2.5,
+                          color: isHoveredOrActive ? AppColors.primaryNeon : roomColor,
+                          width: isHoveredOrActive ? 3.0 : 2.5,
                         ),
                         borderRadius: BorderRadius.circular(8),
                         boxShadow: [
                           BoxShadow(
-                            color: roomColor.withValues(alpha: 0.25),
-                            blurRadius: 12,
-                            spreadRadius: 1,
+                            color: isHoveredOrActive
+                                ? AppColors.primaryNeon.withValues(alpha: 0.5)
+                                : roomColor.withValues(alpha: 0.25),
+                            blurRadius: isHoveredOrActive ? 16 : 12,
+                            spreadRadius: isHoveredOrActive ? 2 : 1,
                           ),
                         ],
                       ),
@@ -1278,17 +1359,31 @@ class _DraggableRoomWidgetState extends ConsumerState<_DraggableRoomWidget> {
                                     letterSpacing: 0.5,
                                   ),
                                 ),
-                                const SizedBox(width: 6),
-                                const Icon(Icons.edit, size: 14, color: Colors.white70),
+                                const SizedBox(width: 8),
+                                MouseRegion(
+                                  cursor: SystemMouseCursors.click,
+                                  child: GestureDetector(
+                                    onTap: widget.onEdit,
+                                    child: Container(
+                                      padding: const EdgeInsets.all(4),
+                                      decoration: BoxDecoration(
+                                        color: Colors.black45,
+                                        borderRadius: BorderRadius.circular(4),
+                                        border: Border.all(color: Colors.white38),
+                                      ),
+                                      child: const Icon(Icons.tune, size: 14, color: AppColors.primaryNeon),
+                                    ),
+                                  ),
+                                ),
                               ],
                             ),
-                            const SizedBox(height: 2),
+                            const SizedBox(height: 4),
                             Text(
                               '${widget.room.physicalWidth.toStringAsFixed(1)}m × ${widget.room.physicalHeight.toStringAsFixed(1)}m (${widget.room.rotation.toInt()}°)',
                               style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.7),
+                                color: Colors.white.withValues(alpha: 0.85),
                                 fontSize: 11,
-                                fontWeight: FontWeight.w500,
+                                fontWeight: FontWeight.w600,
                               ),
                             ),
                           ],
