@@ -2,7 +2,7 @@ use crate::audio::mixer::AudioMixer;
 use crate::common::commands::AudioCommand;
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::{OutputCallbackInfo, SampleFormat, Stream, StreamConfig};
-use crossbeam_channel::Receiver;
+use rtrb::Consumer;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 lazy_static::lazy_static! {
@@ -103,7 +103,7 @@ impl AudioEngine {
     pub fn start(
         &mut self,
         device_name: Option<String>,
-        cmd_receiver: Receiver<AudioCommand>,
+        mut cmd_receiver: Consumer<AudioCommand>,
     ) -> Result<(), String> {
         #[cfg(target_os = "windows")]
         {
@@ -256,6 +256,8 @@ impl AudioEngine {
             crate::core::state::GLOBAL_STATE.broadcast_state();
         };
 
+        let mut cmd_receiver_f32 = cmd_receiver;
+        
         let stream = match sample_format {
             SampleFormat::F32 => device.build_output_stream(
                 &config,
@@ -263,7 +265,7 @@ impl AudioEngine {
                     if !ENGINE_INIT_SIGNAL.load(Ordering::Acquire) {
                         ENGINE_INIT_SIGNAL.store(true, Ordering::Release);
                     }
-                    Self::process_commands(&mut mixer, &cmd_receiver);
+                    Self::process_commands(&mut mixer, &mut cmd_receiver_f32);
                     mixer.process(data, config.channels as usize);
                 },
                 err_fn,
@@ -277,7 +279,7 @@ impl AudioEngine {
                         if !ENGINE_INIT_SIGNAL.load(Ordering::Acquire) {
                             ENGINE_INIT_SIGNAL.store(true, Ordering::Release);
                         }
-                        Self::process_commands(&mut mixer, &cmd_receiver);
+                        Self::process_commands(&mut mixer, &mut cmd_receiver_f32);
                         if temp_buf.len() < data.len() {
                             temp_buf.resize(data.len(), 0.0);
                         }
@@ -299,7 +301,7 @@ impl AudioEngine {
                         if !ENGINE_INIT_SIGNAL.load(Ordering::Acquire) {
                             ENGINE_INIT_SIGNAL.store(true, Ordering::Release);
                         }
-                        Self::process_commands(&mut mixer, &cmd_receiver);
+                        Self::process_commands(&mut mixer, &mut cmd_receiver_f32);
                         if temp_buf.len() < data.len() {
                             temp_buf.resize(data.len(), 0.0);
                         }
@@ -321,7 +323,7 @@ impl AudioEngine {
                         if !ENGINE_INIT_SIGNAL.load(Ordering::Acquire) {
                             ENGINE_INIT_SIGNAL.store(true, Ordering::Release);
                         }
-                        Self::process_commands(&mut mixer, &cmd_receiver);
+                        Self::process_commands(&mut mixer, &mut cmd_receiver_f32);
                         if temp_buf.len() < data.len() {
                             temp_buf.resize(data.len(), 0.0);
                         }
@@ -354,9 +356,9 @@ impl AudioEngine {
         Ok(())
     }
 
-    fn process_commands(mixer: &mut AudioMixer, rx: &Receiver<AudioCommand>) {
+    fn process_commands(mixer: &mut AudioMixer, rx: &mut Consumer<AudioCommand>) {
         // Lock-free pop from command queue
-        while let Ok(cmd) = rx.try_recv() {
+        while let Ok(cmd) = rx.pop() {
             match cmd {
                 AudioCommand::PlayTrack {
                     instance_id,
@@ -483,6 +485,47 @@ impl AudioEngine {
                             waypoints: vec![],
                             current_position: position,
                         });
+                    }
+                }
+                AudioCommand::UpdateSingleBandEq { channel, band, freq, gain_db, q_factor, filter_type_idx } => {
+                    if channel < mixer.channel_dsp.len() && band < mixer.channel_dsp[channel].target_bands.len() {
+                        let filter_type = match filter_type_idx {
+                            0 => crate::common::config::EqType::LowCut,
+                            1 => crate::common::config::EqType::LowShelf,
+                            2 => crate::common::config::EqType::Bell,
+                            3 => crate::common::config::EqType::Notch,
+                            4 => crate::common::config::EqType::HighShelf,
+                            5 => crate::common::config::EqType::HighCut,
+                            _ => crate::common::config::EqType::Bell,
+                        };
+                        let b = &mut mixer.channel_dsp[channel].target_bands[band];
+                        b.freq = freq;
+                        b.gain = gain_db;
+                        b.q_factor = q_factor;
+                        b.filter_type = filter_type;
+                        // trigger recount/rebuild
+                        let all_bands = mixer.channel_dsp[channel].target_bands.clone();
+                        mixer.channel_dsp[channel].update_eq_targets(&all_bands, mixer.sample_rate as f32);
+                    }
+                }
+                AudioCommand::UpdateSoundSourcePosition { sound_id, x, y, z } => {
+                    let point = crate::common::config::Point3D { x, y, z };
+                    // If it's the global trajectory ID we update it
+                    if sound_id == "global_trajectory" || sound_id == "trajectory" {
+                        if let Some(traj) = &mut mixer.trajectory {
+                            traj.current_position = point;
+                        } else {
+                            mixer.trajectory = Some(crate::common::config::Trajectory {
+                                waypoints: vec![],
+                                current_position: point,
+                            });
+                        }
+                    } else {
+                        // Or if we map sound objects directly, we'd update their positions here.
+                        // For now we'll support global trajectory.
+                        if let Some(traj) = &mut mixer.trajectory {
+                            traj.current_position = point;
+                        }
                     }
                 }
                 AudioCommand::ApplyGlobalTuning { master_headroom_db, peak_limiter_enabled } => {

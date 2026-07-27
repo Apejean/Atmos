@@ -1,7 +1,8 @@
 use crate::api::simple::EngineStateUpdate;
 use crate::common::commands::AudioCommand;
 use crate::frb_generated::StreamSink;
-use crossbeam_channel::{bounded, Receiver, Sender};
+use rtrb::{Producer, Consumer, RingBuffer};
+use std::sync::Mutex;
 use lazy_static::lazy_static;
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::Arc;
@@ -23,10 +24,11 @@ use std::collections::HashMap;
 use std::sync::RwLock;
 
 pub struct GlobalEngineState {
-    // Command channel to audio thread (Lock-free MPSC)
-    pub command_sender: Sender<AudioCommand>,
-    // The receiver will be taken by the audio thread. Using crossbeam, receivers can be cloned.
-    pub command_receiver: Receiver<AudioCommand>,
+    // Command channel to audio thread (Lock-free SPSC rtrb)
+    // Producer is wrapped in Mutex so FFI threads can share it.
+    pub command_sender: Mutex<Producer<AudioCommand>>,
+    // The consumer will be taken once by the audio thread.
+    pub command_receiver: Mutex<Option<Consumer<AudioCommand>>>,
 
     pub active_room_id: RwLock<Option<String>>,
     pub is_ducking: AtomicBool,
@@ -55,7 +57,7 @@ impl Default for GlobalEngineState {
 
 impl GlobalEngineState {
     pub fn new() -> Self {
-        let (tx, rx) = bounded(8192);
+        let (producer, consumer) = RingBuffer::new(8192);
 
         let mut vu = Vec::with_capacity(4096);
         let mut enabled = Vec::with_capacity(4096);
@@ -64,8 +66,8 @@ impl GlobalEngineState {
             enabled.push(AtomicBool::new(true));
         }
         Self {
-            command_sender: tx,
-            command_receiver: rx,
+            command_sender: Mutex::new(producer),
+            command_receiver: Mutex::new(Some(consumer)),
             active_room_id: RwLock::new(None),
             is_ducking: AtomicBool::new(false),
             enabled_channels: enabled,

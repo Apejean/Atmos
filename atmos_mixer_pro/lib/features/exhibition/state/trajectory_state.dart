@@ -6,11 +6,11 @@ import 'package:atmos_mixer_pro/features/exhibition/models/trajectory.dart';
 
 const _kTrajectoryPrefsKey = 'exhibition_trajectory_layout';
 
-class TrajectoryState extends Notifier<List<Trajectory>> {
+class TrajectoryState extends Notifier<List<TrajectoryModel>> {
   Timer? _saveDebounceTimer;
 
   @override
-  List<Trajectory> build() {
+  List<TrajectoryModel> build() {
     _loadFromPrefs();
     ref.onDispose(() {
       _saveDebounceTimer?.cancel();
@@ -24,7 +24,7 @@ class TrajectoryState extends Notifier<List<Trajectory>> {
     if (jsonString != null) {
       try {
         final List<dynamic> decoded = jsonDecode(jsonString);
-        state = decoded.map((e) => Trajectory.fromJson(e)).toList();
+        state = decoded.map((e) => TrajectoryModel.fromJson(e)).toList();
       } catch (e) {
         state = [];
       }
@@ -44,16 +44,13 @@ class TrajectoryState extends Notifier<List<Trajectory>> {
     await prefs.setString(_kTrajectoryPrefsKey, jsonString);
   }
 
-  void addTrajectory(Trajectory trajectory) {
+  void addTrajectory(TrajectoryModel trajectory) {
     state = [...state, trajectory];
     _saveToPrefsImmediate();
   }
 
-  void updateTrajectory(Trajectory trajectory, {bool immediate = false}) {
-    state = [
-      for (final t in state)
-        if (t.id == trajectory.id) trajectory else t,
-    ];
+  void updateTrajectory(TrajectoryModel trajectory, {bool immediate = false}) {
+    state = [...state];
     if (immediate) {
       _saveToPrefsImmediate();
     } else {
@@ -72,6 +69,6 @@ class TrajectoryState extends Notifier<List<Trajectory>> {
   }
 }
 
-final trajectoryProvider = NotifierProvider<TrajectoryState, List<Trajectory>>(
+final trajectoryProvider = NotifierProvider<TrajectoryState, List<TrajectoryModel>>(
   TrajectoryState.new,
 );

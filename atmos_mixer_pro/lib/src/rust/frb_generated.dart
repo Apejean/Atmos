@@ -68,7 +68,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.12.0';
 
   @override
-  int get rustContentHash => -273119033;
+  int get rustContentHash => -1807428427;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -220,6 +220,22 @@ abstract class RustLibApi extends BaseApi {
   });
 
   Future<void> crateApiSimpleApiTriggerTestError({required String message});
+
+  Future<void> crateApiSimpleApiUpdateSingleBandEq({
+    required BigInt channelIndex,
+    required BigInt bandIndex,
+    required double frequency,
+    required double gainDb,
+    required double qFactor,
+    required int filterTypeIdx,
+  });
+
+  Future<void> crateApiSimpleApiUpdateSoundSourcePosition({
+    required String soundId,
+    required double x,
+    required double y,
+    required double z,
+  });
 
   Future<void> crateApiSimpleApiUpdateSpatialConfigJson({
     required String jsonPayload,
@@ -1633,6 +1649,102 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
+  Future<void> crateApiSimpleApiUpdateSingleBandEq({
+    required BigInt channelIndex,
+    required BigInt bandIndex,
+    required double frequency,
+    required double gainDb,
+    required double qFactor,
+    required int filterTypeIdx,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_usize(channelIndex, serializer);
+          sse_encode_usize(bandIndex, serializer);
+          sse_encode_f_32(frequency, serializer);
+          sse_encode_f_32(gainDb, serializer);
+          sse_encode_f_32(qFactor, serializer);
+          sse_encode_u_8(filterTypeIdx, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 45,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiSimpleApiUpdateSingleBandEqConstMeta,
+        argValues: [
+          channelIndex,
+          bandIndex,
+          frequency,
+          gainDb,
+          qFactor,
+          filterTypeIdx,
+        ],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiSimpleApiUpdateSingleBandEqConstMeta =>
+      const TaskConstMeta(
+        debugName: "api_update_single_band_eq",
+        argNames: [
+          "channelIndex",
+          "bandIndex",
+          "frequency",
+          "gainDb",
+          "qFactor",
+          "filterTypeIdx",
+        ],
+      );
+
+  @override
+  Future<void> crateApiSimpleApiUpdateSoundSourcePosition({
+    required String soundId,
+    required double x,
+    required double y,
+    required double z,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_String(soundId, serializer);
+          sse_encode_f_32(x, serializer);
+          sse_encode_f_32(y, serializer);
+          sse_encode_f_32(z, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 46,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiSimpleApiUpdateSoundSourcePositionConstMeta,
+        argValues: [soundId, x, y, z],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiSimpleApiUpdateSoundSourcePositionConstMeta =>
+      const TaskConstMeta(
+        debugName: "api_update_sound_source_position",
+        argNames: ["soundId", "x", "y", "z"],
+      );
+
+  @override
   Future<void> crateApiSimpleApiUpdateSpatialConfigJson({
     required String jsonPayload,
   }) {
@@ -1644,7 +1756,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 45,
+            funcId: 47,
             port: port_,
           );
         },

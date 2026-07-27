@@ -9,6 +9,7 @@ class SpeakerNodeWidget extends ConsumerStatefulWidget {
   final bool isDuplicateChannel;
   final ValueChanged<int> onChannelChanged;
   final VoidCallback onDelete;
+  final VoidCallback? onEdit;
   final Color? roomColor;
 
   const SpeakerNodeWidget({
@@ -17,6 +18,7 @@ class SpeakerNodeWidget extends ConsumerStatefulWidget {
     this.isDuplicateChannel = false,
     required this.onChannelChanged,
     required this.onDelete,
+    this.onEdit,
     this.roomColor,
   });
 
@@ -152,16 +154,33 @@ class _SpeakerNodeWidgetState extends ConsumerState<SpeakerNodeWidget> {
                       );
                     },
                   ),
-                  InkWell(
-                    onTap: widget.onDelete,
-                    child: const Padding(
-                      padding: EdgeInsets.only(bottom: 12.0, right: 4.0),
-                      child: Icon(
-                        Icons.close,
-                        size: 16,
-                        color: Colors.redAccent,
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (widget.onEdit != null)
+                        InkWell(
+                          onTap: widget.onEdit,
+                          child: const Padding(
+                            padding: EdgeInsets.only(bottom: 12.0, right: 4.0),
+                            child: Icon(
+                              Icons.tune,
+                              size: 15,
+                              color: AppColors.primaryNeon,
+                            ),
+                          ),
+                        ),
+                      InkWell(
+                        onTap: widget.onDelete,
+                        child: const Padding(
+                          padding: EdgeInsets.only(bottom: 12.0, right: 4.0),
+                          child: Icon(
+                            Icons.close,
+                            size: 16,
+                            color: Colors.redAccent,
+                          ),
+                        ),
                       ),
-                    ),
+                    ],
                   ),
                 ],
               ),

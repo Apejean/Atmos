@@ -92,7 +92,7 @@ fn handle_packet(packet: OscPacket, debouncer: &OscDebouncer) {
                                         coords[i] = *f;
                                     }
                                 }
-                                let _ = crate::core::state::GLOBAL_STATE.command_sender.try_send(crate::common::commands::AudioCommand::UpdateTrajectoryPosition {
+                                let _ = crate::core::state::GLOBAL_STATE.command_sender.lock().unwrap().push(crate::common::commands::AudioCommand::UpdateTrajectoryPosition {
                                     position: crate::common::config::Point3D {
                                         x: coords[0],
                                         y: coords[1],
@@ -173,7 +173,7 @@ fn handle_packet(packet: OscPacket, debouncer: &OscDebouncer) {
                     if let rosc::OscType::Float(f) = msg.args[2] { z = f; }
                     
                     let pos = crate::common::config::Point3D { x, y, z };
-                    let _ = crate::core::state::GLOBAL_STATE.command_sender.try_send(
+                    let _ = crate::core::state::GLOBAL_STATE.command_sender.lock().unwrap().push(
                         crate::common::commands::AudioCommand::UpdateTrajectoryPosition {
                             position: pos,
                         }
@@ -224,7 +224,7 @@ fn handle_packet(packet: OscPacket, debouncer: &OscDebouncer) {
                     }
 
                     crate::core::state::GLOBAL_STATE.clear_playing_tracks();
-                    let _ = crate::core::state::GLOBAL_STATE.command_sender.try_send(
+                    let _ = crate::core::state::GLOBAL_STATE.command_sender.lock().unwrap().push(
                         crate::common::commands::AudioCommand::ClearRoom {
                             room_id: hash_id(&room.id),
                         },
@@ -279,7 +279,7 @@ fn handle_packet(packet: OscPacket, debouncer: &OscDebouncer) {
                                                     instance_id,
                                                     next_t.id.clone(),
                                                 );
-                                                let _ = crate::core::state::GLOBAL_STATE.command_sender.try_send(crate::common::commands::AudioCommand::PlayTrack {
+                                                let _ = crate::core::state::GLOBAL_STATE.command_sender.lock().unwrap().push(crate::common::commands::AudioCommand::PlayTrack {
                                                 instance_id,
                                                 room_id: hash_id(&next_id),
                                                 track_id: hash_id(&next_t.id),
@@ -338,7 +338,7 @@ fn handle_packet(packet: OscPacket, debouncer: &OscDebouncer) {
                                 .as_nanos() as u64;
                             crate::core::state::GLOBAL_STATE
                                 .add_playing_track(instance_id, track.id.clone());
-                            let _ = crate::core::state::GLOBAL_STATE.command_sender.try_send(
+                            let _ = crate::core::state::GLOBAL_STATE.command_sender.lock().unwrap().push(
                                 crate::common::commands::AudioCommand::PlayTrack {
                                     instance_id,
                                     room_id: hash_id(&room.id),
@@ -378,7 +378,7 @@ fn handle_packet(packet: OscPacket, debouncer: &OscDebouncer) {
                             }
                         }
 
-                        let _ = crate::core::state::GLOBAL_STATE.command_sender.try_send(
+                        let _ = crate::core::state::GLOBAL_STATE.command_sender.lock().unwrap().push(
                             crate::common::commands::AudioCommand::StopTrack {
                                 room_id: hash_id(&room.id),
                                 track_id: hash_id(&track.id),

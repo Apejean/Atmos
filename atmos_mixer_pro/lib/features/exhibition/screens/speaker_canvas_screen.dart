@@ -17,6 +17,7 @@ import 'package:atmos_mixer_pro/features/exhibition/state/room_zone_state.dart';
 import 'package:atmos_mixer_pro/features/exhibition/models/trajectory.dart';
 import 'package:atmos_mixer_pro/features/exhibition/state/trajectory_state.dart';
 import 'package:atmos_mixer_pro/features/exhibition/state/blueprint_state.dart';
+import 'package:atmos_mixer_pro/features/exhibition/widgets/trajectory_layer_painter.dart';
 import 'package:atmos_mixer_pro/core/theme/colors.dart';
 import 'package:atmos_mixer_pro/core/state/global_state.dart';
 import 'package:atmos_mixer_pro/src/rust/api/simple.dart';
@@ -101,10 +102,8 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
         };
       }).toList(),
       'trajectory': trajectories.isNotEmpty && trajectories.first.waypoints.isNotEmpty ? {
-        'waypoints': trajectories.first.waypoints.map((w) => {'x': w.x / _gridSize, 'y': w.y / _gridSize, 'z': 0.0}).toList(),
-        'current_position': _currentAutomationPos != null 
-            ? {'x': _currentAutomationPos!.dx / _gridSize, 'y': _currentAutomationPos!.dy / _gridSize, 'z': 0.0} 
-            : {'x': trajectories.first.waypoints.first.x / _gridSize, 'y': trajectories.first.waypoints.first.y / _gridSize, 'z': 0.0},
+        'waypoints': trajectories.first.waypoints.map((w) => {'x': w.position.dx, 'y': w.position.dy, 'z': w.heightZ}).toList(),
+        'current_position': {'x': trajectories.first.getCurrentPositionMeter().dx, 'y': trajectories.first.getCurrentPositionMeter().dy, 'z': trajectories.first.getCurrentHeightZ()},
       } : null,
     };
 
@@ -129,48 +128,10 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
       setState(() {
         _isPlayingAutomation = true;
       });
-      final trajectory = trajectories.first;
-      final waypoints = trajectory.waypoints;
       _automationTimer = Timer.periodic(const Duration(milliseconds: 16), (timer) {
-        setState(() {
-          double delta = 0.002 * trajectory.speed;
-          if (_automationReverse) {
-            _automationProgress -= delta;
-          } else {
-            _automationProgress += delta;
-          }
-
-          if (trajectory.isPingPong) {
-            if (_automationProgress >= 1.0) {
-              _automationProgress = 1.0;
-              _automationReverse = true;
-            } else if (_automationProgress <= 0.0) {
-              _automationProgress = 0.0;
-              _automationReverse = false;
-            }
-          } else {
-            if (_automationProgress >= 1.0) _automationProgress = 0.0;
-            if (_automationProgress <= 0.0) _automationProgress = 1.0;
-            _automationReverse = false;
-          }
-          
-          final totalPoints = waypoints.length;
-          if (totalPoints == 1) {
-            _currentAutomationPos = Offset(waypoints.first.x, waypoints.first.y);
-          } else {
-            final fIndex = _automationProgress * totalPoints;
-            final iIndex = fIndex.floor() % totalPoints;
-            final nextIndex = (iIndex + 1) % totalPoints;
-            final t = fIndex - fIndex.floor();
-            
-            final w1 = waypoints[iIndex];
-            final w2 = waypoints[nextIndex];
-            _currentAutomationPos = Offset(
-              w1.x + (w2.x - w1.x) * t,
-              w1.y + (w2.y - w1.y) * t,
-            );
-          }
-        });
+        for (var trajectory in trajectories) {
+            trajectory.updateProgress(16.0 / 1000.0, trajectory.totalPathLength);
+        }
         _syncSpatialConfigRealtime();
       });
     }
@@ -264,11 +225,11 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
     double cx = canvasCenter.dx.clamp(100.0, _canvasWidth - 100.0);
     double cy = canvasCenter.dy.clamp(100.0, _canvasHeight - 100.0);
 
-    final t = Trajectory(
+    final t = TrajectoryModel(
       id: const Uuid().v4(),
       waypoints: [
-        TrajectoryWaypoint(cx - 100, cy),
-        TrajectoryWaypoint(cx + 100, cy),
+        Waypoint(position: Offset((cx - 100) / _gridSize, cy / _gridSize)),
+        Waypoint(position: Offset((cx + 100) / _gridSize, cy / _gridSize)),
       ],
     );
     ref.read(trajectoryProvider.notifier).addTrajectory(t);
@@ -576,6 +537,181 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                   Navigator.pop(context);
                 },
                 child: const Text('Save Changes', style: TextStyle(fontWeight: FontWeight.bold)),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Future<void> _editSpeaker(SpeakerNode node) async {
+    double dispAngle = node.dispersionAngle;
+    double dispDist = node.dispersionDistance;
+    double heightZ = node.heightZ;
+    double pitchTilt = node.pitchTilt;
+    double rotation = node.rotation;
+    int channel = node.channel;
+    String selectedPreset = 'Custom';
+
+    await showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            backgroundColor: AppColors.cardSurface,
+            title: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('Edit Speaker [Ch ${channel + 1}]', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                IconButton(
+                  icon: const Icon(Icons.close, color: Colors.white54),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ],
+            ),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Speaker Acoustic Model Preset', style: TextStyle(color: Colors.white70, fontSize: 13)),
+                  const SizedBox(height: 8),
+                  DropdownButton<String>(
+                    value: selectedPreset,
+                    dropdownColor: AppColors.cardSurface,
+                    isExpanded: true,
+                    style: const TextStyle(color: Colors.white),
+                    items: const [
+                      DropdownMenuItem(value: 'Custom', child: Text('Custom Configuration')),
+                      DropdownMenuItem(value: 'PointSource', child: Text('Point Source (90° Beam, 3.5m Height)')),
+                      DropdownMenuItem(value: 'LineArray', child: Text('Line Array (60° Narrow Beam, 6.0m Height)')),
+                      DropdownMenuItem(value: 'Subwoofer', child: Text('Subwoofer (180° Omnidirectional, 0.5m Height)')),
+                      DropdownMenuItem(value: 'CeilingAtmos', child: Text('Ceiling Overhead (120° Wide Beam, 4.0m Height)')),
+                    ],
+                    onChanged: (val) {
+                      if (val != null) {
+                        setDialogState(() {
+                          selectedPreset = val;
+                          if (val == 'PointSource') {
+                            dispAngle = 90.0;
+                            dispDist = 220.0;
+                            heightZ = 3.5;
+                            pitchTilt = 15.0;
+                          } else if (val == 'LineArray') {
+                            dispAngle = 60.0;
+                            dispDist = 450.0;
+                            heightZ = 6.0;
+                            pitchTilt = 10.0;
+                          } else if (val == 'Subwoofer') {
+                            dispAngle = 180.0;
+                            dispDist = 150.0;
+                            heightZ = 0.5;
+                            pitchTilt = 0.0;
+                          } else if (val == 'CeilingAtmos') {
+                            dispAngle = 120.0;
+                            dispDist = 180.0;
+                            heightZ = 4.0;
+                            pitchTilt = 30.0;
+                          }
+                        });
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  const Divider(color: Colors.white24),
+                  const SizedBox(height: 8),
+                  Text('Nominal Dispersion Angle: ${dispAngle.toInt()}°', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                  Slider(
+                    value: dispAngle,
+                    min: 30.0,
+                    max: 180.0,
+                    activeColor: AppColors.primaryNeon,
+                    onChanged: (val) => setDialogState(() {
+                      dispAngle = val;
+                      selectedPreset = 'Custom';
+                    }),
+                  ),
+                  const SizedBox(height: 12),
+                  Text('Max Coverage Distance: ${dispDist.toInt()}px', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                  Slider(
+                    value: dispDist,
+                    min: 50.0,
+                    max: 800.0,
+                    activeColor: AppColors.primaryNeon,
+                    onChanged: (val) => setDialogState(() {
+                      dispDist = val;
+                      selectedPreset = 'Custom';
+                    }),
+                  ),
+                  const SizedBox(height: 12),
+                  Text('Hanging Height Z: ${heightZ.toStringAsFixed(1)}m', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                  Slider(
+                    value: heightZ,
+                    min: 0.5,
+                    max: 15.0,
+                    activeColor: AppColors.primaryNeon,
+                    onChanged: (val) => setDialogState(() {
+                      heightZ = val;
+                      selectedPreset = 'Custom';
+                    }),
+                  ),
+                  const SizedBox(height: 12),
+                  Text('Pitch Downward Tilt: ${pitchTilt.toInt()}°', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                  Slider(
+                    value: pitchTilt,
+                    min: 0.0,
+                    max: 60.0,
+                    activeColor: AppColors.primaryNeon,
+                    onChanged: (val) => setDialogState(() {
+                      pitchTilt = val;
+                      selectedPreset = 'Custom';
+                    }),
+                  ),
+                  const SizedBox(height: 12),
+                  Text('Yaw Orientation: ${rotation.toInt()}°', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                  Slider(
+                    value: rotation,
+                    min: 0.0,
+                    max: 360.0,
+                    activeColor: AppColors.primaryNeon,
+                    onChanged: (val) => setDialogState(() => rotation = val),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  ref.read(speakerLayoutProvider.notifier).removeSpeaker(node.id);
+                  Navigator.pop(context);
+                },
+                child: const Text('Delete Speaker', style: TextStyle(color: Colors.redAccent)),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel', style: TextStyle(color: Colors.white70)),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primaryNeon,
+                  foregroundColor: Colors.black,
+                ),
+                onPressed: () {
+                  ref.read(speakerLayoutProvider.notifier).updateSpeaker(
+                        node.copyWith(
+                          dispersionAngle: dispAngle,
+                          dispersionDistance: dispDist,
+                          heightZ: heightZ,
+                          pitchTilt: pitchTilt,
+                          rotation: rotation,
+                          channel: channel,
+                        ),
+                        immediate: true,
+                      );
+                  Navigator.pop(context);
+                },
+                child: const Text('Save Settings', style: TextStyle(fontWeight: FontWeight.bold)),
               ),
             ],
           );
@@ -897,10 +1033,21 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                           Positioned.fill(
                             child: RepaintBoundary(
                               child: CustomPaint(
-                                painter: _TrajectoryPainter(trajectories),
+                                painter: TrajectoryLayerPainter(
+                                  trajectories: trajectories,
+                                  focusedTrajectoryId: null, // we can implement focus later
+                                  scaleMeterToPixel: _gridSize,
+                                  repaint: Listenable.merge(trajectories),
+                                ),
                               ),
                             ),
                           ),
+                          ...trajectories.map((t) => _DraggableTrajectoryPathWidget(
+                                key: ValueKey('path_${t.id}'),
+                                trajectory: t,
+                                transformationController: _transformationController,
+                                onDragUpdate: _syncSpatialConfigRealtime,
+                              )),
                           ...trajectories.expand((t) {
                             return t.waypoints.asMap().entries.map((entry) {
                               final idx = entry.key;
@@ -937,6 +1084,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                             roomColor: roomColor ?? AppColors.primaryNeon,
                             isDuplicate: isDuplicate,
                             transformationController: _transformationController,
+                            onEdit: () => _editSpeaker(node),
                           );
                         }).toList(),
                       );
@@ -1420,73 +1568,70 @@ class _DraggableRoomWidgetState extends ConsumerState<_DraggableRoomWidget> {
                 },
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(8),
-                  child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: isHoveredOrActive
-                            ? roomColor.withValues(alpha: 0.35)
-                            : roomColor.withValues(alpha: 0.18),
-                        border: Border.all(
-                          color: isHoveredOrActive ? AppColors.primaryNeon : roomColor,
-                          width: isHoveredOrActive ? 3.0 : 2.5,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: isHoveredOrActive
+                          ? roomColor.withValues(alpha: 0.35)
+                          : roomColor.withValues(alpha: 0.20),
+                      border: Border.all(
+                        color: isHoveredOrActive ? AppColors.primaryNeon : roomColor,
+                        width: isHoveredOrActive ? 3.0 : 2.5,
+                      ),
+                      borderRadius: BorderRadius.circular(8),
+                      boxShadow: [
+                        BoxShadow(
+                          color: isHoveredOrActive
+                              ? AppColors.primaryNeon.withValues(alpha: 0.5)
+                              : roomColor.withValues(alpha: 0.25),
+                          blurRadius: isHoveredOrActive ? 16 : 12,
+                          spreadRadius: isHoveredOrActive ? 2 : 1,
                         ),
-                        borderRadius: BorderRadius.circular(8),
-                        boxShadow: [
-                          BoxShadow(
-                            color: isHoveredOrActive
-                                ? AppColors.primaryNeon.withValues(alpha: 0.5)
-                                : roomColor.withValues(alpha: 0.25),
-                            blurRadius: isHoveredOrActive ? 16 : 12,
-                            spreadRadius: isHoveredOrActive ? 2 : 1,
+                      ],
+                    ),
+                    child: Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                widget.room.label,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              MouseRegion(
+                                cursor: SystemMouseCursors.click,
+                                child: GestureDetector(
+                                  onTap: widget.onEdit,
+                                  child: Container(
+                                    padding: const EdgeInsets.all(4),
+                                    decoration: BoxDecoration(
+                                      color: Colors.black45,
+                                      borderRadius: BorderRadius.circular(4),
+                                      border: Border.all(color: Colors.white38),
+                                    ),
+                                    child: const Icon(Icons.tune, size: 14, color: AppColors.primaryNeon),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '${widget.room.physicalWidth.toStringAsFixed(1)}m × ${widget.room.physicalHeight.toStringAsFixed(1)}m (${widget.room.rotation.toInt()}°)',
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.85),
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ],
-                      ),
-                      child: Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  widget.room.label,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                    letterSpacing: 0.5,
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                MouseRegion(
-                                  cursor: SystemMouseCursors.click,
-                                  child: GestureDetector(
-                                    onTap: widget.onEdit,
-                                    child: Container(
-                                      padding: const EdgeInsets.all(4),
-                                      decoration: BoxDecoration(
-                                        color: Colors.black45,
-                                        borderRadius: BorderRadius.circular(4),
-                                        border: Border.all(color: Colors.white38),
-                                      ),
-                                      child: const Icon(Icons.tune, size: 14, color: AppColors.primaryNeon),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              '${widget.room.physicalWidth.toStringAsFixed(1)}m × ${widget.room.physicalHeight.toStringAsFixed(1)}m (${widget.room.rotation.toInt()}°)',
-                              style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.85),
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
                       ),
                     ),
                   ),
@@ -1539,6 +1684,7 @@ class _DraggableSpeakerWidget extends ConsumerStatefulWidget {
   final Color? roomColor;
   final bool isDuplicate;
   final TransformationController transformationController;
+  final VoidCallback? onEdit;
 
   const _DraggableSpeakerWidget({
     super.key,
@@ -1546,6 +1692,7 @@ class _DraggableSpeakerWidget extends ConsumerStatefulWidget {
     this.roomColor,
     required this.isDuplicate,
     required this.transformationController,
+    this.onEdit,
   });
 
   @override
@@ -1578,12 +1725,47 @@ class _DraggableSpeakerWidgetState extends ConsumerState<_DraggableSpeakerWidget
     return Positioned(
       left: _localX,
       top: _localY,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          Transform.rotate(
-            angle: widget.node.rotation * math.pi / 180.0,
-            child: GestureDetector(
+      child: Transform.rotate(
+        angle: widget.node.rotation * math.pi / 180.0,
+        alignment: Alignment.center,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Speaker Rotation Handle Knob (Unified on top of speaker node)
+            GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onPanUpdate: (details) {
+                final renderBox = context.findRenderObject() as RenderBox?;
+                if (renderBox != null) {
+                  final localTouch = renderBox.globalToLocal(details.globalPosition);
+                  final centerLocal = Offset(_speakerSize / 2, _speakerSize / 2 + 20);
+                  final dx = localTouch.dx - centerLocal.dx;
+                  final dy = localTouch.dy - centerLocal.dy;
+                  double angleRad = math.atan2(dy, dx) + math.pi / 2;
+                  double angleDeg = (angleRad * 180 / math.pi) % 360;
+                  if (angleDeg < 0) angleDeg += 360;
+
+                  ref.read(speakerLayoutProvider.notifier).updateSpeaker(
+                        widget.node.copyWith(rotation: angleDeg),
+                        immediate: true,
+                      );
+                }
+              },
+              child: Container(
+                margin: const EdgeInsets.only(bottom: 4),
+                width: 22,
+                height: 22,
+                decoration: BoxDecoration(
+                  color: AppColors.primaryNeon,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.black, width: 2.0),
+                  boxShadow: const [BoxShadow(color: Colors.black54, blurRadius: 4)],
+                ),
+                child: const Icon(Icons.rotate_right, size: 12, color: Colors.black),
+              ),
+            ),
+            // Draggable Speaker Box Body
+            GestureDetector(
               onPanStart: (_) => setState(() => _isDragging = true),
               onPanUpdate: (details) {
                 final scale = widget.transformationController.value.getMaxScaleOnAxis();
@@ -1620,55 +1802,21 @@ class _DraggableSpeakerWidgetState extends ConsumerState<_DraggableSpeakerWidget
                 onDelete: () {
                   ref.read(speakerLayoutProvider.notifier).removeSpeaker(widget.node.id);
                 },
+                onEdit: widget.onEdit,
                 isDuplicateChannel: widget.isDuplicate,
               ),
             ),
-          ),
-          // Speaker Rotation Handle Knob
-          Positioned(
-            top: -22,
-            left: _speakerSize / 2 - 10,
-            child: GestureDetector(
-              onPanUpdate: (details) {
-                final renderBox = context.findRenderObject() as RenderBox?;
-                if (renderBox != null) {
-                  final localTouch = renderBox.globalToLocal(details.globalPosition);
-                  final centerLocal = Offset(_speakerSize / 2, _speakerSize / 2);
-                  final dx = localTouch.dx - centerLocal.dx;
-                  final dy = localTouch.dy - centerLocal.dy;
-                  double angleRad = math.atan2(dy, dx) + math.pi / 2;
-                  double angleDeg = (angleRad * 180 / math.pi) % 360;
-                  if (angleDeg < 0) angleDeg += 360;
-
-                  ref.read(speakerLayoutProvider.notifier).updateSpeaker(
-                        widget.node.copyWith(rotation: angleDeg),
-                        immediate: true,
-                      );
-                }
-              },
-              child: Container(
-                width: 20,
-                height: 20,
-                decoration: BoxDecoration(
-                  color: Colors.orangeAccent,
-                  shape: BoxShape.circle,
-                  border: Border.all(color: Colors.black, width: 1.5),
-                  boxShadow: const [BoxShadow(color: Colors.black45, blurRadius: 3)],
-                ),
-                child: const Icon(Icons.rotate_right, size: 11, color: Colors.black),
-              ),
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 }
 
 class _DraggableWaypointWidget extends ConsumerStatefulWidget {
-  final Trajectory trajectory;
+  final TrajectoryModel trajectory;
   final int waypointIndex;
-  final TrajectoryWaypoint waypoint;
+  final Waypoint waypoint;
   final TransformationController transformationController;
   final VoidCallback onDragUpdate;
 
@@ -1692,15 +1840,15 @@ class _DraggableWaypointWidgetState extends ConsumerState<_DraggableWaypointWidg
   @override
   void initState() {
     super.initState();
-    _localX = widget.waypoint.x;
-    _localY = widget.waypoint.y;
+    _localX = widget.waypoint.position.dx * _gridSize;
+    _localY = widget.waypoint.position.dy * _gridSize;
   }
 
   @override
   void didUpdateWidget(covariant _DraggableWaypointWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
-    _localX = widget.waypoint.x;
-    _localY = widget.waypoint.y;
+    _localX = widget.waypoint.position.dx * _gridSize;
+    _localY = widget.waypoint.position.dy * _gridSize;
   }
 
   @override
@@ -1718,8 +1866,8 @@ class _DraggableWaypointWidgetState extends ConsumerState<_DraggableWaypointWidg
           });
           
           // 실시간으로 선이 따라가도록 Riverpod 업데이트
-          final wps = List<TrajectoryWaypoint>.from(widget.trajectory.waypoints);
-          wps[widget.waypointIndex] = TrajectoryWaypoint(_localX, _localY);
+          final wps = List<Waypoint>.from(widget.trajectory.waypoints);
+          wps[widget.waypointIndex] = Waypoint(position: Offset(_localX / _gridSize, _localY / _gridSize));
           ref.read(trajectoryProvider.notifier).updateTrajectory(
             widget.trajectory.copyWith(waypoints: wps),
             immediate: true,
@@ -1733,7 +1881,7 @@ class _DraggableWaypointWidgetState extends ConsumerState<_DraggableWaypointWidg
         onDoubleTap: () {
           // 더블클릭시 삭제 (최소 2개의 점은 유지해야 함)
           if (widget.trajectory.waypoints.length > 2) {
-             final wps = List<TrajectoryWaypoint>.from(widget.trajectory.waypoints);
+             final wps = List<Waypoint>.from(widget.trajectory.waypoints);
              wps.removeAt(widget.waypointIndex);
              ref.read(trajectoryProvider.notifier).updateTrajectory(
                widget.trajectory.copyWith(waypoints: wps),
@@ -1756,6 +1904,87 @@ class _DraggableWaypointWidgetState extends ConsumerState<_DraggableWaypointWidg
                 border: Border.all(color: Colors.cyanAccent, width: 3),
               ),
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DraggableTrajectoryPathWidget extends ConsumerStatefulWidget {
+  final TrajectoryModel trajectory;
+  final TransformationController transformationController;
+  final VoidCallback onDragUpdate;
+
+  const _DraggableTrajectoryPathWidget({
+    super.key,
+    required this.trajectory,
+    required this.transformationController,
+    required this.onDragUpdate,
+  });
+
+  @override
+  ConsumerState<_DraggableTrajectoryPathWidget> createState() =>
+      _DraggableTrajectoryPathWidgetState();
+}
+
+class _DraggableTrajectoryPathWidgetState
+    extends ConsumerState<_DraggableTrajectoryPathWidget> {
+  @override
+  Widget build(BuildContext context) {
+    if (widget.trajectory.waypoints.isEmpty) return const SizedBox.shrink();
+
+    double minX = double.infinity, minY = double.infinity;
+    double maxX = -double.infinity, maxY = -double.infinity;
+
+    for (var wp in widget.trajectory.waypoints) {
+      final px = wp.position.dx * _gridSize;
+      final py = wp.position.dy * _gridSize;
+      if (px < minX) minX = px;
+      if (py < minY) minY = py;
+      if (px > maxX) maxX = px;
+      if (py > maxY) maxY = py;
+    }
+
+    const padding = 16.0;
+    minX = (minX - padding).clamp(0.0, _canvasWidth);
+    minY = (minY - padding).clamp(0.0, _canvasHeight);
+    maxX = (maxX + padding).clamp(minX + 32, _canvasWidth);
+    maxY = (maxY + padding).clamp(minY + 32, _canvasHeight);
+
+    final width = maxX - minX;
+    final height = maxY - minY;
+
+    return Positioned(
+      left: minX,
+      top: minY,
+      width: width,
+      height: height,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.move,
+        child: GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onPanUpdate: (details) {
+            final scale = widget.transformationController.value.getMaxScaleOnAxis();
+            final currentScale = scale > 0 ? scale : 1.0;
+            final dxMeter = details.delta.dx / currentScale / _gridSize;
+            final dyMeter = details.delta.dy / currentScale / _gridSize;
+
+            final updatedWaypoints = widget.trajectory.waypoints.map((wp) {
+              final newX = (wp.position.dx + dxMeter).clamp(0.0, _canvasWidth / _gridSize);
+              final newY = (wp.position.dy + dyMeter).clamp(0.0, _canvasHeight / _gridSize);
+              return Waypoint(position: Offset(newX, newY));
+            }).toList();
+
+            ref.read(trajectoryProvider.notifier).updateTrajectory(
+                  widget.trajectory.copyWith(waypoints: updatedWaypoints),
+                  immediate: true,
+                );
+            widget.onDragUpdate();
+          },
+          onPanEnd: (_) => widget.onDragUpdate(),
+          child: Container(
+            color: Colors.transparent,
           ),
         ),
       ),
@@ -1808,76 +2037,6 @@ class _GridPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _GridPainter oldDelegate) => oldDelegate.scale != scale;
-}
-
-class _TrajectoryPainter extends CustomPainter {
-  final List<Trajectory> trajectories;
-
-  _TrajectoryPainter(this.trajectories);
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = Colors.cyanAccent
-      ..strokeWidth = 3.0
-      ..style = PaintingStyle.stroke;
-
-    final headPaint = Paint()
-      ..color = Colors.cyanAccent
-      ..style = PaintingStyle.fill;
-
-    for (var t in trajectories) {
-      if (t.waypoints.length < 2) continue;
-
-      final path = Path();
-      path.moveTo(t.waypoints.first.x, t.waypoints.first.y);
-
-      if (t.waypoints.length == 2) {
-        path.lineTo(t.waypoints.last.x, t.waypoints.last.y);
-      } else {
-        for (int i = 0; i < t.waypoints.length - 1; i++) {
-          final p0 = i == 0 ? t.waypoints[i] : t.waypoints[i - 1];
-          final p1 = t.waypoints[i];
-          final p2 = t.waypoints[i + 1];
-          final p3 = i == t.waypoints.length - 2 ? t.waypoints[i + 1] : t.waypoints[i + 2];
-          
-          final double tension = 0.25;
-          final cp1x = p1.x + (p2.x - p0.x) * tension;
-          final cp1y = p1.y + (p2.y - p0.y) * tension;
-          final cp2x = p2.x - (p3.x - p1.x) * tension;
-          final cp2y = p2.y - (p3.y - p1.y) * tension;
-          
-          path.cubicTo(cp1x, cp1y, cp2x, cp2y, p2.x, p2.y);
-        }
-      }
-      canvas.drawPath(path, paint);
-
-      // 화살표 머리 렌더링 (Arrowhead) - 끝에서 두번째 점과 마지막 점 사이의 각도를 이용
-      final p1 = t.waypoints[t.waypoints.length - 2];
-      final p2 = t.waypoints.last;
-      final angle = math.atan2(p2.y - p1.y, p2.x - p1.x);
-      final headLength = 15.0;
-      final headAngle = math.pi / 6; // 30 degrees
-
-      final h1x = p2.x - headLength * math.cos(angle - headAngle);
-      final h1y = p2.y - headLength * math.sin(angle - headAngle);
-      final h2x = p2.x - headLength * math.cos(angle + headAngle);
-      final h2y = p2.y - headLength * math.sin(angle + headAngle);
-
-      final headPath = Path()
-        ..moveTo(p2.x, p2.y)
-        ..lineTo(h1x, h1y)
-        ..lineTo(h2x, h2y)
-        ..close();
-
-      canvas.drawPath(headPath, headPaint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _TrajectoryPainter oldDelegate) {
-    return true;
-  }
 }
 
 class _HeatmapPainter extends CustomPainter {

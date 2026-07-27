@@ -922,14 +922,12 @@ class _TuningModalState extends ConsumerState<TuningModal> {
     final config = ref.watch(configProvider);
     final hwChannelsAsync = ref.watch(hardwareChannelsProvider);
     int maxChannels = 24;
-    if (config != null) {
-      if (config.deviceName != null &&
-          GlobalDeviceCache.channels.containsKey(config.deviceName)) {
-        maxChannels = GlobalDeviceCache.channels[config.deviceName]!.length;
-      } else if (hwChannelsAsync.value != null &&
-          hwChannelsAsync.value!.isNotEmpty) {
-        maxChannels = hwChannelsAsync.value!.length;
-      }
+    if (hwChannelsAsync.value != null && hwChannelsAsync.value!.isNotEmpty) {
+      maxChannels = hwChannelsAsync.value!.length;
+    } else if (config != null &&
+        config.deviceName != null &&
+        GlobalDeviceCache.channels.containsKey(config.deviceName)) {
+      maxChannels = GlobalDeviceCache.channels[config.deviceName]!.length;
     }
 
     int safeSelectedChannel = _selectedChannel;

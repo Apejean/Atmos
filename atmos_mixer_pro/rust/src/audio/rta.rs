@@ -1,5 +1,4 @@
 use rustfft::{FftPlanner, num_complex::Complex};
-use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
 use parking_lot::RwLock;
 

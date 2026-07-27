@@ -16,7 +16,7 @@ pub fn calculate_svf_magnitude_db(band: &EqBand, fs: f32, f: f32) -> f32 {
     let k = 1.0 / q;
 
     // Calculate coefficients based on filter type (same as svf.rs)
-    let (a1, m0, m1, m2) = match band.filter_type {
+    let (a1, _m0, _m1, _m2) = match band.filter_type {
         EqType::Bell => {
             let a = 10.0f32.powf(gain_db / 40.0);
             let a1 = 1.0 / (1.0 + g * (k / a) + g * g);
@@ -46,7 +46,7 @@ pub fn calculate_svf_magnitude_db(band: &EqBand, fs: f32, f: f32) -> f32 {
         }
     };
 
-    let a2 = g * a1;
+    let _a2 = g * a1;
     // a3 = g * a2 is needed in standard SVF difference equations, but we only use a1, a2 for analog mapping
     // let a3 = g * a2;
     

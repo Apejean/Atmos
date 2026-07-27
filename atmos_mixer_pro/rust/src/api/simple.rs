@@ -18,6 +18,33 @@ pub fn api_init_app() {
     });
 }
 
+pub fn api_update_single_band_eq(
+    channel_index: usize,
+    band_index: usize,
+    frequency: f32,
+    gain_db: f32,
+    q_factor: f32,
+    filter_type_idx: u8,
+) {
+    let _ = GLOBAL_STATE.command_sender.lock().unwrap().push(AudioCommand::UpdateSingleBandEq {
+        channel: channel_index,
+        band: band_index,
+        freq: frequency,
+        gain_db,
+        q_factor,
+        filter_type_idx,
+    });
+}
+
+pub fn api_update_sound_source_position(sound_id: String, x: f32, y: f32, z: f32) {
+    let _ = GLOBAL_STATE.command_sender.lock().unwrap().push(AudioCommand::UpdateSoundSourcePosition {
+        sound_id,
+        x,
+        y,
+        z,
+    });
+}
+
 pub fn api_get_config(path: String) -> AppConfig {
     let config = AppConfig::load_from_file(path).unwrap_or_default();
 
@@ -74,7 +101,7 @@ pub fn api_get_config(path: String) -> AppConfig {
             tunings.push((ch as usize - 1, setting.delay_ms, setting.eq_bands.clone()));
         }
     }
-    let _ = GLOBAL_STATE.command_sender.try_send(AudioCommand::ApplyAllChannelTunings { tunings });
+    let _ = GLOBAL_STATE.command_sender.lock().unwrap().push(AudioCommand::ApplyAllChannelTunings { tunings });
 
     config
 }
@@ -127,7 +154,7 @@ pub fn api_save_config(path: String, config: AppConfig) -> Result<(), AtmosError
 pub fn api_play_test_noise(channel: u32) -> Result<(), AtmosError> {
     GLOBAL_STATE
         .command_sender
-        .try_send(AudioCommand::PlayTestNoise { channel })
+        .lock().unwrap().push(AudioCommand::PlayTestNoise { channel })
         .map_err(|e| AtmosError {
             message: e.to_string(),
         })?;
@@ -189,7 +216,7 @@ pub fn api_play_track(room_id: String, track_id: String) -> Result<(), AtmosErro
 
                 let _ = GLOBAL_STATE
                     .command_sender
-                    .try_send(AudioCommand::SetMasterVolume {
+                    .lock().unwrap().push(AudioCommand::SetMasterVolume {
                         room_id: hash_id(&room_id),
                         volume: room.volume,
                     });
@@ -211,7 +238,7 @@ pub fn api_play_track(room_id: String, track_id: String) -> Result<(), AtmosErro
                             GLOBAL_STATE.add_playing_track(instance_id, track_id.clone());
                             GLOBAL_STATE
                                 .command_sender
-                                .try_send(AudioCommand::PlayTrack {
+                                .lock().unwrap().push(AudioCommand::PlayTrack {
                                     instance_id,
                                     room_id: hash_id(&room_id),
                                     track_id: hash_id(&track_id),
@@ -257,7 +284,7 @@ pub fn api_play_track(room_id: String, track_id: String) -> Result<(), AtmosErro
                         GLOBAL_STATE.add_playing_track(instance_id, track_id.clone());
                         GLOBAL_STATE
                             .command_sender
-                            .try_send(AudioCommand::PlayTrack {
+                            .lock().unwrap().push(AudioCommand::PlayTrack {
                                 instance_id,
                                 room_id: hash_id(&room_id),
                                 track_id: hash_id(&track_id),
@@ -282,7 +309,7 @@ pub fn api_play_track(room_id: String, track_id: String) -> Result<(), AtmosErro
                         GLOBAL_STATE.add_playing_track(instance_id, track_id.clone());
                         GLOBAL_STATE
                             .command_sender
-                            .try_send(AudioCommand::PlayTrack {
+                            .lock().unwrap().push(AudioCommand::PlayTrack {
                                 instance_id,
                                 room_id: hash_id(&room_id),
                                 track_id: hash_id(&track_id),
@@ -320,7 +347,7 @@ pub fn api_play_track(room_id: String, track_id: String) -> Result<(), AtmosErro
                                 GLOBAL_STATE.add_playing_track(instance_id, track_id.clone());
                                 GLOBAL_STATE
                                     .command_sender
-                                    .try_send(AudioCommand::PlayTrack {
+                                    .lock().unwrap().push(AudioCommand::PlayTrack {
                                         instance_id,
                                         room_id: hash_id(&room_id),
                                         track_id: hash_id(&track_id),
@@ -359,7 +386,7 @@ pub fn api_stop_track(room_id: String, track_id: String) -> Result<(), AtmosErro
     GLOBAL_STATE.remove_playing_tracks_by_track_id(&track_id);
     GLOBAL_STATE
         .command_sender
-        .try_send(AudioCommand::StopTrack {
+        .lock().unwrap().push(AudioCommand::StopTrack {
             room_id: hash_id(&room_id),
             track_id: hash_id(&track_id),
         })
@@ -382,7 +409,7 @@ pub fn api_stop_all() -> Result<(), AtmosError> {
     GLOBAL_STATE.broadcast_state();
     GLOBAL_STATE
         .command_sender
-        .try_send(AudioCommand::StopAll)
+        .lock().unwrap().push(AudioCommand::StopAll)
         .map_err(|e| AtmosError {
             message: e.to_string(),
         })?;
@@ -417,7 +444,7 @@ pub fn api_clear_room(room_id: String) -> Result<(), AtmosError> {
     let _lock = GLOBAL_STATE.broadcast_lock.lock().unwrap_or_else(|e| e.into_inner());
     GLOBAL_STATE
         .command_sender
-        .try_send(AudioCommand::ClearRoom {
+        .lock().unwrap().push(AudioCommand::ClearRoom {
             room_id: hash_id(&room_id),
         })
         .map_err(|e| AtmosError {
@@ -429,7 +456,7 @@ pub fn api_clear_room(room_id: String) -> Result<(), AtmosError> {
 pub fn api_set_master_mute(muted: bool) -> Result<(), AtmosError> {
     GLOBAL_STATE
         .command_sender
-        .try_send(AudioCommand::SetMasterMute {
+        .lock().unwrap().push(AudioCommand::SetMasterMute {
             muted,
         })
         .map_err(|e| AtmosError {
@@ -441,7 +468,7 @@ pub fn api_set_master_mute(muted: bool) -> Result<(), AtmosError> {
 pub fn api_set_master_volume(room_id: String, volume: f32) -> Result<(), AtmosError> {
     GLOBAL_STATE
         .command_sender
-        .try_send(AudioCommand::SetMasterVolume {
+        .lock().unwrap().push(AudioCommand::SetMasterVolume {
             room_id: hash_id(&room_id),
             volume,
         })
@@ -459,7 +486,7 @@ pub fn api_set_track_volume(
 ) -> Result<(), AtmosError> {
     GLOBAL_STATE
         .command_sender
-        .try_send(AudioCommand::SetTrackVolume {
+        .lock().unwrap().push(AudioCommand::SetTrackVolume {
             room_id: hash_id(&room_id),
             track_id: hash_id(&track_id),
             volume,
@@ -478,7 +505,7 @@ pub fn api_set_track_output(
 ) -> Result<(), AtmosError> {
     GLOBAL_STATE
         .command_sender
-        .try_send(AudioCommand::SetTrackOutput {
+        .lock().unwrap().push(AudioCommand::SetTrackOutput {
             room_id: hash_id(&room_id),
             track_id: hash_id(&track_id),
             output_channel,
@@ -493,7 +520,7 @@ pub fn api_set_track_output(
 pub fn api_set_channel_delay(channel: usize, delay_ms: f32) -> Result<(), AtmosError> {
     GLOBAL_STATE
         .command_sender
-        .try_send(AudioCommand::SetChannelDelay {
+        .lock().unwrap().push(AudioCommand::SetChannelDelay {
             channel,
             delay_ms,
         })
@@ -506,7 +533,7 @@ pub fn api_set_channel_delay(channel: usize, delay_ms: f32) -> Result<(), AtmosE
 pub fn api_set_channel_eq(channel: usize, bands: Vec<crate::common::config::EqBand>) -> Result<(), AtmosError> {
     GLOBAL_STATE
         .command_sender
-        .try_send(AudioCommand::SetChannelEq {
+        .lock().unwrap().push(AudioCommand::SetChannelEq {
             channel,
             bands,
         })
@@ -551,7 +578,8 @@ lazy_static::lazy_static! {
 }
 
 pub fn api_init_audio_system(device_name: Option<String>) -> Result<(), AtmosError> {
-    let rx = GLOBAL_STATE.command_receiver.clone();
+    let mut rx_guard = GLOBAL_STATE.command_receiver.lock().unwrap();
+    let rx = rx_guard.take().expect("Audio engine already started!");
     
     api_stop_audio_engine();
     
@@ -585,7 +613,6 @@ pub fn api_init_audio_system(device_name: Option<String>) -> Result<(), AtmosErr
         let mut engine = crate::audio::engine::AudioEngine::new();
         crate::audio::engine::ENGINE_INIT_SIGNAL.store(false, std::sync::atomic::Ordering::SeqCst);
         let device_name_clone = device_name.clone();
-        let dummy_rx = rx.clone();
         match engine.start(device_name_clone, rx) {
             Ok(_) => {
                 ENGINE_ACTIVE.store(true, std::sync::atomic::Ordering::SeqCst);
@@ -606,19 +633,7 @@ pub fn api_init_audio_system(device_name: Option<String>) -> Result<(), AtmosErr
                     }
                     if let Some(err) = crate::core::state::GLOBAL_STATE.engine_error.read().unwrap_or_else(|e| e.into_inner()).as_ref() {
                         if err == "DeviceNotAvailable" {
-                            println!("⚠️ [디버깅] 오디오 장치 유실 감지! 3초 후 자동 재연결 시도... (Dummy Callback 활성화)");
-                            let dummy_rx_clone = dummy_rx.clone();
-                            std::thread::spawn(move || {
-                                // 30초(300 * 100ms) 동안 큐를 비워줌 (USB Hot-unplug Dummy Callback)
-                                for _ in 0..300 {
-                                    while let Ok(cmd) = dummy_rx_clone.try_recv() {
-                                        if let crate::common::commands::AudioCommand::PlayTrack { instance_id, .. } = cmd {
-                                            crate::core::state::GLOBAL_STATE.remove_playing_track(instance_id);
-                                        }
-                                    }
-                                    std::thread::sleep(std::time::Duration::from_millis(100));
-                                }
-                            });
+                            println!("⚠️ [디버깅] 오디오 장치 유실 감지! (rtrb SPSC 환경, 큐 대기 상태)");
                             break;
                         }
                     }
@@ -1254,7 +1269,7 @@ pub fn api_apply_all_channel_tunings(tunings: Vec<ChannelTuningParams>) -> Resul
     let cmd_tunings = tunings.iter().map(|t| (t.channel as usize, t.delay_ms, t.eq_bands.clone())).collect();
     GLOBAL_STATE
         .command_sender
-        .try_send(AudioCommand::ApplyAllChannelTunings {
+        .lock().unwrap().push(AudioCommand::ApplyAllChannelTunings {
             tunings: cmd_tunings,
         })
         .map_err(|e| AtmosError {
@@ -1286,7 +1301,7 @@ pub fn api_apply_channel_tuning(channel: u32, delay_ms: f32, eq_bands: Vec<EqBan
     println!("🔥 [디버깅] api_apply_channel_tuning 호출됨. 채널: {}, 딜레이: {}ms", channel, delay_ms);
     GLOBAL_STATE
         .command_sender
-        .try_send(AudioCommand::ApplyChannelTuning {
+        .lock().unwrap().push(AudioCommand::ApplyChannelTuning {
             channel: channel as usize,
             delay_ms,
             eq_bands: eq_bands.clone(), // Send the EqBands directly now
@@ -1319,7 +1334,7 @@ pub fn api_apply_channel_tuning(channel: u32, delay_ms: f32, eq_bands: Vec<EqBan
 pub fn api_apply_global_tuning(master_headroom_db: f32, peak_limiter_enabled: bool) -> Result<(), AtmosError> {
     GLOBAL_STATE
         .command_sender
-        .try_send(AudioCommand::ApplyGlobalTuning {
+        .lock().unwrap().push(AudioCommand::ApplyGlobalTuning {
             master_headroom_db,
             peak_limiter_enabled,
         })
@@ -1350,7 +1365,7 @@ pub fn api_update_spatial_config_json(json_payload: String) -> Result<(), AtmosE
 
     GLOBAL_STATE
         .command_sender
-        .try_send(AudioCommand::UpdateSpatialConfig {
+        .lock().unwrap().push(AudioCommand::UpdateSpatialConfig {
             channel_positions: payload.channel_positions,
             room_zones: payload.room_zones,
             trajectory: payload.trajectory,

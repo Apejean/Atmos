@@ -70,6 +70,20 @@ pub enum AudioCommand {
     UpdateTrajectoryPosition {
         position: crate::common::config::Point3D,
     },
+    UpdateSingleBandEq {
+        channel: usize,
+        band: usize,
+        freq: f32,
+        gain_db: f32,
+        q_factor: f32,
+        filter_type_idx: u8,
+    },
+    UpdateSoundSourcePosition {
+        sound_id: String,
+        x: f32,
+        y: f32,
+        z: f32,
+    },
     ApplyGlobalTuning {
         master_headroom_db: f32,
         peak_limiter_enabled: bool,
