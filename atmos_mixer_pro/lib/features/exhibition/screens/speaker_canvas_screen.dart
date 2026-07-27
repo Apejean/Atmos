@@ -1174,7 +1174,7 @@ class _DraggableRoomWidgetState extends ConsumerState<_DraggableRoomWidget> {
 
 
 
-  Widget _buildRotateHandle() {
+  Widget _buildRotateHandle(BuildContext roomContext) {
     return Positioned(
       top: -36,
       left: _localW / 2 - 12,
@@ -1184,7 +1184,7 @@ class _DraggableRoomWidgetState extends ConsumerState<_DraggableRoomWidget> {
           behavior: HitTestBehavior.opaque,
           onPanStart: (details) {
             setState(() => _isInteracting = true);
-            final renderBox = context.findRenderObject() as RenderBox?;
+            final renderBox = roomContext.findRenderObject() as RenderBox?;
             if (renderBox != null) {
               final localTouch = renderBox.globalToLocal(details.globalPosition);
               final roomCenterLocal = Offset(_localW / 2, _localH / 2);
@@ -1193,7 +1193,7 @@ class _DraggableRoomWidgetState extends ConsumerState<_DraggableRoomWidget> {
             }
           },
           onPanUpdate: (details) {
-            final renderBox = context.findRenderObject() as RenderBox?;
+            final renderBox = roomContext.findRenderObject() as RenderBox?;
             if (renderBox != null) {
               final localTouch = renderBox.globalToLocal(details.globalPosition);
               final roomCenterLocal = Offset(_localW / 2, _localH / 2);
@@ -1240,8 +1240,10 @@ class _DraggableRoomWidgetState extends ConsumerState<_DraggableRoomWidget> {
       top: _localY,
       width: _localW,
       height: _localH,
-      child: Transform.rotate(
-        angle: widget.room.rotation * math.pi / 180.0,
+      child: Builder(
+        builder: (roomContext) {
+          return Transform.rotate(
+            angle: widget.room.rotation * math.pi / 180.0,
         child: Stack(
           clipBehavior: Clip.none,
           children: [
@@ -1262,9 +1264,13 @@ class _DraggableRoomWidgetState extends ConsumerState<_DraggableRoomWidget> {
                   final dx = details.delta.dx / currentScale;
                   final dy = details.delta.dy / currentScale;
 
+                  double angle = widget.room.rotation * math.pi / 180.0;
+                  double parentDx = dx * math.cos(angle) - dy * math.sin(angle);
+                  double parentDy = dx * math.sin(angle) + dy * math.cos(angle);
+
                   setState(() {
-                    _localX = (_localX + dx).clamp(0.0, _canvasWidth - _localW);
-                    _localY = (_localY + dy).clamp(0.0, _canvasHeight - _localH);
+                    _localX = (_localX + parentDx).clamp(0.0, _canvasWidth - _localW);
+                    _localY = (_localY + parentDy).clamp(0.0, _canvasHeight - _localH);
 
                     final currentNodes = ref.read(speakerLayoutProvider);
                     for (final nodeId in _draggedSpeakersOffsets.keys) {
@@ -1395,7 +1401,7 @@ class _DraggableRoomWidgetState extends ConsumerState<_DraggableRoomWidget> {
               ),
             ),
             if (widget.room.hasDoor) _buildDoorHandle(),
-            _buildRotateHandle(),
+            _buildRotateHandle(roomContext),
             Positioned(
               top: -28,
               left: 0,
@@ -1428,6 +1434,8 @@ class _DraggableRoomWidgetState extends ConsumerState<_DraggableRoomWidget> {
             _buildResizeHandle(Alignment.bottomRight),
           ],
         ),
+      );
+      },
       ),
     );
   }
