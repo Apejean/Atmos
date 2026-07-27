@@ -1135,6 +1135,56 @@ class _TuningModalState extends ConsumerState<TuningModal> {
       ),
     );
   }
+
+  void _showBandContextMenu(BuildContext context, Offset globalPosition, int bandIndex) {
+    showMenu(
+      context: context,
+      position: RelativeRect.fromLTRB(
+        globalPosition.dx,
+        globalPosition.dy,
+        globalPosition.dx,
+        globalPosition.dy,
+      ),
+      color: AppColors.cardSurface,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+      items: <PopupMenuEntry<dynamic>>[
+        PopupMenuItem<dynamic>(
+          value: 'toggle',
+          child: Text(
+            _bandEnabled[bandIndex] ? 'Disable Band' : 'Enable Band',
+            style: const TextStyle(color: AppColors.textPrimary),
+          ),
+        ),
+        const PopupMenuDivider(),
+        ...EqType.values.map((type) => PopupMenuItem<dynamic>(
+              value: type,
+              child: Row(
+                children: [
+                  Icon(
+                    _bandTypes[bandIndex] == type ? Icons.check : null,
+                    size: 16,
+                    color: AppColors.primaryNeon,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(type.name, style: const TextStyle(color: AppColors.textPrimary)),
+                ],
+              ),
+            )),
+      ],
+    ).then((value) {
+      if (value != null) {
+        setState(() {
+          if (value == 'toggle') {
+            _bandEnabled[bandIndex] = !_bandEnabled[bandIndex];
+          } else if (value is EqType) {
+            _bandTypes[bandIndex] = value;
+          }
+          _saveCurrentState();
+          _sendThrottledUpdate();
+        });
+      }
+    });
+  }
 }
 
 // --------------------------------------------------------------------------
