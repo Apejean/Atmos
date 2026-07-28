@@ -13,6 +13,7 @@ import 'package:atmos_mixer_pro/features/exhibition/models/speaker_node.dart';
 import 'package:atmos_mixer_pro/features/exhibition/state/speaker_layout_state.dart';
 import 'package:atmos_mixer_pro/features/exhibition/widgets/speaker_node_widget.dart';
 import 'package:atmos_mixer_pro/features/exhibition/models/room_zone.dart';
+import 'package:atmos_mixer_pro/features/dashboard/widgets/vu_meter.dart';
 import 'package:atmos_mixer_pro/features/exhibition/state/room_zone_state.dart';
 import 'package:atmos_mixer_pro/features/exhibition/models/trajectory.dart';
 import 'package:atmos_mixer_pro/features/exhibition/state/trajectory_state.dart';
@@ -20,9 +21,10 @@ import 'package:atmos_mixer_pro/features/exhibition/state/blueprint_state.dart';
 import 'package:atmos_mixer_pro/features/exhibition/widgets/trajectory_layer_painter.dart';
 import 'package:atmos_mixer_pro/core/theme/colors.dart';
 import 'package:atmos_mixer_pro/core/state/global_state.dart';
+import 'package:atmos_mixer_pro/core/shortcuts/shortcut_config.dart';
 import 'package:atmos_mixer_pro/src/rust/api/simple.dart';
 
-const double _gridSize = 50.0;
+
 const double _canvasWidth = 2000.0;
 const double _canvasHeight = 2000.0;
 const double _speakerSize = 60.0;
@@ -50,6 +52,10 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
   bool _showTrajectories = true;
   bool _showHeatmap = true;
   String _selectedOctaveFilter = 'All'; // 'All', '125Hz', '500Hz', '1kHz', '4kHz'
+
+  bool _isMeasuringScale = false;
+  Offset? _measureStart;
+  Offset? _measureEnd;
 
   @override
   void initState() {
@@ -87,21 +93,25 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
         final node = nodes.where((n) => n.channel == index).firstOrNull;
         if (node == null) return null;
         return {
-          'x': node.x / _gridSize,
-          'y': node.y / _gridSize,
+          'x': node.x / ref.read(blueprintProvider).scale,
+          'y': node.y / ref.read(blueprintProvider).scale,
           'z': 0.0,
         };
       }),
       'room_zones': rooms.map((r) {
         return {
           'room_id': r.id.hashCode.abs(),
-          'boundary_min': {'x': r.x / _gridSize, 'y': r.y / _gridSize, 'z': 0.0},
-          'boundary_max': {'x': (r.x + r.width) / _gridSize, 'y': (r.y + r.height) / _gridSize, 'z': 2.0},
+          'boundary_min': {'x': r.x / ref.read(blueprintProvider).scale, 'y': r.y / ref.read(blueprintProvider).scale, 'z': 0.0},
+          'boundary_max': {'x': (r.x + r.width) / ref.read(blueprintProvider).scale, 'y': (r.y + r.height) / ref.read(blueprintProvider).scale, 'z': 2.0},
+          'absorption_coeff': r.absorptionCoeff,
+          'material_name': r.materialName,
+          'transmission_loss': r.wallTransmissionLoss,
         };
       }).toList(),
       'trajectory': trajectories.isNotEmpty && trajectories.first.waypoints.isNotEmpty ? {
         'waypoints': trajectories.first.waypoints.map((w) => {'x': w.position.dx, 'y': w.position.dy, 'z': w.heightZ}).toList(),
         'current_position': {'x': trajectories.first.getCurrentPositionMeter().dx, 'y': trajectories.first.getCurrentPositionMeter().dy, 'z': trajectories.first.getCurrentHeightZ()},
+        'audio_file_path': trajectories.first.audioFilePath,
       } : null,
     };
 
@@ -150,7 +160,63 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
     }
   }
 
+  void _finishMeasurement() {
+    final distancePx = (_measureEnd! - _measureStart!).distance;
+    setState(() {
+      _isMeasuringScale = false;
+    });
 
+    if (distancePx < 10) return;
+
+    double inputMeter = 1.0;
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: AppColors.cardSurface,
+          title: const Text('실제 거리 입력', style: TextStyle(color: Colors.white)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('선택한 선의 화면상 길이: ${distancePx.toStringAsFixed(1)}px', style: const TextStyle(color: Colors.white70)),
+              const SizedBox(height: 16),
+              TextField(
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                style: const TextStyle(color: Colors.white),
+                decoration: const InputDecoration(
+                  labelText: '실제 거리 (미터)',
+                  labelStyle: TextStyle(color: Colors.white54),
+                  enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
+                  focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: AppColors.primaryNeon)),
+                ),
+                onChanged: (val) {
+                  inputMeter = double.tryParse(val) ?? 1.0;
+                },
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('취소', style: TextStyle(color: Colors.white54)),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: AppColors.primaryNeon, foregroundColor: Colors.black),
+              onPressed: () {
+                if (inputMeter > 0) {
+                  final newScale = distancePx / inputMeter;
+                  ref.read(blueprintProvider.notifier).setScale(newScale);
+                  _syncSpatialConfigRealtime();
+                }
+                Navigator.pop(context);
+              },
+              child: const Text('적용'),
+            ),
+          ],
+        );
+      },
+    );
+  }
 
   Offset _getCanvasCenter() {
     final centerMatrix = _transformationController.value.clone()..invert();
@@ -166,8 +232,8 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
     final scale = _transformationController.value.getMaxScaleOnAxis();
     final effectiveScale = scale > 0 ? scale : 1.0;
     
-    double cx = (canvasCenter.dx / _gridSize).round() * _gridSize;
-    double cy = (canvasCenter.dy / _gridSize).round() * _gridSize;
+    double cx = (canvasCenter.dx / ref.read(blueprintProvider).scale).round() * ref.read(blueprintProvider).scale;
+    double cy = (canvasCenter.dy / ref.read(blueprintProvider).scale).round() * ref.read(blueprintProvider).scale;
     
     // Offset for intuitive mouse drop
     cx -= (_speakerSize / 2) / effectiveScale;
@@ -190,8 +256,8 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
     final scale = _transformationController.value.getMaxScaleOnAxis();
     final effectiveScale = scale > 0 ? scale : 1.0;
     
-    double cx = (canvasCenter.dx / _gridSize).round() * _gridSize;
-    double cy = (canvasCenter.dy / _gridSize).round() * _gridSize;
+    double cx = (canvasCenter.dx / ref.read(blueprintProvider).scale).round() * ref.read(blueprintProvider).scale;
+    double cy = (canvasCenter.dy / ref.read(blueprintProvider).scale).round() * ref.read(blueprintProvider).scale;
     
     // Offset for intuitive mouse drop
     cx -= (300.0 / 2) / effectiveScale;
@@ -224,9 +290,10 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
     final t = TrajectoryModel(
       id: const Uuid().v4(),
       waypoints: [
-        Waypoint(position: Offset((cx - 100) / _gridSize, cy / _gridSize)),
-        Waypoint(position: Offset((cx + 100) / _gridSize, cy / _gridSize)),
+        Waypoint(position: Offset((cx - 100) / ref.read(blueprintProvider).scale, cy / ref.read(blueprintProvider).scale)),
+        Waypoint(position: Offset((cx + 100) / ref.read(blueprintProvider).scale, cy / ref.read(blueprintProvider).scale)),
       ],
+      color: AppColors.primaryNeon,
     );
     ref.read(trajectoryProvider.notifier).addTrajectory(t);
   }
@@ -246,14 +313,16 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: AppColors.cardSurface,
-        title: const Text('Clear Canvas', style: TextStyle(color: Colors.white)),
-        content: const Text('Are you sure you want to delete all speakers, rooms, and trajectories?', style: TextStyle(color: Colors.white70)),
+        title: const Text('캔버스 전체 초기화', style: TextStyle(color: Colors.white)),
+        content: const Text('모든 스피커와 구역, 궤도를 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.',
+            style: TextStyle(color: Colors.white70)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel', style: TextStyle(color: Colors.white70)),
+            child: const Text('취소', style: TextStyle(color: Colors.white70)),
           ),
-          TextButton(
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
             onPressed: () {
               ref.read(speakerLayoutProvider.notifier).clearAll();
               ref.read(roomZoneProvider.notifier).clearAll();
@@ -261,7 +330,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
               ref.read(blueprintProvider.notifier).clearBlueprint();
               Navigator.pop(context);
             },
-            child: const Text('Clear All', style: TextStyle(color: Colors.redAccent)),
+            child: const Text('삭제', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -280,6 +349,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
     double rotation = room.rotation;
     String selectedMaterial = room.materialName;
     double currentCoeff = room.absorptionCoeff;
+    double currentTL = room.wallTransmissionLoss;
 
     await showDialog(
       context: context,
@@ -299,7 +369,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
             title: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('룸 설정 및 음향 튜닝 (Room Settings & Tuning)', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                const Text('룸 구역 설정 (Room Settings & Tuning)', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
                 IconButton(
                   icon: const Icon(Icons.close, color: Colors.white54),
                   onPressed: () => Navigator.pop(context),
@@ -330,7 +400,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                           style: const TextStyle(color: Colors.white),
                           keyboardType: const TextInputType.numberWithOptions(decimal: true),
                           decoration: const InputDecoration(
-                            labelText: 'Width (m)',
+                            labelText: '너비 (m)',
                             labelStyle: TextStyle(color: Colors.white70),
                             enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
                             focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: AppColors.primaryNeon)),
@@ -345,7 +415,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                           style: const TextStyle(color: Colors.white),
                           keyboardType: const TextInputType.numberWithOptions(decimal: true),
                           decoration: const InputDecoration(
-                            labelText: 'Height (m)',
+                            labelText: '높이 (m)',
                             labelStyle: TextStyle(color: Colors.white70),
                             enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
                             focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: AppColors.primaryNeon)),
@@ -356,7 +426,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                     ],
                   ),
                   const SizedBox(height: 20),
-                  const Text('Acoustic Surface Material Preset', style: TextStyle(color: AppColors.primaryNeon, fontSize: 13, fontWeight: FontWeight.bold)),
+                  const Text('음향 표면 재질 프리셋', style: TextStyle(color: AppColors.primaryNeon, fontSize: 13, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 8),
                   DropdownButton<RoomMaterialPreset>(
                     value: RoomMaterialPreset.presets.firstWhere(
@@ -398,7 +468,16 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                     ),
                   ),
                   const SizedBox(height: 20),
-                  const Text('Theme Color', style: TextStyle(color: Colors.white70, fontSize: 13)),
+                  Text('차음 성능 (Transmission Loss): ${currentTL.toInt()} dB', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                  Slider(
+                    value: currentTL,
+                    min: 10.0,
+                    max: 80.0,
+                    activeColor: AppColors.primaryNeon,
+                    onChanged: (val) => setDialogState(() => currentTL = val),
+                  ),
+                  const SizedBox(height: 20),
+                  const Text('테마 색상', style: TextStyle(color: Colors.white70, fontSize: 13)),
                   const SizedBox(height: 10),
                   Wrap(
                     spacing: 10,
@@ -428,7 +507,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('Rotation: ${rotation.toInt()}°', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                      Text('회전 (Rotation): ${rotation.toInt()}°', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
                     ],
                   ),
                   Slider(
@@ -444,7 +523,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text('CAD Entrance Marker (Door)', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                      const Text('입구 마커 (Door)', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
                       Switch(
                         value: hasDoor,
                         activeTrackColor: AppColors.primaryNeon,
@@ -456,7 +535,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                     const SizedBox(height: 12),
                     Row(
                       children: [
-                        const Text('Door Wall: ', style: TextStyle(color: Colors.white70, fontSize: 13)),
+                        const Text('문 위치 벽면: ', style: TextStyle(color: Colors.white70, fontSize: 13)),
                         const SizedBox(width: 12),
                         Expanded(
                           child: DropdownButton<int>(
@@ -465,10 +544,10 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                             isExpanded: true,
                             style: const TextStyle(color: Colors.white),
                             items: const [
-                              DropdownMenuItem(value: 0, child: Text('Top Wall')),
-                              DropdownMenuItem(value: 1, child: Text('Right Wall')),
-                              DropdownMenuItem(value: 2, child: Text('Bottom Wall')),
-                              DropdownMenuItem(value: 3, child: Text('Left Wall')),
+                              DropdownMenuItem(value: 0, child: Text('상단 벽')),
+                              DropdownMenuItem(value: 1, child: Text('우측 벽')),
+                              DropdownMenuItem(value: 2, child: Text('하단 벽')),
+                              DropdownMenuItem(value: 3, child: Text('좌측 벽')),
                             ],
                             onChanged: (val) {
                               if (val != null) setDialogState(() => doorWall = val);
@@ -478,7 +557,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                       ],
                     ),
                     const SizedBox(height: 12),
-                    Text('Door Position: ${(doorOffset * 100).toInt()}%', style: const TextStyle(color: Colors.white70, fontSize: 13)),
+                    Text('문 위치 비율: ${(doorOffset * 100).toInt()}%', style: const TextStyle(color: Colors.white70, fontSize: 13)),
                     Slider(
                       value: doorOffset,
                       min: 0.0,
@@ -496,11 +575,11 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                   ref.read(roomZoneProvider.notifier).removeRoomZone(room.id);
                   Navigator.pop(context);
                 },
-                child: const Text('Delete Room', style: TextStyle(color: Colors.redAccent)),
+                child: const Text('룸 구역 삭제', style: TextStyle(color: Colors.redAccent)),
               ),
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text('Cancel', style: TextStyle(color: Colors.white70)),
+                child: const Text('취소', style: TextStyle(color: Colors.white70)),
               ),
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
@@ -526,12 +605,14 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                           rotation: rotation,
                           materialName: selectedMaterial,
                           absorptionCoeff: currentCoeff,
+                          wallTransmissionLoss: currentTL,
                         ),
                         immediate: true,
                       );
+                  _syncSpatialConfigRealtime();
                   Navigator.pop(context);
                 },
-                child: const Text('Save Changes', style: TextStyle(fontWeight: FontWeight.bold)),
+                child: const Text('설정 저장', style: TextStyle(fontWeight: FontWeight.bold)),
               ),
             ],
           );
@@ -558,7 +639,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
             title: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('Edit Speaker [Ch ${channel + 1}]', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                Text('스피커 설정 [Ch ${channel + 1}]', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                 IconButton(
                   icon: const Icon(Icons.close, color: Colors.white54),
                   onPressed: () => Navigator.pop(context),
@@ -570,7 +651,27 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Speaker Acoustic Model Preset', style: TextStyle(color: Colors.white70, fontSize: 13)),
+                  const Text('채널 할당', style: TextStyle(color: Colors.white70, fontSize: 13)),
+                  const SizedBox(height: 8),
+                  DropdownButton<int>(
+                    value: channel,
+                    dropdownColor: AppColors.cardSurface,
+                    isExpanded: true,
+                    style: const TextStyle(color: Colors.white),
+                    items: List.generate(64, (index) => DropdownMenuItem(
+                      value: index,
+                      child: Text('Ch ${index + 1}'),
+                    )),
+                    onChanged: (val) {
+                      if (val != null) {
+                        setDialogState(() => channel = val);
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  const Divider(color: Colors.white24),
+                  const SizedBox(height: 8),
+                  const Text('스피커 음향 프리셋', style: TextStyle(color: Colors.white70, fontSize: 13)),
                   const SizedBox(height: 8),
                   DropdownButton<String>(
                     value: selectedPreset,
@@ -578,7 +679,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                     isExpanded: true,
                     style: const TextStyle(color: Colors.white),
                     items: const [
-                      DropdownMenuItem(value: 'Custom', child: Text('Custom Configuration')),
+                      DropdownMenuItem(value: 'Custom', child: Text('사용자 지정 설정')),
                       DropdownMenuItem(value: 'PointSource', child: Text('Point Source (90° Beam, 3.5m Height)')),
                       DropdownMenuItem(value: 'LineArray', child: Text('Line Array (60° Narrow Beam, 6.0m Height)')),
                       DropdownMenuItem(value: 'Subwoofer', child: Text('Subwoofer (180° Omnidirectional, 0.5m Height)')),
@@ -616,7 +717,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                   const SizedBox(height: 16),
                   const Divider(color: Colors.white24),
                   const SizedBox(height: 8),
-                  Text('Nominal Dispersion Angle: ${dispAngle.toInt()}°', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                  Text('소리 지향 각도: ${dispAngle.toInt()}°', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
                   Slider(
                     value: dispAngle,
                     min: 30.0,
@@ -628,7 +729,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                     }),
                   ),
                   const SizedBox(height: 12),
-                  Text('Max Coverage Distance: ${dispDist.toInt()}px', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                  Text('최대 음향 도달 거리: ${dispDist.toInt()}px', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
                   Slider(
                     value: dispDist,
                     min: 50.0,
@@ -640,7 +741,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                     }),
                   ),
                   const SizedBox(height: 12),
-                  Text('Hanging Height Z: ${heightZ.toStringAsFixed(1)}m', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                  Text('설치 높이 (Z축): ${heightZ.toStringAsFixed(1)}m', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
                   Slider(
                     value: heightZ,
                     min: 0.5,
@@ -652,7 +753,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                     }),
                   ),
                   const SizedBox(height: 12),
-                  Text('Pitch Downward Tilt: ${pitchTilt.toInt()}°', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                  Text('하향 경사각 (Pitch): ${pitchTilt.toInt()}°', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
                   Slider(
                     value: pitchTilt,
                     min: 0.0,
@@ -664,7 +765,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                     }),
                   ),
                   const SizedBox(height: 12),
-                  Text('Yaw Orientation: ${rotation.toInt()}°', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                  Text('회전 지향각 (Yaw): ${rotation.toInt()}°', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
                   Slider(
                     value: rotation,
                     min: 0.0,
@@ -681,11 +782,11 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                   ref.read(speakerLayoutProvider.notifier).removeSpeaker(node.id);
                   Navigator.pop(context);
                 },
-                child: const Text('Delete Speaker', style: TextStyle(color: Colors.redAccent)),
+                child: const Text('스피커 삭제', style: TextStyle(color: Colors.redAccent)),
               ),
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text('Cancel', style: TextStyle(color: Colors.white70)),
+                child: const Text('취소', style: TextStyle(color: Colors.white70)),
               ),
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
@@ -704,9 +805,10 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                         ),
                         immediate: true,
                       );
+                  _syncSpatialConfigRealtime();
                   Navigator.pop(context);
                 },
-                child: const Text('Save Settings', style: TextStyle(fontWeight: FontWeight.bold)),
+                child: const Text('설정 저장', style: TextStyle(fontWeight: FontWeight.bold)),
               ),
             ],
           );
@@ -725,13 +827,13 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
         builder: (context, setDialogState) {
           return AlertDialog(
             backgroundColor: AppColors.cardSurface,
-            title: const Text('Edit Trajectory', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            title: const Text('궤도 설정', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
             content: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Name', style: TextStyle(color: Colors.white70, fontSize: 13)),
+                  const Text('이름', style: TextStyle(color: Colors.white70, fontSize: 13)),
                   const SizedBox(height: 8),
                   TextFormField(
                     initialValue: name,
@@ -744,24 +846,25 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                     onChanged: (val) => name = val,
                   ),
                   const SizedBox(height: 16),
-                  const Text('Audio File Binding', style: TextStyle(color: Colors.white70, fontSize: 13)),
+                  const Text('오디오 파일', style: TextStyle(color: Colors.white70, fontSize: 13)),
                   const SizedBox(height: 8),
                   Row(
                     children: [
                       Expanded(
                         child: Text(
-                          currentAudioPath != null ? currentAudioPath!.split(Platform.pathSeparator).last : 'No audio selected',
+                          currentAudioPath != null ? currentAudioPath!.split(Platform.pathSeparator).last : '선택된 파일 없음',
                           style: TextStyle(color: currentAudioPath != null ? AppColors.primaryNeon : Colors.white54, fontSize: 12),
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
                       IconButton(
                         icon: const Icon(Icons.file_upload, color: Colors.white70),
-                        tooltip: 'Select Audio File',
+                        tooltip: '파일 선택',
                         onPressed: () async {
                           try {
                             final result = await FilePicker.pickFiles(
-                              type: FileType.audio,
+                              type: FileType.custom,
+                              allowedExtensions: ['wav'],
                               allowMultiple: false,
                             );
                             if (result != null && result.files.isNotEmpty) {
@@ -777,7 +880,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                       if (currentAudioPath != null)
                         IconButton(
                           icon: const Icon(Icons.clear, color: Colors.redAccent),
-                          tooltip: 'Clear Audio',
+                          tooltip: '오디오 제거',
                           onPressed: () {
                             setDialogState(() {
                               currentAudioPath = null;
@@ -792,7 +895,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text('Cancel', style: TextStyle(color: Colors.white70)),
+                child: const Text('취소', style: TextStyle(color: Colors.white70)),
               ),
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
@@ -810,7 +913,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                       );
                   Navigator.pop(context);
                 },
-                child: const Text('Save Settings', style: TextStyle(fontWeight: FontWeight.bold)),
+                child: const Text('설정 저장', style: TextStyle(fontWeight: FontWeight.bold)),
               ),
             ],
           );
@@ -865,9 +968,49 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
   @override
   Widget build(BuildContext context) {
     final blueprint = ref.watch(blueprintProvider);
+    final shortcutManager = ref.watch(shortcutManagerProvider);
 
-    return Scaffold(
-      backgroundColor: AppColors.background,
+    return Focus(
+      autofocus: true,
+      child: Shortcuts(
+        shortcuts: Map<ShortcutActivator, Intent>.fromEntries(
+          shortcutManager.bindings.entries.map(
+            (entry) => MapEntry(
+              entry.value.toSingleActivator(),
+              ShortcutIntent(entry.key),
+            ),
+          ),
+        ),
+        child: Actions(
+        actions: <Type, Action<Intent>>{
+          ShortcutIntent: CallbackAction<ShortcutIntent>(
+            onInvoke: (ShortcutIntent intent) {
+              switch (intent.action) {
+                case ShortcutAction.globalPlayPause:
+                  _toggleAutomation();
+                  break;
+                case ShortcutAction.drawTrajectory:
+                  // Currently there's no single selected target logic exposed to canvas directly,
+                  break;
+                case ShortcutAction.fitView:
+                  _transformationController.value = Matrix4.identity();
+                  break;
+                case ShortcutAction.hideShowAll:
+                  setState(() => _showTrajectories = !_showTrajectories);
+                  break;
+                case ShortcutAction.deleteSelected:
+                  break;
+                case ShortcutAction.cancelMode:
+                  break;
+              }
+              return null;
+            },
+          ),
+        },
+        child: Focus(
+          autofocus: true,
+          child: Scaffold(
+            backgroundColor: AppColors.background,
       appBar: AppBar(
         title: Row(
           children: [
@@ -1060,6 +1203,8 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
           _viewportSize = Size(constraints.maxWidth, constraints.maxHeight);
           return InteractiveViewer(
             transformationController: _transformationController,
+            panEnabled: !_isMeasuringScale,
+            scaleEnabled: !_isMeasuringScale,
             boundaryMargin: const EdgeInsets.all(double.infinity),
             minScale: 0.1,
             maxScale: 2.0,
@@ -1135,7 +1280,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                                 painter: TrajectoryLayerPainter(
                                   trajectories: trajectories,
                                   focusedTrajectoryId: null, // we can implement focus later
-                                  scaleMeterToPixel: _gridSize,
+                                  scaleMeterToPixel: ref.read(blueprintProvider).scale,
                                   repaint: Listenable.merge(trajectories),
                                 ),
                               ),
@@ -1190,6 +1335,31 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                       );
                     },
                   ),
+                  if (_isMeasuringScale)
+                    Positioned.fill(
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onPanStart: (details) {
+                          setState(() {
+                            _measureStart = details.localPosition;
+                            _measureEnd = details.localPosition;
+                          });
+                        },
+                        onPanUpdate: (details) {
+                          setState(() {
+                            _measureEnd = details.localPosition;
+                          });
+                        },
+                        onPanEnd: (details) {
+                          if (_measureStart != null && _measureEnd != null) {
+                            _finishMeasurement();
+                          }
+                        },
+                        child: CustomPaint(
+                          painter: _MeasurementPainter(_measureStart, _measureEnd),
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -1201,17 +1371,112 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
           if (value == 'speaker') { _addSpeaker(); }
           else if (value == 'room') { _addRoom(); }
           else if (value == 'trajectory') { _addTrajectory(); }
+          else if (value == 'measure') {
+            setState(() {
+              _isMeasuringScale = true;
+              _measureStart = null;
+              _measureEnd = null;
+            });
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('도면상에 두 점을 드래그하여 기준선을 그려주세요.')),
+            );
+          }
         },
         itemBuilder: (BuildContext context) => [
-          const PopupMenuItem(value: 'speaker', child: Text('Add Speaker')),
-          const PopupMenuItem(value: 'room', child: Text('Add Room')),
-          const PopupMenuItem(value: 'trajectory', child: Text('Add Trajectory')),
+          const PopupMenuItem(value: 'speaker', child: Text('스피커 추가')),
+          const PopupMenuItem(value: 'room', child: Text('룸 구역 추가')),
+          const PopupMenuItem(value: 'trajectory', child: Text('오디오 궤도 추가')),
+          const PopupMenuItem(value: 'measure', child: Text('도면 스케일 측정')),
         ],
         child: FloatingActionButton(
           onPressed: null,
           backgroundColor: AppColors.primaryNeon,
           child: const Icon(Icons.add, color: Colors.black),
         ),
+      ),
+      bottomNavigationBar: Container(
+        height: 120,
+        decoration: const BoxDecoration(
+          color: AppColors.cardSurface,
+          border: Border(top: BorderSide(color: Colors.white24)),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              flex: 2,
+              child: Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('EBU R128 피크 미터', style: TextStyle(color: AppColors.primaryNeon, fontWeight: FontWeight.bold, fontSize: 13)),
+                    const SizedBox(height: 8),
+                    Expanded(
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: List.generate(8, (index) => NeonVUMeter(outputChannel: index)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const VerticalDivider(color: Colors.white24, width: 1),
+            Expanded(
+              flex: 3,
+              child: Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('씬(Scene) 큐 리스트 스케줄러', style: TextStyle(color: AppColors.primaryNeon, fontWeight: FontWeight.bold, fontSize: 13)),
+                        Row(
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.save, color: Colors.white54, size: 18),
+                              onPressed: () {},
+                              tooltip: '현재 씬 저장',
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.play_arrow, color: Colors.white54, size: 18),
+                              onPressed: () {},
+                              tooltip: '스케줄러 시작',
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    Expanded(
+                      child: ListView(
+                        children: [
+                          ListTile(
+                            dense: true,
+                            contentPadding: EdgeInsets.zero,
+                            title: const Text('Scene 1: Intro (00:00:00)', style: TextStyle(color: Colors.white, fontSize: 12)),
+                            trailing: const Icon(Icons.check_circle, color: AppColors.primaryNeon, size: 16),
+                          ),
+                          ListTile(
+                            dense: true,
+                            contentPadding: EdgeInsets.zero,
+                            title: const Text('Scene 2: Main Event (00:05:30)', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                            trailing: const Icon(Icons.pending, color: Colors.white24, size: 16),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+          ),
+        ),
+      ),
       ),
     );
   }
@@ -1291,7 +1556,7 @@ class _DraggableRoomWidgetState extends ConsumerState<_DraggableRoomWidget> {
       child: MouseRegion(
         cursor: cursor,
         child: GestureDetector(
-          behavior: HitTestBehavior.translucent,
+          behavior: HitTestBehavior.opaque,
           onPanStart: (details) {
             setState(() {
               _isInteracting = true;
@@ -1330,6 +1595,31 @@ class _DraggableRoomWidgetState extends ConsumerState<_DraggableRoomWidget> {
                       immediate: true,
                     );
               }
+              final scale = widget.transformationController.value.getMaxScaleOnAxis();
+              final currentScale = scale > 0 ? scale : 1.0;
+              final dxGlobal = details.delta.dx / currentScale;
+              final dyGlobal = details.delta.dy / currentScale;
+
+              setState(() {
+                _localX += dxGlobal;
+                _localY += dyGlobal;
+                
+                final blueprint = ref.read(blueprintProvider);
+                final scaleM = blueprint.scale > 0 ? blueprint.scale : 40.0;
+                
+                ref.read(roomZoneProvider.notifier).updateRoomZone(
+                    widget.room.copyWith(
+                      x: _localX,
+                      y: _localY,
+                      width: _localW,
+                      height: _localH,
+                      physicalWidth: _localW / scaleM,
+                      physicalHeight: _localH / scaleM,
+                    ),
+                    immediate: true,
+                  );
+              });
+              widget.onDragUpdate?.call();
               return;
             }
 
@@ -1413,10 +1703,10 @@ class _DraggableRoomWidgetState extends ConsumerState<_DraggableRoomWidget> {
               return;
             }
 
-            double snappedX = (_localX / _gridSize).round() * _gridSize;
-            double snappedY = (_localY / _gridSize).round() * _gridSize;
-            double snappedW = (_localW / _gridSize).round() * _gridSize;
-            double snappedH = (_localH / _gridSize).round() * _gridSize;
+            double snappedX = (_localX / ref.read(blueprintProvider).scale).round() * ref.read(blueprintProvider).scale;
+            double snappedY = (_localY / ref.read(blueprintProvider).scale).round() * ref.read(blueprintProvider).scale;
+            double snappedW = (_localW / ref.read(blueprintProvider).scale).round() * ref.read(blueprintProvider).scale;
+            double snappedH = (_localH / ref.read(blueprintProvider).scale).round() * ref.read(blueprintProvider).scale;
 
             snappedX = snappedX.clamp(0.0, _canvasWidth - snappedW);
             snappedY = snappedY.clamp(0.0, _canvasHeight - snappedH);
@@ -1492,7 +1782,7 @@ class _DraggableRoomWidgetState extends ConsumerState<_DraggableRoomWidget> {
       left: left,
       top: top,
       child: GestureDetector(
-        behavior: HitTestBehavior.translucent,
+        behavior: HitTestBehavior.opaque,
         onPanStart: (_) => setState(() => _isInteracting = true),
         onPanUpdate: (details) {
           final scale = widget.transformationController.value.getMaxScaleOnAxis();
@@ -1608,7 +1898,7 @@ class _DraggableRoomWidgetState extends ConsumerState<_DraggableRoomWidget> {
             MouseRegion(
               cursor: SystemMouseCursors.move,
               child: GestureDetector(
-                behavior: HitTestBehavior.translucent,
+                behavior: HitTestBehavior.opaque,
                 onDoubleTap: widget.onEdit,
                 onPanStart: (details) {
                   setState(() => _isInteracting = true);
@@ -1622,13 +1912,9 @@ class _DraggableRoomWidgetState extends ConsumerState<_DraggableRoomWidget> {
                   final dx = details.delta.dx / currentScale;
                   final dy = details.delta.dy / currentScale;
 
-                  double angle = widget.room.rotation * math.pi / 180.0;
-                  double parentDx = dx * math.cos(angle) - dy * math.sin(angle);
-                  double parentDy = dx * math.sin(angle) + dy * math.cos(angle);
-
                   setState(() {
-                    _localX = (_localX + parentDx).clamp(0.0, _canvasWidth - _localW);
-                    _localY = (_localY + parentDy).clamp(0.0, _canvasHeight - _localH);
+                    _localX = (_localX + dx).clamp(0.0, _canvasWidth - _localW);
+                    _localY = (_localY + dy).clamp(0.0, _canvasHeight - _localH);
 
                     final currentNodes = ref.read(speakerLayoutProvider);
                     for (final nodeId in _draggedSpeakersOffsets.keys) {
@@ -1649,8 +1935,8 @@ class _DraggableRoomWidgetState extends ConsumerState<_DraggableRoomWidget> {
                   widget.onDragUpdate?.call();
                 },
                 onPanEnd: (details) {
-                  double snappedX = (_localX / _gridSize).round() * _gridSize;
-                  double snappedY = (_localY / _gridSize).round() * _gridSize;
+                  double snappedX = (_localX / ref.read(blueprintProvider).scale).round() * ref.read(blueprintProvider).scale;
+                  double snappedY = (_localY / ref.read(blueprintProvider).scale).round() * ref.read(blueprintProvider).scale;
                   snappedX = snappedX.clamp(0.0, _canvasWidth - _localW);
                   snappedY = snappedY.clamp(0.0, _canvasHeight - _localH);
 
@@ -1669,8 +1955,8 @@ class _DraggableRoomWidgetState extends ConsumerState<_DraggableRoomWidget> {
                   for (final nodeId in _draggedSpeakersOffsets.keys) {
                     try {
                       final node = currentNodes.firstWhere((n) => n.id == nodeId);
-                      final nX = (node.x / _gridSize).round() * _gridSize;
-                      final nY = (node.y / _gridSize).round() * _gridSize;
+                      final nX = (node.x / ref.read(blueprintProvider).scale).round() * ref.read(blueprintProvider).scale;
+                      final nY = (node.y / ref.read(blueprintProvider).scale).round() * ref.read(blueprintProvider).scale;
                       ref.read(speakerLayoutProvider.notifier).updateSpeaker(
                             node.copyWith(
                               x: nX.clamp(0.0, _canvasWidth - _speakerSize),
@@ -1895,9 +2181,16 @@ class _DraggableSpeakerWidgetState extends ConsumerState<_DraggableSpeakerWidget
               onPanUpdate: (details) {
                 final scale = widget.transformationController.value.getMaxScaleOnAxis();
                 final currentScale = scale > 0 ? scale : 1.0;
+                final rad = widget.node.rotation * math.pi / 180.0;
+                final localDx = details.delta.dx / currentScale;
+                final localDy = details.delta.dy / currentScale;
+
+                final globalDx = localDx * math.cos(rad) - localDy * math.sin(rad);
+                final globalDy = localDx * math.sin(rad) + localDy * math.cos(rad);
+
                 setState(() {
-                  _localX = (_localX + details.delta.dx / currentScale).clamp(0.0, _canvasWidth - _speakerSize);
-                  _localY = (_localY + details.delta.dy / currentScale).clamp(0.0, _canvasHeight - _speakerSize);
+                  _localX = (_localX + globalDx).clamp(0.0, _canvasWidth - _speakerSize);
+                  _localY = (_localY + globalDy).clamp(0.0, _canvasHeight - _speakerSize);
                 });
                 ref.read(speakerLayoutProvider.notifier).updateSpeaker(
                   widget.node.copyWith(x: _localX, y: _localY),
@@ -1905,8 +2198,8 @@ class _DraggableSpeakerWidgetState extends ConsumerState<_DraggableSpeakerWidget
                 );
               },
               onPanEnd: (details) {
-                final snappedX = (_localX / _gridSize).round() * _gridSize;
-                final snappedY = (_localY / _gridSize).round() * _gridSize;
+                final snappedX = (_localX / ref.read(blueprintProvider).scale).round() * ref.read(blueprintProvider).scale;
+                final snappedY = (_localY / ref.read(blueprintProvider).scale).round() * ref.read(blueprintProvider).scale;
                 final updated = widget.node.copyWith(
                   x: snappedX.clamp(0.0, _canvasWidth - _speakerSize),
                   y: snappedY.clamp(0.0, _canvasHeight - _speakerSize),
@@ -1965,15 +2258,15 @@ class _DraggableWaypointWidgetState extends ConsumerState<_DraggableWaypointWidg
   @override
   void initState() {
     super.initState();
-    _localX = widget.waypoint.position.dx * _gridSize;
-    _localY = widget.waypoint.position.dy * _gridSize;
+    _localX = widget.waypoint.position.dx * ref.read(blueprintProvider).scale;
+    _localY = widget.waypoint.position.dy * ref.read(blueprintProvider).scale;
   }
 
   @override
   void didUpdateWidget(covariant _DraggableWaypointWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
-    _localX = widget.waypoint.position.dx * _gridSize;
-    _localY = widget.waypoint.position.dy * _gridSize;
+    _localX = widget.waypoint.position.dx * ref.read(blueprintProvider).scale;
+    _localY = widget.waypoint.position.dy * ref.read(blueprintProvider).scale;
   }
 
   @override
@@ -1992,7 +2285,7 @@ class _DraggableWaypointWidgetState extends ConsumerState<_DraggableWaypointWidg
           
           // 실시간으로 선이 따라가도록 Riverpod 업데이트
           final wps = List<Waypoint>.from(widget.trajectory.waypoints);
-          wps[widget.waypointIndex] = Waypoint(position: Offset(_localX / _gridSize, _localY / _gridSize));
+          wps[widget.waypointIndex] = Waypoint(position: Offset(_localX / ref.read(blueprintProvider).scale, _localY / ref.read(blueprintProvider).scale));
           ref.read(trajectoryProvider.notifier).updateTrajectory(
             widget.trajectory.copyWith(waypoints: wps),
             immediate: true,
@@ -2003,8 +2296,8 @@ class _DraggableWaypointWidgetState extends ConsumerState<_DraggableWaypointWidg
           // 강제 동기화 보장 (Trailing Edge 유실 방지)
           widget.onDragUpdate();
         },
-        onDoubleTap: () {
-          // 더블클릭시 삭제 (최소 2개의 점은 유지해야 함)
+        onLongPress: () {
+          // 길게 누르기시 삭제 (최소 2개의 점은 유지해야 함)
           if (widget.trajectory.waypoints.length > 2) {
              final wps = List<Waypoint>.from(widget.trajectory.waypoints);
              wps.removeAt(widget.waypointIndex);
@@ -2014,6 +2307,17 @@ class _DraggableWaypointWidgetState extends ConsumerState<_DraggableWaypointWidg
           } else {
              ref.read(trajectoryProvider.notifier).removeTrajectory(widget.trajectory.id);
           }
+        },
+        onDoubleTap: () {
+          // 더블 탭시 웨이포인트 추가 (현재 웨이포인트 복제/옆에 추가)
+          final wps = List<Waypoint>.from(widget.trajectory.waypoints);
+          wps.insert(widget.waypointIndex + 1, Waypoint(
+            position: widget.waypoint.position + const Offset(1.0, 1.0),
+            heightZ: widget.waypoint.heightZ,
+          ));
+          ref.read(trajectoryProvider.notifier).updateTrajectory(
+            widget.trajectory.copyWith(waypoints: wps),
+          );
         },
         child: Container(
           width: 40,
@@ -2065,8 +2369,8 @@ class _DraggableTrajectoryPathWidgetState
     double maxX = -double.infinity, maxY = -double.infinity;
 
     for (var wp in widget.trajectory.waypoints) {
-      final px = wp.position.dx * _gridSize;
-      final py = wp.position.dy * _gridSize;
+      final px = wp.position.dx * ref.read(blueprintProvider).scale;
+      final py = wp.position.dy * ref.read(blueprintProvider).scale;
       if (px < minX) minX = px;
       if (py < minY) minY = py;
       if (px > maxX) maxX = px;
@@ -2090,16 +2394,16 @@ class _DraggableTrajectoryPathWidgetState
       child: MouseRegion(
         cursor: SystemMouseCursors.move,
         child: GestureDetector(
-          behavior: HitTestBehavior.translucent,
+          behavior: HitTestBehavior.deferToChild,
           onPanUpdate: (details) {
             final scale = widget.transformationController.value.getMaxScaleOnAxis();
             final currentScale = scale > 0 ? scale : 1.0;
-            final dxMeter = details.delta.dx / currentScale / _gridSize;
-            final dyMeter = details.delta.dy / currentScale / _gridSize;
+            final dxMeter = details.delta.dx / currentScale / ref.read(blueprintProvider).scale;
+            final dyMeter = details.delta.dy / currentScale / ref.read(blueprintProvider).scale;
 
             final updatedWaypoints = widget.trajectory.waypoints.map((wp) {
-              final newX = (wp.position.dx + dxMeter).clamp(0.0, _canvasWidth / _gridSize);
-              final newY = (wp.position.dy + dyMeter).clamp(0.0, _canvasHeight / _gridSize);
+              final newX = (wp.position.dx + dxMeter).clamp(0.0, _canvasWidth / ref.read(blueprintProvider).scale);
+              final newY = (wp.position.dy + dyMeter).clamp(0.0, _canvasHeight / ref.read(blueprintProvider).scale);
               return Waypoint(position: Offset(newX, newY));
             }).toList();
 
@@ -2112,9 +2416,6 @@ class _DraggableTrajectoryPathWidgetState
           },
           onPanEnd: (_) => widget.onDragUpdate(),
           onLongPress: widget.onLongPress,
-          child: Container(
-            color: Colors.transparent,
-          ),
         ),
       ),
     );
@@ -2136,10 +2437,10 @@ class _GridPainter extends CustomPainter {
       textDirection: TextDirection.ltr,
     );
 
-    for (double i = 0; i <= size.width; i += _gridSize) {
+    for (double i = 0; i <= size.width; i += scale) {
       canvas.drawLine(Offset(i, 0), Offset(i, size.height), paint);
       
-      if (i > 0 && i % (_gridSize * 5) == 0) {
+      if (i > 0 && i % (scale * 5) == 0) {
         final meters = (i / scale).toStringAsFixed(1);
         textPainter.text = TextSpan(
           text: '${meters}m',
@@ -2149,10 +2450,10 @@ class _GridPainter extends CustomPainter {
         textPainter.paint(canvas, Offset(i + 2, 2));
       }
     }
-    for (double i = 0; i <= size.height; i += _gridSize) {
+    for (double i = 0; i <= size.height; i += scale) {
       canvas.drawLine(Offset(0, i), Offset(size.width, i), paint);
 
-      if (i > 0 && i % (_gridSize * 5) == 0) {
+      if (i > 0 && i % (scale * 5) == 0) {
         final meters = (i / scale).toStringAsFixed(1);
         textPainter.text = TextSpan(
           text: '${meters}m',
@@ -2182,7 +2483,7 @@ class _HeatmapPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     for (var node in nodes) {
-      final center = Offset(node.x + _speakerSize / 2, node.y + _speakerSize / 2);
+      final center = Offset(node.x + 30, node.y + 30);
       final double rotRad = (node.rotation - 90.0) * math.pi / 180.0; // Front axis
       
       // 1. Octave-dependent directivity angle Q(f)
@@ -2338,3 +2639,32 @@ class _CadDoorPainter extends CustomPainter {
   }
 }
 
+
+class _MeasurementPainter extends CustomPainter {
+  final Offset? start;
+  final Offset? end;
+
+  _MeasurementPainter(this.start, this.end);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (start != null && end != null) {
+      final paint = Paint()
+        ..color = AppColors.primaryNeon
+        ..strokeWidth = 3.0
+        ..style = PaintingStyle.stroke;
+      canvas.drawLine(start!, end!, paint);
+
+      final circlePaint = Paint()
+        ..color = Colors.white
+        ..style = PaintingStyle.fill;
+      canvas.drawCircle(start!, 5.0, circlePaint);
+      canvas.drawCircle(end!, 5.0, circlePaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _MeasurementPainter oldDelegate) {
+    return oldDelegate.start != start || oldDelegate.end != end;
+  }
+}

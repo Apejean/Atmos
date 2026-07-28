@@ -35,43 +35,52 @@ impl OscListener {
         std::thread::sleep(std::time::Duration::from_millis(600)); // wait for old to die
         OSC_RUNNING_FLAG.store(true, Ordering::Relaxed);
 
-        let debouncer = self.debouncer.clone();
-        let running_flag = OSC_RUNNING_FLAG.clone();
-        thread::spawn(move || {
-            let addr = format!("0.0.0.0:{}", port);
-            let socket = match UdpSocket::bind(&addr) {
-                Ok(s) => s,
-                Err(e) => {
-                    let err_msg = format!("Failed to bind OSC port {}: {}", port, e);
-                    println!("{}", err_msg);
-                    crate::core::state::GLOBAL_STATE.log(err_msg);
-                    return;
-                }
-            };
-            if let Err(e) = socket.set_read_timeout(Some(std::time::Duration::from_millis(500))) {
-                println!("Warning: Failed to set read timeout on OSC socket: {}", e);
-            }
-            crate::core::state::GLOBAL_STATE.log(format!("OSC Listener started on {}", addr));
+        let ports_to_listen = if port != 53000 {
+            vec![port, 53000] // Always include QLab default port
+        } else {
+            vec![port]
+        };
 
-            let mut buf = [0u8; rosc::decoder::MTU];
-            loop {
-                if !running_flag.load(Ordering::Relaxed) {
-                    crate::core::state::GLOBAL_STATE.log("OSC Listener stopping...".to_string());
-                    break;
+        for p in ports_to_listen {
+            if p == 0 { continue; }
+            let debouncer = self.debouncer.clone();
+            let running_flag = OSC_RUNNING_FLAG.clone();
+            thread::spawn(move || {
+                let addr = format!("0.0.0.0:{}", p);
+                let socket = match UdpSocket::bind(&addr) {
+                    Ok(s) => s,
+                    Err(e) => {
+                        let err_msg = format!("Failed to bind OSC port {}: {}", p, e);
+                        println!("{}", err_msg);
+                        crate::core::state::GLOBAL_STATE.log(err_msg);
+                        return;
+                    }
+                };
+                if let Err(e) = socket.set_read_timeout(Some(std::time::Duration::from_millis(500))) {
+                    println!("Warning: Failed to set read timeout on OSC socket: {}", e);
                 }
-                match socket.recv_from(&mut buf) {
-                    Ok((size, _addr)) => {
-                        if let Ok((_, packet)) = rosc::decoder::decode_udp(&buf[..size]) {
-                            handle_packet(packet, &debouncer);
+                crate::core::state::GLOBAL_STATE.log(format!("OSC Listener started on {}", addr));
+
+                let mut buf = [0u8; rosc::decoder::MTU];
+                loop {
+                    if !running_flag.load(Ordering::Relaxed) {
+                        crate::core::state::GLOBAL_STATE.log("OSC Listener stopping...".to_string());
+                        break;
+                    }
+                    match socket.recv_from(&mut buf) {
+                        Ok((size, _addr)) => {
+                            if let Ok((_, packet)) = rosc::decoder::decode_udp(&buf[..size]) {
+                                handle_packet(packet, &debouncer);
+                            }
+                        }
+                        Err(_e) => {
+                            // Timeout or other error
+                            continue;
                         }
                     }
-                    Err(_e) => {
-                        // Timeout or other error
-                        continue;
-                    }
                 }
-            }
-        });
+            });
+        }
     }
 }
 

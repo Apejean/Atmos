@@ -141,7 +141,6 @@ class TrajectoryLayerPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant TrajectoryLayerPainter oldDelegate) {
-    return oldDelegate.focusedTrajectoryId != focusedTrajectoryId ||
-           oldDelegate.scaleMeterToPixel != scaleMeterToPixel;
+    return true;
   }
 }

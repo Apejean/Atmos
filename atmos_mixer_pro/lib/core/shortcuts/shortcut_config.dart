@@ -127,6 +127,11 @@ final Map<ShortcutAction, CustomKeyBinding> kDefaultShortcuts = {
   ShortcutAction.cancelMode: const CustomKeyBinding(key: LogicalKeyboardKey.escape),
 };
 
+class ShortcutIntent extends Intent {
+  final ShortcutAction action;
+  const ShortcutIntent(this.action);
+}
+
 /// 전역 단축키 매니저 (ChangeNotifier)
 class ShortcutManagerNotifier extends ChangeNotifier {
   Map<ShortcutAction, CustomKeyBinding> _bindings = Map.from(kDefaultShortcuts);
