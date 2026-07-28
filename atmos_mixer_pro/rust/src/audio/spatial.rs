@@ -15,14 +15,14 @@ impl DbapMatrix {
         let len = self.positions.len().min(output_gains.len());
 
         // Inverse square law: W_i = 1 / (d_i^2 + 0.0001)
-        for i in 0..len {
+        for (i, gain) in output_gains.iter_mut().enumerate().take(len) {
             let (spk_x, spk_y, spk_z) = self.positions[i];
             let dx = source_x - spk_x;
             let dy = source_y - spk_y;
             let dz = source_z - spk_z;
             let dist_sq = dx * dx + dy * dy + dz * dz;
             let w = 1.0 / (dist_sq + 0.0001);
-            output_gains[i] = w;
+            *gain = w;
             sum_w_sq += w * w;
         }
 
@@ -33,8 +33,8 @@ impl DbapMatrix {
             0.0
         };
 
-        for i in 0..len {
-            output_gains[i] *= norm_factor;
+        for gain in output_gains.iter_mut().take(len) {
+            *gain *= norm_factor;
         }
     }
 }

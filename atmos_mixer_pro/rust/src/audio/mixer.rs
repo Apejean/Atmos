@@ -373,39 +373,37 @@ impl AudioMixer {
         // Phase 2: Centralized Global Audio Clock / Block Fetch Loop
         // We fetch chunks once per process block for all instances to ensure 100% sync
         // and avoid lock-free channel overhead in the tight inner loop.
-        for instance_opt in self.instances.iter_mut() {
-            if let Some(instance) = instance_opt {
-                if !instance.is_playing { continue; }
-                if let Some(stream_rx) = &instance.stream_receiver {
-                    let channels = (instance.stream_channels as usize).max(1);
-                    let idx_i = instance.cursor as usize * channels;
-                    if idx_i >= instance.stream_buffer.len() {
-                        match stream_rx.try_recv() {
-                            Ok(new_chunk) => {
-                                let frames_in_chunk = if instance.stream_buffer.is_empty() {
-                                    0.0
+        for instance in self.instances.iter_mut().flatten() {
+            if !instance.is_playing { continue; }
+            if let Some(stream_rx) = &instance.stream_receiver {
+                let channels = (instance.stream_channels as usize).max(1);
+                let idx_i = instance.cursor as usize * channels;
+                if idx_i >= instance.stream_buffer.len() {
+                    match stream_rx.try_recv() {
+                        Ok(new_chunk) => {
+                            let frames_in_chunk = if instance.stream_buffer.is_empty() {
+                                0.0
+                            } else {
+                                (instance.stream_buffer.len() / channels) as f64
+                            };
+                            let old_chunk = std::mem::replace(&mut instance.stream_buffer, new_chunk);
+                            if let Err(e) = self.buf_gc_tx.try_send(old_chunk) {
+                                let v = e.into_inner();
+                                if self.local_recycle.len() < self.local_recycle.capacity() {
+                                    self.local_recycle.push(v);
                                 } else {
-                                    (instance.stream_buffer.len() / channels) as f64
-                                };
-                                let old_chunk = std::mem::replace(&mut instance.stream_buffer, new_chunk);
-                                if let Err(e) = self.buf_gc_tx.try_send(old_chunk) {
-                                    let v = e.into_inner();
-                                    if self.local_recycle.len() < self.local_recycle.capacity() {
-                                        self.local_recycle.push(v);
-                                    } else {
-                                        let _ = v;
-                                    }
-                                }
-                                instance.cursor -= frames_in_chunk;
-                                if instance.cursor < 0.0 {
-                                    instance.cursor = 0.0;
+                                    let _ = v;
                                 }
                             }
-                            Err(crossbeam_channel::TryRecvError::Disconnected) => {
-                                instance.is_stopping = true;
+                            instance.cursor -= frames_in_chunk;
+                            if instance.cursor < 0.0 {
+                                instance.cursor = 0.0;
                             }
-                            Err(crossbeam_channel::TryRecvError::Empty) => {}
                         }
+                        Err(crossbeam_channel::TryRecvError::Disconnected) => {
+                            instance.is_stopping = true;
+                        }
+                        Err(crossbeam_channel::TryRecvError::Empty) => {}
                     }
                 }
             }
