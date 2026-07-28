@@ -57,7 +57,7 @@ void main() {
     int? parsedChannel;
     bool? parsedIsStereo;
 
-    final config = const AppConfig(
+    final config = const AppConfig(oscWhitelist: const [], 
       oscPort: 8000,
       bufferSize: 512,
       themeStartOscAddress: '',

@@ -49,9 +49,10 @@ class BlueprintState extends Notifier<BlueprintData> {
   }
 
   Future<void> setScale(double scale) async {
-    state = state.copyWith(scale: scale);
+    final safeScale = scale < 0.0001 ? 0.0001 : scale;
+    state = state.copyWith(scale: safeScale);
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setDouble(_kScaleKey, scale);
+    await prefs.setDouble(_kScaleKey, safeScale);
   }
 
   Future<void> clearBlueprint() async {

@@ -52,7 +52,15 @@ pub async fn start_osc_server() {
     loop {
         match socket.recv_from(&mut buf).await {
             Ok((size, peer)) => {
-                let whitelist: Vec<std::net::IpAddr> = Vec::new(); // TODO: Load from config
+                let whitelist: Vec<std::net::IpAddr> = {
+                    let config_guard = crate::core::state::GLOBAL_STATE.config.read().unwrap_or_else(|e| e.into_inner());
+                    if let Some(ref config) = *config_guard {
+                        // For now whitelist is empty. We will add it to AppConfig if needed.
+                        vec![]
+                    } else {
+                        vec![]
+                    }
+                };
                 if validate_osc_packet(&peer, &whitelist, &buf[..size]) {
                     if let Ok((_, packet)) = rosc::decoder::decode_udp(&buf[..size]) {
                         handle_osc_packet(packet);

@@ -6,8 +6,7 @@ import 'package:atmos_mixer_pro/core/state/global_state.dart';
 import 'package:atmos_mixer_pro/src/rust/common/config.dart';
 import 'package:atmos_mixer_pro/src/rust/api/simple.dart' as rust_api;
 import 'package:atmos_mixer_pro/core/utils/channel_dropdown_helper.dart';
-import 'package:atmos_mixer_pro/core/shortcuts/shortcut_config.dart';
-import 'package:atmos_mixer_pro/core/shortcuts/shortcut_remapper_dialog.dart';
+
 
 class PreferencesModal extends ConsumerStatefulWidget {
   const PreferencesModal({super.key});
@@ -72,6 +71,8 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
     _tempConfig = currentConfig != null
         ? cloneConfig(currentConfig)
         : AppConfig(
+oscWhitelist: const [],
+
             oscPort: 8000,
             bufferSize: 256,
             themeStartOscAddress: '/theme/start',
@@ -176,6 +177,8 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
         _devices = [];
         _channelNames = [];
         _tempConfig = AppConfig(
+oscWhitelist: _tempConfig.oscWhitelist,
+
           oscPort: _tempConfig.oscPort,
           deviceName: null,
           bufferSize: _tempConfig.bufferSize,
@@ -238,6 +241,8 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
               .firstOrNull;
           if (spaceMatch != null) {
             _tempConfig = AppConfig(
+oscWhitelist: _tempConfig.oscWhitelist,
+
               oscPort: _tempConfig.oscPort,
               deviceName: spaceMatch,
               bufferSize: _tempConfig.bufferSize,
@@ -263,6 +268,8 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
             if (prefixMatch != null &&
                 !_tempConfig.deviceName!.startsWith('[')) {
               _tempConfig = AppConfig(
+oscWhitelist: _tempConfig.oscWhitelist,
+
                 oscPort: _tempConfig.oscPort,
                 deviceName: prefixMatch,
                 bufferSize: _tempConfig.bufferSize,
@@ -327,6 +334,8 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
   // Very basic deep clone for editing
   AppConfig cloneConfig(AppConfig config) {
     return AppConfig(
+oscWhitelist: config.oscWhitelist,
+
       oscPort: config.oscPort,
       deviceName: config.deviceName,
       bufferSize: config.bufferSize,
@@ -404,6 +413,8 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
 
     final currentConfig = ref.read(configProvider);
     final finalConfig = AppConfig(
+oscWhitelist: _tempConfig.oscWhitelist,
+
       oscPort: _tempConfig.oscPort,
       deviceName: _isDeviceManuallyChanged
           ? _tempConfig.deviceName
@@ -464,6 +475,8 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
           }).toList();
 
           _tempConfig = AppConfig(
+oscWhitelist: _tempConfig.oscWhitelist,
+
             oscPort: _tempConfig.oscPort,
             deviceName: _tempConfig.deviceName,
             bufferSize: _tempConfig.bufferSize,
@@ -511,20 +524,6 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                     ),
                   ),
                   const Spacer(),
-                  ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primaryNeon.withValues(alpha: 0.1),
-                      foregroundColor: AppColors.primaryNeon,
-                      side: const BorderSide(color: AppColors.primaryNeon),
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    ),
-                    icon: const Icon(Icons.keyboard, size: 16),
-                    label: const Text('단축키 설정 (Keybindings)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                    onPressed: () {
-                      ShortcutRemapperDialog.show(context, shortcutManagerInstance);
-                    },
-                  ),
-                  const SizedBox(width: 16),
                   IconButton(
                     icon: const Icon(Icons.close, color: Colors.white),
                     onPressed: () => Navigator.of(context).pop(),
@@ -737,6 +736,8 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                       }
 
                       _tempConfig = AppConfig(
+oscWhitelist: _tempConfig.oscWhitelist,
+
                         oscPort: _tempConfig.oscPort,
                         deviceName: newDeviceName,
                         bufferSize: _tempConfig.bufferSize,
@@ -823,6 +824,8 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                   _isDeviceManuallyChanged = true;
                   setState(() {
                     _tempConfig = AppConfig(
+oscWhitelist: _tempConfig.oscWhitelist,
+
                       oscPort: _tempConfig.oscPort,
                       deviceName: val,
                       bufferSize: _tempConfig.bufferSize,
@@ -908,6 +911,8 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                   if (val != null) {
                     setState(() {
                       _tempConfig = AppConfig(
+oscWhitelist: _tempConfig.oscWhitelist,
+
                         oscPort: _tempConfig.oscPort,
                         deviceName: _tempConfig.deviceName,
                         bufferSize: val,
@@ -963,6 +968,8 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
               onSelectionChanged: (Set<double> newSelection) {
                 setState(() {
                   _tempConfig = AppConfig(
+oscWhitelist: _tempConfig.oscWhitelist,
+
                     oscPort: _tempConfig.oscPort,
                     deviceName: _tempConfig.deviceName,
                     bufferSize: _tempConfig.bufferSize,
@@ -1022,6 +1029,8 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
               onChanged: (val) {
                 setState(() {
                   _tempConfig = AppConfig(
+oscWhitelist: _tempConfig.oscWhitelist,
+
                     oscPort: _tempConfig.oscPort,
                     deviceName: _tempConfig.deviceName,
                     bufferSize: _tempConfig.bufferSize,
@@ -1112,6 +1121,8 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                   if (result != null) {
                     setState(() {
                       _tempConfig = AppConfig(
+oscWhitelist: _tempConfig.oscWhitelist,
+
                         oscPort: _tempConfig.oscPort,
                         deviceName: _tempConfig.deviceName,
                         bufferSize: _tempConfig.bufferSize,
@@ -1382,6 +1393,8 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                               );
                               setState(() {
                                 _tempConfig = AppConfig(
+oscWhitelist: _tempConfig.oscWhitelist,
+
                                   oscPort: _tempConfig.oscPort,
                                   deviceName: _tempConfig.deviceName,
                                   bufferSize: _tempConfig.bufferSize,
@@ -1462,6 +1475,8 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                   onChanged: (val) {
                     setState(() {
                       _tempConfig = AppConfig(
+oscWhitelist: _tempConfig.oscWhitelist,
+
                         oscPort: _tempConfig.oscPort,
                         deviceName: _tempConfig.deviceName,
                         bufferSize: _tempConfig.bufferSize,
@@ -1516,6 +1531,8 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                   onChanged: (val) {
                     setState(() {
                       _tempConfig = AppConfig(
+oscWhitelist: _tempConfig.oscWhitelist,
+
                         oscPort: _tempConfig.oscPort,
                         deviceName: _tempConfig.deviceName,
                         bufferSize: _tempConfig.bufferSize,
@@ -1594,6 +1611,8 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                           );
                           setState(() {
                             _tempConfig = AppConfig(
+oscWhitelist: _tempConfig.oscWhitelist,
+
                               oscPort: _tempConfig.oscPort,
                               deviceName: _tempConfig.deviceName,
                               bufferSize: _tempConfig.bufferSize,
@@ -1677,6 +1696,8 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                               );
                               setState(() {
                                 _tempConfig = AppConfig(
+oscWhitelist: _tempConfig.oscWhitelist,
+
                                   oscPort: _tempConfig.oscPort,
                                   deviceName: _tempConfig.deviceName,
                                   bufferSize: _tempConfig.bufferSize,
@@ -1745,6 +1766,8 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                               );
                               setState(() {
                                 _tempConfig = AppConfig(
+oscWhitelist: _tempConfig.oscWhitelist,
+
                                   oscPort: _tempConfig.oscPort,
                                   deviceName: _tempConfig.deviceName,
                                   bufferSize: _tempConfig.bufferSize,
@@ -1808,6 +1831,8 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                   if (p != null) {
                     setState(() {
                       _tempConfig = AppConfig(
+oscWhitelist: _tempConfig.oscWhitelist,
+
                         oscPort: int.tryParse(val) ?? _tempConfig.oscPort,
                         deviceName: _tempConfig.deviceName,
                         bufferSize: _tempConfig.bufferSize,

@@ -22,6 +22,7 @@ class AppConfig {
   final bool isExhibitionMode;
   final double masterHeadroomDb;
   final bool peakLimiterEnabled;
+  final List<String> oscWhitelist;
 
   const AppConfig({
     required this.oscPort,
@@ -39,6 +40,7 @@ class AppConfig {
     required this.isExhibitionMode,
     required this.masterHeadroomDb,
     required this.peakLimiterEnabled,
+    required this.oscWhitelist,
   });
 
   @override
@@ -57,7 +59,8 @@ class AppConfig {
       roomZones.hashCode ^
       isExhibitionMode.hashCode ^
       masterHeadroomDb.hashCode ^
-      peakLimiterEnabled.hashCode;
+      peakLimiterEnabled.hashCode ^
+      oscWhitelist.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -78,7 +81,8 @@ class AppConfig {
           roomZones == other.roomZones &&
           isExhibitionMode == other.isExhibitionMode &&
           masterHeadroomDb == other.masterHeadroomDb &&
-          peakLimiterEnabled == other.peakLimiterEnabled;
+          peakLimiterEnabled == other.peakLimiterEnabled &&
+          oscWhitelist == other.oscWhitelist;
 }
 
 class ChannelSetting {

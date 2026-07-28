@@ -204,7 +204,7 @@ class _RoomCardState extends ConsumerState<RoomCard> {
       ref
           .read(configProvider.notifier)
           .saveConfig(
-            AppConfig(
+            AppConfig(oscWhitelist: const [], 
               masterHeadroomDb: currentConfig.masterHeadroomDb,
               peakLimiterEnabled: currentConfig.peakLimiterEnabled,
               oscPort: currentConfig.oscPort,
@@ -263,7 +263,7 @@ class _RoomCardState extends ConsumerState<RoomCard> {
         ref
             .read(configProvider.notifier)
             .saveConfig(
-              AppConfig(
+              AppConfig(oscWhitelist: const [], 
                 masterHeadroomDb: config.masterHeadroomDb,
                 peakLimiterEnabled: config.peakLimiterEnabled,
                 oscPort: config.oscPort,
@@ -469,7 +469,7 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                                       ref
                                           .read(configProvider.notifier)
                                           .saveConfig(
-                                            AppConfig(
+                                            AppConfig(oscWhitelist: const [], 
                                               masterHeadroomDb: currentConfig.masterHeadroomDb,
                                               peakLimiterEnabled: currentConfig.peakLimiterEnabled,
                                               oscPort: currentConfig.oscPort,
@@ -523,7 +523,7 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                                   ref
                                       .read(configProvider.notifier)
                                       .saveConfig(
-                                        AppConfig(
+                                        AppConfig(oscWhitelist: const [], 
                                           masterHeadroomDb: currentConfig.masterHeadroomDb,
                                           peakLimiterEnabled: currentConfig.peakLimiterEnabled,
                                           oscPort: currentConfig.oscPort,
@@ -697,11 +697,11 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                                                   )
                                                   .clearActiveRoom();
                                             }
+                                            }
+                                          } catch (e) {
+                                            // ignored or handled
                                           }
-                                        } catch (e) {
-                                          // ignored or handled
                                         }
-                                      }
                                     : null,
                               ),
                             ),
@@ -775,7 +775,7 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                                     ref
                                         .read(configProvider.notifier)
                                         .saveConfig(
-                                          AppConfig(
+                                          AppConfig(oscWhitelist: const [], 
                                             masterHeadroomDb: currentConfig.masterHeadroomDb,
                                             peakLimiterEnabled: currentConfig.peakLimiterEnabled,
                                               oscPort: currentConfig.oscPort,
@@ -852,7 +852,7 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                                     ref
                                         .read(configProvider.notifier)
                                         .saveConfig(
-                                          AppConfig(
+                                          AppConfig(oscWhitelist: const [], 
                                             masterHeadroomDb: currentConfig.masterHeadroomDb,
                                             peakLimiterEnabled: currentConfig.peakLimiterEnabled,
                                               oscPort: currentConfig.oscPort,
@@ -923,7 +923,7 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                                     ref
                                         .read(configProvider.notifier)
                                         .saveConfig(
-                                          AppConfig(
+                                          AppConfig(oscWhitelist: const [], 
                                             masterHeadroomDb: currentConfig.masterHeadroomDb,
                                             peakLimiterEnabled: currentConfig.peakLimiterEnabled,
                                               oscPort: currentConfig.oscPort,
@@ -993,7 +993,7 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                                     ref
                                         .read(configProvider.notifier)
                                         .saveConfig(
-                                          AppConfig(
+                                          AppConfig(oscWhitelist: const [], 
                                             masterHeadroomDb: currentConfig.masterHeadroomDb,
                                             peakLimiterEnabled: currentConfig.peakLimiterEnabled,
                                               oscPort: currentConfig.oscPort,
@@ -1063,7 +1063,7 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                                     ref
                                         .read(configProvider.notifier)
                                         .saveConfig(
-                                          AppConfig(
+                                          AppConfig(oscWhitelist: const [], 
                                             masterHeadroomDb: currentConfig.masterHeadroomDb,
                                             peakLimiterEnabled: currentConfig.peakLimiterEnabled,
                                               oscPort: currentConfig.oscPort,
@@ -1139,7 +1139,7 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                                     ref
                                         .read(configProvider.notifier)
                                         .saveConfig(
-                                          AppConfig(
+                                          AppConfig(oscWhitelist: const [], 
                                             masterHeadroomDb: currentConfig.masterHeadroomDb,
                                             peakLimiterEnabled: currentConfig.peakLimiterEnabled,
                                               oscPort: currentConfig.oscPort,

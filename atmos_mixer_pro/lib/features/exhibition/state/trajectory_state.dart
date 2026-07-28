@@ -50,7 +50,7 @@ class TrajectoryState extends Notifier<List<TrajectoryModel>> {
   }
 
   void updateTrajectory(TrajectoryModel trajectory, {bool immediate = false}) {
-    state = [...state];
+    state = state.map((t) => t.id == trajectory.id ? trajectory : t).toList();
     if (immediate) {
       _saveToPrefsImmediate();
     } else {

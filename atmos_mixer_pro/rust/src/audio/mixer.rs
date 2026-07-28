@@ -58,6 +58,7 @@ pub struct AudioMixer {
     pub temp_spatial_weights: Vec<f32>,
     pub rta_analyzer: crate::audio::rta::RtaAnalyzer,
     pub mono_mix_buffer: Vec<f32>,
+    pub lufs_meter: Option<ebur128::EbuR128>,
     pub temp_vals: Vec<f32>,
     pub master_clock: f64,
 }
@@ -235,6 +236,7 @@ impl AudioMixer {
             temp_spatial_weights: vec![0.0; channels],
             rta_analyzer: crate::audio::rta::RtaAnalyzer::new(),
             mono_mix_buffer: vec![0.0; 8192], // Pre-allocated to prevent heap allocation in callback
+            lufs_meter: ebur128::EbuR128::new(channels.max(1) as u32, sample_rate, ebur128::Mode::M | ebur128::Mode::S | ebur128::Mode::I | ebur128::Mode::TRUE_PEAK).ok(),
             temp_vals: vec![0.0; channels],
             master_clock: 0.0,
         };
@@ -715,6 +717,30 @@ impl AudioMixer {
                 }
             }
             self.rta_analyzer.process_samples(mono_mix);
+        }
+
+        // --- LUFS Metering ---
+        if let Some(meter) = &mut self.lufs_meter {
+            if meter.add_frames_f32(output).is_ok() {
+                if let Ok(m) = meter.loudness_momentary() {
+                    GLOBAL_STATE.lufs_master[0].store(f32::to_bits(m as f32), Ordering::Relaxed);
+                }
+                if let Ok(s) = meter.loudness_shortterm() {
+                    GLOBAL_STATE.lufs_master[1].store(f32::to_bits(s as f32), Ordering::Relaxed);
+                }
+                if let Ok(i) = meter.loudness_global() {
+                    GLOBAL_STATE.lufs_master[2].store(f32::to_bits(i as f32), Ordering::Relaxed);
+                }
+                let mut true_peak = 0.0;
+                for ch in 0..out_channels.min(meter.channels() as usize) {
+                    if let Ok(p) = meter.true_peak(ch as u32) {
+                        if p > true_peak {
+                            true_peak = p;
+                        }
+                    }
+                }
+                GLOBAL_STATE.lufs_master[3].store(f32::to_bits(true_peak as f32), Ordering::Relaxed);
+            }
         }
 
         // Remove stopped instances by moving to GC thread (heap-free drop)

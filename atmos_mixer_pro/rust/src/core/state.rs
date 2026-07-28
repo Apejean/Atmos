@@ -35,6 +35,7 @@ pub struct GlobalEngineState {
     pub vu_levels: Vec<AtomicU32>,
     // Spatial gains for up to 4096 output channels, stored as f32 bits
     pub spatial_gains: Vec<AtomicU32>,
+    pub lufs_master: [AtomicU32; 4],
     pub sound_cache: RwLock<HashMap<String, Arc<SoundData>>>,
     pub preloaded_sounds: RwLock<HashMap<String, Arc<SoundData>>>,
     pub config: RwLock<Option<AppConfig>>,
@@ -67,6 +68,12 @@ impl GlobalEngineState {
             sg.push(AtomicU32::new(1.0f32.to_bits()));
             enabled.push(AtomicBool::new(true));
         }
+        let lufs_master = [
+            AtomicU32::new(0),
+            AtomicU32::new(0),
+            AtomicU32::new(0),
+            AtomicU32::new(0),
+        ];
         Self {
             command_sender: Mutex::new(producer),
             active_room_id: RwLock::new(None),
@@ -74,6 +81,7 @@ impl GlobalEngineState {
             enabled_channels: enabled,
             vu_levels: vu,
             spatial_gains: sg,
+            lufs_master,
             sound_cache: RwLock::new(HashMap::new()),
             preloaded_sounds: RwLock::new(HashMap::new()),
             config: RwLock::new(None),

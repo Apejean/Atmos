@@ -270,6 +270,11 @@ Future<void> apiSaveScene({required String sceneId, required String name}) =>
 Future<void> apiStartScheduler() =>
     RustLib.instance.api.crateApiSimpleApiStartScheduler();
 
+Future<List<String>> apiGetActiveOutputChannels({String? deviceName}) => RustLib
+    .instance
+    .api
+    .crateApiSimpleApiGetActiveOutputChannels(deviceName: deviceName);
+
 class ChannelTuningParams {
   final int channel;
   final double delayMs;

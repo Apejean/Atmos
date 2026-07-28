@@ -214,6 +214,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               final config = ref.read(configProvider);
               if (config != null) {
                 final updated = AppConfig(
+oscWhitelist: config.oscWhitelist,
+
                   oscPort: config.oscPort,
                   deviceName: config.deviceName,
                   bufferSize: config.bufferSize,
@@ -430,6 +432,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       final config = ref.read(configProvider);
                       if (config != null) {
                         final updated = AppConfig(
+oscWhitelist: config.oscWhitelist,
+
                           oscPort: config.oscPort,
                           deviceName: config.deviceName,
                           bufferSize: config.bufferSize,
@@ -833,6 +837,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       tracks: [],
                     );
                     final updated = AppConfig(
+oscWhitelist: config.oscWhitelist,
+
                       oscPort: config.oscPort,
                       deviceName: config.deviceName,
                       bufferSize: config.bufferSize,

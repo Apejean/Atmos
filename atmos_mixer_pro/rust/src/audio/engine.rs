@@ -211,15 +211,27 @@ impl AudioEngine {
         let sample_format = supported_config.sample_format();
         let mut config: StreamConfig = supported_config.clone().into();
 
+        let mut target_buffer_size = 2048; // Force a safe, large default to prevent dropouts
         if let Some(app_config) = crate::core::state::GLOBAL_STATE
             .config
             .read()
             .unwrap()
             .as_ref()
         {
-            let buffer_size = app_config.buffer_size;
-            if buffer_size > 0 {
-                config.buffer_size = cpal::BufferSize::Fixed(buffer_size);
+            if app_config.buffer_size > 0 {
+                target_buffer_size = app_config.buffer_size;
+            }
+        }
+
+        match supported_config.buffer_size() {
+            cpal::SupportedBufferSize::Range { min, max } => {
+                let clamped = target_buffer_size.clamp(*min, *max);
+                config.buffer_size = cpal::BufferSize::Fixed(clamped);
+                println!("🔥 [디버깅] Buffer size clamped to {} (Range: {} - {})", clamped, min, max);
+            }
+            cpal::SupportedBufferSize::Unknown => {
+                config.buffer_size = cpal::BufferSize::Default;
+                println!("⚠️ [디버깅] SupportedBufferSize::Unknown -> Using Default");
             }
         }
 

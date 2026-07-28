@@ -1,3 +1,4 @@
+import 'package:atmos_mixer_pro/features/exhibition/widgets/room_zone_widget.dart';
 import 'dart:ui';
 import 'dart:io';
 import 'dart:async';
@@ -21,8 +22,7 @@ import 'package:atmos_mixer_pro/features/exhibition/state/blueprint_state.dart';
 import 'package:atmos_mixer_pro/features/exhibition/widgets/trajectory_layer_painter.dart';
 import 'package:atmos_mixer_pro/core/theme/colors.dart';
 import 'package:atmos_mixer_pro/core/state/global_state.dart';
-import 'package:atmos_mixer_pro/core/shortcuts/shortcut_config.dart';
-import 'package:atmos_mixer_pro/src/rust/api/simple.dart';
+import 'package:atmos_mixer_pro/src/rust/api/simple.dart' as rust_api;
 
 const double _canvasWidth = 2000.0;
 const double _canvasHeight = 2000.0;
@@ -144,7 +144,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
           : null,
     };
 
-    apiUpdateSpatialConfigJson(jsonPayload: jsonEncode(payload)).catchError((
+    rust_api.apiUpdateSpatialConfigJson(jsonPayload: jsonEncode(payload)).catchError((
       e,
     ) {
       debugPrint('Real-time FFI sync error: $e');
@@ -1169,6 +1169,36 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                         ),
                     ],
                   ),
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.white12,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                      icon: const Icon(Icons.add_location_alt, size: 16),
+                      label: const Text('경로점(Waypoint) 추가'),
+                      onPressed: () {
+                        if (trajectory.waypoints.isNotEmpty) {
+                          final lastWp = trajectory.waypoints.last;
+                          final newWp = Waypoint(
+                            position: Offset(
+                              lastWp.position.dx + 1.0,
+                              lastWp.position.dy + 1.0,
+                            ),
+                          );
+                          final wps = List<Waypoint>.from(trajectory.waypoints)..add(newWp);
+                          ref.read(trajectoryProvider.notifier).updateTrajectory(
+                            trajectory.copyWith(waypoints: wps),
+                          );
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('경로점이 추가되었습니다.'), duration: Duration(seconds: 1)),
+                          );
+                        }
+                      },
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -1284,50 +1314,11 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
   @override
   Widget build(BuildContext context) {
     final blueprint = ref.watch(blueprintProvider);
-    final shortcutManager = ref.watch(shortcutManagerProvider);
 
-    return Focus(
-      autofocus: true,
-      focusNode: _canvasFocusNode,
-      child: Shortcuts(
-        shortcuts: Map<ShortcutActivator, Intent>.fromEntries(
-          shortcutManager.bindings.entries.map(
-            (entry) => MapEntry(
-              entry.value.toSingleActivator(),
-              ShortcutIntent(entry.key),
-            ),
-          ),
-        ),
-        child: Actions(
-          actions: <Type, Action<Intent>>{
-            ShortcutIntent: CallbackAction<ShortcutIntent>(
-              onInvoke: (ShortcutIntent intent) {
-                switch (intent.action) {
-                  case ShortcutAction.globalPlayPause:
-                    _toggleAutomation();
-                    break;
-                  case ShortcutAction.drawTrajectory:
-                    // Currently there's no single selected target logic exposed to canvas directly,
-                    break;
-                  case ShortcutAction.fitView:
-                    _transformationController.value = Matrix4.identity();
-                    break;
-                  case ShortcutAction.hideShowAll:
-                    setState(() => _showTrajectories = !_showTrajectories);
-                    break;
-                  case ShortcutAction.deleteSelected:
-                    break;
-                  case ShortcutAction.cancelMode:
-                    break;
-                }
-                return null;
-              },
-            ),
-          },
-          child: GestureDetector(
-            onTap: () => _canvasFocusNode.requestFocus(),
-            child: Scaffold(
-              backgroundColor: AppColors.background,
+    return GestureDetector(
+      onTap: () => _canvasFocusNode.requestFocus(),
+      child: Scaffold(
+        backgroundColor: AppColors.background,
               appBar: AppBar(
                 title: Row(
                   children: [
@@ -1600,10 +1591,11 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                     minScale: 0.1,
                     maxScale: 2.0,
                     constrained: false,
-                    child: SizedBox(
-                      width: _canvasWidth,
-                      height: _canvasHeight,
-                      child: Stack(
+                    child: RepaintBoundary(
+                      child: SizedBox(
+                        width: _canvasWidth,
+                        height: _canvasHeight,
+                        child: Stack(
                         clipBehavior: Clip.none,
                         children: [
                           Positioned.fill(
@@ -1647,21 +1639,23 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                               builder: (context, ref, _) {
                                 final rooms = ref.watch(roomZoneProvider);
                                 final nodes = ref.watch(speakerLayoutProvider);
-                                return Stack(
-                                  clipBehavior: Clip.none,
-                                  children: rooms.map((room) {
-                                    final containedSpeakers =
-                                        _getSpeakersInRoom(room, nodes);
-                                    return _DraggableRoomWidget(
-                                      key: ValueKey(room.id),
-                                      room: room,
-                                      containedSpeakers: containedSpeakers,
-                                      transformationController:
-                                          _transformationController,
-                                      onEdit: () => _editRoom(room),
-                                      onDragUpdate: _syncSpatialConfigRealtime,
-                                    );
-                                  }).toList(),
+                                return Positioned.fill(
+                                  child: Stack(
+                                    clipBehavior: Clip.none,
+                                    children: rooms.map((room) {
+                                      final containedSpeakers =
+                                          _getSpeakersInRoom(room, nodes);
+                                      return RoomZoneWidget(
+                                        key: ValueKey(room.id),
+                                        room: room,
+                                        containedSpeakers: containedSpeakers,
+                                        transformationController:
+                                            _transformationController,
+                                        onEdit: () => _editRoom(room),
+                                        onDragUpdate: _syncSpatialConfigRealtime,
+                                      );
+                                    }).toList(),
+                                  ),
                                 );
                               },
                             ),
@@ -1758,34 +1752,60 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                             ),
                           if (_isMeasuringScale)
                             Positioned.fill(
-                              child: GestureDetector(
-                                behavior: HitTestBehavior.opaque,
-                                onPanStart: (details) {
-                                  setState(() {
-                                    _measureStart = details.localPosition;
-                                    _measureEnd = details.localPosition;
-                                  });
-                                },
-                                onPanUpdate: (details) {
-                                  setState(() {
-                                    _measureEnd = details.localPosition;
-                                  });
-                                },
-                                onPanEnd: (details) {
-                                  if (_measureStart != null &&
-                                      _measureEnd != null) {
-                                    _finishMeasurement();
-                                  }
-                                },
-                                child: CustomPaint(
-                                  painter: _MeasurementPainter(
-                                    _measureStart,
-                                    _measureEnd,
+                              child: Stack(
+                                children: [
+                                  MouseRegion(
+                                    cursor: SystemMouseCursors.precise,
+                                    child: GestureDetector(
+                                      behavior: HitTestBehavior.opaque,
+                                      onPanStart: (details) {
+                                      setState(() {
+                                        _measureStart = details.localPosition;
+                                        _measureEnd = details.localPosition;
+                                      });
+                                    },
+                                    onPanUpdate: (details) {
+                                      setState(() {
+                                        _measureEnd = details.localPosition;
+                                      });
+                                    },
+                                    onPanEnd: (details) {
+                                      if (_measureStart != null &&
+                                          _measureEnd != null) {
+                                        _finishMeasurement();
+                                      }
+                                    },
+                                    child: CustomPaint(
+                                      painter: _MeasurementPainter(
+                                        _measureStart,
+                                        _measureEnd,
+                                      ),
+                                      size: Size.infinite,
+                                    ),
                                   ),
-                                ),
+                                  ),
+                                  if (_measureEnd != null)
+                                    Positioned(
+                                      left: _measureEnd!.dx - 40,
+                                      top: _measureEnd!.dy - 90,
+                                      child: IgnorePointer(
+                                        child: RawMagnifier(
+                                          decoration: const MagnifierDecoration(
+                                            shape: CircleBorder(
+                                              side: BorderSide(color: Colors.cyanAccent, width: 2),
+                                            ),
+                                          ),
+                                          size: const Size(80, 80),
+                                          magnificationScale: 2.0,
+                                          focalPointOffset: const Offset(0, 50),
+                                        ),
+                                      ),
+                                    ),
+                                ],
                               ),
                             ),
                         ],
+                      ),
                       ),
                     ),
                   );
@@ -1995,741 +2015,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                 ), // Row
               ), // Container
             ), // Scaffold
-          ), // GestureDetector
-        ), // Actions
-      ), // Shortcuts
-    ); // Focus
-  }
-}
-
-class _DraggableRoomWidget extends ConsumerStatefulWidget {
-  final RoomZone room;
-  final List<SpeakerNode> containedSpeakers;
-  final TransformationController transformationController;
-  final VoidCallback onEdit;
-  final VoidCallback? onDragUpdate;
-
-  const _DraggableRoomWidget({
-    super.key,
-    required this.room,
-    required this.containedSpeakers,
-    required this.transformationController,
-    required this.onEdit,
-    this.onDragUpdate,
-  });
-
-  @override
-  ConsumerState<_DraggableRoomWidget> createState() =>
-      _DraggableRoomWidgetState();
-}
-
-class _DraggableRoomWidgetState extends ConsumerState<_DraggableRoomWidget> {
-  late double _localX;
-  late double _localY;
-  late double _localW;
-  late double _localH;
-  bool _isInteracting = false;
-  Map<String, Offset> _draggedSpeakersOffsets = {};
-
-  bool _isRotatingFromCorner = false;
-  double _initialRotation = 0.0;
-  double _initialAngleToCenter = 0.0;
-
-  @override
-  void initState() {
-    super.initState();
-    _localX = widget.room.x;
-    _localY = widget.room.y;
-    _localW = widget.room.width;
-    _localH = widget.room.height;
-  }
-
-  @override
-  void didUpdateWidget(covariant _DraggableRoomWidget oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (!_isInteracting) {
-      _localX = widget.room.x;
-      _localY = widget.room.y;
-      _localW = widget.room.width;
-      _localH = widget.room.height;
-    }
-  }
-
-  Widget _buildResizeHandle(Alignment alignment) {
-    bool isCorner =
-        alignment == Alignment.topLeft ||
-        alignment == Alignment.topRight ||
-        alignment == Alignment.bottomLeft ||
-        alignment == Alignment.bottomRight;
-
-    MouseCursor cursor = SystemMouseCursors.basic;
-    if (alignment == Alignment.topLeft || alignment == Alignment.bottomRight) {
-      cursor = SystemMouseCursors.resizeUpLeftDownRight;
-    } else if (alignment == Alignment.topRight ||
-        alignment == Alignment.bottomLeft) {
-      cursor = SystemMouseCursors.resizeUpRightDownLeft;
-    } else if (alignment == Alignment.topCenter ||
-        alignment == Alignment.bottomCenter) {
-      cursor = SystemMouseCursors.resizeUpDown;
-    } else if (alignment == Alignment.centerLeft ||
-        alignment == Alignment.centerRight) {
-      cursor = SystemMouseCursors.resizeLeftRight;
-    }
-
-    return Align(
-      alignment: alignment,
-      child: MouseRegion(
-        cursor: cursor,
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onPanStart: (details) {
-            setState(() {
-              _isInteracting = true;
-              if (isCorner) {
-                // Center of the 40x40 box is (20,20)
-                final dist = math.sqrt(
-                  math.pow(details.localPosition.dx - 20, 2) +
-                      math.pow(details.localPosition.dy - 20, 2),
-                );
-                _isRotatingFromCorner = dist > 10.0; // Outer part -> Rotate
-              } else {
-                _isRotatingFromCorner = false;
-              }
-
-              if (_isRotatingFromCorner) {
-                final renderBox = context.findRenderObject() as RenderBox?;
-                if (renderBox != null) {
-                  final localTouch = renderBox.globalToLocal(
-                    details.globalPosition,
-                  );
-                  final roomCenterLocal = Offset(_localW / 2, _localH / 2);
-                  _initialAngleToCenter = math.atan2(
-                    localTouch.dy - roomCenterLocal.dy,
-                    localTouch.dx - roomCenterLocal.dx,
-                  );
-                  _initialRotation = widget.room.rotation;
-                }
-              }
-            });
-          },
-          onPanUpdate: (details) {
-            if (_isRotatingFromCorner) {
-              final renderBox = context.findRenderObject() as RenderBox?;
-              if (renderBox != null) {
-                final localTouch = renderBox.globalToLocal(
-                  details.globalPosition,
-                );
-                final roomCenterLocal = Offset(_localW / 2, _localH / 2);
-                final currentAngleToCenter = math.atan2(
-                  localTouch.dy - roomCenterLocal.dy,
-                  localTouch.dx - roomCenterLocal.dx,
-                );
-                final deltaAngle =
-                    (currentAngleToCenter - _initialAngleToCenter) *
-                    180 /
-                    math.pi;
-                double newRotation = (_initialRotation + deltaAngle) % 360;
-                if (newRotation < 0) newRotation += 360;
-
-                ref
-                    .read(roomZoneProvider.notifier)
-                    .updateRoomZone(
-                      widget.room.copyWith(rotation: newRotation),
-                      immediate: true,
-                    );
-              }
-              final scale = widget.transformationController.value
-                  .getMaxScaleOnAxis();
-              final currentScale = scale > 0 ? scale : 1.0;
-              final dxGlobal = details.delta.dx / currentScale;
-              final dyGlobal = details.delta.dy / currentScale;
-
-              setState(() {
-                _localX += dxGlobal;
-                _localY += dyGlobal;
-
-                final blueprint = ref.read(blueprintProvider);
-                final scaleM = blueprint.scale > 0 ? blueprint.scale : 40.0;
-
-                ref
-                    .read(roomZoneProvider.notifier)
-                    .updateRoomZone(
-                      widget.room.copyWith(
-                        x: _localX,
-                        y: _localY,
-                        width: _localW,
-                        height: _localH,
-                        physicalWidth: _localW / scaleM,
-                        physicalHeight: _localH / scaleM,
-                      ),
-                      immediate: true,
-                    );
-              });
-              widget.onDragUpdate?.call();
-              return;
-            }
-
-            final scale = widget.transformationController.value
-                .getMaxScaleOnAxis();
-            final currentScale = scale > 0 ? scale : 1.0;
-            final dxGlobal = details.delta.dx / currentScale;
-            final dyGlobal = details.delta.dy / currentScale;
-
-            // Convert global gesture delta to room's rotated local coordinate system
-            final rad = widget.room.rotation * math.pi / 180.0;
-            final cosA = math.cos(-rad);
-            final sinA = math.sin(-rad);
-            final dx = dxGlobal * cosA - dyGlobal * sinA;
-            final dy = dxGlobal * sinA + dyGlobal * cosA;
-
-            setState(() {
-              double dxLocal = dx;
-              double dyLocal = dy;
-
-              double newLx = 0.0;
-              double newLy = 0.0;
-              double newW = _localW;
-              double newH = _localH;
-
-              if (alignment.x < 0) {
-                newLx = dxLocal;
-                newW -= dxLocal;
-              } else if (alignment.x > 0) {
-                newW += dxLocal;
-              }
-
-              if (alignment.y < 0) {
-                newLy = dyLocal;
-                newH -= dyLocal;
-              } else if (alignment.y > 0) {
-                newH += dyLocal;
-              }
-
-              if (newW < 80.0) {
-                if (alignment.x < 0) newLx -= (80.0 - newW);
-                newW = 80.0;
-              }
-              if (newH < 80.0) {
-                if (alignment.y < 0) newLy -= (80.0 - newH);
-                newH = 80.0;
-              }
-
-              double deltaCx = newLx + newW / 2 - _localW / 2;
-              double deltaCy = newLy + newH / 2 - _localH / 2;
-
-              double deltaCxGlobal =
-                  deltaCx * math.cos(rad) - deltaCy * math.sin(rad);
-              double deltaCyGlobal =
-                  deltaCx * math.sin(rad) + deltaCy * math.cos(rad);
-
-              double oldCx = _localX + _localW / 2;
-              double oldCy = _localY + _localH / 2;
-
-              _localW = newW;
-              _localH = newH;
-              _localX = (oldCx + deltaCxGlobal) - _localW / 2;
-              _localY = (oldCy + deltaCyGlobal) - _localH / 2;
-            });
-
-            final blueprint = ref.read(blueprintProvider);
-            final scaleM = blueprint.scale > 0 ? blueprint.scale : 40.0;
-            ref
-                .read(roomZoneProvider.notifier)
-                .updateRoomZone(
-                  widget.room.copyWith(
-                    x: _localX,
-                    y: _localY,
-                    width: _localW,
-                    height: _localH,
-                    physicalWidth: _localW / scaleM,
-                    physicalHeight: _localH / scaleM,
-                  ),
-                  immediate: true,
-                );
-            widget.onDragUpdate?.call();
-          },
-          onPanEnd: (_) {
-            if (_isRotatingFromCorner) {
-              setState(() => _isInteracting = false);
-              return;
-            }
-
-            double snappedX =
-                (_localX / ref.read(blueprintProvider).scale).round() *
-                ref.read(blueprintProvider).scale;
-            double snappedY =
-                (_localY / ref.read(blueprintProvider).scale).round() *
-                ref.read(blueprintProvider).scale;
-            double snappedW =
-                (_localW / ref.read(blueprintProvider).scale).round() *
-                ref.read(blueprintProvider).scale;
-            double snappedH =
-                (_localH / ref.read(blueprintProvider).scale).round() *
-                ref.read(blueprintProvider).scale;
-
-            snappedX = snappedX.clamp(0.0, _canvasWidth - snappedW);
-            snappedY = snappedY.clamp(0.0, _canvasHeight - snappedH);
-            snappedW = snappedW.clamp(80.0, _canvasWidth - snappedX);
-            snappedH = snappedH.clamp(80.0, _canvasHeight - snappedY);
-
-            final blueprint = ref.read(blueprintProvider);
-            final scaleM = blueprint.scale > 0 ? blueprint.scale : 40.0;
-
-            setState(() {
-              _localX = snappedX;
-              _localY = snappedY;
-              _localW = snappedW;
-              _localH = snappedH;
-              _isInteracting = false;
-            });
-
-            ref
-                .read(roomZoneProvider.notifier)
-                .updateRoomZone(
-                  widget.room.copyWith(
-                    x: snappedX,
-                    y: snappedY,
-                    width: snappedW,
-                    height: snappedH,
-                    physicalWidth: snappedW / scaleM,
-                    physicalHeight: snappedH / scaleM,
-                  ),
-                  immediate: true,
-                );
-            widget.onDragUpdate?.call();
-          },
-          child: Container(
-            width: 40,
-            height: 40,
-            color: Colors.transparent,
-            child: Center(
-              child: Container(
-                width: 8,
-                height: 8,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  border: Border.all(color: AppColors.primaryNeon, width: 1.5),
-                  shape: BoxShape.rectangle,
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDoorHandle() {
-    if (!widget.room.hasDoor) return const SizedBox.shrink();
-
-    double left = 0, top = 0;
-    final double doorWidth = 44.0;
-
-    if (widget.room.doorWall == 0) {
-      left = (widget.room.doorOffset * _localW - doorWidth / 2).clamp(
-        0.0,
-        _localW - doorWidth,
-      );
-      top = -doorWidth / 2;
-    } else if (widget.room.doorWall == 1) {
-      left = _localW - doorWidth / 2;
-      top = (widget.room.doorOffset * _localH - doorWidth / 2).clamp(
-        0.0,
-        _localH - doorWidth,
-      );
-    } else if (widget.room.doorWall == 2) {
-      left = (widget.room.doorOffset * _localW - doorWidth / 2).clamp(
-        0.0,
-        _localW - doorWidth,
-      );
-      top = _localH - doorWidth / 2;
-    } else if (widget.room.doorWall == 3) {
-      left = -doorWidth / 2;
-      top = (widget.room.doorOffset * _localH - doorWidth / 2).clamp(
-        0.0,
-        _localH - doorWidth,
-      );
-    }
-
-    return Positioned(
-      left: left,
-      top: top,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onPanStart: (_) => setState(() => _isInteracting = true),
-        onPanUpdate: (details) {
-          final scale = widget.transformationController.value
-              .getMaxScaleOnAxis();
-          final currentScale = scale > 0 ? scale : 1.0;
-          final dx = details.delta.dx / currentScale;
-          final dy = details.delta.dy / currentScale;
-
-          double newOffset = widget.room.doorOffset;
-          if (widget.room.doorWall == 0 || widget.room.doorWall == 2) {
-            newOffset += dx / (_localW > 0 ? _localW : 1.0);
-          } else {
-            newOffset += dy / (_localH > 0 ? _localH : 1.0);
-          }
-          newOffset = newOffset.clamp(0.0, 1.0);
-
-          ref
-              .read(roomZoneProvider.notifier)
-              .updateRoomZone(
-                widget.room.copyWith(doorOffset: newOffset),
-                immediate: true,
-              );
-        },
-        onPanEnd: (_) => setState(() => _isInteracting = false),
-        child: Container(
-          width: doorWidth,
-          height: doorWidth,
-          color: Colors.transparent,
-          child: CustomPaint(
-            painter: _CadDoorPainter(
-              color: Colors.cyanAccent,
-              wall: widget.room.doorWall,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildRotateHandle(BuildContext roomContext) {
-    return Positioned(
-      top: -36,
-      left: _localW / 2 - 12,
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        child: GestureDetector(
-          behavior: HitTestBehavior.translucent,
-          onPanStart: (details) {
-            setState(() => _isInteracting = true);
-            final renderBox = roomContext.findRenderObject() as RenderBox?;
-            if (renderBox != null) {
-              final localTouch = renderBox.globalToLocal(
-                details.globalPosition,
-              );
-              final roomCenterLocal = Offset(_localW / 2, _localH / 2);
-              _initialAngleToCenter = math.atan2(
-                localTouch.dy - roomCenterLocal.dy,
-                localTouch.dx - roomCenterLocal.dx,
-              );
-              _initialRotation = widget.room.rotation;
-            }
-          },
-          onPanUpdate: (details) {
-            final renderBox = roomContext.findRenderObject() as RenderBox?;
-            if (renderBox != null) {
-              final localTouch = renderBox.globalToLocal(
-                details.globalPosition,
-              );
-              final roomCenterLocal = Offset(_localW / 2, _localH / 2);
-              final currentAngleToCenter = math.atan2(
-                localTouch.dy - roomCenterLocal.dy,
-                localTouch.dx - roomCenterLocal.dx,
-              );
-              final deltaAngle =
-                  (currentAngleToCenter - _initialAngleToCenter) *
-                  180 /
-                  math.pi;
-              double newRotation = (_initialRotation + deltaAngle) % 360;
-              if (newRotation < 0) newRotation += 360;
-
-              ref
-                  .read(roomZoneProvider.notifier)
-                  .updateRoomZone(
-                    widget.room.copyWith(rotation: newRotation),
-                    immediate: true,
-                  );
-            }
-          },
-          onPanEnd: (_) => setState(() => _isInteracting = false),
-          child: Container(
-            width: 24,
-            height: 24,
-            decoration: BoxDecoration(
-              color: AppColors.cardSurface,
-              shape: BoxShape.circle,
-              border: Border.all(color: AppColors.primaryNeon, width: 2),
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.primaryNeon.withValues(alpha: 0.4),
-                  blurRadius: 6,
-                ),
-              ],
-            ),
-            child: const Icon(
-              Icons.rotate_right,
-              size: 14,
-              color: AppColors.primaryNeon,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final roomColor = Color(widget.room.color);
-    final isHoveredOrActive = _isInteracting;
-
-    return Positioned(
-      left: _localX,
-      top: _localY,
-      width: _localW,
-      height: _localH,
-      child: Builder(
-        builder: (roomContext) {
-          return Transform.rotate(
-            angle: widget.room.rotation * math.pi / 180.0,
-            child: Stack(
-              clipBehavior: Clip.none,
-              children: [
-                // Room Main Container & Drag Move Gesture
-                MouseRegion(
-                  cursor: SystemMouseCursors.move,
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onDoubleTap: widget.onEdit,
-                    onPanStart: (details) {
-                      setState(() => _isInteracting = true);
-                      _draggedSpeakersOffsets = {
-                        for (var s in widget.containedSpeakers)
-                          s.id: Offset(s.x, s.y),
-                      };
-                    },
-                    onPanUpdate: (details) {
-                      final scale = widget.transformationController.value
-                          .getMaxScaleOnAxis();
-                      final currentScale = scale > 0 ? scale : 1.0;
-                      final dx = details.delta.dx / currentScale;
-                      final dy = details.delta.dy / currentScale;
-
-                      setState(() {
-                        _localX = (_localX + dx).clamp(
-                          0.0,
-                          _canvasWidth - _localW,
-                        );
-                        _localY = (_localY + dy).clamp(
-                          0.0,
-                          _canvasHeight - _localH,
-                        );
-
-                        final currentNodes = ref.read(speakerLayoutProvider);
-                        for (final nodeId in _draggedSpeakersOffsets.keys) {
-                          final prev = _draggedSpeakersOffsets[nodeId]!;
-                          final nx = (prev.dx + dx).clamp(
-                            0.0,
-                            _canvasWidth - _speakerSize,
-                          );
-                          final ny = (prev.dy + dy).clamp(
-                            0.0,
-                            _canvasHeight - _speakerSize,
-                          );
-                          _draggedSpeakersOffsets[nodeId] = Offset(nx, ny);
-                          try {
-                            final node = currentNodes.firstWhere(
-                              (n) => n.id == nodeId,
-                            );
-                            ref
-                                .read(speakerLayoutProvider.notifier)
-                                .updateSpeaker(node.copyWith(x: nx, y: ny));
-                          } catch (_) {}
-                        }
-                      });
-                      ref
-                          .read(roomZoneProvider.notifier)
-                          .updateRoomZone(
-                            widget.room.copyWith(x: _localX, y: _localY),
-                            immediate: true,
-                          );
-                      widget.onDragUpdate?.call();
-                    },
-                    onPanEnd: (details) {
-                      double snappedX =
-                          (_localX / ref.read(blueprintProvider).scale)
-                              .round() *
-                          ref.read(blueprintProvider).scale;
-                      double snappedY =
-                          (_localY / ref.read(blueprintProvider).scale)
-                              .round() *
-                          ref.read(blueprintProvider).scale;
-                      snappedX = snappedX.clamp(0.0, _canvasWidth - _localW);
-                      snappedY = snappedY.clamp(0.0, _canvasHeight - _localH);
-
-                      setState(() {
-                        _localX = snappedX;
-                        _localY = snappedY;
-                        _isInteracting = false;
-                      });
-
-                      ref
-                          .read(roomZoneProvider.notifier)
-                          .updateRoomZone(
-                            widget.room.copyWith(x: snappedX, y: snappedY),
-                            immediate: true,
-                          );
-
-                      final currentNodes = ref.read(speakerLayoutProvider);
-                      for (final nodeId in _draggedSpeakersOffsets.keys) {
-                        try {
-                          final node = currentNodes.firstWhere(
-                            (n) => n.id == nodeId,
-                          );
-                          final nX =
-                              (node.x / ref.read(blueprintProvider).scale)
-                                  .round() *
-                              ref.read(blueprintProvider).scale;
-                          final nY =
-                              (node.y / ref.read(blueprintProvider).scale)
-                                  .round() *
-                              ref.read(blueprintProvider).scale;
-                          ref
-                              .read(speakerLayoutProvider.notifier)
-                              .updateSpeaker(
-                                node.copyWith(
-                                  x: nX.clamp(0.0, _canvasWidth - _speakerSize),
-                                  y: nY.clamp(
-                                    0.0,
-                                    _canvasHeight - _speakerSize,
-                                  ),
-                                ),
-                                immediate: true,
-                              );
-                        } catch (_) {}
-                      }
-                      _draggedSpeakersOffsets.clear();
-                      widget.onDragUpdate?.call();
-                    },
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: isHoveredOrActive
-                              ? roomColor.withValues(alpha: 0.35)
-                              : roomColor.withValues(alpha: 0.20),
-                          border: Border.all(
-                            color: isHoveredOrActive
-                                ? AppColors.primaryNeon
-                                : roomColor,
-                            width: isHoveredOrActive ? 3.0 : 2.5,
-                          ),
-                          borderRadius: BorderRadius.circular(8),
-                          boxShadow: [
-                            BoxShadow(
-                              color: isHoveredOrActive
-                                  ? AppColors.primaryNeon.withValues(alpha: 0.5)
-                                  : roomColor.withValues(alpha: 0.25),
-                              blurRadius: isHoveredOrActive ? 16 : 12,
-                              spreadRadius: isHoveredOrActive ? 2 : 1,
-                            ),
-                          ],
-                        ),
-                        child: Center(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    widget.room.label,
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                      letterSpacing: 0.5,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  MouseRegion(
-                                    cursor: SystemMouseCursors.click,
-                                    child: GestureDetector(
-                                      onTap: widget.onEdit,
-                                      child: Container(
-                                        padding: const EdgeInsets.all(4),
-                                        decoration: BoxDecoration(
-                                          color: Colors.black45,
-                                          borderRadius: BorderRadius.circular(
-                                            4,
-                                          ),
-                                          border: Border.all(
-                                            color: Colors.white38,
-                                          ),
-                                        ),
-                                        child: const Icon(
-                                          Icons.tune,
-                                          size: 14,
-                                          color: AppColors.primaryNeon,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                '${widget.room.physicalWidth.toStringAsFixed(1)}m × ${widget.room.physicalHeight.toStringAsFixed(1)}m (${widget.room.rotation.toInt()}°)',
-                                style: TextStyle(
-                                  color: Colors.white.withValues(alpha: 0.85),
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                if (widget.room.hasDoor) _buildDoorHandle(),
-                _buildRotateHandle(roomContext),
-                Positioned(
-                  top: -28,
-                  left: 0,
-                  child: Wrap(
-                    spacing: 4,
-                    children: widget.containedSpeakers
-                        .map(
-                          (s) => Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: roomColor,
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              '[Ch ${s.channel + 1}]',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        )
-                        .toList(),
-                  ),
-                ),
-                _buildResizeHandle(Alignment.topLeft),
-                _buildResizeHandle(Alignment.topCenter),
-                _buildResizeHandle(Alignment.topRight),
-                _buildResizeHandle(Alignment.centerLeft),
-                _buildResizeHandle(Alignment.centerRight),
-                _buildResizeHandle(Alignment.bottomLeft),
-                _buildResizeHandle(Alignment.bottomCenter),
-                _buildResizeHandle(Alignment.bottomRight),
-              ],
-            ),
-          );
-        },
-      ),
-    );
+    ); // GestureDetector
   }
 }
 
@@ -2785,7 +2071,8 @@ class _DraggableSpeakerWidgetState
       top: _localY,
       child: Transform.rotate(
         angle: widget.node.rotation * math.pi / 180.0,
-        alignment: Alignment.center,
+        alignment: Alignment.topLeft,
+        origin: const Offset(50, 103),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -2796,7 +2083,7 @@ class _DraggableSpeakerWidgetState
                 final renderBox = context.findRenderObject() as RenderBox?;
                 if (renderBox != null) {
                   final globalCenter = renderBox.localToGlobal(
-                    const Offset(_speakerSize / 2, _speakerSize / 2 + 15),
+                    const Offset(50, 103),
                   );
                   _initialTouchAngle = math.atan2(
                     details.globalPosition.dy - globalCenter.dy,
@@ -2809,7 +2096,7 @@ class _DraggableSpeakerWidgetState
                 final renderBox = context.findRenderObject() as RenderBox?;
                 if (renderBox != null) {
                   final globalCenter = renderBox.localToGlobal(
-                    const Offset(_speakerSize / 2, _speakerSize / 2 + 15),
+                    const Offset(50, 103),
                   );
                   final currentTouchAngle = math.atan2(
                     details.globalPosition.dy - globalCenter.dy,
@@ -3008,9 +2295,13 @@ class _DraggableWaypointWidgetState
         },
         onLongPress: () {
           // 길게 누르기시 삭제 (최소 2개의 점은 유지해야 함)
+          if (widget.waypointIndex >= widget.trajectory.waypoints.length) return;
+
           if (widget.trajectory.waypoints.length > 2) {
             final wps = List<Waypoint>.from(widget.trajectory.waypoints);
-            wps.removeAt(widget.waypointIndex);
+            if (widget.waypointIndex < wps.length) {
+              wps.removeAt(widget.waypointIndex);
+            }
             ref
                 .read(trajectoryProvider.notifier)
                 .updateTrajectory(widget.trajectory.copyWith(waypoints: wps));
@@ -3021,18 +2312,22 @@ class _DraggableWaypointWidgetState
           }
         },
         onDoubleTap: () {
-          // 더블 탭시 웨이포인트 추가 (현재 웨이포인트 복제/옆에 추가)
-          final wps = List<Waypoint>.from(widget.trajectory.waypoints);
-          wps.insert(
-            widget.waypointIndex + 1,
-            Waypoint(
-              position: widget.waypoint.position + const Offset(1.0, 1.0),
-              heightZ: widget.waypoint.heightZ,
-            ),
-          );
-          ref
-              .read(trajectoryProvider.notifier)
-              .updateTrajectory(widget.trajectory.copyWith(waypoints: wps));
+          // 더블 탭시 웨이포인트 삭제 (최소 2개의 점은 유지해야 함)
+          if (widget.waypointIndex >= widget.trajectory.waypoints.length) return;
+
+          if (widget.trajectory.waypoints.length > 2) {
+            final wps = List<Waypoint>.from(widget.trajectory.waypoints);
+            if (widget.waypointIndex < wps.length) {
+              wps.removeAt(widget.waypointIndex);
+            }
+            ref
+                .read(trajectoryProvider.notifier)
+                .updateTrajectory(widget.trajectory.copyWith(waypoints: wps));
+          } else {
+            ref
+                .read(trajectoryProvider.notifier)
+                .removeTrajectory(widget.trajectory.id);
+          }
         },
         child: Container(
           width: 40,
@@ -3109,7 +2404,7 @@ class _DraggableTrajectoryPathWidgetState
       child: MouseRegion(
         cursor: SystemMouseCursors.move,
         child: GestureDetector(
-          behavior: HitTestBehavior.deferToChild,
+          behavior: HitTestBehavior.translucent,
           onPanUpdate: (details) {
             final scale = widget.transformationController.value
                 .getMaxScaleOnAxis();
@@ -3146,6 +2441,28 @@ class _DraggableTrajectoryPathWidgetState
           },
           onPanEnd: (_) => widget.onDragUpdate(),
           onLongPress: widget.onLongPress,
+          onDoubleTapDown: (details) {
+            final renderBox = context.findRenderObject() as RenderBox?;
+            if (renderBox != null) {
+              final localPos = renderBox.globalToLocal(details.globalPosition);
+              final canvasX = minX + localPos.dx;
+              final canvasY = minY + localPos.dy;
+              
+              final newWaypoint = Waypoint(
+                position: Offset(
+                  canvasX / ref.read(blueprintProvider).scale,
+                  canvasY / ref.read(blueprintProvider).scale,
+                ),
+              );
+              final wps = List<Waypoint>.from(widget.trajectory.waypoints);
+              wps.add(newWaypoint);
+              
+              ref.read(trajectoryProvider.notifier).updateTrajectory(
+                widget.trajectory.copyWith(waypoints: wps),
+              );
+            }
+          },
+          child: Container(color: Colors.transparent),
         ),
       ),
     );
@@ -3212,7 +2529,7 @@ class _HeatmapPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     for (var node in nodes) {
-      final center = Offset(node.x + 30, node.y + 30);
+      final center = Offset(node.x + 50, node.y + 103);
       final double rotRad =
           (node.rotation - 90.0) * math.pi / 180.0; // Front axis
 
@@ -3338,42 +2655,6 @@ class _HeatmapPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _HeatmapPainter oldDelegate) => true;
-}
-
-class _CadDoorPainter extends CustomPainter {
-  final Color color;
-  final int wall; // 0: Top, 1: Right, 2: Bottom, 3: Left
-
-  _CadDoorPainter({required this.color, required this.wall});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.0;
-
-    canvas.save();
-    canvas.translate(size.width / 2, size.height / 2);
-    canvas.rotate(wall * math.pi / 2);
-    canvas.translate(-size.width / 2, -size.height / 2);
-
-    final center = Offset(size.width, size.height);
-    canvas.drawLine(center, Offset(0, size.height), paint);
-    canvas.drawArc(
-      Rect.fromCircle(center: center, radius: size.width),
-      math.pi,
-      math.pi / 2,
-      false,
-      paint,
-    );
-    canvas.restore();
-  }
-
-  @override
-  bool shouldRepaint(covariant _CadDoorPainter oldDelegate) {
-    return oldDelegate.color != color || oldDelegate.wall != wall;
-  }
 }
 
 class _MeasurementPainter extends CustomPainter {

@@ -99,6 +99,8 @@ pub struct AppConfig {
     pub master_headroom_db: f32,
     #[serde(default = "default_true")]
     pub peak_limiter_enabled: bool,
+    #[serde(default)]
+    pub osc_whitelist: Vec<String>,
 }
 
 fn default_master_headroom() -> f32 {
@@ -123,6 +125,7 @@ impl Default for AppConfig {
             is_exhibition_mode: false,
             master_headroom_db: 0.0,
             peak_limiter_enabled: true,
+            osc_whitelist: Vec::new(),
         }
     }
 }
