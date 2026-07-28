@@ -1,7 +1,7 @@
 use crate::api::simple::EngineStateUpdate;
 use crate::common::commands::AudioCommand;
 use crate::frb_generated::StreamSink;
-use rtrb::{Producer, Consumer, RingBuffer};
+use rtrb::{Producer, RingBuffer};
 use std::sync::Mutex;
 use lazy_static::lazy_static;
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
@@ -27,8 +27,6 @@ pub struct GlobalEngineState {
     // Command channel to audio thread (Lock-free SPSC rtrb)
     // Producer is wrapped in Mutex so FFI threads can share it.
     pub command_sender: Mutex<Producer<AudioCommand>>,
-    // The consumer will be taken once by the audio thread.
-    pub command_receiver: Mutex<Option<Consumer<AudioCommand>>>,
 
     pub active_room_id: RwLock<Option<String>>,
     pub is_ducking: AtomicBool,
@@ -59,7 +57,7 @@ impl Default for GlobalEngineState {
 
 impl GlobalEngineState {
     pub fn new() -> Self {
-        let (producer, consumer) = RingBuffer::new(8192);
+        let (producer, _consumer) = RingBuffer::new(8192);
 
         let mut vu = Vec::with_capacity(4096);
         let mut sg = Vec::with_capacity(4096);
@@ -71,7 +69,6 @@ impl GlobalEngineState {
         }
         Self {
             command_sender: Mutex::new(producer),
-            command_receiver: Mutex::new(Some(consumer)),
             active_room_id: RwLock::new(None),
             is_ducking: AtomicBool::new(false),
             enabled_channels: enabled,

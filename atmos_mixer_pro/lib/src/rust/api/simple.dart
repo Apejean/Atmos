@@ -261,6 +261,15 @@ Float32List apiCalculateEqResponseCurve({
   sampleRate: sampleRate,
 );
 
+Future<void> apiSaveScene({required String sceneId, required String name}) =>
+    RustLib.instance.api.crateApiSimpleApiSaveScene(
+      sceneId: sceneId,
+      name: name,
+    );
+
+Future<void> apiStartScheduler() =>
+    RustLib.instance.api.crateApiSimpleApiStartScheduler();
+
 class ChannelTuningParams {
   final int channel;
   final double delayMs;

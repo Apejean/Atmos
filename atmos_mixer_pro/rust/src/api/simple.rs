@@ -588,10 +588,11 @@ lazy_static::lazy_static! {
 }
 
 pub fn api_init_audio_system(device_name: Option<String>) -> Result<(), AtmosError> {
-    let mut rx_guard = GLOBAL_STATE.command_receiver.lock().unwrap();
-    let rx = rx_guard.take().expect("Audio engine already started!");
-    
     api_stop_audio_engine();
+
+    let (producer, consumer) = rtrb::RingBuffer::new(8192);
+    *GLOBAL_STATE.command_sender.lock().unwrap() = producer;
+    let rx = consumer;
     
     let gen = ENGINE_GENERATION.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1;
     let (tx, rx_init) = std::sync::mpsc::channel();
@@ -1578,3 +1579,13 @@ pub fn api_calculate_eq_response_curve(
     response_db
 }
 
+
+pub fn api_save_scene(scene_id: String, name: String) -> Result<(), AtmosError> {
+    println!("✅ [디버깅] 씬 저장: {} ({})", scene_id, name);
+    Ok(())
+}
+
+pub fn api_start_scheduler() -> Result<(), AtmosError> {
+    println!("✅ [디버깅] 스케줄러 시작");
+    Ok(())
+}

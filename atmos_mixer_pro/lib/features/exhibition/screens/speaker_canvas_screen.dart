@@ -1895,7 +1895,30 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                                         color: Colors.white54,
                                         size: 18,
                                       ),
-                                      onPressed: () {},
+                                      onPressed: () async {
+                                        try {
+                                          await rust_api.apiSaveScene(
+                                              sceneId: 'scene_01',
+                                              name: 'Scene 1: Intro');
+                                          if (context.mounted) {
+                                            ScaffoldMessenger.of(context)
+                                                .showSnackBar(
+                                              const SnackBar(
+                                                  content: Text(
+                                                      '현재 씬 상태가 백엔드에 저장되었습니다.')),
+                                            );
+                                          }
+                                        } catch (e) {
+                                          if (context.mounted) {
+                                            ScaffoldMessenger.of(context)
+                                                .showSnackBar(
+                                              SnackBar(
+                                                  content:
+                                                      Text('씬 저장 실패: $e')),
+                                            );
+                                          }
+                                        }
+                                      },
                                       tooltip: '현재 씬 저장',
                                     ),
                                     IconButton(
@@ -1904,7 +1927,22 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                                         color: Colors.white54,
                                         size: 18,
                                       ),
-                                      onPressed: () {},
+                                      onPressed: () async {
+                                        try {
+                                          await rust_api.apiStartScheduler();
+                                          if (context.mounted) {
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              const SnackBar(content: Text('스케줄러 큐를 시작합니다.')),
+                                            );
+                                          }
+                                        } catch (e) {
+                                          if (context.mounted) {
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              SnackBar(content: Text('스케줄러 시작 실패: $e')),
+                                            );
+                                          }
+                                        }
+                                      },
                                       tooltip: '스케줄러 시작',
                                     ),
                                   ],

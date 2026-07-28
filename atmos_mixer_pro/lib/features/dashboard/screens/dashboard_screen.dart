@@ -931,7 +931,26 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   IconButton(
                     icon: const Icon(Icons.refresh, color: Colors.white),
                     tooltip: '스캔',
-                    onPressed: () {},
+                    onPressed: () async {
+                      try {
+                        final deviceInfos = await rust_api.apiGetOutputDevices();
+                        GlobalDeviceCache.devices = deviceInfos.map((d) => d.name).toList();
+                        for (final info in deviceInfos) {
+                          GlobalDeviceCache.channels[info.name] = info.channelNames;
+                        }
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('오디오 장치 목록을 새로고침했습니다.')),
+                          );
+                        }
+                      } catch (e) {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('스캔 실패: $e')),
+                          );
+                        }
+                      }
+                    },
                   ),
                 ],
               );
