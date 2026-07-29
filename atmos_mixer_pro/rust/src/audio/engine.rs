@@ -254,7 +254,10 @@ impl AudioEngine {
             }
         });
 
-        let mut mixer = AudioMixer::new(config.sample_rate.0, config.channels as usize, gc_tx);
+        let (analysis_tx, analysis_rx) = rtrb::RingBuffer::new(65536);
+        crate::audio::analysis::start_analysis_thread(analysis_rx, config.sample_rate.0, config.channels as usize);
+
+        let mut mixer = AudioMixer::new(config.sample_rate.0, config.channels as usize, gc_tx, Some(analysis_tx));
 
         let err_fn = |err: cpal::StreamError| {
             eprintln!("an error occurred on stream: {}", err);

@@ -1,6 +1,6 @@
 [package]
 name = "rust_lib_atmos_mixer_pro"
-version = "1.0.86"
+version = "1.0.89"
 edition = "2021"
 
 [lib]
@@ -9,6 +9,7 @@ crate-type = ["cdylib", "staticlib", "rlib"]
 [dependencies]
 anyhow = "1.0.102"
 chrono = "0.4.45"
+cpal = { version = "0.15.2", features = ["asio"] }
 crossbeam-channel = "0.5.15"
 ebur128 = "0.1.10"
 flutter_rust_bridge = "=2.12.0"

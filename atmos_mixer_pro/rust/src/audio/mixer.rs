@@ -56,15 +56,13 @@ pub struct AudioMixer {
     pub channel_spatial_gains: Vec<f32>,
     pub channel_spatial_gains_target: Vec<f32>,
     pub temp_spatial_weights: Vec<f32>,
-    pub rta_analyzer: crate::audio::rta::RtaAnalyzer,
-    pub mono_mix_buffer: Vec<f32>,
-    pub lufs_meter: Option<ebur128::EbuR128>,
+    pub analysis_tx: Option<rtrb::Producer<f32>>,
     pub temp_vals: Vec<f32>,
     pub master_clock: f64,
 }
 
 impl AudioMixer {
-    pub fn new(sample_rate: u32, channels: usize, gc_sender: crossbeam_channel::Sender<SoundInstance>) -> Self {
+    pub fn new(sample_rate: u32, channels: usize, gc_sender: crossbeam_channel::Sender<SoundInstance>, analysis_tx: Option<rtrb::Producer<f32>>) -> Self {
         let (buf_gc_tx, buf_gc_rx) = crossbeam_channel::bounded::<Vec<f32>>(8192);
         std::thread::spawn(move || {
             while let Ok(_buf) = buf_gc_rx.recv() {
@@ -234,17 +232,10 @@ impl AudioMixer {
             channel_spatial_gains: vec![1.0; channels],
             channel_spatial_gains_target: vec![1.0; channels],
             temp_spatial_weights: vec![0.0; channels],
-            rta_analyzer: crate::audio::rta::RtaAnalyzer::new(),
-            mono_mix_buffer: vec![0.0; 8192], // Pre-allocated to prevent heap allocation in callback
-            lufs_meter: ebur128::EbuR128::new(channels.max(1) as u32, sample_rate, ebur128::Mode::M | ebur128::Mode::S | ebur128::Mode::I | ebur128::Mode::TRUE_PEAK).ok(),
+            analysis_tx,
             temp_vals: vec![0.0; channels],
             master_clock: 0.0,
         };
-        
-        {
-            let mut lock = GLOBAL_STATE.rta_magnitudes_ref.write().unwrap();
-            *lock = Some(mixer.rta_analyzer.get_magnitudes_arc());
-        }
         
         mixer
     }
@@ -689,57 +680,19 @@ impl AudioMixer {
             GLOBAL_STATE.vu_levels[ch].store(peak.to_bits(), Ordering::Relaxed);
         }
         
-        // Tap Master Output (Channel 0 and 1 downmix) to RTA Analyzer
-        if out_channels > 0 {
-            // Ensure capacity to prevent dynamic allocation
-            if self.mono_mix_buffer.len() < frames {
-                self.mono_mix_buffer.resize(frames, 0.0);
-            }
-            let mono_mix = &mut self.mono_mix_buffer[..frames];
-            
-            for (frame, item) in mono_mix.iter_mut().enumerate() {
-                let mut sum = 0.0;
-                let mut count = 0;
-                // Mix up to first 2 channels for RTA visualization
-                for ch in 0..out_channels.min(2) {
-                    if GLOBAL_STATE.enabled_channels[ch].load(Ordering::Relaxed) {
-                        let sample_idx = frame * out_channels + ch;
-                        if sample_idx < output.len() {
-                            sum += output[sample_idx];
-                            count += 1;
-                        }
+        // Send to Analysis Thread (Lock-free)
+        if let Some(tx) = &mut self.analysis_tx {
+            let available = tx.slots();
+            if available >= output.len() {
+                if let Ok(mut chunk) = tx.write_chunk(output.len()) {
+                    let (slice1, slice2) = chunk.as_mut_slices();
+                    let len1 = slice1.len();
+                    slice1.copy_from_slice(&output[..len1]);
+                    if !slice2.is_empty() {
+                        slice2.copy_from_slice(&output[len1..]);
                     }
+                    chunk.commit_all();
                 }
-                if count > 0 {
-                    *item = sum / count as f32;
-                } else {
-                    *item = 0.0;
-                }
-            }
-            self.rta_analyzer.process_samples(mono_mix);
-        }
-
-        // --- LUFS Metering ---
-        if let Some(meter) = &mut self.lufs_meter {
-            if meter.add_frames_f32(output).is_ok() {
-                if let Ok(m) = meter.loudness_momentary() {
-                    GLOBAL_STATE.lufs_master[0].store(f32::to_bits(m as f32), Ordering::Relaxed);
-                }
-                if let Ok(s) = meter.loudness_shortterm() {
-                    GLOBAL_STATE.lufs_master[1].store(f32::to_bits(s as f32), Ordering::Relaxed);
-                }
-                if let Ok(i) = meter.loudness_global() {
-                    GLOBAL_STATE.lufs_master[2].store(f32::to_bits(i as f32), Ordering::Relaxed);
-                }
-                let mut true_peak = 0.0;
-                for ch in 0..out_channels.min(meter.channels() as usize) {
-                    if let Ok(p) = meter.true_peak(ch as u32) {
-                        if p > true_peak {
-                            true_peak = p;
-                        }
-                    }
-                }
-                GLOBAL_STATE.lufs_master[3].store(f32::to_bits(true_peak as f32), Ordering::Relaxed);
             }
         }
 

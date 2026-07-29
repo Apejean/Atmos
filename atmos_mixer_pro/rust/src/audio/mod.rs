@@ -11,3 +11,4 @@ pub mod rta;
 pub mod svf;
 pub mod limiter;
 pub mod scheduler;
+pub mod analysis;
