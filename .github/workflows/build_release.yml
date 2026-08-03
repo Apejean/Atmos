@@ -3,11 +3,6 @@ name: Build and Release
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   CARGO_TERM_COLOR: always
-  CARGO_INCREMENTAL: 0
-  CARGO_PROFILE_RELEASE_OPT_LEVEL: "2"
-  CARGO_PROFILE_RELEASE_LTO: "thin"
-  CARGO_PROFILE_RELEASE_CODEGEN_UNITS: "16"
-  CMAKE_BUILD_PARALLEL_LEVEL: "8"
 
 permissions:
   contents: write
@@ -41,11 +36,13 @@ jobs:
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
 
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
         with:
-          workspaces: "atmos_mixer_pro/rust -> target"
+          workspaces: atmos_mixer_pro/rust
         
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
