@@ -761,9 +761,8 @@ pub fn api_open_asio_panel() {
         std::thread::sleep(std::time::Duration::from_millis(500));
 
         if let Some(device) = target_device {
-            crate::core::state::GLOBAL_STATE.log(format!("Opening ASIO Panel for device: {:?}", device.name()));
-            device.show_control_panel();
-            crate::core::state::GLOBAL_STATE.log("ASIO Control Panel closed.".to_string());
+            crate::core::state::GLOBAL_STATE.log(format!("Opening ASIO Panel for device: {:?} is no longer supported directly via cpal AsioExt.", device.name()));
+            crate::core::state::GLOBAL_STATE.log("Please open the ASIO control panel through your audio interface software.".to_string());
         } else {
             crate::core::state::GLOBAL_STATE.log("No ASIO device found to open control panel.".to_string());
         }
