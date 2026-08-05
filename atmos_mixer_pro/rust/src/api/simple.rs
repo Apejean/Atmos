@@ -757,7 +757,7 @@ pub fn api_open_asio_panel() {
         drop(config_guard);
 
         // Drop COM locks by stopping engine
-        crate::audio::engine::AudioEngine::stop_engine();
+        api_stop_audio_engine();
         std::thread::sleep(std::time::Duration::from_millis(500));
 
         if let Some(device) = target_device {
