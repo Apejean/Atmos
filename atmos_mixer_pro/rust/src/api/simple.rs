@@ -729,7 +729,7 @@ pub fn api_open_asio_panel() {
     #[cfg(target_os = "windows")]
     {
         use cpal::traits::{HostTrait, DeviceTrait};
-        use cpal::platform::AsioDeviceExt;
+        use cpal::platform::AsioDevices;
 
         let host = match cpal::host_from_id(cpal::HostId::Asio) {
             Ok(h) => h,
@@ -745,10 +745,12 @@ pub fn api_open_asio_panel() {
         
         let config_guard = crate::core::state::GLOBAL_STATE.config.read().unwrap_or_else(|e| e.into_inner());
         if let Some(config) = config_guard.as_ref() {
-            if config.audio_device.starts_with("[ASIO]") {
-                let actual_name = config.audio_device.replace("[ASIO] ", "").trim().to_string();
-                if let Ok(mut devices) = host.output_devices() {
-                    target_device = devices.find(|x| x.name().map(|n| n == actual_name).unwrap_or(false)).or(target_device);
+            if let Some(device_name) = &config.device_name {
+                if device_name.starts_with("[ASIO]") {
+                    let actual_name = device_name.replace("[ASIO] ", "").trim().to_string();
+                    if let Ok(mut devices) = host.output_devices() {
+                        target_device = devices.find(|x| x.name().map(|n| n == actual_name).unwrap_or(false)).or(target_device);
+                    }
                 }
             }
         }

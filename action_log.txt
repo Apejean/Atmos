@@ -1,0 +1,1535 @@
+build (windows-latest)	Set up job	﻿2026-08-03T16:49:07.3101131Z Current runner version: '2.336.0'
+build (windows-latest)	Set up job	2026-08-03T16:49:07.3157843Z ##[group]Runner Image Provisioner
+build (windows-latest)	Set up job	2026-08-03T16:49:07.3158657Z Hosted Compute Agent
+build (windows-latest)	Set up job	2026-08-03T16:49:07.3159340Z Version: 20260707.563
+build (windows-latest)	Set up job	2026-08-03T16:49:07.3160038Z Commit: 02667638d2b423fbc733a8e32a88b44996a3ba6e
+build (windows-latest)	Set up job	2026-08-03T16:49:07.3161092Z Build Date: 2026-07-07T19:33:50Z
+build (windows-latest)	Set up job	2026-08-03T16:49:07.3162010Z Worker ID: {1f95fa91-2162-4a9f-a35d-1d84890e3703}
+build (windows-latest)	Set up job	2026-08-03T16:49:07.3162710Z Azure Region: eastus
+build (windows-latest)	Set up job	2026-08-03T16:49:07.3163267Z ##[endgroup]
+build (windows-latest)	Set up job	2026-08-03T16:49:07.3164679Z ##[group]Operating System
+build (windows-latest)	Set up job	2026-08-03T16:49:07.3165308Z Microsoft Windows Server 2025
+build (windows-latest)	Set up job	2026-08-03T16:49:07.3165926Z 10.0.26100
+build (windows-latest)	Set up job	2026-08-03T16:49:07.3166407Z Datacenter
+build (windows-latest)	Set up job	2026-08-03T16:49:07.3167365Z ##[endgroup]
+build (windows-latest)	Set up job	2026-08-03T16:49:07.3167975Z ##[group]Runner Image
+build (windows-latest)	Set up job	2026-08-03T16:49:07.3168542Z Image: windows-2025-vs2026
+build (windows-latest)	Set up job	2026-08-03T16:49:07.3169123Z Version: 20260728.188.1
+build (windows-latest)	Set up job	2026-08-03T16:49:07.3170248Z Included Software: https://github.com/actions/runner-images/blob/win25-vs2026/20260728.188/images/windows/Windows2025-VS2026-Readme.md
+build (windows-latest)	Set up job	2026-08-03T16:49:07.3173718Z Image Release: https://github.com/actions/runner-images/releases/tag/win25-vs2026%2F20260728.188
+build (windows-latest)	Set up job	2026-08-03T16:49:07.3174800Z ##[endgroup]
+build (windows-latest)	Set up job	2026-08-03T16:49:07.3175892Z ##[group]GITHUB_TOKEN Permissions
+build (windows-latest)	Set up job	2026-08-03T16:49:07.3178071Z Contents: write
+build (windows-latest)	Set up job	2026-08-03T16:49:07.3179248Z Metadata: read
+build (windows-latest)	Set up job	2026-08-03T16:49:07.3179788Z ##[endgroup]
+build (windows-latest)	Set up job	2026-08-03T16:49:07.3182057Z Secret source: Actions
+build (windows-latest)	Set up job	2026-08-03T16:49:07.3183256Z Prepare workflow directory
+build (windows-latest)	Set up job	2026-08-03T16:49:07.3601996Z Prepare all required actions
+build (windows-latest)	Set up job	2026-08-03T16:49:07.3649636Z Getting action download info
+build (windows-latest)	Set up job	2026-08-03T16:49:07.5389857Z Download action repository 'actions/checkout@v4' (SHA:11d5960a326750d5838078e36cf38b85af677262)
+build (windows-latest)	Set up job	2026-08-03T16:49:07.6641323Z Download action repository 'dtolnay/rust-toolchain@stable' (SHA:4cda84d5c5c54efe2404f9d843567869ab1699d4)
+build (windows-latest)	Set up job	2026-08-03T16:49:07.7501835Z Download action repository 'Swatinem/rust-cache@v2' (SHA:e18b497796c12c097a38f9edb9d0641fb99eee32)
+build (windows-latest)	Set up job	2026-08-03T16:49:07.9865048Z Download action repository 'subosito/flutter-action@v2' (SHA:1a449444c387b1966244ae4d4f8c696479add0b2)
+build (windows-latest)	Set up job	2026-08-03T16:49:08.0700179Z Download action repository 'KyleMayes/install-llvm-action@v2' (SHA:ebc0426251bc40c7cd31162802432c68818ab8f0)
+build (windows-latest)	Set up job	2026-08-03T16:49:08.3033284Z Download action repository 'thedoctor0/zip-release@0.7.6' (SHA:b57d897cb5d60cb78b51a507f63fa184cfe35554)
+build (windows-latest)	Set up job	2026-08-03T16:49:08.3822218Z Download action repository 'actions/upload-artifact@v4' (SHA:ea165f8d65b6e75b540449e92b4886f43607fa02)
+build (windows-latest)	Set up job	2026-08-03T16:49:08.7493192Z Getting action download info
+build (windows-latest)	Set up job	2026-08-03T16:49:08.8287815Z Download action repository 'actions/cache@v5' (SHA:caa296126883cff596d87d8935842f9db880ef25)
+build (windows-latest)	Set up job	2026-08-03T16:49:09.0467160Z Complete job name: build (windows-latest)
+build (windows-latest)	Checkout code	﻿2026-08-03T16:49:09.1810265Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+build (windows-latest)	Checkout code	2026-08-03T16:49:09.1820933Z ##[group]Run actions/checkout@v4
+build (windows-latest)	Checkout code	2026-08-03T16:49:09.1821649Z with:
+build (windows-latest)	Checkout code	2026-08-03T16:49:09.1822058Z   repository: Apejean/Atmos
+build (windows-latest)	Checkout code	2026-08-03T16:49:09.1825899Z   token: ***
+build (windows-latest)	Checkout code	2026-08-03T16:49:09.1826293Z   ssh-strict: true
+build (windows-latest)	Checkout code	2026-08-03T16:49:09.1826708Z   ssh-user: git
+build (windows-latest)	Checkout code	2026-08-03T16:49:09.1827109Z   persist-credentials: true
+build (windows-latest)	Checkout code	2026-08-03T16:49:09.1828049Z   clean: true
+build (windows-latest)	Checkout code	2026-08-03T16:49:09.1828505Z   sparse-checkout-cone-mode: true
+build (windows-latest)	Checkout code	2026-08-03T16:49:09.1829016Z   fetch-depth: 1
+build (windows-latest)	Checkout code	2026-08-03T16:49:09.1829407Z   fetch-tags: false
+build (windows-latest)	Checkout code	2026-08-03T16:49:09.1829809Z   show-progress: true
+build (windows-latest)	Checkout code	2026-08-03T16:49:09.1830221Z   lfs: false
+build (windows-latest)	Checkout code	2026-08-03T16:49:09.1830592Z   submodules: false
+build (windows-latest)	Checkout code	2026-08-03T16:49:09.1831048Z   set-safe-directory: true
+build (windows-latest)	Checkout code	2026-08-03T16:49:09.1831516Z   allow-unsafe-pr-checkout: false
+build (windows-latest)	Checkout code	2026-08-03T16:49:09.1832261Z env:
+build (windows-latest)	Checkout code	2026-08-03T16:49:09.1834490Z   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+build (windows-latest)	Checkout code	2026-08-03T16:49:09.1835045Z   CARGO_TERM_COLOR: always
+build (windows-latest)	Checkout code	2026-08-03T16:49:09.1835489Z ##[endgroup]
+build (windows-latest)	Checkout code	2026-08-03T16:49:09.3325215Z Syncing repository: Apejean/Atmos
+build (windows-latest)	Checkout code	2026-08-03T16:49:09.3328383Z ##[group]Getting Git version info
+build (windows-latest)	Checkout code	2026-08-03T16:49:09.3332605Z Working directory is 'D:\a\Atmos\Atmos'
+build (windows-latest)	Checkout code	2026-08-03T16:49:09.4317299Z [command]"C:\Program Files\Git\bin\git.exe" version
+build (windows-latest)	Checkout code	2026-08-03T16:49:09.5625341Z git version 2.55.0.windows.3
+build (windows-latest)	Checkout code	2026-08-03T16:49:09.5671248Z ##[endgroup]
+build (windows-latest)	Checkout code	2026-08-03T16:49:09.5691018Z Temporarily overriding HOME='D:\a\_temp\8cf7f33d-8274-4d58-b103-9ed6c9903879' before making global git config changes
+build (windows-latest)	Checkout code	2026-08-03T16:49:09.5692914Z Adding repository directory to the temporary git global config as a safe directory
+build (windows-latest)	Checkout code	2026-08-03T16:49:09.5701229Z [command]"C:\Program Files\Git\bin\git.exe" config --global --add safe.directory D:\a\Atmos\Atmos
+build (windows-latest)	Checkout code	2026-08-03T16:49:09.5989514Z Deleting the contents of 'D:\a\Atmos\Atmos'
+build (windows-latest)	Checkout code	2026-08-03T16:49:09.5995943Z ##[group]Initializing the repository
+build (windows-latest)	Checkout code	2026-08-03T16:49:09.6004044Z [command]"C:\Program Files\Git\bin\git.exe" init D:\a\Atmos\Atmos
+build (windows-latest)	Checkout code	2026-08-03T16:49:09.6444927Z Initialized empty Git repository in D:/a/Atmos/Atmos/.git/
+build (windows-latest)	Checkout code	2026-08-03T16:49:09.6482882Z [command]"C:\Program Files\Git\bin\git.exe" remote add origin https://github.com/Apejean/Atmos
+build (windows-latest)	Checkout code	2026-08-03T16:49:09.6774384Z ##[endgroup]
+build (windows-latest)	Checkout code	2026-08-03T16:49:09.6775986Z ##[group]Disabling automatic garbage collection
+build (windows-latest)	Checkout code	2026-08-03T16:49:09.6782750Z [command]"C:\Program Files\Git\bin\git.exe" config --local gc.auto 0
+build (windows-latest)	Checkout code	2026-08-03T16:49:09.7056106Z ##[endgroup]
+build (windows-latest)	Checkout code	2026-08-03T16:49:09.7057802Z ##[group]Setting up auth
+build (windows-latest)	Checkout code	2026-08-03T16:49:09.7069126Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp core\.sshCommand
+build (windows-latest)	Checkout code	2026-08-03T16:49:09.7354896Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\""
+build (windows-latest)	Checkout code	2026-08-03T16:49:10.6943724Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+build (windows-latest)	Checkout code	2026-08-03T16:49:10.7232189Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\""
+build (windows-latest)	Checkout code	2026-08-03T16:49:11.2484944Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp ^includeIf\.gitdir:
+build (windows-latest)	Checkout code	2026-08-03T16:49:11.2766797Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "git config --local --show-origin --name-only --get-regexp remote.origin.url"
+build (windows-latest)	Checkout code	2026-08-03T16:49:11.7841758Z [command]"C:\Program Files\Git\bin\git.exe" config --local http.https://github.com/.extraheader "AUTHORIZATION: basic ***"
+build (windows-latest)	Checkout code	2026-08-03T16:49:11.8129757Z ##[endgroup]
+build (windows-latest)	Checkout code	2026-08-03T16:49:11.8130292Z ##[group]Fetching the repository
+build (windows-latest)	Checkout code	2026-08-03T16:49:11.8142609Z [command]"C:\Program Files\Git\bin\git.exe" -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +bdf3718c4528fd99241d51f0036b7ba419c8175e:refs/tags/v1.0.89
+build (windows-latest)	Checkout code	2026-08-03T16:49:13.4076974Z From https://github.com/Apejean/Atmos
+build (windows-latest)	Checkout code	2026-08-03T16:49:13.4077891Z  * [new ref]         bdf3718c4528fd99241d51f0036b7ba419c8175e -> v1.0.89
+build (windows-latest)	Checkout code	2026-08-03T16:49:13.4114792Z ##[endgroup]
+build (windows-latest)	Checkout code	2026-08-03T16:49:13.4115451Z ##[group]Determining the checkout info
+build (windows-latest)	Checkout code	2026-08-03T16:49:13.4117406Z ##[endgroup]
+build (windows-latest)	Checkout code	2026-08-03T16:49:13.4128194Z [command]"C:\Program Files\Git\bin\git.exe" sparse-checkout disable
+build (windows-latest)	Checkout code	2026-08-03T16:49:13.4450192Z [command]"C:\Program Files\Git\bin\git.exe" config --local --unset-all extensions.worktreeConfig
+build (windows-latest)	Checkout code	2026-08-03T16:49:13.4735336Z ##[group]Checking out the ref
+build (windows-latest)	Checkout code	2026-08-03T16:49:13.4744201Z [command]"C:\Program Files\Git\bin\git.exe" checkout --progress --force refs/tags/v1.0.89
+build (windows-latest)	Checkout code	2026-08-03T16:49:14.3252706Z Note: switching to 'refs/tags/v1.0.89'.
+build (windows-latest)	Checkout code	2026-08-03T16:49:14.3254600Z 
+build (windows-latest)	Checkout code	2026-08-03T16:49:14.3254994Z You are in 'detached HEAD' state. You can look around, make experimental
+build (windows-latest)	Checkout code	2026-08-03T16:49:14.3255875Z changes and commit them, and you can discard any commits you make in this
+build (windows-latest)	Checkout code	2026-08-03T16:49:14.3256777Z state without impacting any branches by switching back to a branch.
+build (windows-latest)	Checkout code	2026-08-03T16:49:14.3257687Z 
+build (windows-latest)	Checkout code	2026-08-03T16:49:14.3258035Z If you want to create a new branch to retain commits you create, you may
+build (windows-latest)	Checkout code	2026-08-03T16:49:14.3258942Z do so (now or later) by using -c with the switch command. Example:
+build (windows-latest)	Checkout code	2026-08-03T16:49:14.3259411Z 
+build (windows-latest)	Checkout code	2026-08-03T16:49:14.3259608Z   git switch -c <new-branch-name>
+build (windows-latest)	Checkout code	2026-08-03T16:49:14.3259913Z 
+build (windows-latest)	Checkout code	2026-08-03T16:49:14.3260080Z Or undo this operation with:
+build (windows-latest)	Checkout code	2026-08-03T16:49:14.3260373Z 
+build (windows-latest)	Checkout code	2026-08-03T16:49:14.3260528Z   git switch -
+build (windows-latest)	Checkout code	2026-08-03T16:49:14.3260809Z 
+build (windows-latest)	Checkout code	2026-08-03T16:49:14.3261190Z Turn off this advice by setting config variable advice.detachedHead to false
+build (windows-latest)	Checkout code	2026-08-03T16:49:14.3261772Z 
+build (windows-latest)	Checkout code	2026-08-03T16:49:14.3262458Z HEAD is now at bdf3718 fix(ci): fix Swatinem/rust-cache workspaces path and specify x86_64-pc-windows-msvc target
+build (windows-latest)	Checkout code	2026-08-03T16:49:14.3379804Z ##[endgroup]
+build (windows-latest)	Checkout code	2026-08-03T16:49:14.3684297Z [command]"C:\Program Files\Git\bin\git.exe" log -1 --format=%H
+build (windows-latest)	Checkout code	2026-08-03T16:49:14.3938469Z bdf3718c4528fd99241d51f0036b7ba419c8175e
+build (windows-latest)	Install Rust	﻿2026-08-03T16:49:14.4468749Z ##[group]Run dtolnay/rust-toolchain@stable
+build (windows-latest)	Install Rust	2026-08-03T16:49:14.4469144Z with:
+build (windows-latest)	Install Rust	2026-08-03T16:49:14.4469333Z   targets: x86_64-pc-windows-msvc
+build (windows-latest)	Install Rust	2026-08-03T16:49:14.4469564Z   toolchain: stable
+build (windows-latest)	Install Rust	2026-08-03T16:49:14.4469743Z env:
+build (windows-latest)	Install Rust	2026-08-03T16:49:14.4469919Z   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+build (windows-latest)	Install Rust	2026-08-03T16:49:14.4470173Z   CARGO_TERM_COLOR: always
+build (windows-latest)	Install Rust	2026-08-03T16:49:14.4470371Z ##[endgroup]
+build (windows-latest)	Install Rust	2026-08-03T16:49:14.4603736Z ##[start-action display=Run : parse toolchain version;id=__dtolnay_rust-toolchain.parse]
+build (windows-latest)	Install Rust	2026-08-03T16:49:14.4800071Z ##[group]Run : parse toolchain version
+build (windows-latest)	Install Rust	2026-08-03T16:49:14.4800458Z ^[[36;1m: parse toolchain version^[[0m
+build (windows-latest)	Install Rust	2026-08-03T16:49:14.4800756Z ^[[36;1mif [[ -z $toolchain ]]; then^[[0m
+build (windows-latest)	Install Rust	2026-08-03T16:49:14.4801272Z ^[[36;1m  # GitHub does not enforce `required: true` inputs itself. https://github.com/actions/runner/issues/1070^[[0m
+build (windows-latest)	Install Rust	2026-08-03T16:49:14.4801833Z ^[[36;1m  echo "'toolchain' is a required input" >&2^[[0m
+build (windows-latest)	Install Rust	2026-08-03T16:49:14.4802108Z ^[[36;1m  exit 1^[[0m
+build (windows-latest)	Install Rust	2026-08-03T16:49:14.4802452Z ^[[36;1melif [[ $toolchain =~ ^stable' '[0-9]+' '(year|month|week|day)s?' 'ago$ ]]; then^[[0m
+build (windows-latest)	Install Rust	2026-08-03T16:49:14.4802849Z ^[[36;1m  if [[ Windows == macOS ]]; then^[[0m
+build (windows-latest)	Install Rust	2026-08-03T16:49:14.4803364Z ^[[36;1m    echo "toolchain=1.$((($(date -v-$(sed 's/stable \([0-9]*\) \(.\).*/\1\2/' <<< $toolchain) +%s)/60/60/24-16569)/7/6))" >> $GITHUB_OUTPUT^[[0m
+build (windows-latest)	Install Rust	2026-08-03T16:49:14.4803856Z ^[[36;1m  else^[[0m
+build (windows-latest)	Install Rust	2026-08-03T16:49:14.4804250Z ^[[36;1m    echo "toolchain=1.$((($(date --date "${toolchain#stable }" +%s)/60/60/24-16569)/7/6))" >> $GITHUB_OUTPUT^[[0m
+build (windows-latest)	Install Rust	2026-08-03T16:49:14.4804684Z ^[[36;1m  fi^[[0m
+build (windows-latest)	Install Rust	2026-08-03T16:49:14.4804949Z ^[[36;1melif [[ $toolchain =~ ^stable' 'minus' '[0-9]+' 'releases?$ ]]; then^[[0m
+build (windows-latest)	Install Rust	2026-08-03T16:49:14.4805462Z ^[[36;1m  echo "toolchain=1.$((($(date +%s)/60/60/24-16569)/7/6-${toolchain//[^0-9]/}))" >> $GITHUB_OUTPUT^[[0m
+build (windows-latest)	Install Rust	2026-08-03T16:49:14.4805900Z ^[[36;1melif [[ $toolchain =~ ^1\.[0-9]+$ ]]; then^[[0m
+build (windows-latest)	Install Rust	2026-08-03T16:49:14.4806394Z ^[[36;1m  echo "toolchain=1.$((i=${toolchain#1.}, c=($(date +%s)/60/60/24-16569)/7/6, i+9*i*(10*i<=c)+90*i*(100*i<=c)))" >> $GITHUB_OUTPUT^[[0m
+build (windows-latest)	Install Rust	2026-08-03T16:49:14.4806870Z ^[[36;1melse^[[0m
+build (windows-latest)	Install Rust	2026-08-03T16:49:14.4807083Z ^[[36;1m  echo "toolchain=$toolchain" >> $GITHUB_OUTPUT^[[0m
+build (windows-latest)	Install Rust	2026-08-03T16:49:14.4807349Z ^[[36;1mfi^[[0m
+build (windows-latest)	Install Rust	2026-08-03T16:49:14.4827137Z shell: C:\Program Files\Git\bin\bash.EXE --noprofile --norc -e -o pipefail {0}
+build (windows-latest)	Install Rust	2026-08-03T16:49:14.4827553Z env:
+build (windows-latest)	Install Rust	2026-08-03T16:49:14.4827744Z   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+build (windows-latest)	Install Rust	2026-08-03T16:49:14.4828053Z   CARGO_TERM_COLOR: always
+build (windows-latest)	Install Rust	2026-08-03T16:49:14.4828345Z   toolchain: stable
+build (windows-latest)	Install Rust	2026-08-03T16:49:14.4828534Z ##[endgroup]
+build (windows-latest)	Install Rust	2026-08-03T16:49:14.5270812Z ##[end-action id=__dtolnay_rust-toolchain.parse;outcome=success;conclusion=success;duration_ms=66]
+build (windows-latest)	Install Rust	2026-08-03T16:49:14.5294946Z ##[start-action display=Run : construct rustup command line;id=__dtolnay_rust-toolchain.flags]
+build (windows-latest)	Install Rust	2026-08-03T16:49:14.5457984Z ##[group]Run : construct rustup command line
+build (windows-latest)	Install Rust	2026-08-03T16:49:14.5458329Z ^[[36;1m: construct rustup command line^[[0m
+build (windows-latest)	Install Rust	2026-08-03T16:49:14.5458777Z ^[[36;1mecho "targets=$(for t in ${targets//,/ }; do echo -n ' --target' $t; done)" >> $GITHUB_OUTPUT^[[0m
+build (windows-latest)	Install Rust	2026-08-03T16:49:14.5459414Z ^[[36;1mecho "components=$(for c in ${components//,/ }; do echo -n ' --component' $c; done)" >> $GITHUB_OUTPUT^[[0m
+build (windows-latest)	Install Rust	2026-08-03T16:49:14.5459905Z ^[[36;1mecho "downgrade=" >> $GITHUB_OUTPUT^[[0m
+build (windows-latest)	Install Rust	2026-08-03T16:49:14.5476630Z shell: C:\Program Files\Git\bin\bash.EXE --noprofile --norc -e -o pipefail {0}
+build (windows-latest)	Install Rust	2026-08-03T16:49:14.5477015Z env:
+build (windows-latest)	Install Rust	2026-08-03T16:49:14.5477201Z   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+build (windows-latest)	Install Rust	2026-08-03T16:49:14.5477451Z   CARGO_TERM_COLOR: always
+build (windows-latest)	Install Rust	2026-08-03T16:49:14.5477698Z   targets: x86_64-pc-windows-msvc
+build (windows-latest)	Install Rust	2026-08-03T16:49:14.5477931Z   components: 
+build (windows-latest)	Install Rust	2026-08-03T16:49:14.5478092Z ##[endgroup]
+build (windows-latest)	Install Rust	2026-08-03T16:49:14.6082069Z ##[end-action id=__dtolnay_rust-toolchain.flags;outcome=success;conclusion=success;duration_ms=78]
+build (windows-latest)	Install Rust	2026-08-03T16:49:14.6086916Z ##[start-action display=Run : set $CARGO_HOME;id=__dtolnay_rust-toolchain.__run]
+build (windows-latest)	Install Rust	2026-08-03T16:49:14.6218723Z ##[group]Run : set $CARGO_HOME
+build (windows-latest)	Install Rust	2026-08-03T16:49:14.6218994Z ^[[36;1m: set $CARGO_HOME^[[0m
+build (windows-latest)	Install Rust	2026-08-03T16:49:14.6219314Z ^[[36;1mecho CARGO_HOME=${CARGO_HOME:-"$USERPROFILE\.cargo"} >> $GITHUB_ENV^[[0m
+build (windows-latest)	Install Rust	2026-08-03T16:49:14.6237237Z shell: C:\Program Files\Git\bin\bash.EXE --noprofile --norc -e -o pipefail {0}
+build (windows-latest)	Install Rust	2026-08-03T16:49:14.6237636Z env:
+build (windows-latest)	Install Rust	2026-08-03T16:49:14.6237828Z   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+build (windows-latest)	Install Rust	2026-08-03T16:49:14.6238086Z   CARGO_TERM_COLOR: always
+build (windows-latest)	Install Rust	2026-08-03T16:49:14.6238284Z ##[endgroup]
+build (windows-latest)	Install Rust	2026-08-03T16:49:14.6624257Z ##[end-action id=__dtolnay_rust-toolchain.__run;outcome=success;conclusion=success;duration_ms=53]
+build (windows-latest)	Install Rust	2026-08-03T16:49:14.6626790Z ##[start-action display=Run : install rustup if needed;id=__dtolnay_rust-toolchain.__run_2]
+build (windows-latest)	Install Rust	2026-08-03T16:49:14.6637225Z ##[end-action id=__dtolnay_rust-toolchain.__run_2;outcome=skipped;conclusion=skipped;duration_ms=0]
+build (windows-latest)	Install Rust	2026-08-03T16:49:14.6641469Z ##[start-action display=Run : install rustup if needed on windows;id=__dtolnay_rust-toolchain.__run_3]
+build (windows-latest)	Install Rust	2026-08-03T16:49:14.6768252Z ##[group]Run : install rustup if needed on windows
+build (windows-latest)	Install Rust	2026-08-03T16:49:14.6768599Z ^[[36;1m: install rustup if needed on windows^[[0m
+build (windows-latest)	Install Rust	2026-08-03T16:49:14.6768895Z ^[[36;1mif ! command -v rustup &>/dev/null; then^[[0m
+build (windows-latest)	Install Rust	2026-08-03T16:49:14.6769657Z ^[[36;1m  curl --proto '=https' --tlsv1.2 --retry 10 --retry-connrefused --location --silent --show-error --fail https://win.rustup.rs/x86_64 --output 'D:\a\_temp\rustup-init.exe'^[[0m
+build (windows-latest)	Install Rust	2026-08-03T16:49:14.6770528Z ^[[36;1m  'D:\a\_temp\rustup-init.exe' --default-toolchain none --no-modify-path -y^[[0m
+build (windows-latest)	Install Rust	2026-08-03T16:49:14.6770943Z ^[[36;1m  echo "$CARGO_HOME\bin" >> $GITHUB_PATH^[[0m
+build (windows-latest)	Install Rust	2026-08-03T16:49:14.6771208Z ^[[36;1mfi^[[0m
+build (windows-latest)	Install Rust	2026-08-03T16:49:14.6786632Z shell: C:\Program Files\Git\bin\bash.EXE --noprofile --norc -e -o pipefail {0}
+build (windows-latest)	Install Rust	2026-08-03T16:49:14.6787028Z env:
+build (windows-latest)	Install Rust	2026-08-03T16:49:14.6787220Z   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+build (windows-latest)	Install Rust	2026-08-03T16:49:14.6787478Z   CARGO_TERM_COLOR: always
+build (windows-latest)	Install Rust	2026-08-03T16:49:14.6787719Z   CARGO_HOME: C:\Users\runneradmin\.cargo
+build (windows-latest)	Install Rust	2026-08-03T16:49:14.6787962Z ##[endgroup]
+build (windows-latest)	Install Rust	2026-08-03T16:49:14.7236445Z ##[end-action id=__dtolnay_rust-toolchain.__run_3;outcome=success;conclusion=success;duration_ms=59]
+build (windows-latest)	Install Rust	2026-08-03T16:49:14.7240782Z ##[start-action display=rustup toolchain install stable;id=__dtolnay_rust-toolchain.__run_4]
+build (windows-latest)	Install Rust	2026-08-03T16:49:14.7371294Z ##[group]Run rustup toolchain install stable --target x86_64-pc-windows-msvc --profile minimal --no-self-update
+build (windows-latest)	Install Rust	2026-08-03T16:49:14.7372048Z ^[[36;1mrustup toolchain install stable --target x86_64-pc-windows-msvc --profile minimal --no-self-update^[[0m
+build (windows-latest)	Install Rust	2026-08-03T16:49:14.7387829Z shell: C:\Program Files\Git\bin\bash.EXE --noprofile --norc -e -o pipefail {0}
+build (windows-latest)	Install Rust	2026-08-03T16:49:14.7388229Z env:
+build (windows-latest)	Install Rust	2026-08-03T16:49:14.7388417Z   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+build (windows-latest)	Install Rust	2026-08-03T16:49:14.7388670Z   CARGO_TERM_COLOR: always
+build (windows-latest)	Install Rust	2026-08-03T16:49:14.7388905Z   CARGO_HOME: C:\Users\runneradmin\.cargo
+build (windows-latest)	Install Rust	2026-08-03T16:49:14.7389158Z   RUSTUP_PERMIT_COPY_RENAME: 1
+build (windows-latest)	Install Rust	2026-08-03T16:49:14.7389387Z ##[endgroup]
+build (windows-latest)	Install Rust	2026-08-03T16:49:24.5090384Z info: syncing channel updates for stable-x86_64-pc-windows-msvc
+build (windows-latest)	Install Rust	2026-08-03T16:49:25.7836030Z info: latest update on 2026-07-16 for version 1.97.1 (8bab26f4f 2026-07-14)
+build (windows-latest)	Install Rust	2026-08-03T16:49:25.8538575Z info: component rust-std is up to date
+build (windows-latest)	Install Rust	2026-08-03T16:49:25.8732979Z 
+build (windows-latest)	Install Rust	2026-08-03T16:49:25.8934540Z   stable-x86_64-pc-windows-msvc unchanged - rustc 1.97.1 (8bab26f4f 2026-07-14)
+build (windows-latest)	Install Rust	2026-08-03T16:49:25.8935120Z 
+build (windows-latest)	Install Rust	2026-08-03T16:49:25.9212247Z ##[end-action id=__dtolnay_rust-toolchain.__run_4;outcome=success;conclusion=success;duration_ms=11196]
+build (windows-latest)	Install Rust	2026-08-03T16:49:25.9217515Z ##[start-action display=Run rustup default stable;id=__dtolnay_rust-toolchain.__run_5]
+build (windows-latest)	Install Rust	2026-08-03T16:49:25.9341756Z ##[group]Run rustup default stable
+build (windows-latest)	Install Rust	2026-08-03T16:49:25.9342012Z ^[[36;1mrustup default stable^[[0m
+build (windows-latest)	Install Rust	2026-08-03T16:49:25.9356834Z shell: C:\Program Files\Git\bin\bash.EXE --noprofile --norc -e -o pipefail {0}
+build (windows-latest)	Install Rust	2026-08-03T16:49:25.9357894Z env:
+build (windows-latest)	Install Rust	2026-08-03T16:49:25.9358079Z   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+build (windows-latest)	Install Rust	2026-08-03T16:49:25.9358333Z   CARGO_TERM_COLOR: always
+build (windows-latest)	Install Rust	2026-08-03T16:49:25.9358546Z   CARGO_HOME: C:\Users\runneradmin\.cargo
+build (windows-latest)	Install Rust	2026-08-03T16:49:25.9358779Z ##[endgroup]
+build (windows-latest)	Install Rust	2026-08-03T16:49:26.0204706Z info: using existing install for stable-x86_64-pc-windows-msvc
+build (windows-latest)	Install Rust	2026-08-03T16:49:26.0444131Z info: default toolchain set to stable-x86_64-pc-windows-msvc
+build (windows-latest)	Install Rust	2026-08-03T16:49:26.0444535Z 
+build (windows-latest)	Install Rust	2026-08-03T16:49:26.0639218Z   stable-x86_64-pc-windows-msvc unchanged - rustc 1.97.1 (8bab26f4f 2026-07-14)
+build (windows-latest)	Install Rust	2026-08-03T16:49:26.0639656Z 
+build (windows-latest)	Install Rust	2026-08-03T16:49:26.0713378Z ##[end-action id=__dtolnay_rust-toolchain.__run_5;outcome=success;conclusion=success;duration_ms=149]
+build (windows-latest)	Install Rust	2026-08-03T16:49:26.0717163Z ##[start-action display=Run : create cachekey;id=__dtolnay_rust-toolchain.rustc-version]
+build (windows-latest)	Install Rust	2026-08-03T16:49:26.0838634Z ##[group]Run : create cachekey
+build (windows-latest)	Install Rust	2026-08-03T16:49:26.0838877Z ^[[36;1m: create cachekey^[[0m
+build (windows-latest)	Install Rust	2026-08-03T16:49:26.0839362Z ^[[36;1mDATE=$(rustc +stable --version --verbose | sed -ne 's/^commit-date: \(20[0-9][0-9]\)-\([01][0-9]\)-\([0-3][0-9]\)$/\1\2\3/p')^[[0m
+build (windows-latest)	Install Rust	2026-08-03T16:49:26.0840010Z ^[[36;1mHASH=$(rustc +stable --version --verbose | sed -ne 's/^commit-hash: //p')^[[0m
+build (windows-latest)	Install Rust	2026-08-03T16:49:26.0840480Z ^[[36;1mecho "cachekey=$(echo $DATE$HASH | head -c12)" >> $GITHUB_OUTPUT^[[0m
+build (windows-latest)	Install Rust	2026-08-03T16:49:26.0855115Z shell: C:\Program Files\Git\bin\bash.EXE --noprofile --norc -e -o pipefail {0}
+build (windows-latest)	Install Rust	2026-08-03T16:49:26.0855500Z env:
+build (windows-latest)	Install Rust	2026-08-03T16:49:26.0855684Z   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+build (windows-latest)	Install Rust	2026-08-03T16:49:26.0855943Z   CARGO_TERM_COLOR: always
+build (windows-latest)	Install Rust	2026-08-03T16:49:26.0856161Z   CARGO_HOME: C:\Users\runneradmin\.cargo
+build (windows-latest)	Install Rust	2026-08-03T16:49:26.0856412Z ##[endgroup]
+build (windows-latest)	Install Rust	2026-08-03T16:49:27.2369999Z ##[end-action id=__dtolnay_rust-toolchain.rustc-version;outcome=success;conclusion=success;duration_ms=1165]
+build (windows-latest)	Install Rust	2026-08-03T16:49:27.2372438Z ##[start-action display=Run : disable incremental compilation;id=__dtolnay_rust-toolchain.__run_6]
+build (windows-latest)	Install Rust	2026-08-03T16:49:27.2498765Z ##[group]Run : disable incremental compilation
+build (windows-latest)	Install Rust	2026-08-03T16:49:27.2499087Z ^[[36;1m: disable incremental compilation^[[0m
+build (windows-latest)	Install Rust	2026-08-03T16:49:27.2499382Z ^[[36;1mif [ -z "${CARGO_INCREMENTAL+set}" ]; then^[[0m
+build (windows-latest)	Install Rust	2026-08-03T16:49:27.2499685Z ^[[36;1m  echo CARGO_INCREMENTAL=0 >> $GITHUB_ENV^[[0m
+build (windows-latest)	Install Rust	2026-08-03T16:49:27.2499933Z ^[[36;1mfi^[[0m
+build (windows-latest)	Install Rust	2026-08-03T16:49:27.2514441Z shell: C:\Program Files\Git\bin\bash.EXE --noprofile --norc -e -o pipefail {0}
+build (windows-latest)	Install Rust	2026-08-03T16:49:27.2514830Z env:
+build (windows-latest)	Install Rust	2026-08-03T16:49:27.2515289Z   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+build (windows-latest)	Install Rust	2026-08-03T16:49:27.2515551Z   CARGO_TERM_COLOR: always
+build (windows-latest)	Install Rust	2026-08-03T16:49:27.2515774Z   CARGO_HOME: C:\Users\runneradmin\.cargo
+build (windows-latest)	Install Rust	2026-08-03T16:49:27.2516745Z ##[endgroup]
+build (windows-latest)	Install Rust	2026-08-03T16:49:27.2897991Z ##[end-action id=__dtolnay_rust-toolchain.__run_6;outcome=success;conclusion=success;duration_ms=52]
+build (windows-latest)	Install Rust	2026-08-03T16:49:27.2900238Z ##[start-action display=Run : enable colors in Cargo output;id=__dtolnay_rust-toolchain.__run_7]
+build (windows-latest)	Install Rust	2026-08-03T16:49:27.3034929Z ##[group]Run : enable colors in Cargo output
+build (windows-latest)	Install Rust	2026-08-03T16:49:27.3035245Z ^[[36;1m: enable colors in Cargo output^[[0m
+build (windows-latest)	Install Rust	2026-08-03T16:49:27.3035533Z ^[[36;1mif [ -z "${CARGO_TERM_COLOR+set}" ]; then^[[0m
+build (windows-latest)	Install Rust	2026-08-03T16:49:27.3035841Z ^[[36;1m  echo CARGO_TERM_COLOR=always >> $GITHUB_ENV^[[0m
+build (windows-latest)	Install Rust	2026-08-03T16:49:27.3036102Z ^[[36;1mfi^[[0m
+build (windows-latest)	Install Rust	2026-08-03T16:49:27.3050699Z shell: C:\Program Files\Git\bin\bash.EXE --noprofile --norc -e -o pipefail {0}
+build (windows-latest)	Install Rust	2026-08-03T16:49:27.3051075Z env:
+build (windows-latest)	Install Rust	2026-08-03T16:49:27.3051255Z   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+build (windows-latest)	Install Rust	2026-08-03T16:49:27.3051509Z   CARGO_TERM_COLOR: always
+build (windows-latest)	Install Rust	2026-08-03T16:49:27.3051724Z   CARGO_HOME: C:\Users\runneradmin\.cargo
+build (windows-latest)	Install Rust	2026-08-03T16:49:27.3051981Z   CARGO_INCREMENTAL: 0
+build (windows-latest)	Install Rust	2026-08-03T16:49:27.3052168Z ##[endgroup]
+build (windows-latest)	Install Rust	2026-08-03T16:49:27.3422692Z ##[end-action id=__dtolnay_rust-toolchain.__run_7;outcome=success;conclusion=success;duration_ms=52]
+build (windows-latest)	Install Rust	2026-08-03T16:49:27.3427647Z ##[start-action display=Run : enable Cargo sparse registry;id=__dtolnay_rust-toolchain.__run_8]
+build (windows-latest)	Install Rust	2026-08-03T16:49:27.3553202Z ##[group]Run : enable Cargo sparse registry
+build (windows-latest)	Install Rust	2026-08-03T16:49:27.3553502Z ^[[36;1m: enable Cargo sparse registry^[[0m
+build (windows-latest)	Install Rust	2026-08-03T16:49:27.3553833Z ^[[36;1m# implemented in 1.66, stabilized in 1.68, made default in 1.70^[[0m
+build (windows-latest)	Install Rust	2026-08-03T16:49:27.3554482Z ^[[36;1mif [ -z "${CARGO_REGISTRIES_CRATES_IO_PROTOCOL+set}" -o -f "D:\a\_temp"/.implicit_cargo_registries_crates_io_protocol ]; then^[[0m
+build (windows-latest)	Install Rust	2026-08-03T16:49:27.3555150Z ^[[36;1m  if rustc +stable --version --verbose | grep -q '^release: 1\.6[89]\.'; then^[[0m
+build (windows-latest)	Install Rust	2026-08-03T16:49:27.3555704Z ^[[36;1m    touch "D:\a\_temp"/.implicit_cargo_registries_crates_io_protocol || true^[[0m
+build (windows-latest)	Install Rust	2026-08-03T16:49:27.3556183Z ^[[36;1m    echo CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse >> $GITHUB_ENV^[[0m
+build (windows-latest)	Install Rust	2026-08-03T16:49:27.3556794Z ^[[36;1m  elif rustc +stable --version --verbose | grep -q '^release: 1\.6[67]\.'; then^[[0m
+build (windows-latest)	Install Rust	2026-08-03T16:49:27.3557426Z ^[[36;1m    touch "D:\a\_temp"/.implicit_cargo_registries_crates_io_protocol || true^[[0m
+build (windows-latest)	Install Rust	2026-08-03T16:49:27.3557890Z ^[[36;1m    echo CARGO_REGISTRIES_CRATES_IO_PROTOCOL=git >> $GITHUB_ENV^[[0m
+build (windows-latest)	Install Rust	2026-08-03T16:49:27.3558211Z ^[[36;1m  fi^[[0m
+build (windows-latest)	Install Rust	2026-08-03T16:49:27.3558365Z ^[[36;1mfi^[[0m
+build (windows-latest)	Install Rust	2026-08-03T16:49:27.3572530Z shell: C:\Program Files\Git\bin\bash.EXE --noprofile --norc -e -o pipefail {0}
+build (windows-latest)	Install Rust	2026-08-03T16:49:27.3572911Z env:
+build (windows-latest)	Install Rust	2026-08-03T16:49:27.3573090Z   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+build (windows-latest)	Install Rust	2026-08-03T16:49:27.3573338Z   CARGO_TERM_COLOR: always
+build (windows-latest)	Install Rust	2026-08-03T16:49:27.3573554Z   CARGO_HOME: C:\Users\runneradmin\.cargo
+build (windows-latest)	Install Rust	2026-08-03T16:49:27.3573803Z   CARGO_INCREMENTAL: 0
+build (windows-latest)	Install Rust	2026-08-03T16:49:27.3573983Z ##[endgroup]
+build (windows-latest)	Install Rust	2026-08-03T16:49:27.5210807Z ##[end-action id=__dtolnay_rust-toolchain.__run_8;outcome=success;conclusion=success;duration_ms=178]
+build (windows-latest)	Install Rust	2026-08-03T16:49:27.5214211Z ##[start-action display=Run : work around spurious network errors in curl 8.0;id=__dtolnay_rust-toolchain.__run_9]
+build (windows-latest)	Install Rust	2026-08-03T16:49:27.5348644Z ##[group]Run : work around spurious network errors in curl 8.0
+build (windows-latest)	Install Rust	2026-08-03T16:49:27.5349043Z ^[[36;1m: work around spurious network errors in curl 8.0^[[0m
+build (windows-latest)	Install Rust	2026-08-03T16:49:27.5349590Z ^[[36;1m# https://rust-lang.zulipchat.com/#narrow/stream/246057-t-cargo/topic/timeout.20investigation^[[0m
+build (windows-latest)	Install Rust	2026-08-03T16:49:27.5350182Z ^[[36;1mif rustc +stable --version --verbose | grep -q '^release: 1\.7[01]\.'; then^[[0m
+build (windows-latest)	Install Rust	2026-08-03T16:49:27.5350617Z ^[[36;1m  echo CARGO_HTTP_MULTIPLEXING=false >> $GITHUB_ENV^[[0m
+build (windows-latest)	Install Rust	2026-08-03T16:49:27.5350903Z ^[[36;1mfi^[[0m
+build (windows-latest)	Install Rust	2026-08-03T16:49:27.5365147Z shell: C:\Program Files\Git\bin\bash.EXE --noprofile --norc -e -o pipefail {0}
+build (windows-latest)	Install Rust	2026-08-03T16:49:27.5365533Z env:
+build (windows-latest)	Install Rust	2026-08-03T16:49:27.5365716Z   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+build (windows-latest)	Install Rust	2026-08-03T16:49:27.5366141Z   CARGO_TERM_COLOR: always
+build (windows-latest)	Install Rust	2026-08-03T16:49:27.5366361Z   CARGO_HOME: C:\Users\runneradmin\.cargo
+build (windows-latest)	Install Rust	2026-08-03T16:49:27.5366605Z   CARGO_INCREMENTAL: 0
+build (windows-latest)	Install Rust	2026-08-03T16:49:27.5366790Z ##[endgroup]
+build (windows-latest)	Install Rust	2026-08-03T16:49:27.6323622Z ##[end-action id=__dtolnay_rust-toolchain.__run_9;outcome=success;conclusion=success;duration_ms=110]
+build (windows-latest)	Install Rust	2026-08-03T16:49:27.6326785Z ##[start-action display=Run rustc +stable --version --verbose;id=__dtolnay_rust-toolchain.__run_10]
+build (windows-latest)	Install Rust	2026-08-03T16:49:27.6451206Z ##[group]Run rustc +stable --version --verbose
+build (windows-latest)	Install Rust	2026-08-03T16:49:27.6451521Z ^[[36;1mrustc +stable --version --verbose^[[0m
+build (windows-latest)	Install Rust	2026-08-03T16:49:27.6466181Z shell: C:\Program Files\Git\bin\bash.EXE --noprofile --norc -e -o pipefail {0}
+build (windows-latest)	Install Rust	2026-08-03T16:49:27.6466564Z env:
+build (windows-latest)	Install Rust	2026-08-03T16:49:27.6466745Z   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+build (windows-latest)	Install Rust	2026-08-03T16:49:27.6467002Z   CARGO_TERM_COLOR: always
+build (windows-latest)	Install Rust	2026-08-03T16:49:27.6467223Z   CARGO_HOME: C:\Users\runneradmin\.cargo
+build (windows-latest)	Install Rust	2026-08-03T16:49:27.6467485Z   CARGO_INCREMENTAL: 0
+build (windows-latest)	Install Rust	2026-08-03T16:49:27.6467682Z ##[endgroup]
+build (windows-latest)	Install Rust	2026-08-03T16:49:27.7309711Z rustc 1.97.1 (8bab26f4f 2026-07-14)
+build (windows-latest)	Install Rust	2026-08-03T16:49:27.7310176Z binary: rustc
+build (windows-latest)	Install Rust	2026-08-03T16:49:27.7310455Z commit-hash: 8bab26f4f68e0e26f0bb7960be334d5b520ea452
+build (windows-latest)	Install Rust	2026-08-03T16:49:27.7310809Z commit-date: 2026-07-14
+build (windows-latest)	Install Rust	2026-08-03T16:49:27.7311051Z host: x86_64-pc-windows-msvc
+build (windows-latest)	Install Rust	2026-08-03T16:49:27.7311602Z release: 1.97.1
+build (windows-latest)	Install Rust	2026-08-03T16:49:27.7312744Z LLVM version: 22.1.6
+build (windows-latest)	Install Rust	2026-08-03T16:49:27.7419382Z ##[end-action id=__dtolnay_rust-toolchain.__run_10;outcome=success;conclusion=success;duration_ms=109]
+build (windows-latest)	Cache Rust dependencies	﻿2026-08-03T16:49:27.7620616Z ##[group]Run Swatinem/rust-cache@v2
+build (windows-latest)	Cache Rust dependencies	2026-08-03T16:49:27.7620937Z with:
+build (windows-latest)	Cache Rust dependencies	2026-08-03T16:49:27.7621126Z   workspaces: atmos_mixer_pro/rust
+build (windows-latest)	Cache Rust dependencies	2026-08-03T16:49:27.7621369Z   prefix-key: v0-rust
+build (windows-latest)	Cache Rust dependencies	2026-08-03T16:49:27.7621790Z   add-job-id-key: true
+build (windows-latest)	Cache Rust dependencies	2026-08-03T16:49:27.7622022Z   add-rust-environment-hash-key: true
+build (windows-latest)	Cache Rust dependencies	2026-08-03T16:49:27.7622268Z   cache-targets: true
+build (windows-latest)	Cache Rust dependencies	2026-08-03T16:49:27.7622458Z   cache-all-crates: false
+build (windows-latest)	Cache Rust dependencies	2026-08-03T16:49:27.7622688Z   cache-workspace-crates: false
+build (windows-latest)	Cache Rust dependencies	2026-08-03T16:49:27.7622903Z   save-if: true
+build (windows-latest)	Cache Rust dependencies	2026-08-03T16:49:27.7623076Z   cache-provider: github
+build (windows-latest)	Cache Rust dependencies	2026-08-03T16:49:27.7623269Z   cache-bin: true
+build (windows-latest)	Cache Rust dependencies	2026-08-03T16:49:27.7623436Z   lookup-only: false
+build (windows-latest)	Cache Rust dependencies	2026-08-03T16:49:27.7623606Z   cmd-format: {0}
+build (windows-latest)	Cache Rust dependencies	2026-08-03T16:49:27.7623765Z env:
+build (windows-latest)	Cache Rust dependencies	2026-08-03T16:49:27.7623933Z   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+build (windows-latest)	Cache Rust dependencies	2026-08-03T16:49:27.7624178Z   CARGO_TERM_COLOR: always
+build (windows-latest)	Cache Rust dependencies	2026-08-03T16:49:27.7624388Z   CARGO_HOME: C:\Users\runneradmin\.cargo
+build (windows-latest)	Cache Rust dependencies	2026-08-03T16:49:27.7624621Z   CARGO_INCREMENTAL: 0
+build (windows-latest)	Cache Rust dependencies	2026-08-03T16:49:27.7624823Z ##[endgroup]
+build (windows-latest)	Cache Rust dependencies	2026-08-03T16:49:28.0828810Z (node:8940) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+build (windows-latest)	Cache Rust dependencies	2026-08-03T16:49:28.0829796Z (Use `node --trace-deprecation ...` to show where the warning was created)
+build (windows-latest)	Cache Rust dependencies	2026-08-03T16:49:36.0150306Z ##[group]Cache Configuration
+build (windows-latest)	Cache Rust dependencies	2026-08-03T16:49:36.0151296Z Cache Provider:
+build (windows-latest)	Cache Rust dependencies	2026-08-03T16:49:36.0151815Z     github
+build (windows-latest)	Cache Rust dependencies	2026-08-03T16:49:36.0152248Z Workspaces:
+build (windows-latest)	Cache Rust dependencies	2026-08-03T16:49:36.0152684Z     D:\a\Atmos\Atmos\atmos_mixer_pro\rust
+build (windows-latest)	Cache Rust dependencies	2026-08-03T16:49:36.0153248Z Cache Paths:
+build (windows-latest)	Cache Rust dependencies	2026-08-03T16:49:36.0153690Z     C:\Users\runneradmin\.cargo\bin
+build (windows-latest)	Cache Rust dependencies	2026-08-03T16:49:36.0154283Z     C:\Users\runneradmin\.cargo\.crates.toml
+build (windows-latest)	Cache Rust dependencies	2026-08-03T16:49:36.0154896Z     C:\Users\runneradmin\.cargo\.crates2.json
+build (windows-latest)	Cache Rust dependencies	2026-08-03T16:49:36.0155638Z     C:\Users\runneradmin\.cargo\registry
+build (windows-latest)	Cache Rust dependencies	2026-08-03T16:49:36.0171163Z     C:\Users\runneradmin\.cargo\git
+build (windows-latest)	Cache Rust dependencies	2026-08-03T16:49:36.0174114Z     D:\a\Atmos\Atmos\atmos_mixer_pro\rust\target
+build (windows-latest)	Cache Rust dependencies	2026-08-03T16:49:36.0174868Z Restore Key:
+build (windows-latest)	Cache Rust dependencies	2026-08-03T16:49:36.0175973Z     v0-rust-build-Windows_NT-x64-8af1e26a
+build (windows-latest)	Cache Rust dependencies	2026-08-03T16:49:36.0177183Z Cache Key:
+build (windows-latest)	Cache Rust dependencies	2026-08-03T16:49:36.0178078Z     v0-rust-build-Windows_NT-x64-8af1e26a-369b3dab
+build (windows-latest)	Cache Rust dependencies	2026-08-03T16:49:36.0179254Z .. Prefix:
+build (windows-latest)	Cache Rust dependencies	2026-08-03T16:49:36.0179792Z   - v0-rust-build-Windows_NT-x64
+build (windows-latest)	Cache Rust dependencies	2026-08-03T16:49:36.0180244Z .. Environment considered:
+build (windows-latest)	Cache Rust dependencies	2026-08-03T16:49:36.0180966Z   - Rust Versions:
+build (windows-latest)	Cache Rust dependencies	2026-08-03T16:49:36.0181507Z     - 1.97.1 x86_64-pc-windows-msvc 8bab26f4f68e0e26f0bb7960be334d5b520ea452
+build (windows-latest)	Cache Rust dependencies	2026-08-03T16:49:36.0182350Z     - 1.97.1 x86_64-pc-windows-msvc 8bab26f4f68e0e26f0bb7960be334d5b520ea452
+build (windows-latest)	Cache Rust dependencies	2026-08-03T16:49:36.0182991Z   - CARGO_HOME
+build (windows-latest)	Cache Rust dependencies	2026-08-03T16:49:36.0183296Z   - CARGO_INCREMENTAL
+build (windows-latest)	Cache Rust dependencies	2026-08-03T16:49:36.0183629Z   - CARGO_TERM_COLOR
+build (windows-latest)	Cache Rust dependencies	2026-08-03T16:49:36.0183971Z .. Lockfiles considered:
+build (windows-latest)	Cache Rust dependencies	2026-08-03T16:49:36.0184372Z   - D:\a\Atmos\Atmos\atmos_mixer_pro\rust\Cargo.lock
+build (windows-latest)	Cache Rust dependencies	2026-08-03T16:49:36.0184946Z   - D:\a\Atmos\Atmos\atmos_mixer_pro\rust\Cargo.toml
+build (windows-latest)	Cache Rust dependencies	2026-08-03T16:49:36.0185689Z ##[endgroup]
+build (windows-latest)	Cache Rust dependencies	2026-08-03T16:49:36.0185877Z 
+build (windows-latest)	Cache Rust dependencies	2026-08-03T16:49:36.0186006Z ... Restoring cache ...
+build (windows-latest)	Cache Rust dependencies	2026-08-03T16:49:36.2361314Z No cache found.
+build (windows-latest)	Set up Flutter	﻿2026-08-03T16:49:36.2810611Z ##[group]Run subosito/flutter-action@v2
+build (windows-latest)	Set up Flutter	2026-08-03T16:49:36.2810948Z with:
+build (windows-latest)	Set up Flutter	2026-08-03T16:49:36.2811117Z   channel: stable
+build (windows-latest)	Set up Flutter	2026-08-03T16:49:36.2811298Z   architecture: X64
+build (windows-latest)	Set up Flutter	2026-08-03T16:49:36.2811490Z   cache: false
+build (windows-latest)	Set up Flutter	2026-08-03T16:49:36.2811676Z   pub-cache-path: default
+build (windows-latest)	Set up Flutter	2026-08-03T16:49:36.2811886Z   dry-run: false
+build (windows-latest)	Set up Flutter	2026-08-03T16:49:36.2812125Z   git-source: https://github.com/flutter/flutter.git
+build (windows-latest)	Set up Flutter	2026-08-03T16:49:36.2812407Z env:
+build (windows-latest)	Set up Flutter	2026-08-03T16:49:36.2812579Z   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+build (windows-latest)	Set up Flutter	2026-08-03T16:49:36.2812828Z   CARGO_TERM_COLOR: always
+build (windows-latest)	Set up Flutter	2026-08-03T16:49:36.2813041Z   CARGO_HOME: C:\Users\runneradmin\.cargo
+build (windows-latest)	Set up Flutter	2026-08-03T16:49:36.2813274Z   CARGO_INCREMENTAL: 0
+build (windows-latest)	Set up Flutter	2026-08-03T16:49:36.2813461Z   CACHE_ON_FAILURE: false
+build (windows-latest)	Set up Flutter	2026-08-03T16:49:36.2813645Z ##[endgroup]
+build (windows-latest)	Set up Flutter	2026-08-03T16:49:36.2819287Z ##[start-action display=Make yq tool available on Windows runners;id=__subosito_flutter-action.__run]
+build (windows-latest)	Set up Flutter	2026-08-03T16:49:36.2826855Z ##[end-action id=__subosito_flutter-action.__run;outcome=skipped;conclusion=skipped;duration_ms=0]
+build (windows-latest)	Set up Flutter	2026-08-03T16:49:36.2828631Z ##[start-action display=Make setup script executable;id=__subosito_flutter-action.__run_2]
+build (windows-latest)	Set up Flutter	2026-08-03T16:49:36.2946737Z ##[group]Run chmod +x "$GITHUB_ACTION_PATH/setup.sh"
+build (windows-latest)	Set up Flutter	2026-08-03T16:49:36.2947072Z ^[[36;1mchmod +x "$GITHUB_ACTION_PATH/setup.sh"^[[0m
+build (windows-latest)	Set up Flutter	2026-08-03T16:49:36.2961105Z shell: C:\Program Files\Git\bin\bash.EXE --noprofile --norc -e -o pipefail {0}
+build (windows-latest)	Set up Flutter	2026-08-03T16:49:36.2961492Z env:
+build (windows-latest)	Set up Flutter	2026-08-03T16:49:36.2961674Z   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+build (windows-latest)	Set up Flutter	2026-08-03T16:49:36.2961925Z   CARGO_TERM_COLOR: always
+build (windows-latest)	Set up Flutter	2026-08-03T16:49:36.2962142Z   CARGO_HOME: C:\Users\runneradmin\.cargo
+build (windows-latest)	Set up Flutter	2026-08-03T16:49:36.2962388Z   CARGO_INCREMENTAL: 0
+build (windows-latest)	Set up Flutter	2026-08-03T16:49:36.2962580Z   CACHE_ON_FAILURE: false
+build (windows-latest)	Set up Flutter	2026-08-03T16:49:36.2962769Z ##[endgroup]
+build (windows-latest)	Set up Flutter	2026-08-03T16:49:36.3543496Z ##[end-action id=__subosito_flutter-action.__run_2;outcome=success;conclusion=success;duration_ms=71]
+build (windows-latest)	Set up Flutter	2026-08-03T16:49:36.3545671Z ##[start-action display=Set action inputs;id=__subosito_flutter-action.flutter-action]
+build (windows-latest)	Set up Flutter	2026-08-03T16:49:36.3662712Z ##[group]Run $GITHUB_ACTION_PATH/setup.sh -p \
+build (windows-latest)	Set up Flutter	2026-08-03T16:49:36.3663066Z ^[[36;1m$GITHUB_ACTION_PATH/setup.sh -p \^[[0m
+build (windows-latest)	Set up Flutter	2026-08-03T16:49:36.3663343Z ^[[36;1m  -n '' \^[[0m
+build (windows-latest)	Set up Flutter	2026-08-03T16:49:36.3663519Z ^[[36;1m  -f '' \^[[0m
+build (windows-latest)	Set up Flutter	2026-08-03T16:49:36.3663685Z ^[[36;1m  -a 'X64' \^[[0m
+build (windows-latest)	Set up Flutter	2026-08-03T16:49:36.3663859Z ^[[36;1m  -k '' \^[[0m
+build (windows-latest)	Set up Flutter	2026-08-03T16:49:36.3664019Z ^[[36;1m  -c '' \^[[0m
+build (windows-latest)	Set up Flutter	2026-08-03T16:49:36.3664178Z ^[[36;1m  -l '' \^[[0m
+build (windows-latest)	Set up Flutter	2026-08-03T16:49:36.3664342Z ^[[36;1m  -d 'default' \^[[0m
+build (windows-latest)	Set up Flutter	2026-08-03T16:49:36.3664610Z ^[[36;1m  -g 'https://github.com/flutter/flutter.git' \^[[0m
+build (windows-latest)	Set up Flutter	2026-08-03T16:49:36.3664921Z ^[[36;1m  stable^[[0m
+build (windows-latest)	Set up Flutter	2026-08-03T16:49:36.3679013Z shell: C:\Program Files\Git\bin\bash.EXE --noprofile --norc -e -o pipefail {0}
+build (windows-latest)	Set up Flutter	2026-08-03T16:49:36.3679401Z env:
+build (windows-latest)	Set up Flutter	2026-08-03T16:49:36.3679582Z   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+build (windows-latest)	Set up Flutter	2026-08-03T16:49:36.3679829Z   CARGO_TERM_COLOR: always
+build (windows-latest)	Set up Flutter	2026-08-03T16:49:36.3680046Z   CARGO_HOME: C:\Users\runneradmin\.cargo
+build (windows-latest)	Set up Flutter	2026-08-03T16:49:36.3680298Z   CARGO_INCREMENTAL: 0
+build (windows-latest)	Set up Flutter	2026-08-03T16:49:36.3680483Z   CACHE_ON_FAILURE: false
+build (windows-latest)	Set up Flutter	2026-08-03T16:49:36.3680671Z ##[endgroup]
+build (windows-latest)	Set up Flutter	2026-08-03T16:49:39.8718476Z ##[end-action id=__subosito_flutter-action.flutter-action;outcome=success;conclusion=success;duration_ms=3517]
+build (windows-latest)	Set up Flutter	2026-08-03T16:49:39.8720772Z ##[start-action display=Cache Flutter;id=__subosito_flutter-action.cache-flutter]
+build (windows-latest)	Set up Flutter	2026-08-03T16:49:39.8724216Z ##[end-action id=__subosito_flutter-action.cache-flutter;outcome=skipped;conclusion=skipped;duration_ms=0]
+build (windows-latest)	Set up Flutter	2026-08-03T16:49:39.8725916Z ##[start-action display=Cache pub dependencies;id=__subosito_flutter-action.cache-pub]
+build (windows-latest)	Set up Flutter	2026-08-03T16:49:39.8731380Z ##[end-action id=__subosito_flutter-action.cache-pub;outcome=skipped;conclusion=skipped;duration_ms=0]
+build (windows-latest)	Set up Flutter	2026-08-03T16:49:39.8733084Z ##[start-action display=Run setup script;id=__subosito_flutter-action.__run_3]
+build (windows-latest)	Set up Flutter	2026-08-03T16:49:39.8866618Z ##[group]Run $GITHUB_ACTION_PATH/setup.sh \
+build (windows-latest)	Set up Flutter	2026-08-03T16:49:39.8866924Z ^[[36;1m$GITHUB_ACTION_PATH/setup.sh \^[[0m
+build (windows-latest)	Set up Flutter	2026-08-03T16:49:39.8869015Z ^[[36;1m  -n '3.44.8' \^[[0m
+build (windows-latest)	Set up Flutter	2026-08-03T16:49:39.8869219Z ^[[36;1m  -a 'x64' \^[[0m
+build (windows-latest)	Set up Flutter	2026-08-03T16:49:39.8869504Z ^[[36;1m  -c 'C:\hostedtoolcache\windows\flutter\stable-3.44.8-x64' \^[[0m
+build (windows-latest)	Set up Flutter	2026-08-03T16:49:39.8870271Z ^[[36;1m  -d 'C:\Users\runneradmin\AppData\Local\Pub\Cache' \^[[0m
+build (windows-latest)	Set up Flutter	2026-08-03T16:49:39.8870623Z ^[[36;1m  stable^[[0m
+build (windows-latest)	Set up Flutter	2026-08-03T16:49:39.8884279Z shell: C:\Program Files\Git\bin\bash.EXE --noprofile --norc -e -o pipefail {0}
+build (windows-latest)	Set up Flutter	2026-08-03T16:49:39.8884664Z env:
+build (windows-latest)	Set up Flutter	2026-08-03T16:49:39.8884846Z   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+build (windows-latest)	Set up Flutter	2026-08-03T16:49:39.8885103Z   CARGO_TERM_COLOR: always
+build (windows-latest)	Set up Flutter	2026-08-03T16:49:39.8885323Z   CARGO_HOME: C:\Users\runneradmin\.cargo
+build (windows-latest)	Set up Flutter	2026-08-03T16:49:39.8885562Z   CARGO_INCREMENTAL: 0
+build (windows-latest)	Set up Flutter	2026-08-03T16:49:39.8885744Z   CACHE_ON_FAILURE: false
+build (windows-latest)	Set up Flutter	2026-08-03T16:49:39.8885934Z ##[endgroup]
+build (windows-latest)	Set up Flutter	2026-08-03T16:49:42.2370119Z   % Total    % Received % Xferd  Average Speed  Time    Time    Time   Current
+build (windows-latest)	Set up Flutter	2026-08-03T16:49:42.2371297Z                                  Dload  Upload  Total   Spent   Left   Speed
+build (windows-latest)	Set up Flutter	2026-08-03T16:49:42.2372014Z 
+build (windows-latest)	Set up Flutter	2026-08-03T16:49:43.2387403Z   0      0   0      0   0      0      0      0                              0
+build (windows-latest)	Set up Flutter	2026-08-03T16:49:44.2382335Z  18  1.77G  18 339.2M   0      0 328.2M      0   00:05   00:01   00:04 338.6M
+build (windows-latest)	Set up Flutter	2026-08-03T16:49:45.2372805Z  37  1.77G  37 687.1M   0      0 338.1M      0   00:05   00:02   00:03 343.4M
+build (windows-latest)	Set up Flutter	2026-08-03T16:49:46.2392584Z  55  1.77G  55  0.97G   0      0 330.7M      0   00:05   00:03   00:02 334.2M
+build (windows-latest)	Set up Flutter	2026-08-03T16:49:47.2393064Z  75  1.77G  75  1.33G   0      0 340.2M      0   00:05   00:04   00:01 342.9M
+build (windows-latest)	Set up Flutter	2026-08-03T16:49:47.3795799Z  96  1.77G  96  1.71G   0      0 348.4M      0   00:05   00:05         350.6M
+build (windows-latest)	Set up Flutter	2026-08-03T16:49:47.3796580Z 100  1.77G 100  1.77G   0      0 350.4M      0   00:05   00:05         350.6M
+build (windows-latest)	Set up Flutter	2026-08-03T16:49:47.3798014Z 100  1.77G 100  1.77G   0      0 350.4M      0   00:05   00:05         350.6M
+build (windows-latest)	Set up Flutter	2026-08-03T16:49:47.3799287Z 100  1.77G 100  1.77G   0      0 350.4M      0   00:05   00:05         350.6M
+build (windows-latest)	Set up Flutter	2026-08-03T16:52:01.2623877Z ##[end-action id=__subosito_flutter-action.__run_3;outcome=success;conclusion=success;duration_ms=141387]
+build (windows-latest)	Setup Windows LLVM for ASIO	﻿2026-08-03T16:52:01.2800150Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+build (windows-latest)	Setup Windows LLVM for ASIO	2026-08-03T16:52:01.2801681Z ##[group]Run KyleMayes/install-llvm-action@v2
+build (windows-latest)	Setup Windows LLVM for ASIO	2026-08-03T16:52:01.2802027Z with:
+build (windows-latest)	Setup Windows LLVM for ASIO	2026-08-03T16:52:01.2802260Z   version: 15.0
+build (windows-latest)	Setup Windows LLVM for ASIO	2026-08-03T16:52:01.2802509Z   directory: D:\a\_temp/llvm
+build (windows-latest)	Setup Windows LLVM for ASIO	2026-08-03T16:52:01.2802781Z env:
+build (windows-latest)	Setup Windows LLVM for ASIO	2026-08-03T16:52:01.2803026Z   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+build (windows-latest)	Setup Windows LLVM for ASIO	2026-08-03T16:52:01.2803352Z   CARGO_TERM_COLOR: always
+build (windows-latest)	Setup Windows LLVM for ASIO	2026-08-03T16:52:01.2803632Z   CARGO_HOME: C:\Users\runneradmin\.cargo
+build (windows-latest)	Setup Windows LLVM for ASIO	2026-08-03T16:52:01.2803939Z   CARGO_INCREMENTAL: 0
+build (windows-latest)	Setup Windows LLVM for ASIO	2026-08-03T16:52:01.2804191Z   CACHE_ON_FAILURE: false
+build (windows-latest)	Setup Windows LLVM for ASIO	2026-08-03T16:52:01.2804567Z   FLUTTER_ROOT: C:\hostedtoolcache\windows\flutter\stable-3.44.8-x64/flutter
+build (windows-latest)	Setup Windows LLVM for ASIO	2026-08-03T16:52:01.2805831Z   PUB_CACHE: C:\Users\runneradmin\AppData\Local\Pub\Cache
+build (windows-latest)	Setup Windows LLVM for ASIO	2026-08-03T16:52:01.2806276Z ##[endgroup]
+build (windows-latest)	Setup Windows LLVM for ASIO	2026-08-03T16:52:01.3729971Z NodeJS process info = {"os":"win32","arch":"x64"}
+build (windows-latest)	Setup Windows LLVM for ASIO	2026-08-03T16:52:01.3732701Z Checking known assets (os=win32, arch=x64, version=15.0)...
+build (windows-latest)	Setup Windows LLVM for ASIO	2026-08-03T16:52:01.3743363Z Installing LLVM and Clang 15.0 (15.0.7)...
+build (windows-latest)	Setup Windows LLVM for ASIO	2026-08-03T16:52:01.3761887Z Downloading and extracting 'https://github.com/llvm/llvm-project/releases/download/llvmorg-15.0.7/LLVM-15.0.7-win64.exe'...
+build (windows-latest)	Setup Windows LLVM for ASIO	2026-08-03T16:52:03.5763426Z [command]C:\ProgramData\Chocolatey\bin\7z.exe x D:\a\_temp\79846e5d-2796-45f5-adb1-a97edd67e1fc -oD:\a\_temp\llvm -y
+build (windows-latest)	Setup Windows LLVM for ASIO	2026-08-03T16:52:04.2389597Z 
+build (windows-latest)	Setup Windows LLVM for ASIO	2026-08-03T16:52:04.2390942Z 7-Zip 26.02 (x64) : Copyright (c) 1999-2026 Igor Pavlov : 2026-06-25
+build (windows-latest)	Setup Windows LLVM for ASIO	2026-08-03T16:52:04.2391730Z 
+build (windows-latest)	Setup Windows LLVM for ASIO	2026-08-03T16:52:04.2392080Z Scanning the drive for archives:
+build (windows-latest)	Setup Windows LLVM for ASIO	2026-08-03T16:52:04.2392718Z 1 file, 290857976 bytes (278 MiB)
+build (windows-latest)	Setup Windows LLVM for ASIO	2026-08-03T16:52:04.2393057Z 
+build (windows-latest)	Setup Windows LLVM for ASIO	2026-08-03T16:52:04.2393413Z Extracting archive: D:\a\_temp\79846e5d-2796-45f5-adb1-a97edd67e1fc
+build (windows-latest)	Setup Windows LLVM for ASIO	2026-08-03T16:52:16.4009218Z --
+build (windows-latest)	Setup Windows LLVM for ASIO	2026-08-03T16:52:16.4010017Z Path = D:\a\_temp\79846e5d-2796-45f5-adb1-a97edd67e1fc
+build (windows-latest)	Setup Windows LLVM for ASIO	2026-08-03T16:52:16.4010607Z Type = Nsis
+build (windows-latest)	Setup Windows LLVM for ASIO	2026-08-03T16:52:16.4010972Z Physical Size = 290857976
+build (windows-latest)	Setup Windows LLVM for ASIO	2026-08-03T16:52:16.4011388Z Method = LZMA:25
+build (windows-latest)	Setup Windows LLVM for ASIO	2026-08-03T16:52:16.4011737Z Solid = +
+build (windows-latest)	Setup Windows LLVM for ASIO	2026-08-03T16:52:16.4012087Z Headers Size = 390396
+build (windows-latest)	Setup Windows LLVM for ASIO	2026-08-03T16:52:16.4012809Z Embedded Stub Size = 116736
+build (windows-latest)	Setup Windows LLVM for ASIO	2026-08-03T16:52:16.4013241Z SubType = NSIS-3 Unicode
+build (windows-latest)	Setup Windows LLVM for ASIO	2026-08-03T16:52:16.4013520Z 
+build (windows-latest)	Setup Windows LLVM for ASIO	2026-08-03T16:52:16.4027006Z Everything is Ok
+build (windows-latest)	Setup Windows LLVM for ASIO	2026-08-03T16:52:16.4027364Z 
+build (windows-latest)	Setup Windows LLVM for ASIO	2026-08-03T16:52:16.4027615Z Files: 440
+build (windows-latest)	Setup Windows LLVM for ASIO	2026-08-03T16:52:16.4027981Z Size:       2454846031
+build (windows-latest)	Setup Windows LLVM for ASIO	2026-08-03T16:52:16.4028418Z Compressed: 290857976
+build (windows-latest)	Setup Windows LLVM for ASIO	2026-08-03T16:52:16.4084428Z Installed LLVM and Clang 15.0 (15.0.7)!
+build (windows-latest)	Setup Windows LLVM for ASIO	2026-08-03T16:52:16.4085045Z Install location: D:\a\_temp\llvm
+build (windows-latest)	Set LIBCLANG_PATH	﻿2026-08-03T16:52:16.4387075Z ##[group]Run echo "LIBCLANG_PATH=D:\a\_temp\llvm/bin" >> $env:GITHUB_ENV
+build (windows-latest)	Set LIBCLANG_PATH	2026-08-03T16:52:16.4387664Z ^[[36;1mecho "LIBCLANG_PATH=D:\a\_temp\llvm/bin" >> $env:GITHUB_ENV^[[0m
+build (windows-latest)	Set LIBCLANG_PATH	2026-08-03T16:52:16.4764156Z shell: C:\Program Files\PowerShell\7\pwsh.EXE -command ". '{0}'"
+build (windows-latest)	Set LIBCLANG_PATH	2026-08-03T16:52:16.4764567Z env:
+build (windows-latest)	Set LIBCLANG_PATH	2026-08-03T16:52:16.4764785Z   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+build (windows-latest)	Set LIBCLANG_PATH	2026-08-03T16:52:16.4765088Z   CARGO_TERM_COLOR: always
+build (windows-latest)	Set LIBCLANG_PATH	2026-08-03T16:52:16.4765613Z   CARGO_HOME: C:\Users\runneradmin\.cargo
+build (windows-latest)	Set LIBCLANG_PATH	2026-08-03T16:52:16.4765916Z   CARGO_INCREMENTAL: 0
+build (windows-latest)	Set LIBCLANG_PATH	2026-08-03T16:52:16.4766145Z   CACHE_ON_FAILURE: false
+build (windows-latest)	Set LIBCLANG_PATH	2026-08-03T16:52:16.4766711Z   FLUTTER_ROOT: C:\hostedtoolcache\windows\flutter\stable-3.44.8-x64/flutter
+build (windows-latest)	Set LIBCLANG_PATH	2026-08-03T16:52:16.4767219Z   PUB_CACHE: C:\Users\runneradmin\AppData\Local\Pub\Cache
+build (windows-latest)	Set LIBCLANG_PATH	2026-08-03T16:52:16.4767576Z   LLVM_PATH: D:\a\_temp\llvm
+build (windows-latest)	Set LIBCLANG_PATH	2026-08-03T16:52:16.4767836Z   LD_LIBRARY_PATH: D:\a\_temp\llvm\lib;
+build (windows-latest)	Set LIBCLANG_PATH	2026-08-03T16:52:16.4768156Z   DYLD_LIBRARY_PATH: D:\a\_temp\llvm\lib;undefined
+build (windows-latest)	Set LIBCLANG_PATH	2026-08-03T16:52:16.4768505Z ##[endgroup]
+build (windows-latest)	Download and Extract ASIO SDK	﻿2026-08-03T16:52:17.0043359Z ##[group]Run Invoke-WebRequest -Uri "https://download.steinberg.net/sdk_downloads/ASIO-SDK_2.3.4_2025-10-15.zip" -OutFile "asio.zip"
+build (windows-latest)	Download and Extract ASIO SDK	2026-08-03T16:52:17.0044430Z ^[[36;1mInvoke-WebRequest -Uri "https://download.steinberg.net/sdk_downloads/ASIO-SDK_2.3.4_2025-10-15.zip" -OutFile "asio.zip"^[[0m
+build (windows-latest)	Download and Extract ASIO SDK	2026-08-03T16:52:17.0045148Z ^[[36;1mExpand-Archive -Path "asio.zip" -DestinationPath "ASIOSDK_EXTRACTED"^[[0m
+build (windows-latest)	Download and Extract ASIO SDK	2026-08-03T16:52:17.0045701Z ^[[36;1m$asioDir = Get-ChildItem -Path "ASIOSDK_EXTRACTED" -Directory | Select-Object -First 1^[[0m
+build (windows-latest)	Download and Extract ASIO SDK	2026-08-03T16:52:17.0046218Z ^[[36;1mecho "CPAL_ASIO_DIR=$($asioDir.FullName)" >> $env:GITHUB_ENV^[[0m
+build (windows-latest)	Download and Extract ASIO SDK	2026-08-03T16:52:17.0118558Z shell: C:\Program Files\PowerShell\7\pwsh.EXE -command ". '{0}'"
+build (windows-latest)	Download and Extract ASIO SDK	2026-08-03T16:52:17.0119146Z env:
+build (windows-latest)	Download and Extract ASIO SDK	2026-08-03T16:52:17.0119470Z   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+build (windows-latest)	Download and Extract ASIO SDK	2026-08-03T16:52:17.0119932Z   CARGO_TERM_COLOR: always
+build (windows-latest)	Download and Extract ASIO SDK	2026-08-03T16:52:17.0120325Z   CARGO_HOME: C:\Users\runneradmin\.cargo
+build (windows-latest)	Download and Extract ASIO SDK	2026-08-03T16:52:17.0120770Z   CARGO_INCREMENTAL: 0
+build (windows-latest)	Download and Extract ASIO SDK	2026-08-03T16:52:17.0121461Z   CACHE_ON_FAILURE: false
+build (windows-latest)	Download and Extract ASIO SDK	2026-08-03T16:52:17.0122024Z   FLUTTER_ROOT: C:\hostedtoolcache\windows\flutter\stable-3.44.8-x64/flutter
+build (windows-latest)	Download and Extract ASIO SDK	2026-08-03T16:52:17.0122778Z   PUB_CACHE: C:\Users\runneradmin\AppData\Local\Pub\Cache
+build (windows-latest)	Download and Extract ASIO SDK	2026-08-03T16:52:17.0123298Z   LLVM_PATH: D:\a\_temp\llvm
+build (windows-latest)	Download and Extract ASIO SDK	2026-08-03T16:52:17.0123768Z   LD_LIBRARY_PATH: D:\a\_temp\llvm\lib;
+build (windows-latest)	Download and Extract ASIO SDK	2026-08-03T16:52:17.0124261Z   DYLD_LIBRARY_PATH: D:\a\_temp\llvm\lib;undefined
+build (windows-latest)	Download and Extract ASIO SDK	2026-08-03T16:52:17.0124767Z   LIBCLANG_PATH: D:\a\_temp\llvm/bin
+build (windows-latest)	Download and Extract ASIO SDK	2026-08-03T16:52:17.0125540Z ##[endgroup]
+build (windows-latest)	Patch pdfx CMakeLists for Windows	﻿2026-08-03T16:52:32.2465419Z ##[group]Run $cmakePath = "atmos_mixer_pro/windows/flutter/ephemeral/.plugin_symlinks/pdfx/windows/CMakeLists.txt"
+build (windows-latest)	Patch pdfx CMakeLists for Windows	2026-08-03T16:52:32.2466337Z ^[[36;1m$cmakePath = "atmos_mixer_pro/windows/flutter/ephemeral/.plugin_symlinks/pdfx/windows/CMakeLists.txt"^[[0m
+build (windows-latest)	Patch pdfx CMakeLists for Windows	2026-08-03T16:52:32.2466912Z ^[[36;1mif (Test-Path $cmakePath) {^[[0m
+build (windows-latest)	Patch pdfx CMakeLists for Windows	2026-08-03T16:52:32.2467628Z ^[[36;1m  (Get-Content $cmakePath) -replace 'cmake_minimum_required\(VERSION 3.0\)', 'cmake_minimum_required(VERSION 3.5)' | Set-Content $cmakePath^[[0m
+build (windows-latest)	Patch pdfx CMakeLists for Windows	2026-08-03T16:52:32.2468286Z ^[[36;1m}^[[0m
+build (windows-latest)	Patch pdfx CMakeLists for Windows	2026-08-03T16:52:32.2468802Z ^[[36;1m$downloadPath = "atmos_mixer_pro/windows/flutter/ephemeral/.plugin_symlinks/pdfx/windows/DownloadProject.cmake"^[[0m
+build (windows-latest)	Patch pdfx CMakeLists for Windows	2026-08-03T16:52:32.2469489Z ^[[36;1mif (Test-Path $downloadPath) {^[[0m
+build (windows-latest)	Patch pdfx CMakeLists for Windows	2026-08-03T16:52:32.2470516Z ^[[36;1m  (Get-Content $downloadPath) -replace 'cmake_minimum_required\(VERSION 2.8.2\)', 'cmake_minimum_required(VERSION 3.5)' | Set-Content $downloadPath^[[0m
+build (windows-latest)	Patch pdfx CMakeLists for Windows	2026-08-03T16:52:32.2471193Z ^[[36;1m}^[[0m
+build (windows-latest)	Patch pdfx CMakeLists for Windows	2026-08-03T16:52:32.2542852Z shell: C:\Program Files\PowerShell\7\pwsh.EXE -command ". '{0}'"
+build (windows-latest)	Patch pdfx CMakeLists for Windows	2026-08-03T16:52:32.2543537Z env:
+build (windows-latest)	Patch pdfx CMakeLists for Windows	2026-08-03T16:52:32.2543966Z   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+build (windows-latest)	Patch pdfx CMakeLists for Windows	2026-08-03T16:52:32.2544525Z   CARGO_TERM_COLOR: always
+build (windows-latest)	Patch pdfx CMakeLists for Windows	2026-08-03T16:52:32.2544997Z   CARGO_HOME: C:\Users\runneradmin\.cargo
+build (windows-latest)	Patch pdfx CMakeLists for Windows	2026-08-03T16:52:32.2545511Z   CARGO_INCREMENTAL: 0
+build (windows-latest)	Patch pdfx CMakeLists for Windows	2026-08-03T16:52:32.2545923Z   CACHE_ON_FAILURE: false
+build (windows-latest)	Patch pdfx CMakeLists for Windows	2026-08-03T16:52:32.2546600Z   FLUTTER_ROOT: C:\hostedtoolcache\windows\flutter\stable-3.44.8-x64/flutter
+build (windows-latest)	Patch pdfx CMakeLists for Windows	2026-08-03T16:52:32.2547425Z   PUB_CACHE: C:\Users\runneradmin\AppData\Local\Pub\Cache
+build (windows-latest)	Patch pdfx CMakeLists for Windows	2026-08-03T16:52:32.2548301Z   LLVM_PATH: D:\a\_temp\llvm
+build (windows-latest)	Patch pdfx CMakeLists for Windows	2026-08-03T16:52:32.2548618Z   LD_LIBRARY_PATH: D:\a\_temp\llvm\lib;
+build (windows-latest)	Patch pdfx CMakeLists for Windows	2026-08-03T16:52:32.2548946Z   DYLD_LIBRARY_PATH: D:\a\_temp\llvm\lib;undefined
+build (windows-latest)	Patch pdfx CMakeLists for Windows	2026-08-03T16:52:32.2549285Z   LIBCLANG_PATH: D:\a\_temp\llvm/bin
+build (windows-latest)	Patch pdfx CMakeLists for Windows	2026-08-03T16:52:32.2549645Z   CPAL_ASIO_DIR: D:\a\Atmos\Atmos\ASIOSDK_EXTRACTED\ASIOSDK
+build (windows-latest)	Patch pdfx CMakeLists for Windows	2026-08-03T16:52:32.2550010Z ##[endgroup]
+build (windows-latest)	Install dependencies	﻿2026-08-03T16:52:32.6548788Z ##[group]Run flutter pub get
+build (windows-latest)	Install dependencies	2026-08-03T16:52:32.6549226Z ^[[36;1mflutter pub get^[[0m
+build (windows-latest)	Install dependencies	2026-08-03T16:52:32.6620923Z shell: C:\Program Files\PowerShell\7\pwsh.EXE -command ". '{0}'"
+build (windows-latest)	Install dependencies	2026-08-03T16:52:32.6621783Z env:
+build (windows-latest)	Install dependencies	2026-08-03T16:52:32.6621982Z   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+build (windows-latest)	Install dependencies	2026-08-03T16:52:32.6622246Z   CARGO_TERM_COLOR: always
+build (windows-latest)	Install dependencies	2026-08-03T16:52:32.6622469Z   CARGO_HOME: C:\Users\runneradmin\.cargo
+build (windows-latest)	Install dependencies	2026-08-03T16:52:32.6622773Z   CARGO_INCREMENTAL: 0
+build (windows-latest)	Install dependencies	2026-08-03T16:52:32.6623087Z   CACHE_ON_FAILURE: false
+build (windows-latest)	Install dependencies	2026-08-03T16:52:32.6623534Z   FLUTTER_ROOT: C:\hostedtoolcache\windows\flutter\stable-3.44.8-x64/flutter
+build (windows-latest)	Install dependencies	2026-08-03T16:52:32.6623947Z   PUB_CACHE: C:\Users\runneradmin\AppData\Local\Pub\Cache
+build (windows-latest)	Install dependencies	2026-08-03T16:52:32.6624235Z   LLVM_PATH: D:\a\_temp\llvm
+build (windows-latest)	Install dependencies	2026-08-03T16:52:32.6624445Z   LD_LIBRARY_PATH: D:\a\_temp\llvm\lib;
+build (windows-latest)	Install dependencies	2026-08-03T16:52:32.6624706Z   DYLD_LIBRARY_PATH: D:\a\_temp\llvm\lib;undefined
+build (windows-latest)	Install dependencies	2026-08-03T16:52:32.6625064Z   LIBCLANG_PATH: D:\a\_temp\llvm/bin
+build (windows-latest)	Install dependencies	2026-08-03T16:52:32.6625506Z   CPAL_ASIO_DIR: D:\a\Atmos\Atmos\ASIOSDK_EXTRACTED\ASIOSDK
+build (windows-latest)	Install dependencies	2026-08-03T16:52:32.6625879Z ##[endgroup]
+build (windows-latest)	Install dependencies	2026-08-03T16:52:34.3508086Z Building flutter tool... 
+build (windows-latest)	Install dependencies	2026-08-03T16:52:34.3547714Z Running pub upgrade... 
+build (windows-latest)	Install dependencies	2026-08-03T16:52:34.4124612Z Resolving dependencies...
+build (windows-latest)	Install dependencies	2026-08-03T16:52:35.0278591Z Downloading packages...
+build (windows-latest)	Install dependencies	2026-08-03T16:52:52.6366744Z Got dependencies.
+build (windows-latest)	Install dependencies	2026-08-03T16:53:12.0205734Z Resolving dependencies...
+build (windows-latest)	Install dependencies	2026-08-03T16:53:12.5231818Z Downloading packages...
+build (windows-latest)	Install dependencies	2026-08-03T16:53:28.8028534Z   _fe_analyzer_shared 99.0.0 (105.0.0 available)
+build (windows-latest)	Install dependencies	2026-08-03T16:53:28.8031592Z   analyzer 12.1.0 (14.1.0 available)
+build (windows-latest)	Install dependencies	2026-08-03T16:53:28.8032206Z   cross_file 0.3.5+2 (0.3.5+4 available)
+build (windows-latest)	Install dependencies	2026-08-03T16:53:28.8033081Z   file_picker 11.0.2 (11.0.3 available)
+build (windows-latest)	Install dependencies	2026-08-03T16:53:28.8034745Z   flutter_riverpod 3.3.2 (3.4.2 available)
+build (windows-latest)	Install dependencies	2026-08-03T16:53:28.8035519Z   hooks 2.0.2 (2.1.0 available)
+build (windows-latest)	Install dependencies	2026-08-03T16:53:28.8035993Z   jni 1.0.0 (1.0.3 available)
+build (windows-latest)	Install dependencies	2026-08-03T16:53:28.8036451Z   jni_flutter 1.0.1 (1.0.2 available)
+build (windows-latest)	Install dependencies	2026-08-03T16:53:28.8036976Z   matcher 0.12.19 (0.12.20 available)
+build (windows-latest)	Install dependencies	2026-08-03T16:53:28.8037489Z   meta 1.18.0 (1.19.0 available)
+build (windows-latest)	Install dependencies	2026-08-03T16:53:28.8038007Z   objective_c 9.4.1 (9.5.0 available)
+build (windows-latest)	Install dependencies	2026-08-03T16:53:28.8038562Z   package_config 2.2.0 (3.0.0 available)
+build (windows-latest)	Install dependencies	2026-08-03T16:53:28.8039120Z   path_provider 2.1.5 (2.1.6 available)
+build (windows-latest)	Install dependencies	2026-08-03T16:53:28.8039655Z   path_provider_linux 2.2.1 (2.2.2 available)
+build (windows-latest)	Install dependencies	2026-08-03T16:53:28.8040288Z   path_provider_platform_interface 2.1.2 (2.1.3 available)
+build (windows-latest)	Install dependencies	2026-08-03T16:53:28.8040907Z   record_use 0.6.0 (1.0.0 available)
+build (windows-latest)	Install dependencies	2026-08-03T16:53:28.8041395Z   riverpod 3.3.2 (3.4.2 available)
+build (windows-latest)	Install dependencies	2026-08-03T16:53:28.8041882Z   screen_retriever 0.2.1 (0.2.2 available)
+build (windows-latest)	Install dependencies	2026-08-03T16:53:28.8042449Z   screen_retriever_linux 0.2.1 (0.2.2 available)
+build (windows-latest)	Install dependencies	2026-08-03T16:53:28.8043050Z   screen_retriever_macos 0.2.1 (0.2.2 available)
+build (windows-latest)	Install dependencies	2026-08-03T16:53:28.8043714Z   screen_retriever_platform_interface 0.2.1 (0.2.2 available)
+build (windows-latest)	Install dependencies	2026-08-03T16:53:28.8044414Z   screen_retriever_windows 0.2.1 (0.2.2 available)
+build (windows-latest)	Install dependencies	2026-08-03T16:53:28.8045065Z   shared_preferences_android 2.4.26 (2.4.27 available)
+build (windows-latest)	Install dependencies	2026-08-03T16:53:28.8045647Z   test 1.31.0 (1.31.2 available)
+build (windows-latest)	Install dependencies	2026-08-03T16:53:28.8046108Z   test_api 0.7.11 (0.7.13 available)
+build (windows-latest)	Install dependencies	2026-08-03T16:53:28.8046596Z   test_core 0.6.17 (0.6.19 available)
+build (windows-latest)	Install dependencies	2026-08-03T16:53:28.8047087Z   vector_math 2.2.0 (2.4.2 available)
+build (windows-latest)	Install dependencies	2026-08-03T16:53:28.8047573Z   win32 5.15.0 (6.3.0 available)
+build (windows-latest)	Install dependencies	2026-08-03T16:53:28.8048043Z   window_manager 0.5.1 (0.5.2 available)
+build (windows-latest)	Install dependencies	2026-08-03T16:53:28.8048547Z   xml 6.6.1 (7.0.1 available)
+build (windows-latest)	Install dependencies	2026-08-03T16:53:28.8049012Z Got dependencies!
+build (windows-latest)	Install dependencies	2026-08-03T16:53:28.8049618Z 30 packages have newer versions incompatible with dependency constraints.
+build (windows-latest)	Install dependencies	2026-08-03T16:53:28.8050375Z Try `flutter pub outdated` for more information.
+build (windows-latest)	Build	﻿2026-08-03T16:53:29.3675183Z ##[group]Run flutter build windows
+build (windows-latest)	Build	2026-08-03T16:53:29.3675603Z ^[[36;1mflutter build windows^[[0m
+build (windows-latest)	Build	2026-08-03T16:53:29.3746504Z shell: C:\Program Files\PowerShell\7\pwsh.EXE -command ". '{0}'"
+build (windows-latest)	Build	2026-08-03T16:53:29.3746981Z env:
+build (windows-latest)	Build	2026-08-03T16:53:29.3747205Z   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+build (windows-latest)	Build	2026-08-03T16:53:29.3747559Z   CARGO_TERM_COLOR: always
+build (windows-latest)	Build	2026-08-03T16:53:29.3747852Z   CARGO_HOME: C:\Users\runneradmin\.cargo
+build (windows-latest)	Build	2026-08-03T16:53:29.3748174Z   CARGO_INCREMENTAL: 0
+build (windows-latest)	Build	2026-08-03T16:53:29.3748470Z   CACHE_ON_FAILURE: false
+build (windows-latest)	Build	2026-08-03T16:53:29.3748886Z   FLUTTER_ROOT: C:\hostedtoolcache\windows\flutter\stable-3.44.8-x64/flutter
+build (windows-latest)	Build	2026-08-03T16:53:29.3749409Z   PUB_CACHE: C:\Users\runneradmin\AppData\Local\Pub\Cache
+build (windows-latest)	Build	2026-08-03T16:53:29.3749776Z   LLVM_PATH: D:\a\_temp\llvm
+build (windows-latest)	Build	2026-08-03T16:53:29.3750118Z   LD_LIBRARY_PATH: D:\a\_temp\llvm\lib;
+build (windows-latest)	Build	2026-08-03T16:53:29.3774411Z   DYLD_LIBRARY_PATH: D:\a\_temp\llvm\lib;undefined
+build (windows-latest)	Build	2026-08-03T16:53:29.3774741Z   LIBCLANG_PATH: D:\a\_temp\llvm/bin
+build (windows-latest)	Build	2026-08-03T16:53:29.3775088Z   CPAL_ASIO_DIR: D:\a\Atmos\Atmos\ASIOSDK_EXTRACTED\ASIOSDK
+build (windows-latest)	Build	2026-08-03T16:53:29.3775465Z ##[endgroup]
+build (windows-latest)	Build	2026-08-03T16:53:30.5473062Z Resolving dependencies...
+build (windows-latest)	Build	2026-08-03T16:53:30.7229531Z Downloading packages...
+build (windows-latest)	Build	2026-08-03T16:53:30.8267465Z   _fe_analyzer_shared 99.0.0 (105.0.0 available)
+build (windows-latest)	Build	2026-08-03T16:53:30.8268086Z   analyzer 12.1.0 (14.1.0 available)
+build (windows-latest)	Build	2026-08-03T16:53:30.8268782Z   cross_file 0.3.5+2 (0.3.5+4 available)
+build (windows-latest)	Build	2026-08-03T16:53:30.8269259Z   file_picker 11.0.2 (11.0.3 available)
+build (windows-latest)	Build	2026-08-03T16:53:30.8269724Z   flutter_riverpod 3.3.2 (3.4.2 available)
+build (windows-latest)	Build	2026-08-03T16:53:30.8270588Z   hooks 2.0.2 (2.1.0 available)
+build (windows-latest)	Build	2026-08-03T16:53:30.8270935Z   jni 1.0.0 (1.0.3 available)
+build (windows-latest)	Build	2026-08-03T16:53:30.8271592Z   jni_flutter 1.0.1 (1.0.2 available)
+build (windows-latest)	Build	2026-08-03T16:53:30.8272036Z   matcher 0.12.19 (0.12.20 available)
+build (windows-latest)	Build	2026-08-03T16:53:30.8272448Z   meta 1.18.0 (1.19.0 available)
+build (windows-latest)	Build	2026-08-03T16:53:30.8272850Z   objective_c 9.4.1 (9.5.0 available)
+build (windows-latest)	Build	2026-08-03T16:53:30.8273289Z   package_config 2.2.0 (3.0.0 available)
+build (windows-latest)	Build	2026-08-03T16:53:30.8273761Z   path_provider 2.1.5 (2.1.6 available)
+build (windows-latest)	Build	2026-08-03T16:53:30.8274235Z   path_provider_linux 2.2.1 (2.2.2 available)
+build (windows-latest)	Build	2026-08-03T16:53:30.8274800Z   path_provider_platform_interface 2.1.2 (2.1.3 available)
+build (windows-latest)	Build	2026-08-03T16:53:30.8275334Z   record_use 0.6.0 (1.0.0 available)
+build (windows-latest)	Build	2026-08-03T16:53:30.8275775Z   riverpod 3.3.2 (3.4.2 available)
+build (windows-latest)	Build	2026-08-03T16:53:30.8276068Z   screen_retriever 0.2.1 (0.2.2 available)
+build (windows-latest)	Build	2026-08-03T16:53:30.8276398Z   screen_retriever_linux 0.2.1 (0.2.2 available)
+build (windows-latest)	Build	2026-08-03T16:53:30.8276774Z   screen_retriever_macos 0.2.1 (0.2.2 available)
+build (windows-latest)	Build	2026-08-03T16:53:30.8277173Z   screen_retriever_platform_interface 0.2.1 (0.2.2 available)
+build (windows-latest)	Build	2026-08-03T16:53:30.8277844Z   screen_retriever_windows 0.2.1 (0.2.2 available)
+build (windows-latest)	Build	2026-08-03T16:53:30.8278346Z   shared_preferences_android 2.4.26 (2.4.27 available)
+build (windows-latest)	Build	2026-08-03T16:53:30.8278686Z   test 1.31.0 (1.31.2 available)
+build (windows-latest)	Build	2026-08-03T16:53:30.8278950Z   test_api 0.7.11 (0.7.13 available)
+build (windows-latest)	Build	2026-08-03T16:53:30.8279236Z   test_core 0.6.17 (0.6.19 available)
+build (windows-latest)	Build	2026-08-03T16:53:30.8279515Z   vector_math 2.2.0 (2.4.2 available)
+build (windows-latest)	Build	2026-08-03T16:53:30.8279786Z   win32 5.15.0 (6.3.0 available)
+build (windows-latest)	Build	2026-08-03T16:53:30.8280052Z   window_manager 0.5.1 (0.5.2 available)
+build (windows-latest)	Build	2026-08-03T16:53:30.8280338Z   xml 6.6.1 (7.0.1 available)
+build (windows-latest)	Build	2026-08-03T16:53:30.8280590Z Got dependencies!
+build (windows-latest)	Build	2026-08-03T16:53:30.8280952Z 30 packages have newer versions incompatible with dependency constraints.
+build (windows-latest)	Build	2026-08-03T16:53:30.8281433Z Try `flutter pub outdated` for more information.
+build (windows-latest)	Build	2026-08-03T16:59:55.1187664Z Building Windows application...                                 
+build (windows-latest)	Build	2026-08-03T16:59:55.1204192Z C:\Program Files\Microsoft Visual Studio\18\Enterprise\MSBuild\Microsoft\VC\v180\Microsoft.CppCommon.targets(254,5): error MSB8066: Custom build for 'D:\a\Atmos\Atmos\atmos_mixer_pro\build\windows\x64\CMakeFiles\9ff0ca6ea306a1a24e1cc77b9698445a\rust_lib_atmos_mixer_pro.dll.rule;D:\a\Atmos\Atmos\atmos_mixer_pro\build\windows\x64\CMakeFiles\212068248deebae943cf5d5d61895526\rust_lib_atmos_mixer_pro_cargokit.rule;D:\a\Atmos\Atmos\atmos_mixer_pro\windows\flutter\ephemeral\.plugin_symlinks\rust_lib_atmos_mixer_pro\windows\CMakeLists.txt' exited with code -1. [D:\a\Atmos\Atmos\atmos_mixer_pro\build\windows\x64\plugins\rust_lib_atmos_mixer_pro\rust_lib_atmos_mixer_pro_cargokit.vcxproj]
+build (windows-latest)	Build	2026-08-03T16:59:55.1688284Z Building Windows application...                                   380.3s
+build (windows-latest)	Build	2026-08-03T16:59:55.1785482Z Build process failed.
+build (windows-latest)	Build	2026-08-03T16:59:55.3059562Z ##[error]Process completed with exit code 1.
+build (windows-latest)	Post Set up Flutter	﻿2026-08-03T16:59:55.3665803Z Post job cleanup.
+build (windows-latest)	Post Checkout code	﻿2026-08-03T16:59:55.3871249Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+build (windows-latest)	Post Checkout code	2026-08-03T16:59:55.3872687Z Post job cleanup.
+build (windows-latest)	Post Checkout code	2026-08-03T16:59:55.6025872Z [command]"C:\Program Files\Git\bin\git.exe" version
+build (windows-latest)	Post Checkout code	2026-08-03T16:59:55.6354449Z git version 2.55.0.windows.3
+build (windows-latest)	Post Checkout code	2026-08-03T16:59:55.6429209Z Temporarily overriding HOME='D:\a\_temp\70b0ccc0-3711-45ba-8877-c532b4284582' before making global git config changes
+build (windows-latest)	Post Checkout code	2026-08-03T16:59:55.6430618Z Adding repository directory to the temporary git global config as a safe directory
+build (windows-latest)	Post Checkout code	2026-08-03T16:59:55.6440953Z [command]"C:\Program Files\Git\bin\git.exe" config --global --add safe.directory D:\a\Atmos\Atmos
+build (windows-latest)	Post Checkout code	2026-08-03T16:59:55.6780008Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp core\.sshCommand
+build (windows-latest)	Post Checkout code	2026-08-03T16:59:55.7092981Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\""
+build (windows-latest)	Post Checkout code	2026-08-03T16:59:56.2674787Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+build (windows-latest)	Post Checkout code	2026-08-03T16:59:56.3131326Z http.https://github.com/.extraheader
+build (windows-latest)	Post Checkout code	2026-08-03T16:59:56.3175749Z [command]"C:\Program Files\Git\bin\git.exe" config --local --unset-all http.https://github.com/.extraheader
+build (windows-latest)	Post Checkout code	2026-08-03T16:59:56.3468339Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\""
+build (windows-latest)	Post Checkout code	2026-08-03T16:59:56.8849486Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp ^includeIf\.gitdir:
+build (windows-latest)	Post Checkout code	2026-08-03T16:59:56.9135103Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "git config --local --show-origin --name-only --get-regexp remote.origin.url"
+build (windows-latest)	Complete job	﻿2026-08-03T16:59:57.4753653Z Cleaning up orphan processes
+build (windows-latest)	Complete job	2026-08-03T16:59:57.5433473Z Terminate orphan process: pid (1212) (vctip)
+build (windows-latest)	Complete job	2026-08-03T16:59:57.5451200Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, KyleMayes/install-llvm-action@v2. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+build (macos-latest)	Set up job	﻿2026-08-03T16:49:08.3076990Z Current runner version: '2.336.0'
+build (macos-latest)	Set up job	2026-08-03T16:49:08.3104450Z ##[group]Runner Image Provisioner
+build (macos-latest)	Set up job	2026-08-03T16:49:08.3105610Z Hosted Compute Agent
+build (macos-latest)	Set up job	2026-08-03T16:49:08.3106040Z Version: 20260707.563
+build (macos-latest)	Set up job	2026-08-03T16:49:08.3106500Z Commit: 02667638d2b423fbc733a8e32a88b44996a3ba6e
+build (macos-latest)	Set up job	2026-08-03T16:49:08.3107010Z Build Date: 2026-07-07T19:33:50Z
+build (macos-latest)	Set up job	2026-08-03T16:49:08.3107440Z Worker ID: {3a46ceb6-86da-4da6-b5b7-6936b6fe3048}
+build (macos-latest)	Set up job	2026-08-03T16:49:08.3107930Z Azure Region: westus
+build (macos-latest)	Set up job	2026-08-03T16:49:08.3108330Z ##[endgroup]
+build (macos-latest)	Set up job	2026-08-03T16:49:08.3109320Z ##[group]Operating System
+build (macos-latest)	Set up job	2026-08-03T16:49:08.3109760Z macOS
+build (macos-latest)	Set up job	2026-08-03T16:49:08.3110080Z 26.5.2
+build (macos-latest)	Set up job	2026-08-03T16:49:08.3110380Z 25F84
+build (macos-latest)	Set up job	2026-08-03T16:49:08.3110700Z ##[endgroup]
+build (macos-latest)	Set up job	2026-08-03T16:49:08.3111030Z ##[group]Runner Image
+build (macos-latest)	Set up job	2026-08-03T16:49:08.3111390Z Image: macos-26-arm64
+build (macos-latest)	Set up job	2026-08-03T16:49:08.3111750Z Version: 20260728.0273.1
+build (macos-latest)	Set up job	2026-08-03T16:49:08.3112940Z Included Software: https://github.com/actions/runner-images/blob/macos-26-arm64/20260728.0273/images/macos/macos-26-arm64-Readme.md
+build (macos-latest)	Set up job	2026-08-03T16:49:08.3114370Z Image Release: https://github.com/actions/runner-images/releases/tag/macos-26-arm64%2F20260728.0273
+build (macos-latest)	Set up job	2026-08-03T16:49:08.3115010Z ##[endgroup]
+build (macos-latest)	Set up job	2026-08-03T16:49:08.3115760Z ##[group]GITHUB_TOKEN Permissions
+build (macos-latest)	Set up job	2026-08-03T16:49:08.3117120Z Contents: write
+build (macos-latest)	Set up job	2026-08-03T16:49:08.3117490Z Metadata: read
+build (macos-latest)	Set up job	2026-08-03T16:49:08.3117850Z ##[endgroup]
+build (macos-latest)	Set up job	2026-08-03T16:49:08.3119500Z Secret source: Actions
+build (macos-latest)	Set up job	2026-08-03T16:49:08.3120150Z Prepare workflow directory
+build (macos-latest)	Set up job	2026-08-03T16:49:08.3475650Z Prepare all required actions
+build (macos-latest)	Set up job	2026-08-03T16:49:08.3513900Z Getting action download info
+build (macos-latest)	Set up job	2026-08-03T16:49:08.8008680Z Download action repository 'actions/checkout@v4' (SHA:11d5960a326750d5838078e36cf38b85af677262)
+build (macos-latest)	Set up job	2026-08-03T16:49:09.0303580Z Download action repository 'dtolnay/rust-toolchain@stable' (SHA:4cda84d5c5c54efe2404f9d843567869ab1699d4)
+build (macos-latest)	Set up job	2026-08-03T16:49:09.3046300Z Download action repository 'Swatinem/rust-cache@v2' (SHA:e18b497796c12c097a38f9edb9d0641fb99eee32)
+build (macos-latest)	Set up job	2026-08-03T16:49:09.8754870Z Download action repository 'subosito/flutter-action@v2' (SHA:1a449444c387b1966244ae4d4f8c696479add0b2)
+build (macos-latest)	Set up job	2026-08-03T16:49:10.2737790Z Download action repository 'KyleMayes/install-llvm-action@v2' (SHA:ebc0426251bc40c7cd31162802432c68818ab8f0)
+build (macos-latest)	Set up job	2026-08-03T16:49:10.6497630Z Download action repository 'thedoctor0/zip-release@0.7.6' (SHA:b57d897cb5d60cb78b51a507f63fa184cfe35554)
+build (macos-latest)	Set up job	2026-08-03T16:49:10.9246530Z Download action repository 'actions/upload-artifact@v4' (SHA:ea165f8d65b6e75b540449e92b4886f43607fa02)
+build (macos-latest)	Set up job	2026-08-03T16:49:11.4006210Z Getting action download info
+build (macos-latest)	Set up job	2026-08-03T16:49:11.5669170Z Download action repository 'actions/cache@v5' (SHA:caa296126883cff596d87d8935842f9db880ef25)
+build (macos-latest)	Set up job	2026-08-03T16:49:12.1319900Z Complete job name: build (macos-latest)
+build (macos-latest)	Checkout code	﻿2026-08-03T16:49:12.2110930Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+build (macos-latest)	Checkout code	2026-08-03T16:49:12.2118560Z ##[group]Run actions/checkout@v4
+build (macos-latest)	Checkout code	2026-08-03T16:49:12.2119000Z with:
+build (macos-latest)	Checkout code	2026-08-03T16:49:12.2119200Z   repository: Apejean/Atmos
+build (macos-latest)	Checkout code	2026-08-03T16:49:12.2121190Z   token: ***
+build (macos-latest)	Checkout code	2026-08-03T16:49:12.2121390Z   ssh-strict: true
+build (macos-latest)	Checkout code	2026-08-03T16:49:12.2121570Z   ssh-user: git
+build (macos-latest)	Checkout code	2026-08-03T16:49:12.2121760Z   persist-credentials: true
+build (macos-latest)	Checkout code	2026-08-03T16:49:12.2121970Z   clean: true
+build (macos-latest)	Checkout code	2026-08-03T16:49:12.2122150Z   sparse-checkout-cone-mode: true
+build (macos-latest)	Checkout code	2026-08-03T16:49:12.2122370Z   fetch-depth: 1
+build (macos-latest)	Checkout code	2026-08-03T16:49:12.2122540Z   fetch-tags: false
+build (macos-latest)	Checkout code	2026-08-03T16:49:12.2122720Z   show-progress: true
+build (macos-latest)	Checkout code	2026-08-03T16:49:12.2122890Z   lfs: false
+build (macos-latest)	Checkout code	2026-08-03T16:49:12.2123050Z   submodules: false
+build (macos-latest)	Checkout code	2026-08-03T16:49:12.2123290Z   set-safe-directory: true
+build (macos-latest)	Checkout code	2026-08-03T16:49:12.2123500Z   allow-unsafe-pr-checkout: false
+build (macos-latest)	Checkout code	2026-08-03T16:49:12.2123890Z env:
+build (macos-latest)	Checkout code	2026-08-03T16:49:12.2124080Z   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+build (macos-latest)	Checkout code	2026-08-03T16:49:12.2124340Z   CARGO_TERM_COLOR: always
+build (macos-latest)	Checkout code	2026-08-03T16:49:12.2124970Z ##[endgroup]
+build (macos-latest)	Checkout code	2026-08-03T16:49:12.7550410Z Syncing repository: Apejean/Atmos
+build (macos-latest)	Checkout code	2026-08-03T16:49:12.7551910Z ##[group]Getting Git version info
+build (macos-latest)	Checkout code	2026-08-03T16:49:12.7552290Z Working directory is '/Users/runner/work/Atmos/Atmos'
+build (macos-latest)	Checkout code	2026-08-03T16:49:12.7552780Z [command]/opt/homebrew/bin/git version
+build (macos-latest)	Checkout code	2026-08-03T16:49:12.7822760Z git version 2.55.0
+build (macos-latest)	Checkout code	2026-08-03T16:49:12.7839930Z ##[endgroup]
+build (macos-latest)	Checkout code	2026-08-03T16:49:12.7847810Z Copying '/Users/runner/.gitconfig' to '/Users/runner/work/_temp/eb60eb41-d003-4b6a-8efc-39fbfa73a1c2/.gitconfig'
+build (macos-latest)	Checkout code	2026-08-03T16:49:12.7857480Z Temporarily overriding HOME='/Users/runner/work/_temp/eb60eb41-d003-4b6a-8efc-39fbfa73a1c2' before making global git config changes
+build (macos-latest)	Checkout code	2026-08-03T16:49:12.7858280Z Adding repository directory to the temporary git global config as a safe directory
+build (macos-latest)	Checkout code	2026-08-03T16:49:12.7864150Z [command]/opt/homebrew/bin/git config --global --add safe.directory /Users/runner/work/Atmos/Atmos
+build (macos-latest)	Checkout code	2026-08-03T16:49:12.7975350Z Deleting the contents of '/Users/runner/work/Atmos/Atmos'
+build (macos-latest)	Checkout code	2026-08-03T16:49:12.7979920Z ##[group]Initializing the repository
+build (macos-latest)	Checkout code	2026-08-03T16:49:12.7985980Z [command]/opt/homebrew/bin/git init /Users/runner/work/Atmos/Atmos
+build (macos-latest)	Checkout code	2026-08-03T16:49:12.8206880Z hint: Using 'master' as the name for the initial branch. This default branch name
+build (macos-latest)	Checkout code	2026-08-03T16:49:12.8207520Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+build (macos-latest)	Checkout code	2026-08-03T16:49:12.8208220Z hint: to use in all of your new repositories, which will suppress this warning,
+build (macos-latest)	Checkout code	2026-08-03T16:49:12.8208630Z hint: call:
+build (macos-latest)	Checkout code	2026-08-03T16:49:12.8208840Z hint:
+build (macos-latest)	Checkout code	2026-08-03T16:49:12.8209140Z hint: 	git config --global init.defaultBranch <name>
+build (macos-latest)	Checkout code	2026-08-03T16:49:12.8209450Z hint:
+build (macos-latest)	Checkout code	2026-08-03T16:49:12.8209760Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+build (macos-latest)	Checkout code	2026-08-03T16:49:12.8210260Z hint: 'development'. The just-created branch can be renamed via this command:
+build (macos-latest)	Checkout code	2026-08-03T16:49:12.8210700Z hint:
+build (macos-latest)	Checkout code	2026-08-03T16:49:12.8210890Z hint: 	git branch -m <name>
+build (macos-latest)	Checkout code	2026-08-03T16:49:12.8211100Z hint:
+build (macos-latest)	Checkout code	2026-08-03T16:49:12.8211430Z hint: Disable this message with "git config set advice.defaultBranchName false"
+build (macos-latest)	Checkout code	2026-08-03T16:49:12.8211880Z Initialized empty Git repository in /Users/runner/work/Atmos/Atmos/.git/
+build (macos-latest)	Checkout code	2026-08-03T16:49:12.8220230Z [command]/opt/homebrew/bin/git remote add origin https://github.com/Apejean/Atmos
+build (macos-latest)	Checkout code	2026-08-03T16:49:12.8316300Z ##[endgroup]
+build (macos-latest)	Checkout code	2026-08-03T16:49:12.8316810Z ##[group]Disabling automatic garbage collection
+build (macos-latest)	Checkout code	2026-08-03T16:49:12.8319160Z [command]/opt/homebrew/bin/git config --local gc.auto 0
+build (macos-latest)	Checkout code	2026-08-03T16:49:12.8396600Z ##[endgroup]
+build (macos-latest)	Checkout code	2026-08-03T16:49:12.8397230Z ##[group]Setting up auth
+build (macos-latest)	Checkout code	2026-08-03T16:49:12.8401750Z [command]/opt/homebrew/bin/git config --local --name-only --get-regexp core\.sshCommand
+build (macos-latest)	Checkout code	2026-08-03T16:49:12.8480290Z [command]/opt/homebrew/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+build (macos-latest)	Checkout code	2026-08-03T16:49:12.9655210Z [command]/opt/homebrew/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+build (macos-latest)	Checkout code	2026-08-03T16:49:12.9724490Z [command]/opt/homebrew/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+build (macos-latest)	Checkout code	2026-08-03T16:49:13.0666250Z [command]/opt/homebrew/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+build (macos-latest)	Checkout code	2026-08-03T16:49:13.0733060Z [command]/opt/homebrew/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+build (macos-latest)	Checkout code	2026-08-03T16:49:13.2592030Z [command]/opt/homebrew/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+build (macos-latest)	Checkout code	2026-08-03T16:49:13.2774210Z ##[endgroup]
+build (macos-latest)	Checkout code	2026-08-03T16:49:13.2774740Z ##[group]Fetching the repository
+build (macos-latest)	Checkout code	2026-08-03T16:49:13.2776450Z [command]/opt/homebrew/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +bdf3718c4528fd99241d51f0036b7ba419c8175e:refs/tags/v1.0.89
+build (macos-latest)	Checkout code	2026-08-03T16:49:14.9533550Z From https://github.com/Apejean/Atmos
+build (macos-latest)	Checkout code	2026-08-03T16:49:14.9545810Z  * [new ref]         bdf3718c4528fd99241d51f0036b7ba419c8175e -> v1.0.89
+build (macos-latest)	Checkout code	2026-08-03T16:49:14.9616400Z ##[endgroup]
+build (macos-latest)	Checkout code	2026-08-03T16:49:14.9616960Z ##[group]Determining the checkout info
+build (macos-latest)	Checkout code	2026-08-03T16:49:14.9617380Z ##[endgroup]
+build (macos-latest)	Checkout code	2026-08-03T16:49:14.9617880Z [command]/opt/homebrew/bin/git sparse-checkout disable
+build (macos-latest)	Checkout code	2026-08-03T16:49:14.9673880Z [command]/opt/homebrew/bin/git config --local --unset-all extensions.worktreeConfig
+build (macos-latest)	Checkout code	2026-08-03T16:49:14.9780100Z ##[group]Checking out the ref
+build (macos-latest)	Checkout code	2026-08-03T16:49:14.9782240Z [command]/opt/homebrew/bin/git checkout --progress --force refs/tags/v1.0.89
+build (macos-latest)	Checkout code	2026-08-03T16:49:15.4726730Z HEAD is now at bdf3718 fix(ci): fix Swatinem/rust-cache workspaces path and specify x86_64-pc-windows-msvc target
+build (macos-latest)	Checkout code	2026-08-03T16:49:15.4773370Z ##[endgroup]
+build (macos-latest)	Checkout code	2026-08-03T16:49:15.4893870Z [command]/opt/homebrew/bin/git log -1 --format=%H
+build (macos-latest)	Checkout code	2026-08-03T16:49:15.4982760Z bdf3718c4528fd99241d51f0036b7ba419c8175e
+build (macos-latest)	Install Rust	﻿2026-08-03T16:49:15.5326870Z ##[group]Run dtolnay/rust-toolchain@stable
+build (macos-latest)	Install Rust	2026-08-03T16:49:15.5327280Z with:
+build (macos-latest)	Install Rust	2026-08-03T16:49:15.5327520Z   targets: x86_64-pc-windows-msvc
+build (macos-latest)	Install Rust	2026-08-03T16:49:15.5327770Z   toolchain: stable
+build (macos-latest)	Install Rust	2026-08-03T16:49:15.5328100Z env:
+build (macos-latest)	Install Rust	2026-08-03T16:49:15.5328290Z   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+build (macos-latest)	Install Rust	2026-08-03T16:49:15.5328610Z   CARGO_TERM_COLOR: always
+build (macos-latest)	Install Rust	2026-08-03T16:49:15.5328890Z ##[endgroup]
+build (macos-latest)	Install Rust	2026-08-03T16:49:15.5447100Z ##[start-action display=Run : parse toolchain version;id=__dtolnay_rust-toolchain.parse]
+build (macos-latest)	Install Rust	2026-08-03T16:49:15.5503050Z ##[group]Run : parse toolchain version
+build (macos-latest)	Install Rust	2026-08-03T16:49:15.5503420Z ^[[36;1m: parse toolchain version^[[0m
+build (macos-latest)	Install Rust	2026-08-03T16:49:15.5503630Z ^[[36;1mif [[ -z $toolchain ]]; then^[[0m
+build (macos-latest)	Install Rust	2026-08-03T16:49:15.5504090Z ^[[36;1m  # GitHub does not enforce `required: true` inputs itself. https://github.com/actions/runner/issues/1070^[[0m
+build (macos-latest)	Install Rust	2026-08-03T16:49:15.5504580Z ^[[36;1m  echo "'toolchain' is a required input" >&2^[[0m
+build (macos-latest)	Install Rust	2026-08-03T16:49:15.5504820Z ^[[36;1m  exit 1^[[0m
+build (macos-latest)	Install Rust	2026-08-03T16:49:15.5505090Z ^[[36;1melif [[ $toolchain =~ ^stable' '[0-9]+' '(year|month|week|day)s?' 'ago$ ]]; then^[[0m
+build (macos-latest)	Install Rust	2026-08-03T16:49:15.5505530Z ^[[36;1m  if [[ macOS == macOS ]]; then^[[0m
+build (macos-latest)	Install Rust	2026-08-03T16:49:15.5505980Z ^[[36;1m    echo "toolchain=1.$((($(date -v-$(sed 's/stable \([0-9]*\) \(.\).*/\1\2/' <<< $toolchain) +%s)/60/60/24-16569)/7/6))" >> $GITHUB_OUTPUT^[[0m
+build (macos-latest)	Install Rust	2026-08-03T16:49:15.5506420Z ^[[36;1m  else^[[0m
+build (macos-latest)	Install Rust	2026-08-03T16:49:15.5506730Z ^[[36;1m    echo "toolchain=1.$((($(date --date "${toolchain#stable }" +%s)/60/60/24-16569)/7/6))" >> $GITHUB_OUTPUT^[[0m
+build (macos-latest)	Install Rust	2026-08-03T16:49:15.5507130Z ^[[36;1m  fi^[[0m
+build (macos-latest)	Install Rust	2026-08-03T16:49:15.5507350Z ^[[36;1melif [[ $toolchain =~ ^stable' 'minus' '[0-9]+' 'releases?$ ]]; then^[[0m
+build (macos-latest)	Install Rust	2026-08-03T16:49:15.5507820Z ^[[36;1m  echo "toolchain=1.$((($(date +%s)/60/60/24-16569)/7/6-${toolchain//[^0-9]/}))" >> $GITHUB_OUTPUT^[[0m
+build (macos-latest)	Install Rust	2026-08-03T16:49:15.5508220Z ^[[36;1melif [[ $toolchain =~ ^1\.[0-9]+$ ]]; then^[[0m
+build (macos-latest)	Install Rust	2026-08-03T16:49:15.5508650Z ^[[36;1m  echo "toolchain=1.$((i=${toolchain#1.}, c=($(date +%s)/60/60/24-16569)/7/6, i+9*i*(10*i<=c)+90*i*(100*i<=c)))" >> $GITHUB_OUTPUT^[[0m
+build (macos-latest)	Install Rust	2026-08-03T16:49:15.5509050Z ^[[36;1melse^[[0m
+build (macos-latest)	Install Rust	2026-08-03T16:49:15.5509310Z ^[[36;1m  echo "toolchain=$toolchain" >> $GITHUB_OUTPUT^[[0m
+build (macos-latest)	Install Rust	2026-08-03T16:49:15.5509580Z ^[[36;1mfi^[[0m
+build (macos-latest)	Install Rust	2026-08-03T16:49:15.5558440Z shell: /bin/bash --noprofile --norc -e -o pipefail {0}
+build (macos-latest)	Install Rust	2026-08-03T16:49:15.5558790Z env:
+build (macos-latest)	Install Rust	2026-08-03T16:49:15.5558950Z   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+build (macos-latest)	Install Rust	2026-08-03T16:49:15.5559170Z   CARGO_TERM_COLOR: always
+build (macos-latest)	Install Rust	2026-08-03T16:49:15.5559330Z   toolchain: stable
+build (macos-latest)	Install Rust	2026-08-03T16:49:15.5559530Z ##[endgroup]
+build (macos-latest)	Install Rust	2026-08-03T16:49:15.6127310Z ##[end-action id=__dtolnay_rust-toolchain.parse;outcome=success;conclusion=success;duration_ms=67]
+build (macos-latest)	Install Rust	2026-08-03T16:49:15.6146810Z ##[start-action display=Run : construct rustup command line;id=__dtolnay_rust-toolchain.flags]
+build (macos-latest)	Install Rust	2026-08-03T16:49:15.6168770Z ##[group]Run : construct rustup command line
+build (macos-latest)	Install Rust	2026-08-03T16:49:15.6169540Z ^[[36;1m: construct rustup command line^[[0m
+build (macos-latest)	Install Rust	2026-08-03T16:49:15.6169920Z ^[[36;1mecho "targets=$(for t in ${targets//,/ }; do echo -n ' --target' $t; done)" >> $GITHUB_OUTPUT^[[0m
+build (macos-latest)	Install Rust	2026-08-03T16:49:15.6170860Z ^[[36;1mecho "components=$(for c in ${components//,/ }; do echo -n ' --component' $c; done)" >> $GITHUB_OUTPUT^[[0m
+build (macos-latest)	Install Rust	2026-08-03T16:49:15.6171320Z ^[[36;1mecho "downgrade=" >> $GITHUB_OUTPUT^[[0m
+build (macos-latest)	Install Rust	2026-08-03T16:49:15.6203320Z shell: /bin/bash --noprofile --norc -e -o pipefail {0}
+build (macos-latest)	Install Rust	2026-08-03T16:49:15.6203670Z env:
+build (macos-latest)	Install Rust	2026-08-03T16:49:15.6203860Z   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+build (macos-latest)	Install Rust	2026-08-03T16:49:15.6204120Z   CARGO_TERM_COLOR: always
+build (macos-latest)	Install Rust	2026-08-03T16:49:15.6204310Z   targets: x86_64-pc-windows-msvc
+build (macos-latest)	Install Rust	2026-08-03T16:49:15.6204530Z   components: 
+build (macos-latest)	Install Rust	2026-08-03T16:49:15.6204680Z ##[endgroup]
+build (macos-latest)	Install Rust	2026-08-03T16:49:15.6673560Z ##[end-action id=__dtolnay_rust-toolchain.flags;outcome=success;conclusion=success;duration_ms=52]
+build (macos-latest)	Install Rust	2026-08-03T16:49:15.6677630Z ##[start-action display=Run : set $CARGO_HOME;id=__dtolnay_rust-toolchain.__run]
+build (macos-latest)	Install Rust	2026-08-03T16:49:15.6696460Z ##[group]Run : set $CARGO_HOME
+build (macos-latest)	Install Rust	2026-08-03T16:49:15.6697230Z ^[[36;1m: set $CARGO_HOME^[[0m
+build (macos-latest)	Install Rust	2026-08-03T16:49:15.6697550Z ^[[36;1mecho CARGO_HOME=${CARGO_HOME:-"$HOME/.cargo"} >> $GITHUB_ENV^[[0m
+build (macos-latest)	Install Rust	2026-08-03T16:49:15.6732190Z shell: /bin/bash --noprofile --norc -e -o pipefail {0}
+build (macos-latest)	Install Rust	2026-08-03T16:49:15.6732530Z env:
+build (macos-latest)	Install Rust	2026-08-03T16:49:15.6732720Z   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+build (macos-latest)	Install Rust	2026-08-03T16:49:15.6733580Z   CARGO_TERM_COLOR: always
+build (macos-latest)	Install Rust	2026-08-03T16:49:15.6733850Z ##[endgroup]
+build (macos-latest)	Install Rust	2026-08-03T16:49:15.7123380Z ##[end-action id=__dtolnay_rust-toolchain.__run;outcome=success;conclusion=success;duration_ms=44]
+build (macos-latest)	Install Rust	2026-08-03T16:49:15.7125810Z ##[start-action display=Run : install rustup if needed;id=__dtolnay_rust-toolchain.__run_2]
+build (macos-latest)	Install Rust	2026-08-03T16:49:15.7177450Z ##[group]Run : install rustup if needed
+build (macos-latest)	Install Rust	2026-08-03T16:49:15.7177780Z ^[[36;1m: install rustup if needed^[[0m
+build (macos-latest)	Install Rust	2026-08-03T16:49:15.7178020Z ^[[36;1mif ! command -v rustup &>/dev/null; then^[[0m
+build (macos-latest)	Install Rust	2026-08-03T16:49:15.7178640Z ^[[36;1m  curl --proto '=https' --tlsv1.2 --retry 10 --retry-connrefused --location --silent --show-error --fail https://sh.rustup.rs | sh -s -- --default-toolchain none -y^[[0m
+build (macos-latest)	Install Rust	2026-08-03T16:49:15.7179300Z ^[[36;1m  echo "$CARGO_HOME/bin" >> $GITHUB_PATH^[[0m
+build (macos-latest)	Install Rust	2026-08-03T16:49:15.7179510Z ^[[36;1mfi^[[0m
+build (macos-latest)	Install Rust	2026-08-03T16:49:15.7213720Z shell: /bin/bash --noprofile --norc -e -o pipefail {0}
+build (macos-latest)	Install Rust	2026-08-03T16:49:15.7214130Z env:
+build (macos-latest)	Install Rust	2026-08-03T16:49:15.7214330Z   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+build (macos-latest)	Install Rust	2026-08-03T16:49:15.7214560Z   CARGO_TERM_COLOR: always
+build (macos-latest)	Install Rust	2026-08-03T16:49:15.7214780Z   CARGO_HOME: /Users/runner/.cargo
+build (macos-latest)	Install Rust	2026-08-03T16:49:15.7214990Z ##[endgroup]
+build (macos-latest)	Install Rust	2026-08-03T16:49:15.7695930Z ##[end-action id=__dtolnay_rust-toolchain.__run_2;outcome=success;conclusion=success;duration_ms=56]
+build (macos-latest)	Install Rust	2026-08-03T16:49:15.7700930Z ##[start-action display=Run : install rustup if needed on windows;id=__dtolnay_rust-toolchain.__run_3]
+build (macos-latest)	Install Rust	2026-08-03T16:49:15.7708250Z ##[end-action id=__dtolnay_rust-toolchain.__run_3;outcome=skipped;conclusion=skipped;duration_ms=0]
+build (macos-latest)	Install Rust	2026-08-03T16:49:15.7711100Z ##[start-action display=rustup toolchain install stable;id=__dtolnay_rust-toolchain.__run_4]
+build (macos-latest)	Install Rust	2026-08-03T16:49:15.7740200Z ##[group]Run rustup toolchain install stable --target x86_64-pc-windows-msvc --profile minimal --no-self-update
+build (macos-latest)	Install Rust	2026-08-03T16:49:15.7741990Z ^[[36;1mrustup toolchain install stable --target x86_64-pc-windows-msvc --profile minimal --no-self-update^[[0m
+build (macos-latest)	Install Rust	2026-08-03T16:49:15.7803030Z shell: /bin/bash --noprofile --norc -e -o pipefail {0}
+build (macos-latest)	Install Rust	2026-08-03T16:49:15.7803380Z env:
+build (macos-latest)	Install Rust	2026-08-03T16:49:15.7803580Z   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+build (macos-latest)	Install Rust	2026-08-03T16:49:15.7803810Z   CARGO_TERM_COLOR: always
+build (macos-latest)	Install Rust	2026-08-03T16:49:15.7804010Z   CARGO_HOME: /Users/runner/.cargo
+build (macos-latest)	Install Rust	2026-08-03T16:49:15.7804350Z   RUSTUP_PERMIT_COPY_RENAME: 1
+build (macos-latest)	Install Rust	2026-08-03T16:49:15.7804590Z ##[endgroup]
+build (macos-latest)	Install Rust	2026-08-03T16:49:16.1486610Z info: syncing channel updates for stable-aarch64-apple-darwin
+build (macos-latest)	Install Rust	2026-08-03T16:49:16.3060760Z info: latest update on 2026-07-16 for version 1.97.1 (8bab26f4f 2026-07-14)
+build (macos-latest)	Install Rust	2026-08-03T16:49:16.3225280Z info: downloading component rust-std
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.3789200Z 
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.3971520Z   stable-aarch64-apple-darwin updated - rustc 1.97.1 (8bab26f4f 2026-07-14) (from rustc 1.97.1 (8bab26f4f 2026-07-14))
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.3972890Z info: self-update is disabled for this build of rustup
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.3973200Z 
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.3973590Z info: any updates to rustup will need to be fetched with your system package manager
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.4428640Z ##[end-action id=__dtolnay_rust-toolchain.__run_4;outcome=success;conclusion=success;duration_ms=2671]
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.4446910Z ##[start-action display=Run rustup default stable;id=__dtolnay_rust-toolchain.__run_5]
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.4550920Z ##[group]Run rustup default stable
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.4551620Z ^[[36;1mrustup default stable^[[0m
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.4599780Z shell: /bin/bash --noprofile --norc -e -o pipefail {0}
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.4600220Z env:
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.4600480Z   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.4601070Z   CARGO_TERM_COLOR: always
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.4601300Z   CARGO_HOME: /Users/runner/.cargo
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.4602100Z ##[endgroup]
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.5610280Z info: using existing install for stable-aarch64-apple-darwin
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.5627530Z info: default toolchain set to stable-aarch64-apple-darwin
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.5627790Z 
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.5737740Z   stable-aarch64-apple-darwin unchanged - rustc 1.97.1 (8bab26f4f 2026-07-14)
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.5738180Z 
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.5752050Z ##[end-action id=__dtolnay_rust-toolchain.__run_5;outcome=success;conclusion=success;duration_ms=130]
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.5756210Z ##[start-action display=Run : create cachekey;id=__dtolnay_rust-toolchain.rustc-version]
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.5788220Z ##[group]Run : create cachekey
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.5788580Z ^[[36;1m: create cachekey^[[0m
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.5788990Z ^[[36;1mDATE=$(rustc +stable --version --verbose | sed -ne 's/^commit-date: \(20[0-9][0-9]\)-\([01][0-9]\)-\([0-3][0-9]\)$/\1\2\3/p')^[[0m
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.5789630Z ^[[36;1mHASH=$(rustc +stable --version --verbose | sed -ne 's/^commit-hash: //p')^[[0m
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.5790050Z ^[[36;1mecho "cachekey=$(echo $DATE$HASH | head -c12)" >> $GITHUB_OUTPUT^[[0m
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.5825260Z shell: /bin/bash --noprofile --norc -e -o pipefail {0}
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.5825560Z env:
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.5825840Z   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.5826120Z   CARGO_TERM_COLOR: always
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.5826440Z   CARGO_HOME: /Users/runner/.cargo
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.5826650Z ##[endgroup]
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.7086350Z ##[end-action id=__dtolnay_rust-toolchain.rustc-version;outcome=success;conclusion=success;duration_ms=132]
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.7089090Z ##[start-action display=Run : disable incremental compilation;id=__dtolnay_rust-toolchain.__run_6]
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.7111140Z ##[group]Run : disable incremental compilation
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.7111480Z ^[[36;1m: disable incremental compilation^[[0m
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.7111850Z ^[[36;1mif [ -z "${CARGO_INCREMENTAL+set}" ]; then^[[0m
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.7112260Z ^[[36;1m  echo CARGO_INCREMENTAL=0 >> $GITHUB_ENV^[[0m
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.7112580Z ^[[36;1mfi^[[0m
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.7148160Z shell: /bin/bash --noprofile --norc -e -o pipefail {0}
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.7148550Z env:
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.7148770Z   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.7149040Z   CARGO_TERM_COLOR: always
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.7149320Z   CARGO_HOME: /Users/runner/.cargo
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.7149620Z ##[endgroup]
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.7631920Z ##[end-action id=__dtolnay_rust-toolchain.__run_6;outcome=success;conclusion=success;duration_ms=54]
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.7634680Z ##[start-action display=Run : enable colors in Cargo output;id=__dtolnay_rust-toolchain.__run_7]
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.7657080Z ##[group]Run : enable colors in Cargo output
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.7657530Z ^[[36;1m: enable colors in Cargo output^[[0m
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.7657820Z ^[[36;1mif [ -z "${CARGO_TERM_COLOR+set}" ]; then^[[0m
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.7658640Z ^[[36;1m  echo CARGO_TERM_COLOR=always >> $GITHUB_ENV^[[0m
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.7658980Z ^[[36;1mfi^[[0m
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.7691510Z shell: /bin/bash --noprofile --norc -e -o pipefail {0}
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.7691780Z env:
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.7692030Z   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.7692250Z   CARGO_TERM_COLOR: always
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.7692460Z   CARGO_HOME: /Users/runner/.cargo
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.7692650Z   CARGO_INCREMENTAL: 0
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.7692870Z ##[endgroup]
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.8131530Z ##[end-action id=__dtolnay_rust-toolchain.__run_7;outcome=success;conclusion=success;duration_ms=49]
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.8135830Z ##[start-action display=Run : enable Cargo sparse registry;id=__dtolnay_rust-toolchain.__run_8]
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.8159670Z ##[group]Run : enable Cargo sparse registry
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.8160050Z ^[[36;1m: enable Cargo sparse registry^[[0m
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.8160370Z ^[[36;1m# implemented in 1.66, stabilized in 1.68, made default in 1.70^[[0m
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.8161010Z ^[[36;1mif [ -z "${CARGO_REGISTRIES_CRATES_IO_PROTOCOL+set}" -o -f "/Users/runner/work/_temp"/.implicit_cargo_registries_crates_io_protocol ]; then^[[0m
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.8162020Z ^[[36;1m  if rustc +stable --version --verbose | grep -q '^release: 1\.6[89]\.'; then^[[0m
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.8162510Z ^[[36;1m    touch "/Users/runner/work/_temp"/.implicit_cargo_registries_crates_io_protocol || true^[[0m
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.8162960Z ^[[36;1m    echo CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse >> $GITHUB_ENV^[[0m
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.8163380Z ^[[36;1m  elif rustc +stable --version --verbose | grep -q '^release: 1\.6[67]\.'; then^[[0m
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.8163880Z ^[[36;1m    touch "/Users/runner/work/_temp"/.implicit_cargo_registries_crates_io_protocol || true^[[0m
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.8164310Z ^[[36;1m    echo CARGO_REGISTRIES_CRATES_IO_PROTOCOL=git >> $GITHUB_ENV^[[0m
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.8164600Z ^[[36;1m  fi^[[0m
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.8164750Z ^[[36;1mfi^[[0m
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.8196690Z shell: /bin/bash --noprofile --norc -e -o pipefail {0}
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.8196960Z env:
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.8197150Z   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.8197370Z   CARGO_TERM_COLOR: always
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.8197550Z   CARGO_HOME: /Users/runner/.cargo
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.8197750Z   CARGO_INCREMENTAL: 0
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.8197920Z ##[endgroup]
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.9081790Z ##[end-action id=__dtolnay_rust-toolchain.__run_8;outcome=success;conclusion=success;duration_ms=94]
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.9085720Z ##[start-action display=Run : work around spurious network errors in curl 8.0;id=__dtolnay_rust-toolchain.__run_9]
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.9103220Z ##[group]Run : work around spurious network errors in curl 8.0
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.9103630Z ^[[36;1m: work around spurious network errors in curl 8.0^[[0m
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.9104240Z ^[[36;1m# https://rust-lang.zulipchat.com/#narrow/stream/246057-t-cargo/topic/timeout.20investigation^[[0m
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.9104850Z ^[[36;1mif rustc +stable --version --verbose | grep -q '^release: 1\.7[01]\.'; then^[[0m
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.9105300Z ^[[36;1m  echo CARGO_HTTP_MULTIPLEXING=false >> $GITHUB_ENV^[[0m
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.9105580Z ^[[36;1mfi^[[0m
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.9136790Z shell: /bin/bash --noprofile --norc -e -o pipefail {0}
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.9137060Z env:
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.9137240Z   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.9137460Z   CARGO_TERM_COLOR: always
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.9137640Z   CARGO_HOME: /Users/runner/.cargo
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.9137840Z   CARGO_INCREMENTAL: 0
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.9138010Z ##[endgroup]
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.9758730Z ##[end-action id=__dtolnay_rust-toolchain.__run_9;outcome=success;conclusion=success;duration_ms=67]
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.9763020Z ##[start-action display=Run rustc +stable --version --verbose;id=__dtolnay_rust-toolchain.__run_10]
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.9782920Z ##[group]Run rustc +stable --version --verbose
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.9783250Z ^[[36;1mrustc +stable --version --verbose^[[0m
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.9818870Z shell: /bin/bash --noprofile --norc -e -o pipefail {0}
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.9819170Z env:
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.9819500Z   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.9819740Z   CARGO_TERM_COLOR: always
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.9819960Z   CARGO_HOME: /Users/runner/.cargo
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.9820200Z   CARGO_INCREMENTAL: 0
+build (macos-latest)	Install Rust	2026-08-03T16:49:18.9820410Z ##[endgroup]
+build (macos-latest)	Install Rust	2026-08-03T16:49:19.0438790Z rustc 1.97.1 (8bab26f4f 2026-07-14)
+build (macos-latest)	Install Rust	2026-08-03T16:49:19.0439390Z binary: rustc
+build (macos-latest)	Install Rust	2026-08-03T16:49:19.0439810Z commit-hash: 8bab26f4f68e0e26f0bb7960be334d5b520ea452
+build (macos-latest)	Install Rust	2026-08-03T16:49:19.0440280Z commit-date: 2026-07-14
+build (macos-latest)	Install Rust	2026-08-03T16:49:19.0440670Z host: aarch64-apple-darwin
+build (macos-latest)	Install Rust	2026-08-03T16:49:19.0440980Z release: 1.97.1
+build (macos-latest)	Install Rust	2026-08-03T16:49:19.0444250Z LLVM version: 22.1.6
+build (macos-latest)	Install Rust	2026-08-03T16:49:19.0459880Z ##[end-action id=__dtolnay_rust-toolchain.__run_10;outcome=success;conclusion=success;duration_ms=69]
+build (macos-latest)	Cache Rust dependencies	﻿2026-08-03T16:49:19.0555510Z ##[group]Run Swatinem/rust-cache@v2
+build (macos-latest)	Cache Rust dependencies	2026-08-03T16:49:19.0566900Z with:
+build (macos-latest)	Cache Rust dependencies	2026-08-03T16:49:19.0567320Z   workspaces: atmos_mixer_pro/rust
+build (macos-latest)	Cache Rust dependencies	2026-08-03T16:49:19.0567560Z   prefix-key: v0-rust
+build (macos-latest)	Cache Rust dependencies	2026-08-03T16:49:19.0567730Z   add-job-id-key: true
+build (macos-latest)	Cache Rust dependencies	2026-08-03T16:49:19.0567950Z   add-rust-environment-hash-key: true
+build (macos-latest)	Cache Rust dependencies	2026-08-03T16:49:19.0568160Z   cache-targets: true
+build (macos-latest)	Cache Rust dependencies	2026-08-03T16:49:19.0568310Z   cache-all-crates: false
+build (macos-latest)	Cache Rust dependencies	2026-08-03T16:49:19.0568490Z   cache-workspace-crates: false
+build (macos-latest)	Cache Rust dependencies	2026-08-03T16:49:19.0568680Z   save-if: true
+build (macos-latest)	Cache Rust dependencies	2026-08-03T16:49:19.0568830Z   cache-provider: github
+build (macos-latest)	Cache Rust dependencies	2026-08-03T16:49:19.0569000Z   cache-bin: true
+build (macos-latest)	Cache Rust dependencies	2026-08-03T16:49:19.0569150Z   lookup-only: false
+build (macos-latest)	Cache Rust dependencies	2026-08-03T16:49:19.0569310Z   cmd-format: {0}
+build (macos-latest)	Cache Rust dependencies	2026-08-03T16:49:19.0569440Z env:
+build (macos-latest)	Cache Rust dependencies	2026-08-03T16:49:19.0569610Z   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+build (macos-latest)	Cache Rust dependencies	2026-08-03T16:49:19.0569830Z   CARGO_TERM_COLOR: always
+build (macos-latest)	Cache Rust dependencies	2026-08-03T16:49:19.0570040Z   CARGO_HOME: /Users/runner/.cargo
+build (macos-latest)	Cache Rust dependencies	2026-08-03T16:49:19.0570240Z   CARGO_INCREMENTAL: 0
+build (macos-latest)	Cache Rust dependencies	2026-08-03T16:49:19.0570400Z ##[endgroup]
+build (macos-latest)	Cache Rust dependencies	2026-08-03T16:49:19.4512010Z (node:1219) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+build (macos-latest)	Cache Rust dependencies	2026-08-03T16:49:19.4513070Z (Use `node --trace-deprecation ...` to show where the warning was created)
+build (macos-latest)	Cache Rust dependencies	2026-08-03T16:49:19.7245250Z ##[group]Cache Configuration
+build (macos-latest)	Cache Rust dependencies	2026-08-03T16:49:19.7347810Z Cache Provider:
+build (macos-latest)	Cache Rust dependencies	2026-08-03T16:49:19.7404330Z     github
+build (macos-latest)	Cache Rust dependencies	2026-08-03T16:49:19.7425300Z Workspaces:
+build (macos-latest)	Cache Rust dependencies	2026-08-03T16:49:19.7426590Z     /Users/runner/work/Atmos/Atmos/atmos_mixer_pro/rust
+build (macos-latest)	Cache Rust dependencies	2026-08-03T16:49:19.7427140Z Cache Paths:
+build (macos-latest)	Cache Rust dependencies	2026-08-03T16:49:19.7428350Z     /Users/runner/.cargo/bin
+build (macos-latest)	Cache Rust dependencies	2026-08-03T16:49:19.7428890Z     /Users/runner/.cargo/.crates.toml
+build (macos-latest)	Cache Rust dependencies	2026-08-03T16:49:19.7432250Z     /Users/runner/.cargo/.crates2.json
+build (macos-latest)	Cache Rust dependencies	2026-08-03T16:49:19.7432630Z     /Users/runner/.cargo/registry
+build (macos-latest)	Cache Rust dependencies	2026-08-03T16:49:19.7432980Z     /Users/runner/.cargo/git
+build (macos-latest)	Cache Rust dependencies	2026-08-03T16:49:19.7433400Z     /Users/runner/work/Atmos/Atmos/atmos_mixer_pro/rust/target
+build (macos-latest)	Cache Rust dependencies	2026-08-03T16:49:19.7433800Z Restore Key:
+build (macos-latest)	Cache Rust dependencies	2026-08-03T16:49:19.7435290Z     v0-rust-build-Darwin-arm64-af5aa912
+build (macos-latest)	Cache Rust dependencies	2026-08-03T16:49:19.7435560Z Cache Key:
+build (macos-latest)	Cache Rust dependencies	2026-08-03T16:49:19.7435760Z     v0-rust-build-Darwin-arm64-af5aa912-369b3dab
+build (macos-latest)	Cache Rust dependencies	2026-08-03T16:49:19.7436000Z .. Prefix:
+build (macos-latest)	Cache Rust dependencies	2026-08-03T16:49:19.7436170Z   - v0-rust-build-Darwin-arm64
+build (macos-latest)	Cache Rust dependencies	2026-08-03T16:49:19.7436390Z .. Environment considered:
+build (macos-latest)	Cache Rust dependencies	2026-08-03T16:49:19.7436620Z   - Rust Versions:
+build (macos-latest)	Cache Rust dependencies	2026-08-03T16:49:19.7437670Z     - 1.97.1 aarch64-apple-darwin 8bab26f4f68e0e26f0bb7960be334d5b520ea452
+build (macos-latest)	Cache Rust dependencies	2026-08-03T16:49:19.7438150Z     - 1.97.1 aarch64-apple-darwin 8bab26f4f68e0e26f0bb7960be334d5b520ea452
+build (macos-latest)	Cache Rust dependencies	2026-08-03T16:49:19.7438440Z   - CARGO_HOME
+build (macos-latest)	Cache Rust dependencies	2026-08-03T16:49:19.7439270Z   - CARGO_INCREMENTAL
+build (macos-latest)	Cache Rust dependencies	2026-08-03T16:49:19.7441340Z   - CARGO_TERM_COLOR
+build (macos-latest)	Cache Rust dependencies	2026-08-03T16:49:19.7441560Z .. Lockfiles considered:
+build (macos-latest)	Cache Rust dependencies	2026-08-03T16:49:19.7441820Z   - /Users/runner/work/Atmos/Atmos/atmos_mixer_pro/rust/Cargo.lock
+build (macos-latest)	Cache Rust dependencies	2026-08-03T16:49:19.7442250Z   - /Users/runner/work/Atmos/Atmos/atmos_mixer_pro/rust/Cargo.toml
+build (macos-latest)	Cache Rust dependencies	2026-08-03T16:49:19.7442960Z ##[endgroup]
+build (macos-latest)	Cache Rust dependencies	2026-08-03T16:49:19.7443100Z 
+build (macos-latest)	Cache Rust dependencies	2026-08-03T16:49:19.7443170Z ... Restoring cache ...
+build (macos-latest)	Cache Rust dependencies	2026-08-03T16:49:20.0412530Z No cache found.
+build (macos-latest)	Set up Flutter	﻿2026-08-03T16:49:20.0702050Z ##[group]Run subosito/flutter-action@v2
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:20.0702400Z with:
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:20.0702660Z   channel: stable
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:20.0702910Z   architecture: ARM64
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:20.0703260Z   cache: false
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:20.0703480Z   pub-cache-path: default
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:20.0704810Z   dry-run: false
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:20.0705090Z   git-source: https://github.com/flutter/flutter.git
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:20.0705430Z env:
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:20.0705590Z   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:20.0706000Z   CARGO_TERM_COLOR: always
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:20.0706300Z   CARGO_HOME: /Users/runner/.cargo
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:20.0706530Z   CARGO_INCREMENTAL: 0
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:20.0706710Z   CACHE_ON_FAILURE: false
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:20.0706940Z ##[endgroup]
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:20.0730980Z ##[start-action display=Make yq tool available on Windows runners;id=__subosito_flutter-action.__run]
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:20.0738520Z ##[end-action id=__subosito_flutter-action.__run;outcome=skipped;conclusion=skipped;duration_ms=0]
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:20.0740300Z ##[start-action display=Make setup script executable;id=__subosito_flutter-action.__run_2]
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:20.0773960Z ##[group]Run chmod +x "$GITHUB_ACTION_PATH/setup.sh"
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:20.0774280Z ^[[36;1mchmod +x "$GITHUB_ACTION_PATH/setup.sh"^[[0m
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:20.0815460Z shell: /bin/bash --noprofile --norc -e -o pipefail {0}
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:20.0815710Z env:
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:20.0816810Z   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:20.0817110Z   CARGO_TERM_COLOR: always
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:20.0817310Z   CARGO_HOME: /Users/runner/.cargo
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:20.0817900Z   CARGO_INCREMENTAL: 0
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:20.0818060Z   CACHE_ON_FAILURE: false
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:20.0818210Z ##[endgroup]
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:20.1217480Z ##[end-action id=__subosito_flutter-action.__run_2;outcome=success;conclusion=success;duration_ms=47]
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:20.1219530Z ##[start-action display=Set action inputs;id=__subosito_flutter-action.flutter-action]
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:20.1237050Z ##[group]Run $GITHUB_ACTION_PATH/setup.sh -p \
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:20.1237380Z ^[[36;1m$GITHUB_ACTION_PATH/setup.sh -p \^[[0m
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:20.1237660Z ^[[36;1m  -n '' \^[[0m
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:20.1237820Z ^[[36;1m  -f '' \^[[0m
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:20.1237980Z ^[[36;1m  -a 'ARM64' \^[[0m
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:20.1238140Z ^[[36;1m  -k '' \^[[0m
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:20.1238320Z ^[[36;1m  -c '' \^[[0m
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:20.1238500Z ^[[36;1m  -l '' \^[[0m
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:20.1238700Z ^[[36;1m  -d 'default' \^[[0m
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:20.1238930Z ^[[36;1m  -g 'https://github.com/flutter/flutter.git' \^[[0m
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:20.1239190Z ^[[36;1m  stable^[[0m
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:20.1273240Z shell: /bin/bash --noprofile --norc -e -o pipefail {0}
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:20.1273560Z env:
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:20.1273730Z   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:20.1273940Z   CARGO_TERM_COLOR: always
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:20.1274130Z   CARGO_HOME: /Users/runner/.cargo
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:20.1274340Z   CARGO_INCREMENTAL: 0
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:20.1274510Z   CACHE_ON_FAILURE: false
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:20.1274690Z ##[endgroup]
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:20.5561560Z ##[end-action id=__subosito_flutter-action.flutter-action;outcome=success;conclusion=success;duration_ms=434]
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:20.5567290Z ##[start-action display=Cache Flutter;id=__subosito_flutter-action.cache-flutter]
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:20.5575670Z ##[end-action id=__subosito_flutter-action.cache-flutter;outcome=skipped;conclusion=skipped;duration_ms=0]
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:20.5581120Z ##[start-action display=Cache pub dependencies;id=__subosito_flutter-action.cache-pub]
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:20.5589750Z ##[end-action id=__subosito_flutter-action.cache-pub;outcome=skipped;conclusion=skipped;duration_ms=0]
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:20.5591620Z ##[start-action display=Run setup script;id=__subosito_flutter-action.__run_3]
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:20.5652530Z ##[group]Run $GITHUB_ACTION_PATH/setup.sh \
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:20.5652910Z ^[[36;1m$GITHUB_ACTION_PATH/setup.sh \^[[0m
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:20.5653600Z ^[[36;1m  -n '3.44.8' \^[[0m
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:20.5654310Z ^[[36;1m  -a 'arm64' \^[[0m
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:20.5654580Z ^[[36;1m  -c '/Users/runner/hostedtoolcache/flutter/stable-3.44.8-arm64' \^[[0m
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:20.5654900Z ^[[36;1m  -d '/Users/runner/.pub-cache' \^[[0m
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:20.5655090Z ^[[36;1m  stable^[[0m
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:20.5719530Z shell: /bin/bash --noprofile --norc -e -o pipefail {0}
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:20.5721660Z env:
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:20.5722180Z   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:20.5722780Z   CARGO_TERM_COLOR: always
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:20.5723700Z   CARGO_HOME: /Users/runner/.cargo
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:20.5724400Z   CARGO_INCREMENTAL: 0
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:20.5724910Z   CACHE_ON_FAILURE: false
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:20.5725390Z ##[endgroup]
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:21.0159430Z   % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:21.0262510Z                                  Dload  Upload   Total   Spent    Left  Speed
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:21.0362810Z 
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:21.5057870Z   0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:22.5055830Z   1 2110M    1 24.0M    0     0  48.7M      0  0:00:43 --:--:--  0:00:43 48.6M
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:23.5028780Z   4 2110M    4 94.6M    0     0  63.4M      0  0:00:33  0:00:01  0:00:32 63.4M
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:24.5045030Z   7 2110M    7  166M    0     0  66.6M      0  0:00:31  0:00:02  0:00:29 66.6M
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:25.5030810Z  11 2110M   11  232M    0     0  66.5M      0  0:00:31  0:00:03  0:00:28 66.5M
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:26.5030390Z  13 2110M   13  287M    0     0  64.0M      0  0:00:32  0:00:04  0:00:28 64.0M
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:27.5028670Z  16 2110M   16  349M    0     0  63.5M      0  0:00:33  0:00:05  0:00:28 65.0M
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:28.5038220Z  19 2110M   19  417M    0     0  64.3M      0  0:00:32  0:00:06  0:00:26 64.5M
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:29.5048220Z  22 2110M   22  482M    0     0  64.4M      0  0:00:32  0:00:07  0:00:25 63.3M
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:30.5064350Z  26 2110M   26  550M    0     0  64.8M      0  0:00:32  0:00:08  0:00:24 63.6M
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:31.5025250Z  29 2110M   29  623M    0     0  65.7M      0  0:00:32  0:00:09  0:00:23 67.2M
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:32.5022310Z  33 2110M   33  696M    0     0  66.4M      0  0:00:31  0:00:10  0:00:21 69.5M
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:33.5119140Z  36 2110M   36  769M    0     0  66.9M      0  0:00:31  0:00:11  0:00:20 70.3M
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:34.5033370Z  39 2110M   39  827M    0     0  66.2M      0  0:00:31  0:00:12  0:00:19 68.9M
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:35.5027200Z  41 2110M   41  882M    0     0  65.4M      0  0:00:32  0:00:13  0:00:19 66.4M
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:36.5080170Z  44 2110M   44  940M    0     0  64.8M      0  0:00:32  0:00:14  0:00:18 63.3M
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:37.5023300Z  47 2110M   47 1003M    0     0  64.7M      0  0:00:32  0:00:15  0:00:17 61.3M
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:38.5081630Z  50 2110M   50 1074M    0     0  65.1M      0  0:00:32  0:00:16  0:00:16 61.0M
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:39.5078000Z  54 2110M   54 1148M    0     0  65.6M      0  0:00:32  0:00:17  0:00:15 64.1M
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:40.5044840Z  57 2110M   57 1221M    0     0  66.0M      0  0:00:31  0:00:18  0:00:13 67.6M
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:41.5119260Z  61 2110M   61 1290M    0     0  66.1M      0  0:00:31  0:00:19  0:00:12 69.9M
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:42.5019710Z  64 2110M   64 1358M    0     0  66.2M      0  0:00:31  0:00:20  0:00:11 71.0M
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:43.5092570Z  67 2110M   67 1434M    0     0  66.7M      0  0:00:31  0:00:21  0:00:10 71.9M
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:44.5020570Z  71 2110M   71 1508M    0     0  67.0M      0  0:00:31  0:00:22  0:00:09 72.0M
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:45.5074640Z  74 2110M   74 1581M    0     0  67.3M      0  0:00:31  0:00:23  0:00:08 72.0M
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:46.5026080Z  78 2110M   78 1660M    0     0  67.8M      0  0:00:31  0:00:24  0:00:07 74.1M
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:47.5027830Z  82 2110M   82 1741M    0     0  68.3M      0  0:00:30  0:00:25  0:00:05 76.6M
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:48.5022970Z  86 2110M   86 1823M    0     0  68.8M      0  0:00:30  0:00:26  0:00:04 77.7M
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:49.5025570Z  89 2110M   89 1892M    0     0  68.8M      0  0:00:30  0:00:27  0:00:03 76.7M
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:50.5023290Z  92 2110M   92 1960M    0     0  68.8M      0  0:00:30  0:00:28  0:00:02 75.8M
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:51.5032890Z  96 2110M   96 2038M    0     0  69.1M      0  0:00:30  0:00:29  0:00:01 75.4M
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:51.5062000Z  99 2110M   99 2110M    0     0  69.1M      0  0:00:30  0:00:30 --:--:-- 73.6M
+build (macos-latest)	Set up Flutter	2026-08-03T16:49:51.5063470Z 100 2110M  100 2110M    0     0  69.1M      0  0:00:30  0:00:30 --:--:-- 71.7M
+build (macos-latest)	Set up Flutter	2026-08-03T16:50:31.5222360Z ##[end-action id=__subosito_flutter-action.__run_3;outcome=success;conclusion=success;duration_ms=70962]
+build (macos-latest)	Install dependencies	﻿2026-08-03T16:50:31.5370790Z ##[group]Run flutter pub get
+build (macos-latest)	Install dependencies	2026-08-03T16:50:31.5371280Z ^[[36;1mflutter pub get^[[0m
+build (macos-latest)	Install dependencies	2026-08-03T16:50:31.5714860Z shell: /bin/bash -e {0}
+build (macos-latest)	Install dependencies	2026-08-03T16:50:31.5715170Z env:
+build (macos-latest)	Install dependencies	2026-08-03T16:50:31.5715530Z   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+build (macos-latest)	Install dependencies	2026-08-03T16:50:31.5715820Z   CARGO_TERM_COLOR: always
+build (macos-latest)	Install dependencies	2026-08-03T16:50:31.5716000Z   CARGO_HOME: /Users/runner/.cargo
+build (macos-latest)	Install dependencies	2026-08-03T16:50:31.5716320Z   CARGO_INCREMENTAL: 0
+build (macos-latest)	Install dependencies	2026-08-03T16:50:31.5716630Z   CACHE_ON_FAILURE: false
+build (macos-latest)	Install dependencies	2026-08-03T16:50:31.5716990Z   FLUTTER_ROOT: /Users/runner/hostedtoolcache/flutter/stable-3.44.8-arm64/flutter
+build (macos-latest)	Install dependencies	2026-08-03T16:50:31.5717860Z   PUB_CACHE: /Users/runner/.pub-cache
+build (macos-latest)	Install dependencies	2026-08-03T16:50:31.5718210Z ##[endgroup]
+build (macos-latest)	Install dependencies	2026-08-03T16:50:37.2314890Z Resolving dependencies...
+build (macos-latest)	Install dependencies	2026-08-03T16:50:37.7584420Z Downloading packages...
+build (macos-latest)	Install dependencies	2026-08-03T16:50:42.8215960Z   _fe_analyzer_shared 99.0.0 (105.0.0 available)
+build (macos-latest)	Install dependencies	2026-08-03T16:50:42.8216990Z   analyzer 12.1.0 (14.1.0 available)
+build (macos-latest)	Install dependencies	2026-08-03T16:50:42.8217830Z   cross_file 0.3.5+2 (0.3.5+4 available)
+build (macos-latest)	Install dependencies	2026-08-03T16:50:42.8218730Z   file_picker 11.0.2 (11.0.3 available)
+build (macos-latest)	Install dependencies	2026-08-03T16:50:42.8219340Z   flutter_riverpod 3.3.2 (3.4.2 available)
+build (macos-latest)	Install dependencies	2026-08-03T16:50:42.8220070Z   hooks 2.0.2 (2.1.0 available)
+build (macos-latest)	Install dependencies	2026-08-03T16:50:42.8221140Z   jni 1.0.0 (1.0.3 available)
+build (macos-latest)	Install dependencies	2026-08-03T16:50:42.8221870Z   jni_flutter 1.0.1 (1.0.2 available)
+build (macos-latest)	Install dependencies	2026-08-03T16:50:42.8222630Z   matcher 0.12.19 (0.12.20 available)
+build (macos-latest)	Install dependencies	2026-08-03T16:50:42.8223410Z   meta 1.18.0 (1.19.0 available)
+build (macos-latest)	Install dependencies	2026-08-03T16:50:42.8224130Z   objective_c 9.4.1 (9.5.0 available)
+build (macos-latest)	Install dependencies	2026-08-03T16:50:42.8224770Z   package_config 2.2.0 (3.0.0 available)
+build (macos-latest)	Install dependencies	2026-08-03T16:50:42.8225550Z   path_provider 2.1.5 (2.1.6 available)
+build (macos-latest)	Install dependencies	2026-08-03T16:50:42.8226150Z   path_provider_linux 2.2.1 (2.2.2 available)
+build (macos-latest)	Install dependencies	2026-08-03T16:50:42.8227180Z   path_provider_platform_interface 2.1.2 (2.1.3 available)
+build (macos-latest)	Install dependencies	2026-08-03T16:50:42.8227960Z   record_use 0.6.0 (1.0.0 available)
+build (macos-latest)	Install dependencies	2026-08-03T16:50:42.8229310Z   riverpod 3.3.2 (3.4.2 available)
+build (macos-latest)	Install dependencies	2026-08-03T16:50:42.8229980Z   screen_retriever 0.2.1 (0.2.2 available)
+build (macos-latest)	Install dependencies	2026-08-03T16:50:42.8230320Z   screen_retriever_linux 0.2.1 (0.2.2 available)
+build (macos-latest)	Install dependencies	2026-08-03T16:50:42.8230710Z   screen_retriever_macos 0.2.1 (0.2.2 available)
+build (macos-latest)	Install dependencies	2026-08-03T16:50:42.8231040Z   screen_retriever_platform_interface 0.2.1 (0.2.2 available)
+build (macos-latest)	Install dependencies	2026-08-03T16:50:42.8231410Z   screen_retriever_windows 0.2.1 (0.2.2 available)
+build (macos-latest)	Install dependencies	2026-08-03T16:50:42.8231730Z   shared_preferences_android 2.4.26 (2.4.27 available)
+build (macos-latest)	Install dependencies	2026-08-03T16:50:42.8232190Z   test 1.31.0 (1.31.2 available)
+build (macos-latest)	Install dependencies	2026-08-03T16:50:42.8232490Z   test_api 0.7.11 (0.7.13 available)
+build (macos-latest)	Install dependencies	2026-08-03T16:50:42.8232810Z   test_core 0.6.17 (0.6.19 available)
+build (macos-latest)	Install dependencies	2026-08-03T16:50:42.8233140Z   vector_math 2.2.0 (2.4.2 available)
+build (macos-latest)	Install dependencies	2026-08-03T16:50:42.8233460Z   win32 5.15.0 (6.3.0 available)
+build (macos-latest)	Install dependencies	2026-08-03T16:50:42.8233840Z   window_manager 0.5.1 (0.5.2 available)
+build (macos-latest)	Install dependencies	2026-08-03T16:50:42.8234170Z   xml 6.6.1 (7.0.1 available)
+build (macos-latest)	Install dependencies	2026-08-03T16:50:42.8234490Z Got dependencies!
+build (macos-latest)	Install dependencies	2026-08-03T16:50:42.8234910Z 30 packages have newer versions incompatible with dependency constraints.
+build (macos-latest)	Install dependencies	2026-08-03T16:50:42.8235250Z Try `flutter pub outdated` for more information.
+build (macos-latest)	Build	﻿2026-08-03T16:50:43.8347350Z ##[group]Run flutter build macos
+build (macos-latest)	Build	2026-08-03T16:50:43.8347600Z ^[[36;1mflutter build macos^[[0m
+build (macos-latest)	Build	2026-08-03T16:50:43.8385440Z shell: /bin/bash -e {0}
+build (macos-latest)	Build	2026-08-03T16:50:43.8385670Z env:
+build (macos-latest)	Build	2026-08-03T16:50:43.8385840Z   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+build (macos-latest)	Build	2026-08-03T16:50:43.8393630Z   CARGO_TERM_COLOR: always
+build (macos-latest)	Build	2026-08-03T16:50:43.8393830Z   CARGO_HOME: /Users/runner/.cargo
+build (macos-latest)	Build	2026-08-03T16:50:43.8394040Z   CARGO_INCREMENTAL: 0
+build (macos-latest)	Build	2026-08-03T16:50:43.8394210Z   CACHE_ON_FAILURE: false
+build (macos-latest)	Build	2026-08-03T16:50:43.8394500Z   FLUTTER_ROOT: /Users/runner/hostedtoolcache/flutter/stable-3.44.8-arm64/flutter
+build (macos-latest)	Build	2026-08-03T16:50:43.8394840Z   PUB_CACHE: /Users/runner/.pub-cache
+build (macos-latest)	Build	2026-08-03T16:50:43.8395070Z ##[endgroup]
+build (macos-latest)	Build	2026-08-03T16:50:44.1503570Z Resolving dependencies...
+build (macos-latest)	Build	2026-08-03T16:50:44.2775280Z Downloading packages...
+build (macos-latest)	Build	2026-08-03T16:50:44.3356600Z   _fe_analyzer_shared 99.0.0 (105.0.0 available)
+build (macos-latest)	Build	2026-08-03T16:50:44.3356980Z   analyzer 12.1.0 (14.1.0 available)
+build (macos-latest)	Build	2026-08-03T16:50:44.3357220Z   cross_file 0.3.5+2 (0.3.5+4 available)
+build (macos-latest)	Build	2026-08-03T16:50:44.3357500Z   file_picker 11.0.2 (11.0.3 available)
+build (macos-latest)	Build	2026-08-03T16:50:44.3357760Z   flutter_riverpod 3.3.2 (3.4.2 available)
+build (macos-latest)	Build	2026-08-03T16:50:44.3357970Z   hooks 2.0.2 (2.1.0 available)
+build (macos-latest)	Build	2026-08-03T16:50:44.3358160Z   jni 1.0.0 (1.0.3 available)
+build (macos-latest)	Build	2026-08-03T16:50:44.3358400Z   jni_flutter 1.0.1 (1.0.2 available)
+build (macos-latest)	Build	2026-08-03T16:50:44.3358610Z   matcher 0.12.19 (0.12.20 available)
+build (macos-latest)	Build	2026-08-03T16:50:44.3358800Z   meta 1.18.0 (1.19.0 available)
+build (macos-latest)	Build	2026-08-03T16:50:44.3359000Z   objective_c 9.4.1 (9.5.0 available)
+build (macos-latest)	Build	2026-08-03T16:50:44.3359200Z   package_config 2.2.0 (3.0.0 available)
+build (macos-latest)	Build	2026-08-03T16:50:44.3359420Z   path_provider 2.1.5 (2.1.6 available)
+build (macos-latest)	Build	2026-08-03T16:50:44.3359640Z   path_provider_linux 2.2.1 (2.2.2 available)
+build (macos-latest)	Build	2026-08-03T16:50:44.3359920Z   path_provider_platform_interface 2.1.2 (2.1.3 available)
+build (macos-latest)	Build	2026-08-03T16:50:44.3360200Z   record_use 0.6.0 (1.0.0 available)
+build (macos-latest)	Build	2026-08-03T16:50:44.3360410Z   riverpod 3.3.2 (3.4.2 available)
+build (macos-latest)	Build	2026-08-03T16:50:44.3360610Z   screen_retriever 0.2.1 (0.2.2 available)
+build (macos-latest)	Build	2026-08-03T16:50:44.3360870Z   screen_retriever_linux 0.2.1 (0.2.2 available)
+build (macos-latest)	Build	2026-08-03T16:50:44.3361180Z   screen_retriever_macos 0.2.1 (0.2.2 available)
+build (macos-latest)	Build	2026-08-03T16:50:44.3361500Z   screen_retriever_platform_interface 0.2.1 (0.2.2 available)
+build (macos-latest)	Build	2026-08-03T16:50:44.3361810Z   screen_retriever_windows 0.2.1 (0.2.2 available)
+build (macos-latest)	Build	2026-08-03T16:50:44.3362150Z   shared_preferences_android 2.4.26 (2.4.27 available)
+build (macos-latest)	Build	2026-08-03T16:50:44.3362390Z   test 1.31.0 (1.31.2 available)
+build (macos-latest)	Build	2026-08-03T16:50:44.3362630Z   test_api 0.7.11 (0.7.13 available)
+build (macos-latest)	Build	2026-08-03T16:50:44.3362830Z   test_core 0.6.17 (0.6.19 available)
+build (macos-latest)	Build	2026-08-03T16:50:44.3363060Z   vector_math 2.2.0 (2.4.2 available)
+build (macos-latest)	Build	2026-08-03T16:50:44.3363260Z   win32 5.15.0 (6.3.0 available)
+build (macos-latest)	Build	2026-08-03T16:50:44.3363460Z   window_manager 0.5.1 (0.5.2 available)
+build (macos-latest)	Build	2026-08-03T16:50:44.3363660Z   xml 6.6.1 (7.0.1 available)
+build (macos-latest)	Build	2026-08-03T16:50:44.3363850Z Got dependencies!
+build (macos-latest)	Build	2026-08-03T16:50:44.3364100Z 30 packages have newer versions incompatible with dependency constraints.
+build (macos-latest)	Build	2026-08-03T16:50:44.3364440Z Try `flutter pub outdated` for more information.
+build (macos-latest)	Build	2026-08-03T16:51:17.1493030Z The following plugins do not support Swift Package Manager for macos:
+build (macos-latest)	Build	2026-08-03T16:51:17.1495590Z   - rust_lib_atmos_mixer_pro
+build (macos-latest)	Build	2026-08-03T16:51:17.1497790Z This will become an error in a future version of Flutter. Please contact the plugin maintainers to request Swift Package Manager adoption.
+build (macos-latest)	Build	2026-08-03T16:51:27.3251850Z Running pod install...                                           1,417ms
+build (macos-latest)	Build	2026-08-03T16:57:34.9927800Z Building macOS application...                                   
+build (macos-latest)	Build	2026-08-03T16:57:34.9963620Z warning: Code asset "package:objective_c/objective_c.dylib" has different framework names for different architectures. Picking "objective_c.framework" and ignoring "objective_c1.framework". This is likely an issue in the package providing the asset. Please report this to the package maintainers and ensure the "build.dart" hook produces consistent filenames.
+build (macos-latest)	Build	2026-08-03T16:57:34.9969020Z Project /Users/runner/work/Atmos/Atmos/atmos_mixer_pro built and packaged successfully.
+build (macos-latest)	Build	2026-08-03T16:57:57.1780190Z warning: Run script build phase 'Remove Extended Attributes' will be run during every build because it does not specify any outputs. To address this issue, either add output dependencies to the script phase, or configure it to run in every build by unchecking "Based on dependency analysis" in the script phase. (in target 'Runner' from project 'Runner')
+build (macos-latest)	Build	2026-08-03T16:57:57.1825380Z warning: Run script build phase 'Run Script' will be run during every build because it does not specify any outputs. To address this issue, either add output dependencies to the script phase, or configure it to run in every build by unchecking "Based on dependency analysis" in the script phase. (in target 'Flutter Assemble' from project 'Runner')
+build (macos-latest)	Build	2026-08-03T16:57:57.3388110Z ✓ Built build/macos/Build/Products/Release/atmos_mixer_pro.app (62.1MB)
+build (macos-latest)	Archive Release (macOS)	﻿2026-08-03T16:57:57.4021120Z ##[group]Run cd atmos_mixer_pro/build/macos/Build/Products/Release
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:57:57.4022880Z ^[[36;1mcd atmos_mixer_pro/build/macos/Build/Products/Release^[[0m
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:57:57.4023370Z ^[[36;1mzip -r ../../../../../../atmos_mixer_pro_macos.zip atmos_mixer_pro.app^[[0m
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:57:57.4346880Z shell: /bin/bash -e {0}
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:57:57.4347430Z env:
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:57:57.4347690Z   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:57:57.4348310Z   CARGO_TERM_COLOR: always
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:57:57.4348600Z   CARGO_HOME: /Users/runner/.cargo
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:57:57.4349630Z   CARGO_INCREMENTAL: 0
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:57:57.4350590Z   CACHE_ON_FAILURE: false
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:57:57.4351610Z   FLUTTER_ROOT: /Users/runner/hostedtoolcache/flutter/stable-3.44.8-arm64/flutter
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:57:57.4352450Z   PUB_CACHE: /Users/runner/.pub-cache
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:57:57.4352690Z ##[endgroup]
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:57:57.5575860Z   adding: atmos_mixer_pro.app/ (stored 0%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:57:57.5677910Z   adding: atmos_mixer_pro.app/Contents/ (stored 0%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:57:57.6001630Z   adding: atmos_mixer_pro.app/Contents/_CodeSignature/ (stored 0%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:57:57.6114120Z   adding: atmos_mixer_pro.app/Contents/_CodeSignature/CodeResources (deflated 73%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:57:57.6219200Z   adding: atmos_mixer_pro.app/Contents/MacOS/ (stored 0%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:57:57.6321400Z   adding: atmos_mixer_pro.app/Contents/MacOS/atmos_mixer_pro (deflated 73%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:57:57.6422870Z   adding: atmos_mixer_pro.app/Contents/Resources/ (stored 0%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:57:57.6539990Z   adding: atmos_mixer_pro.app/Contents/Resources/AppIcon.icns (deflated 3%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:57:57.6641830Z   adding: atmos_mixer_pro.app/Contents/Resources/Base.lproj/ (stored 0%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:57:57.6688850Z   adding: atmos_mixer_pro.app/Contents/Resources/Base.lproj/MainMenu.nib (deflated 57%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:57:57.6734400Z   adding: atmos_mixer_pro.app/Contents/Resources/shared_preferences_foundation_shared_preferences_foundation.bundle/ (stored 0%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:57:57.6774670Z   adding: atmos_mixer_pro.app/Contents/Resources/shared_preferences_foundation_shared_preferences_foundation.bundle/Contents/ (stored 0%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:57:57.6823510Z   adding: atmos_mixer_pro.app/Contents/Resources/shared_preferences_foundation_shared_preferences_foundation.bundle/Contents/Resources/ (stored 0%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:57:57.6859550Z   adding: atmos_mixer_pro.app/Contents/Resources/shared_preferences_foundation_shared_preferences_foundation.bundle/Contents/Resources/PrivacyInfo.xcprivacy (deflated 51%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:57:57.6861900Z   adding: atmos_mixer_pro.app/Contents/Resources/shared_preferences_foundation_shared_preferences_foundation.bundle/Contents/Info.plist (deflated 62%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:57:57.6862900Z   adding: atmos_mixer_pro.app/Contents/Resources/Assets.car (deflated 20%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:57:57.6866460Z   adding: atmos_mixer_pro.app/Contents/Resources/desktop_drop_desktop_drop.bundle/ (stored 0%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:57:57.6867230Z   adding: atmos_mixer_pro.app/Contents/Resources/desktop_drop_desktop_drop.bundle/Contents/ (stored 0%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:57:57.6868280Z   adding: atmos_mixer_pro.app/Contents/Resources/desktop_drop_desktop_drop.bundle/Contents/Resources/ (stored 0%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:57:57.6869360Z   adding: atmos_mixer_pro.app/Contents/Resources/desktop_drop_desktop_drop.bundle/Contents/Resources/PrivacyInfo.xcprivacy (deflated 34%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:57:57.6872300Z   adding: atmos_mixer_pro.app/Contents/Resources/desktop_drop_desktop_drop.bundle/Contents/Info.plist (deflated 61%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:57:57.6873360Z   adding: atmos_mixer_pro.app/Contents/Resources/file_picker_file_picker.bundle/ (stored 0%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:57:57.6874220Z   adding: atmos_mixer_pro.app/Contents/Resources/file_picker_file_picker.bundle/Contents/ (stored 0%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:57:57.6874900Z   adding: atmos_mixer_pro.app/Contents/Resources/file_picker_file_picker.bundle/Contents/Resources/ (stored 0%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:57:57.6875950Z   adding: atmos_mixer_pro.app/Contents/Resources/file_picker_file_picker.bundle/Contents/Resources/PrivacyInfo.xcprivacy (deflated 34%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:57:57.6877470Z   adding: atmos_mixer_pro.app/Contents/Resources/file_picker_file_picker.bundle/Contents/Info.plist (deflated 61%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:57:57.6878170Z   adding: atmos_mixer_pro.app/Contents/Frameworks/ (stored 0%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:57:57.6878670Z   adding: atmos_mixer_pro.app/Contents/Frameworks/objective_c.framework/ (stored 0%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:57:57.6880830Z   adding: atmos_mixer_pro.app/Contents/Frameworks/objective_c.framework/Resources/ (stored 0%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:57:57.6881590Z   adding: atmos_mixer_pro.app/Contents/Frameworks/objective_c.framework/Resources/Info.plist (deflated 56%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:57:57.6882470Z   adding: atmos_mixer_pro.app/Contents/Frameworks/objective_c.framework/Versions/ (stored 0%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:57:57.6883030Z   adding: atmos_mixer_pro.app/Contents/Frameworks/objective_c.framework/Versions/A/ (stored 0%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:57:57.6885290Z   adding: atmos_mixer_pro.app/Contents/Frameworks/objective_c.framework/Versions/A/_CodeSignature/ (stored 0%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:57:57.6887490Z   adding: atmos_mixer_pro.app/Contents/Frameworks/objective_c.framework/Versions/A/_CodeSignature/CodeResources (deflated 76%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:57:57.6889740Z   adding: atmos_mixer_pro.app/Contents/Frameworks/objective_c.framework/Versions/A/Resources/ (stored 0%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:57:57.6892640Z   adding: atmos_mixer_pro.app/Contents/Frameworks/objective_c.framework/Versions/A/Resources/Info.plist (deflated 56%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:57:57.6894520Z   adding: atmos_mixer_pro.app/Contents/Frameworks/objective_c.framework/Versions/A/objective_c (deflated 86%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:57:57.6895600Z   adding: atmos_mixer_pro.app/Contents/Frameworks/objective_c.framework/Versions/Current/ (stored 0%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:57:57.6896470Z   adding: atmos_mixer_pro.app/Contents/Frameworks/objective_c.framework/Versions/Current/_CodeSignature/ (stored 0%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:57:57.6897540Z   adding: atmos_mixer_pro.app/Contents/Frameworks/objective_c.framework/Versions/Current/_CodeSignature/CodeResources (deflated 76%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:57:57.6898980Z   adding: atmos_mixer_pro.app/Contents/Frameworks/objective_c.framework/Versions/Current/Resources/ (stored 0%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:57:57.6899750Z   adding: atmos_mixer_pro.app/Contents/Frameworks/objective_c.framework/Versions/Current/Resources/Info.plist (deflated 56%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:57:57.6900550Z   adding: atmos_mixer_pro.app/Contents/Frameworks/objective_c.framework/Versions/Current/objective_c (deflated 86%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:57:57.6901570Z   adding: atmos_mixer_pro.app/Contents/Frameworks/objective_c.framework/objective_c (deflated 86%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:57:57.6902200Z   adding: atmos_mixer_pro.app/Contents/Frameworks/FlutterMacOS.framework/ (stored 0%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:57:57.6903130Z   adding: atmos_mixer_pro.app/Contents/Frameworks/FlutterMacOS.framework/Resources/ (stored 0%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:57:57.6904920Z   adding: atmos_mixer_pro.app/Contents/Frameworks/FlutterMacOS.framework/Resources/icudtl.dat (deflated 46%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:57:57.6934250Z   adding: atmos_mixer_pro.app/Contents/Frameworks/FlutterMacOS.framework/Resources/PrivacyInfo.xcprivacy (deflated 35%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:57:57.6942080Z   adding: atmos_mixer_pro.app/Contents/Frameworks/FlutterMacOS.framework/Resources/Info.plist (deflated 57%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:57:57.6943050Z   adding: atmos_mixer_pro.app/Contents/Frameworks/FlutterMacOS.framework/Versions/ (stored 0%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:57:57.6950910Z   adding: atmos_mixer_pro.app/Contents/Frameworks/FlutterMacOS.framework/Versions/A/ (stored 0%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:57:57.6980040Z   adding: atmos_mixer_pro.app/Contents/Frameworks/FlutterMacOS.framework/Versions/A/_CodeSignature/ (stored 0%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:57:57.6982800Z   adding: atmos_mixer_pro.app/Contents/Frameworks/FlutterMacOS.framework/Versions/A/_CodeSignature/CodeResources (deflated 74%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:57:57.6983810Z   adding: atmos_mixer_pro.app/Contents/Frameworks/FlutterMacOS.framework/Versions/A/Resources/ (stored 0%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:57:57.7325640Z   adding: atmos_mixer_pro.app/Contents/Frameworks/FlutterMacOS.framework/Versions/A/Resources/icudtl.dat (deflated 46%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:57:57.7444530Z   adding: atmos_mixer_pro.app/Contents/Frameworks/FlutterMacOS.framework/Versions/A/Resources/PrivacyInfo.xcprivacy (deflated 35%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:57:57.7481470Z   adding: atmos_mixer_pro.app/Contents/Frameworks/FlutterMacOS.framework/Versions/A/Resources/Info.plist (deflated 57%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:57:59.1217850Z   adding: atmos_mixer_pro.app/Contents/Frameworks/FlutterMacOS.framework/Versions/A/FlutterMacOS (deflated 59%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:57:59.1218840Z   adding: atmos_mixer_pro.app/Contents/Frameworks/FlutterMacOS.framework/Versions/Current/ (stored 0%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:57:59.1219720Z   adding: atmos_mixer_pro.app/Contents/Frameworks/FlutterMacOS.framework/Versions/Current/_CodeSignature/ (stored 0%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:57:59.1223140Z   adding: atmos_mixer_pro.app/Contents/Frameworks/FlutterMacOS.framework/Versions/Current/_CodeSignature/CodeResources (deflated 74%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:57:59.1224050Z   adding: atmos_mixer_pro.app/Contents/Frameworks/FlutterMacOS.framework/Versions/Current/Resources/ (stored 0%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:57:59.1562050Z   adding: atmos_mixer_pro.app/Contents/Frameworks/FlutterMacOS.framework/Versions/Current/Resources/icudtl.dat (deflated 46%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:57:59.1563540Z   adding: atmos_mixer_pro.app/Contents/Frameworks/FlutterMacOS.framework/Versions/Current/Resources/PrivacyInfo.xcprivacy (deflated 35%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:57:59.1564880Z   adding: atmos_mixer_pro.app/Contents/Frameworks/FlutterMacOS.framework/Versions/Current/Resources/Info.plist (deflated 57%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:58:00.4945430Z   adding: atmos_mixer_pro.app/Contents/Frameworks/FlutterMacOS.framework/Versions/Current/FlutterMacOS (deflated 59%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:58:01.8732780Z   adding: atmos_mixer_pro.app/Contents/Frameworks/FlutterMacOS.framework/FlutterMacOS (deflated 59%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:58:01.8734740Z   adding: atmos_mixer_pro.app/Contents/Frameworks/rust_lib_atmos_mixer_pro.framework/ (stored 0%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:58:02.4636560Z   adding: atmos_mixer_pro.app/Contents/Frameworks/rust_lib_atmos_mixer_pro.framework/rust_lib_atmos_mixer_pro (deflated 65%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:58:02.4639570Z   adding: atmos_mixer_pro.app/Contents/Frameworks/rust_lib_atmos_mixer_pro.framework/Resources/ (stored 0%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:58:02.4640650Z   adding: atmos_mixer_pro.app/Contents/Frameworks/rust_lib_atmos_mixer_pro.framework/Resources/Info.plist (deflated 64%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:58:02.4643810Z   adding: atmos_mixer_pro.app/Contents/Frameworks/rust_lib_atmos_mixer_pro.framework/Versions/ (stored 0%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:58:02.4646310Z   adding: atmos_mixer_pro.app/Contents/Frameworks/rust_lib_atmos_mixer_pro.framework/Versions/A/ (stored 0%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:58:02.4649390Z   adding: atmos_mixer_pro.app/Contents/Frameworks/rust_lib_atmos_mixer_pro.framework/Versions/A/_CodeSignature/ (stored 0%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:58:02.4651690Z   adding: atmos_mixer_pro.app/Contents/Frameworks/rust_lib_atmos_mixer_pro.framework/Versions/A/_CodeSignature/CodeResources (deflated 76%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:58:03.0249630Z   adding: atmos_mixer_pro.app/Contents/Frameworks/rust_lib_atmos_mixer_pro.framework/Versions/A/rust_lib_atmos_mixer_pro (deflated 65%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:58:03.0250610Z   adding: atmos_mixer_pro.app/Contents/Frameworks/rust_lib_atmos_mixer_pro.framework/Versions/A/Resources/ (stored 0%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:58:03.0251560Z   adding: atmos_mixer_pro.app/Contents/Frameworks/rust_lib_atmos_mixer_pro.framework/Versions/A/Resources/Info.plist (deflated 64%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:58:03.0253100Z   adding: atmos_mixer_pro.app/Contents/Frameworks/rust_lib_atmos_mixer_pro.framework/Versions/Current/ (stored 0%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:58:03.0253850Z   adding: atmos_mixer_pro.app/Contents/Frameworks/rust_lib_atmos_mixer_pro.framework/Versions/Current/_CodeSignature/ (stored 0%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:58:03.0254890Z   adding: atmos_mixer_pro.app/Contents/Frameworks/rust_lib_atmos_mixer_pro.framework/Versions/Current/_CodeSignature/CodeResources (deflated 76%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:58:03.5247960Z   adding: atmos_mixer_pro.app/Contents/Frameworks/rust_lib_atmos_mixer_pro.framework/Versions/Current/rust_lib_atmos_mixer_pro (deflated 65%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:58:03.5250090Z   adding: atmos_mixer_pro.app/Contents/Frameworks/rust_lib_atmos_mixer_pro.framework/Versions/Current/Resources/ (stored 0%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:58:03.5250950Z   adding: atmos_mixer_pro.app/Contents/Frameworks/rust_lib_atmos_mixer_pro.framework/Versions/Current/Resources/Info.plist (deflated 64%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:58:03.5251560Z   adding: atmos_mixer_pro.app/Contents/Frameworks/App.framework/ (stored 0%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:58:04.1272430Z   adding: atmos_mixer_pro.app/Contents/Frameworks/App.framework/App (deflated 61%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:58:04.1273080Z   adding: atmos_mixer_pro.app/Contents/Frameworks/App.framework/Resources/ (stored 0%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:58:04.1273930Z   adding: atmos_mixer_pro.app/Contents/Frameworks/App.framework/Resources/flutter_assets/ (stored 0%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:58:04.1279720Z   adding: atmos_mixer_pro.app/Contents/Frameworks/App.framework/Resources/flutter_assets/NOTICES.Z (stored 0%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:58:04.1283120Z   adding: atmos_mixer_pro.app/Contents/Frameworks/App.framework/Resources/flutter_assets/NativeAssetsManifest.json (deflated 52%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:58:04.1284310Z   adding: atmos_mixer_pro.app/Contents/Frameworks/App.framework/Resources/flutter_assets/FontManifest.json (deflated 47%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:58:04.1285230Z   adding: atmos_mixer_pro.app/Contents/Frameworks/App.framework/Resources/flutter_assets/packages/ (stored 0%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:58:04.1285960Z   adding: atmos_mixer_pro.app/Contents/Frameworks/App.framework/Resources/flutter_assets/packages/cupertino_icons/ (stored 0%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:58:04.1286850Z   adding: atmos_mixer_pro.app/Contents/Frameworks/App.framework/Resources/flutter_assets/packages/cupertino_icons/assets/ (stored 0%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:58:04.1368900Z   adding: atmos_mixer_pro.app/Contents/Frameworks/App.framework/Resources/flutter_assets/packages/cupertino_icons/assets/CupertinoIcons.ttf (deflated 55%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:58:04.1369840Z   adding: atmos_mixer_pro.app/Contents/Frameworks/App.framework/Resources/flutter_assets/shaders/ (stored 0%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:58:04.1373820Z   adding: atmos_mixer_pro.app/Contents/Frameworks/App.framework/Resources/flutter_assets/shaders/ink_sparkle.frag (deflated 74%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:58:04.1379390Z   adding: atmos_mixer_pro.app/Contents/Frameworks/App.framework/Resources/flutter_assets/shaders/stretch_effect.frag (deflated 80%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:58:04.1382250Z   adding: atmos_mixer_pro.app/Contents/Frameworks/App.framework/Resources/flutter_assets/AssetManifest.bin (deflated 50%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:58:04.1383120Z   adding: atmos_mixer_pro.app/Contents/Frameworks/App.framework/Resources/flutter_assets/fonts/ (stored 0%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:58:04.1385110Z   adding: atmos_mixer_pro.app/Contents/Frameworks/App.framework/Resources/flutter_assets/fonts/MaterialIcons-Regular.otf (deflated 38%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:58:04.1386060Z   adding: atmos_mixer_pro.app/Contents/Frameworks/App.framework/Resources/Info.plist (deflated 56%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:58:04.1386660Z   adding: atmos_mixer_pro.app/Contents/Frameworks/App.framework/Versions/ (stored 0%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:58:04.1387310Z   adding: atmos_mixer_pro.app/Contents/Frameworks/App.framework/Versions/A/ (stored 0%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:58:04.1387840Z   adding: atmos_mixer_pro.app/Contents/Frameworks/App.framework/Versions/A/_CodeSignature/ (stored 0%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:58:04.1388580Z   adding: atmos_mixer_pro.app/Contents/Frameworks/App.framework/Versions/A/_CodeSignature/CodeResources (deflated 73%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:58:04.7411550Z   adding: atmos_mixer_pro.app/Contents/Frameworks/App.framework/Versions/A/App (deflated 61%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:58:04.7412270Z   adding: atmos_mixer_pro.app/Contents/Frameworks/App.framework/Versions/A/Resources/ (stored 0%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:58:04.7413030Z   adding: atmos_mixer_pro.app/Contents/Frameworks/App.framework/Versions/A/Resources/flutter_assets/ (stored 0%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:58:04.7416070Z   adding: atmos_mixer_pro.app/Contents/Frameworks/App.framework/Versions/A/Resources/flutter_assets/NOTICES.Z (stored 0%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:58:04.7417230Z   adding: atmos_mixer_pro.app/Contents/Frameworks/App.framework/Versions/A/Resources/flutter_assets/NativeAssetsManifest.json (deflated 52%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:58:04.7418510Z   adding: atmos_mixer_pro.app/Contents/Frameworks/App.framework/Versions/A/Resources/flutter_assets/FontManifest.json (deflated 47%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:58:04.7419290Z   adding: atmos_mixer_pro.app/Contents/Frameworks/App.framework/Versions/A/Resources/flutter_assets/packages/ (stored 0%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:58:04.7420240Z   adding: atmos_mixer_pro.app/Contents/Frameworks/App.framework/Versions/A/Resources/flutter_assets/packages/cupertino_icons/ (stored 0%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:58:04.7421060Z   adding: atmos_mixer_pro.app/Contents/Frameworks/App.framework/Versions/A/Resources/flutter_assets/packages/cupertino_icons/assets/ (stored 0%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:58:04.7500310Z   adding: atmos_mixer_pro.app/Contents/Frameworks/App.framework/Versions/A/Resources/flutter_assets/packages/cupertino_icons/assets/CupertinoIcons.ttf (deflated 55%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:58:04.7501140Z   adding: atmos_mixer_pro.app/Contents/Frameworks/App.framework/Versions/A/Resources/flutter_assets/shaders/ (stored 0%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:58:04.7503020Z   adding: atmos_mixer_pro.app/Contents/Frameworks/App.framework/Versions/A/Resources/flutter_assets/shaders/ink_sparkle.frag (deflated 74%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:58:04.7505770Z   adding: atmos_mixer_pro.app/Contents/Frameworks/App.framework/Versions/A/Resources/flutter_assets/shaders/stretch_effect.frag (deflated 80%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:58:04.7506710Z   adding: atmos_mixer_pro.app/Contents/Frameworks/App.framework/Versions/A/Resources/flutter_assets/AssetManifest.bin (deflated 50%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:58:04.7507350Z   adding: atmos_mixer_pro.app/Contents/Frameworks/App.framework/Versions/A/Resources/flutter_assets/fonts/ (stored 0%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:58:04.7508280Z   adding: atmos_mixer_pro.app/Contents/Frameworks/App.framework/Versions/A/Resources/flutter_assets/fonts/MaterialIcons-Regular.otf (deflated 38%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:58:04.7509030Z   adding: atmos_mixer_pro.app/Contents/Frameworks/App.framework/Versions/A/Resources/Info.plist (deflated 56%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:58:04.7509670Z   adding: atmos_mixer_pro.app/Contents/Frameworks/App.framework/Versions/Current/ (stored 0%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:58:04.7510240Z   adding: atmos_mixer_pro.app/Contents/Frameworks/App.framework/Versions/Current/_CodeSignature/ (stored 0%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:58:04.7510940Z   adding: atmos_mixer_pro.app/Contents/Frameworks/App.framework/Versions/Current/_CodeSignature/CodeResources (deflated 73%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:58:05.3434040Z   adding: atmos_mixer_pro.app/Contents/Frameworks/App.framework/Versions/Current/App (deflated 61%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:58:05.3434920Z   adding: atmos_mixer_pro.app/Contents/Frameworks/App.framework/Versions/Current/Resources/ (stored 0%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:58:05.3435570Z   adding: atmos_mixer_pro.app/Contents/Frameworks/App.framework/Versions/Current/Resources/flutter_assets/ (stored 0%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:58:05.3438280Z   adding: atmos_mixer_pro.app/Contents/Frameworks/App.framework/Versions/Current/Resources/flutter_assets/NOTICES.Z (stored 0%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:58:05.3439240Z   adding: atmos_mixer_pro.app/Contents/Frameworks/App.framework/Versions/Current/Resources/flutter_assets/NativeAssetsManifest.json (deflated 52%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:58:05.3440160Z   adding: atmos_mixer_pro.app/Contents/Frameworks/App.framework/Versions/Current/Resources/flutter_assets/FontManifest.json (deflated 47%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:58:05.3440870Z   adding: atmos_mixer_pro.app/Contents/Frameworks/App.framework/Versions/Current/Resources/flutter_assets/packages/ (stored 0%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:58:05.3441920Z   adding: atmos_mixer_pro.app/Contents/Frameworks/App.framework/Versions/Current/Resources/flutter_assets/packages/cupertino_icons/ (stored 0%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:58:05.3442710Z   adding: atmos_mixer_pro.app/Contents/Frameworks/App.framework/Versions/Current/Resources/flutter_assets/packages/cupertino_icons/assets/ (stored 0%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:58:05.3522960Z   adding: atmos_mixer_pro.app/Contents/Frameworks/App.framework/Versions/Current/Resources/flutter_assets/packages/cupertino_icons/assets/CupertinoIcons.ttf (deflated 55%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:58:05.3523780Z   adding: atmos_mixer_pro.app/Contents/Frameworks/App.framework/Versions/Current/Resources/flutter_assets/shaders/ (stored 0%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:58:05.3525710Z   adding: atmos_mixer_pro.app/Contents/Frameworks/App.framework/Versions/Current/Resources/flutter_assets/shaders/ink_sparkle.frag (deflated 74%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:58:05.3527730Z   adding: atmos_mixer_pro.app/Contents/Frameworks/App.framework/Versions/Current/Resources/flutter_assets/shaders/stretch_effect.frag (deflated 80%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:58:05.3528590Z   adding: atmos_mixer_pro.app/Contents/Frameworks/App.framework/Versions/Current/Resources/flutter_assets/AssetManifest.bin (deflated 50%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:58:05.3529340Z   adding: atmos_mixer_pro.app/Contents/Frameworks/App.framework/Versions/Current/Resources/flutter_assets/fonts/ (stored 0%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:58:05.3530200Z   adding: atmos_mixer_pro.app/Contents/Frameworks/App.framework/Versions/Current/Resources/flutter_assets/fonts/MaterialIcons-Regular.otf (deflated 38%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:58:05.3531110Z   adding: atmos_mixer_pro.app/Contents/Frameworks/App.framework/Versions/Current/Resources/Info.plist (deflated 56%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:58:05.3531720Z   adding: atmos_mixer_pro.app/Contents/Info.plist (deflated 65%)
+build (macos-latest)	Archive Release (macOS)	2026-08-03T16:58:05.3532270Z   adding: atmos_mixer_pro.app/Contents/PkgInfo (stored 0%)
+build (macos-latest)	Upload Artifact	﻿2026-08-03T16:58:05.3613980Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+build (macos-latest)	Upload Artifact	2026-08-03T16:58:05.3615090Z ##[group]Run actions/upload-artifact@v4
+build (macos-latest)	Upload Artifact	2026-08-03T16:58:05.3615270Z with:
+build (macos-latest)	Upload Artifact	2026-08-03T16:58:05.3615410Z   name: atmos_mixer_pro_macos.zip
+build (macos-latest)	Upload Artifact	2026-08-03T16:58:05.3615590Z   path: atmos_mixer_pro_macos.zip
+build (macos-latest)	Upload Artifact	2026-08-03T16:58:05.3615770Z   if-no-files-found: warn
+build (macos-latest)	Upload Artifact	2026-08-03T16:58:05.3615930Z   compression-level: 6
+build (macos-latest)	Upload Artifact	2026-08-03T16:58:05.3616070Z   overwrite: false
+build (macos-latest)	Upload Artifact	2026-08-03T16:58:05.3616220Z   include-hidden-files: false
+build (macos-latest)	Upload Artifact	2026-08-03T16:58:05.3616370Z env:
+build (macos-latest)	Upload Artifact	2026-08-03T16:58:05.3616510Z   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+build (macos-latest)	Upload Artifact	2026-08-03T16:58:05.3616700Z   CARGO_TERM_COLOR: always
+build (macos-latest)	Upload Artifact	2026-08-03T16:58:05.3616870Z   CARGO_HOME: /Users/runner/.cargo
+build (macos-latest)	Upload Artifact	2026-08-03T16:58:05.3617040Z   CARGO_INCREMENTAL: 0
+build (macos-latest)	Upload Artifact	2026-08-03T16:58:05.3617260Z   CACHE_ON_FAILURE: false
+build (macos-latest)	Upload Artifact	2026-08-03T16:58:05.3617530Z   FLUTTER_ROOT: /Users/runner/hostedtoolcache/flutter/stable-3.44.8-arm64/flutter
+build (macos-latest)	Upload Artifact	2026-08-03T16:58:05.3617840Z   PUB_CACHE: /Users/runner/.pub-cache
+build (macos-latest)	Upload Artifact	2026-08-03T16:58:05.3618020Z ##[endgroup]
+build (macos-latest)	Upload Artifact	2026-08-03T16:58:05.7780370Z (node:17469) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+build (macos-latest)	Upload Artifact	2026-08-03T16:58:05.7782170Z (Use `node --trace-deprecation ...` to show where the warning was created)
+build (macos-latest)	Upload Artifact	2026-08-03T16:58:05.7849740Z With the provided path, there will be 1 file uploaded
+build (macos-latest)	Upload Artifact	2026-08-03T16:58:05.7856050Z Artifact name is valid!
+build (macos-latest)	Upload Artifact	2026-08-03T16:58:05.7856460Z Root directory input is valid!
+build (macos-latest)	Upload Artifact	2026-08-03T16:58:06.1120640Z Beginning upload of artifact content to blob storage
+build (macos-latest)	Upload Artifact	2026-08-03T16:58:06.3506950Z (node:17469) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+build (macos-latest)	Upload Artifact	2026-08-03T16:58:07.3800210Z Uploaded bytes 8388608
+build (macos-latest)	Upload Artifact	2026-08-03T16:58:07.5405400Z Uploaded bytes 16777216
+build (macos-latest)	Upload Artifact	2026-08-03T16:58:07.6529120Z Uploaded bytes 25165824
+build (macos-latest)	Upload Artifact	2026-08-03T16:58:07.8021490Z Uploaded bytes 33554432
+build (macos-latest)	Upload Artifact	2026-08-03T16:58:07.8369210Z Uploaded bytes 41943040
+build (macos-latest)	Upload Artifact	2026-08-03T16:58:07.9739260Z Uploaded bytes 50331648
+build (macos-latest)	Upload Artifact	2026-08-03T16:58:08.1210240Z Uploaded bytes 58720256
+build (macos-latest)	Upload Artifact	2026-08-03T16:58:08.4727190Z Uploaded bytes 67108864
+build (macos-latest)	Upload Artifact	2026-08-03T16:58:08.7468500Z Uploaded bytes 71557523
+build (macos-latest)	Upload Artifact	2026-08-03T16:58:08.8273660Z Finished uploading artifact content to blob storage!
+build (macos-latest)	Upload Artifact	2026-08-03T16:58:08.8275390Z SHA256 digest of uploaded artifact zip is 0992fc1ca1c3452dd951297387a9137edf6792cfa160112df6cf5ace54b06570
+build (macos-latest)	Upload Artifact	2026-08-03T16:58:08.8276550Z Finalizing artifact upload
+build (macos-latest)	Upload Artifact	2026-08-03T16:58:09.0610190Z Artifact atmos_mixer_pro_macos.zip.zip successfully finalized. Artifact ID 8864284140
+build (macos-latest)	Upload Artifact	2026-08-03T16:58:09.0612130Z Artifact atmos_mixer_pro_macos.zip has been successfully uploaded! Final size is 71557523 bytes. Artifact ID is 8864284140
+build (macos-latest)	Upload Artifact	2026-08-03T16:58:09.0632710Z Artifact download URL: https://github.com/Apejean/Atmos/actions/runs/30833886615/artifacts/8864284140
+build (macos-latest)	Post Set up Flutter	﻿2026-08-03T16:58:09.0997820Z Post job cleanup.
+build (macos-latest)	Post Cache Rust dependencies	﻿2026-08-03T16:58:09.1090080Z Post job cleanup.
+build (macos-latest)	Post Cache Rust dependencies	2026-08-03T16:58:09.3378270Z ##[group]Cache Configuration
+build (macos-latest)	Post Cache Rust dependencies	2026-08-03T16:58:09.3378660Z Cache Provider:
+build (macos-latest)	Post Cache Rust dependencies	2026-08-03T16:58:09.3378870Z     github
+build (macos-latest)	Post Cache Rust dependencies	2026-08-03T16:58:09.3379030Z Workspaces:
+build (macos-latest)	Post Cache Rust dependencies	2026-08-03T16:58:09.3379230Z     /Users/runner/work/Atmos/Atmos/atmos_mixer_pro/rust
+build (macos-latest)	Post Cache Rust dependencies	2026-08-03T16:58:09.3379480Z Cache Paths:
+build (macos-latest)	Post Cache Rust dependencies	2026-08-03T16:58:09.3379640Z     /Users/runner/.cargo/bin
+build (macos-latest)	Post Cache Rust dependencies	2026-08-03T16:58:09.3379850Z     /Users/runner/.cargo/.crates.toml
+build (macos-latest)	Post Cache Rust dependencies	2026-08-03T16:58:09.3380070Z     /Users/runner/.cargo/.crates2.json
+build (macos-latest)	Post Cache Rust dependencies	2026-08-03T16:58:09.3385240Z     /Users/runner/.cargo/registry
+build (macos-latest)	Post Cache Rust dependencies	2026-08-03T16:58:09.3385540Z     /Users/runner/.cargo/git
+build (macos-latest)	Post Cache Rust dependencies	2026-08-03T16:58:09.3385880Z     /Users/runner/work/Atmos/Atmos/atmos_mixer_pro/rust/target
+build (macos-latest)	Post Cache Rust dependencies	2026-08-03T16:58:09.3386170Z Restore Key:
+build (macos-latest)	Post Cache Rust dependencies	2026-08-03T16:58:09.3386360Z     v0-rust-build-Darwin-arm64-af5aa912
+build (macos-latest)	Post Cache Rust dependencies	2026-08-03T16:58:09.3386620Z Cache Key:
+build (macos-latest)	Post Cache Rust dependencies	2026-08-03T16:58:09.3386800Z     v0-rust-build-Darwin-arm64-af5aa912-369b3dab
+build (macos-latest)	Post Cache Rust dependencies	2026-08-03T16:58:09.3387060Z .. Prefix:
+build (macos-latest)	Post Cache Rust dependencies	2026-08-03T16:58:09.3387350Z   - v0-rust-build-Darwin-arm64
+build (macos-latest)	Post Cache Rust dependencies	2026-08-03T16:58:09.3387550Z .. Environment considered:
+build (macos-latest)	Post Cache Rust dependencies	2026-08-03T16:58:09.3387720Z   - Rust Versions:
+build (macos-latest)	Post Cache Rust dependencies	2026-08-03T16:58:09.3387980Z     - 1.97.1 aarch64-apple-darwin 8bab26f4f68e0e26f0bb7960be334d5b520ea452
+build (macos-latest)	Post Cache Rust dependencies	2026-08-03T16:58:09.3388350Z     - 1.97.1 aarch64-apple-darwin 8bab26f4f68e0e26f0bb7960be334d5b520ea452
+build (macos-latest)	Post Cache Rust dependencies	2026-08-03T16:58:09.3388660Z   - CARGO_HOME
+build (macos-latest)	Post Cache Rust dependencies	2026-08-03T16:58:09.3388810Z   - CARGO_INCREMENTAL
+build (macos-latest)	Post Cache Rust dependencies	2026-08-03T16:58:09.3388970Z   - CARGO_TERM_COLOR
+build (macos-latest)	Post Cache Rust dependencies	2026-08-03T16:58:09.3389140Z .. Lockfiles considered:
+build (macos-latest)	Post Cache Rust dependencies	2026-08-03T16:58:09.3389380Z   - /Users/runner/work/Atmos/Atmos/atmos_mixer_pro/rust/Cargo.lock
+build (macos-latest)	Post Cache Rust dependencies	2026-08-03T16:58:09.3389720Z   - /Users/runner/work/Atmos/Atmos/atmos_mixer_pro/rust/Cargo.toml
+build (macos-latest)	Post Cache Rust dependencies	2026-08-03T16:58:09.3390150Z ##[endgroup]
+build (macos-latest)	Post Cache Rust dependencies	2026-08-03T16:58:09.3390240Z 
+build (macos-latest)	Post Cache Rust dependencies	2026-08-03T16:58:09.3390550Z (node:17705) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+build (macos-latest)	Post Cache Rust dependencies	2026-08-03T16:58:09.3391070Z (Use `node --trace-deprecation ...` to show where the warning was created)
+build (macos-latest)	Post Cache Rust dependencies	2026-08-03T16:58:15.1997800Z ... Cleaning /Users/runner/work/Atmos/Atmos/atmos_mixer_pro/rust/target ...
+build (macos-latest)	Post Cache Rust dependencies	2026-08-03T16:58:15.2014230Z ... Cleaning cargo registry (cache-all-crates: false) ...
+build (macos-latest)	Post Cache Rust dependencies	2026-08-03T16:58:16.5027530Z ... Cleaning cargo/bin ...
+build (macos-latest)	Post Cache Rust dependencies	2026-08-03T16:58:16.5036060Z ... Cleaning cargo git cache ...
+build (macos-latest)	Post Cache Rust dependencies	2026-08-03T16:58:16.5037850Z ... Saving cache ...
+build (macos-latest)	Post Cache Rust dependencies	2026-08-03T16:58:16.5587470Z [command]/opt/homebrew/bin/gtar --posix -cf cache.tzst --exclude cache.tzst -P -C /Users/runner/work/Atmos/Atmos --files-from manifest.txt --delay-directory-restore --use-compress-program zstdmt
+build (macos-latest)	Post Cache Rust dependencies	2026-08-03T16:58:18.3726570Z Sent 15073280 of 67898861 (22.2%), 14.3 MBs/sec
+build (macos-latest)	Post Cache Rust dependencies	2026-08-03T16:58:19.3750460Z Sent 67898861 of 67898861 (100.0%), 32.3 MBs/sec
+build (macos-latest)	Post Checkout code	﻿2026-08-03T16:58:19.8029500Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+build (macos-latest)	Post Checkout code	2026-08-03T16:58:19.8031030Z Post job cleanup.
+build (macos-latest)	Post Checkout code	2026-08-03T16:58:20.1216230Z [command]/opt/homebrew/bin/git version
+build (macos-latest)	Post Checkout code	2026-08-03T16:58:20.1498720Z git version 2.55.0
+build (macos-latest)	Post Checkout code	2026-08-03T16:58:20.1526000Z Copying '/Users/runner/.gitconfig' to '/Users/runner/work/_temp/488946e8-cb03-478e-a394-78042808a790/.gitconfig'
+build (macos-latest)	Post Checkout code	2026-08-03T16:58:20.1534210Z Temporarily overriding HOME='/Users/runner/work/_temp/488946e8-cb03-478e-a394-78042808a790' before making global git config changes
+build (macos-latest)	Post Checkout code	2026-08-03T16:58:20.1534940Z Adding repository directory to the temporary git global config as a safe directory
+build (macos-latest)	Post Checkout code	2026-08-03T16:58:20.1538730Z [command]/opt/homebrew/bin/git config --global --add safe.directory /Users/runner/work/Atmos/Atmos
+build (macos-latest)	Post Checkout code	2026-08-03T16:58:20.1677380Z [command]/opt/homebrew/bin/git config --local --name-only --get-regexp core\.sshCommand
+build (macos-latest)	Post Checkout code	2026-08-03T16:58:20.1865270Z [command]/opt/homebrew/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+build (macos-latest)	Post Checkout code	2026-08-03T16:58:20.3227370Z [command]/opt/homebrew/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+build (macos-latest)	Post Checkout code	2026-08-03T16:58:20.3294850Z http.https://github.com/.extraheader
+build (macos-latest)	Post Checkout code	2026-08-03T16:58:20.3306380Z [command]/opt/homebrew/bin/git config --local --unset-all http.https://github.com/.extraheader
+build (macos-latest)	Post Checkout code	2026-08-03T16:58:20.3391250Z [command]/opt/homebrew/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+build (macos-latest)	Post Checkout code	2026-08-03T16:58:20.4318350Z [command]/opt/homebrew/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+build (macos-latest)	Post Checkout code	2026-08-03T16:58:20.4386210Z [command]/opt/homebrew/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+build (macos-latest)	Complete job	﻿2026-08-03T16:58:20.5554730Z Cleaning up orphan processes
+build (macos-latest)	Complete job	2026-08-03T16:58:21.1121040Z Terminate orphan process: pid (15870) (ibtoold)
+build (macos-latest)	Complete job	2026-08-03T16:58:21.1614090Z Terminate orphan process: pid (15871) (ibtoold)
+build (macos-latest)	Complete job	2026-08-03T16:58:21.2044610Z Terminate orphan process: pid (15869) (ibtoold)
+build (macos-latest)	Complete job	2026-08-03T16:58:23.6659320Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/upload-artifact@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
