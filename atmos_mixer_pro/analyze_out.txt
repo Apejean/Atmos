@@ -1,0 +1,37 @@
+Resolving dependencies...
+Downloading packages...
+  _fe_analyzer_shared 99.0.0 (105.0.0 available)
+  analyzer 12.1.0 (14.1.0 available)
+  cross_file 0.3.5+2 (0.3.5+4 available)
+  file_picker 11.0.2 (11.0.3 available)
+  flutter_riverpod 3.3.2 (3.4.2 available)
+  hooks 2.0.2 (2.1.0 available)
+  jni 1.0.0 (1.0.3 available)
+  jni_flutter 1.0.1 (1.0.2 available)
+  matcher 0.12.19 (0.12.20 available)
+  meta 1.18.0 (1.19.0 available)
+  objective_c 9.4.1 (9.5.0 available)
+  package_config 2.2.0 (3.0.0 available)
+  path_provider 2.1.5 (2.1.6 available)
+  path_provider_linux 2.2.1 (2.2.2 available)
+  path_provider_platform_interface 2.1.2 (2.1.3 available)
+  record_use 0.6.0 (1.0.0 available)
+  riverpod 3.3.2 (3.4.2 available)
+  screen_retriever 0.2.1 (0.2.2 available)
+  screen_retriever_linux 0.2.1 (0.2.2 available)
+  screen_retriever_macos 0.2.1 (0.2.2 available)
+  screen_retriever_platform_interface 0.2.1 (0.2.2 available)
+  screen_retriever_windows 0.2.1 (0.2.2 available)
+  shared_preferences_android 2.4.26 (2.4.27 available)
+  test 1.31.0 (1.31.2 available)
+  test_api 0.7.11 (0.7.13 available)
+  test_core 0.6.17 (0.6.19 available)
+  vector_math 2.2.0 (2.4.2 available)
+  win32 5.15.0 (6.3.0 available)
+  window_manager 0.5.1 (0.5.2 available)
+  xml 6.6.1 (7.0.1 available)
+Got dependencies!
+30 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+Analyzing atmos_mixer_pro...                                    
+No issues found! (ran in 2.3s)

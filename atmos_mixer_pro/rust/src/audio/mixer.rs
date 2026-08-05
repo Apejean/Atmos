@@ -92,7 +92,7 @@ impl AudioMixer {
         let mut peak_limiter_enabled = true;
         let mut limiters = Vec::with_capacity(channels);
         for _ in 0..channels {
-            limiters.push(crate::audio::limiter::PeakLimiter::new(sample_rate as f32, 2.5, 100.0, 1.0));
+            limiters.push(crate::audio::limiter::PeakLimiter::new(sample_rate as f32, 1.0, 500.0, 0.99));
         }
 
         if let Ok(config_guard) = GLOBAL_STATE.config.read() {

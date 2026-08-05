@@ -52,7 +52,9 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
   bool _showTrajectories = true;
   bool _showHeatmap = true;
   String _selectedOctaveFilter =
-      'All'; // 'All', '125Hz', '500Hz', '1kHz', '4kHz'
+      'All';
+  String? _selectedRoomId;
+  bool _isRoomInteracting = false; // 'All', '125Hz', '500Hz', '1kHz', '4kHz'
 
   bool _isMeasuringScale = false;
   Offset? _measureStart;
@@ -449,7 +451,10 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                 ),
                 IconButton(
                   icon: const Icon(Icons.close, color: Colors.white54),
-                  onPressed: () => Navigator.pop(context),
+                  onPressed: () {
+                    setState(() => _selectedRoomId = null);
+                    Navigator.pop(context);
+                  },
                 ),
               ],
             ),
@@ -730,6 +735,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
               TextButton(
                 onPressed: () {
                   ref.read(roomZoneProvider.notifier).removeRoomZone(room.id);
+                  setState(() => _selectedRoomId = null);
                   Navigator.pop(context);
                 },
                 child: const Text(
@@ -738,7 +744,10 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                 ),
               ),
               TextButton(
-                onPressed: () => Navigator.pop(context),
+                onPressed: () {
+                  setState(() => _selectedRoomId = null);
+                  Navigator.pop(context);
+                },
                 child: const Text(
                   '취소',
                   style: TextStyle(color: Colors.white70),
@@ -781,6 +790,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                         immediate: true,
                       );
                   _syncSpatialConfigRealtime();
+                  setState(() => _selectedRoomId = null);
                   Navigator.pop(context);
                 },
                 child: const Text(
@@ -822,7 +832,10 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                 ),
                 IconButton(
                   icon: const Icon(Icons.close, color: Colors.white54),
-                  onPressed: () => Navigator.pop(context),
+                  onPressed: () {
+                    setState(() => _selectedRoomId = null);
+                    Navigator.pop(context);
+                  },
                 ),
               ],
             ),
@@ -1030,7 +1043,10 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                 ),
               ),
               TextButton(
-                onPressed: () => Navigator.pop(context),
+                onPressed: () {
+                  setState(() => _selectedRoomId = null);
+                  Navigator.pop(context);
+                },
                 child: const Text(
                   '취소',
                   style: TextStyle(color: Colors.white70),
@@ -1056,6 +1072,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                         immediate: true,
                       );
                   _syncSpatialConfigRealtime();
+                  setState(() => _selectedRoomId = null);
                   Navigator.pop(context);
                 },
                 child: const Text(
@@ -1204,7 +1221,10 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
             ),
             actions: [
               TextButton(
-                onPressed: () => Navigator.pop(context),
+                onPressed: () {
+                  setState(() => _selectedRoomId = null);
+                  Navigator.pop(context);
+                },
                 child: const Text(
                   '취소',
                   style: TextStyle(color: Colors.white70),
@@ -1316,7 +1336,10 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
     final blueprint = ref.watch(blueprintProvider);
 
     return GestureDetector(
-      onTap: () => _canvasFocusNode.requestFocus(),
+      onTap: () {
+        _canvasFocusNode.requestFocus();
+        if (!_isMeasuringScale) setState(() => _selectedRoomId = null);
+      },
       child: Scaffold(
         backgroundColor: AppColors.background,
               appBar: AppBar(
@@ -1583,9 +1606,13 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                     constraints.maxWidth,
                     constraints.maxHeight,
                   );
-                  return InteractiveViewer(
+                  return GestureDetector(
+                    onTap: () {
+                      if (!_isMeasuringScale) setState(() => _selectedRoomId = null);
+                    },
+                    child: InteractiveViewer(
                     transformationController: _transformationController,
-                    panEnabled: !_isMeasuringScale,
+                    panEnabled: !_isMeasuringScale && !_isRoomInteracting,
                     scaleEnabled: !_isMeasuringScale,
                     boundaryMargin: const EdgeInsets.all(double.infinity),
                     minScale: 0.1,
@@ -1651,8 +1678,14 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                                         containedSpeakers: containedSpeakers,
                                         transformationController:
                                             _transformationController,
+                                        isSelected: _selectedRoomId == room.id,
                                         onEdit: () => _editRoom(room),
                                         onDragUpdate: _syncSpatialConfigRealtime,
+                                        onInteractionStart: () => setState(() {
+                                          _isRoomInteracting = true;
+                                          _selectedRoomId = room.id;
+                                        }),
+                                        onInteractionEnd: () => setState(() => _isRoomInteracting = false),
                                       );
                                     }).toList(),
                                   ),
@@ -1806,10 +1839,11 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                             ),
                         ],
                       ),
-                      ),
                     ),
-                  );
-                },
+                  ),
+                ),
+              );
+            },
               ),
               floatingActionButton: PopupMenuButton<String>(
                 onSelected: (value) {

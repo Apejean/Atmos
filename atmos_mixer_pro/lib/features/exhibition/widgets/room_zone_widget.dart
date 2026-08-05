@@ -19,6 +19,9 @@ class RoomZoneWidget extends ConsumerStatefulWidget {
   final TransformationController transformationController;
   final VoidCallback onEdit;
   final VoidCallback? onDragUpdate;
+  final bool isSelected;
+  final VoidCallback? onInteractionStart;
+  final VoidCallback? onInteractionEnd;
 
   const RoomZoneWidget({
     super.key,
@@ -27,6 +30,9 @@ class RoomZoneWidget extends ConsumerStatefulWidget {
     required this.transformationController,
     required this.onEdit,
     this.onDragUpdate,
+    this.isSelected = false,
+    this.onInteractionStart,
+    this.onInteractionEnd,
   });
 
   @override
@@ -42,7 +48,7 @@ class RoomZoneWidgetState extends ConsumerState<RoomZoneWidget> {
   bool _isInteracting = false;
   Map<String, Offset> _draggedSpeakersOffsets = {};
 
-  bool _isRotatingFromCorner = false;
+  
   double _initialRotation = 0.0;
   double _initialAngleToCenter = 0.0;
 
@@ -67,11 +73,6 @@ class RoomZoneWidgetState extends ConsumerState<RoomZoneWidget> {
   }
 
   Widget _buildResizeHandle(Alignment alignment) {
-    bool isCorner =
-        alignment == Alignment.topLeft ||
-        alignment == Alignment.topRight ||
-        alignment == Alignment.bottomLeft ||
-        alignment == Alignment.bottomRight;
 
     MouseCursor cursor = SystemMouseCursors.basic;
     if (alignment == Alignment.topLeft || alignment == Alignment.bottomRight) {
@@ -96,89 +97,11 @@ class RoomZoneWidgetState extends ConsumerState<RoomZoneWidget> {
           onPanStart: (details) {
             setState(() {
               _isInteracting = true;
-              if (isCorner) {
-                // Center of the 40x40 box is (20,20)
-                final dist = math.sqrt(
-                  math.pow(details.localPosition.dx - 20, 2) +
-                      math.pow(details.localPosition.dy - 20, 2),
-                );
-                _isRotatingFromCorner = dist > 10.0; // Outer part -> Rotate
-              } else {
-                _isRotatingFromCorner = false;
-              }
-
-              if (_isRotatingFromCorner) {
-                final renderBox = context.findRenderObject() as RenderBox?;
-                if (renderBox != null) {
-                  final localTouch = renderBox.globalToLocal(
-                    details.globalPosition,
-                  );
-                  final roomCenterLocal = Offset(_localW / 2, _localH / 2);
-                  _initialAngleToCenter = math.atan2(
-                    localTouch.dy - roomCenterLocal.dy,
-                    localTouch.dx - roomCenterLocal.dx,
-                  );
-                  _initialRotation = widget.room.rotation;
-                }
-              }
+widget.onInteractionStart?.call();
             });
           },
           onPanUpdate: (details) {
-            if (_isRotatingFromCorner) {
-              final renderBox = context.findRenderObject() as RenderBox?;
-              if (renderBox != null) {
-                final localTouch = renderBox.globalToLocal(
-                  details.globalPosition,
-                );
-                final roomCenterLocal = Offset(_localW / 2, _localH / 2);
-                final currentAngleToCenter = math.atan2(
-                  localTouch.dy - roomCenterLocal.dy,
-                  localTouch.dx - roomCenterLocal.dx,
-                );
-                final deltaAngle =
-                    (currentAngleToCenter - _initialAngleToCenter) *
-                    180 /
-                    math.pi;
-                double newRotation = (_initialRotation + deltaAngle) % 360;
-                if (newRotation < 0) newRotation += 360;
 
-                ref
-                    .read(roomZoneProvider.notifier)
-                    .updateRoomZone(
-                      widget.room.copyWith(rotation: newRotation),
-                      immediate: true,
-                    );
-              }
-              final scale = widget.transformationController.value
-                  .getMaxScaleOnAxis();
-              final currentScale = scale > 0 ? scale : 1.0;
-              final dxGlobal = details.delta.dx / currentScale;
-              final dyGlobal = details.delta.dy / currentScale;
-
-              setState(() {
-                _localX += dxGlobal;
-                _localY += dyGlobal;
-
-                final blueprint = ref.read(blueprintProvider);
-                final scaleM = blueprint.scale > 0 ? blueprint.scale : 40.0;
-
-                ref
-                    .read(roomZoneProvider.notifier)
-                    .updateRoomZone(
-                      widget.room.copyWith(
-                        x: _localX,
-                        y: _localY,
-                        width: _localW,
-                        height: _localH,
-                        physicalWidth: _localW / scaleM,
-                        physicalHeight: _localH / scaleM,
-                      ),
-                      immediate: true,
-                    );
-              });
-              widget.onDragUpdate?.call();
-              return;
-            }
 
             final scale = widget.transformationController.value
                 .getMaxScaleOnAxis();
@@ -260,10 +183,7 @@ class RoomZoneWidgetState extends ConsumerState<RoomZoneWidget> {
             widget.onDragUpdate?.call();
           },
           onPanEnd: (_) {
-            if (_isRotatingFromCorner) {
-              setState(() => _isInteracting = false);
-              return;
-            }
+
 
             double snappedX =
                 (_localX / ref.read(blueprintProvider).scale).round() *
@@ -293,6 +213,7 @@ class RoomZoneWidgetState extends ConsumerState<RoomZoneWidget> {
               _localH = snappedH;
               _isInteracting = false;
             });
+            widget.onInteractionEnd?.call();
 
             ref
                 .read(roomZoneProvider.notifier)
@@ -367,7 +288,10 @@ class RoomZoneWidgetState extends ConsumerState<RoomZoneWidget> {
       top: top,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onPanStart: (_) => setState(() => _isInteracting = true),
+        onPanStart: (_) {
+          setState(() => _isInteracting = true);
+          widget.onInteractionStart?.call();
+        },
         onPanUpdate: (details) {
           final scale = widget.transformationController.value
               .getMaxScaleOnAxis();
@@ -390,7 +314,10 @@ class RoomZoneWidgetState extends ConsumerState<RoomZoneWidget> {
                 immediate: true,
               );
         },
-        onPanEnd: (_) => setState(() => _isInteracting = false),
+        onPanEnd: (_) {
+            setState(() => _isInteracting = false);
+            widget.onInteractionEnd?.call();
+          },
         child: Container(
           width: doorWidth,
           height: doorWidth,
@@ -406,17 +333,18 @@ class RoomZoneWidgetState extends ConsumerState<RoomZoneWidget> {
     );
   }
 
-  Widget _buildRotateHandle(BuildContext roomContext) {
+  Widget _buildRotateHandle() {
     return Positioned(
       top: -36,
       left: _localW / 2 - 12,
       child: MouseRegion(
         cursor: SystemMouseCursors.click,
         child: GestureDetector(
-          behavior: HitTestBehavior.translucent,
+          behavior: HitTestBehavior.opaque,
           onPanStart: (details) {
             setState(() => _isInteracting = true);
-            final renderBox = roomContext.findRenderObject() as RenderBox?;
+            widget.onInteractionStart?.call();
+            final renderBox = context.findRenderObject() as RenderBox?;
             if (renderBox != null) {
               final localTouch = renderBox.globalToLocal(
                 details.globalPosition,
@@ -430,7 +358,7 @@ class RoomZoneWidgetState extends ConsumerState<RoomZoneWidget> {
             }
           },
           onPanUpdate: (details) {
-            final renderBox = roomContext.findRenderObject() as RenderBox?;
+            final renderBox = context.findRenderObject() as RenderBox?;
             if (renderBox != null) {
               final localTouch = renderBox.globalToLocal(
                 details.globalPosition,
@@ -455,7 +383,10 @@ class RoomZoneWidgetState extends ConsumerState<RoomZoneWidget> {
                   );
             }
           },
-          onPanEnd: (_) => setState(() => _isInteracting = false),
+          onPanEnd: (_) {
+            setState(() => _isInteracting = false);
+            widget.onInteractionEnd?.call();
+          },
           child: Container(
             width: 24,
             height: 24,
@@ -483,21 +414,29 @@ class RoomZoneWidgetState extends ConsumerState<RoomZoneWidget> {
 
   @override
   Widget build(BuildContext context) {
-    final roomColor = Color(widget.room.color);
+    final roomColor = widget.isSelected ? Colors.blueAccent.withValues(alpha: 0.3) : Color(widget.room.color);
     final isHoveredOrActive = _isInteracting;
 
     return Positioned(
-      left: _localX,
-      top: _localY,
-      width: _localW,
-      height: _localH,
+      left: _localX - 40,
+      top: _localY - 40,
+      width: _localW + 80,
+      height: _localH + 80,
       child: Builder(
-        builder: (roomContext) {
-          return Transform.rotate(
-            angle: widget.room.rotation * math.pi / 180.0,
-            child: Stack(
-              clipBehavior: Clip.none,
-              children: [
+        builder: (context) {
+          return Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Positioned(
+                left: 40,
+                top: 40,
+                width: _localW,
+                height: _localH,
+                child: Transform.rotate(
+                  angle: widget.room.rotation * math.pi / 180.0,
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
                 // Room Main Container & Drag Move Gesture
                 MouseRegion(
                   cursor: SystemMouseCursors.move,
@@ -506,6 +445,7 @@ class RoomZoneWidgetState extends ConsumerState<RoomZoneWidget> {
                     onDoubleTap: widget.onEdit,
                     onPanStart: (details) {
                       setState(() => _isInteracting = true);
+                      widget.onInteractionStart?.call();
                       _draggedSpeakersOffsets = {
                         for (var s in widget.containedSpeakers)
                           s.id: Offset(s.x, s.y),
@@ -575,6 +515,7 @@ class RoomZoneWidgetState extends ConsumerState<RoomZoneWidget> {
                         _localY = snappedY;
                         _isInteracting = false;
                       });
+                      widget.onInteractionEnd?.call();
 
                       ref
                           .read(roomZoneProvider.notifier)
@@ -697,7 +638,7 @@ class RoomZoneWidgetState extends ConsumerState<RoomZoneWidget> {
                   ),
                 ),
                 if (widget.room.hasDoor) _buildDoorHandle(),
-                _buildRotateHandle(roomContext),
+                _buildRotateHandle(),
                 Positioned(
                   top: -28,
                   left: 0,
@@ -737,9 +678,12 @@ class RoomZoneWidgetState extends ConsumerState<RoomZoneWidget> {
                 _buildResizeHandle(Alignment.bottomRight),
               ],
             ),
-          );
-        },
-      ),
+          ),
+        ),
+      ],
+    );
+  },
+),
     );
   }
 }
