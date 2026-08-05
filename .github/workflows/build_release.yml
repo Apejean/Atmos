@@ -88,6 +88,11 @@ jobs:
         run: flutter pub get
         working-directory: atmos_mixer_pro
 
+      - name: Cargo Check to reveal Windows Rust errors
+        if: matrix.os == 'windows-latest'
+        run: cargo check
+        working-directory: atmos_mixer_pro/rust
+
       - name: Build
         run: ${{ matrix.build_cmd }}
         working-directory: atmos_mixer_pro
