@@ -23,7 +23,7 @@ impl Default for DiskStreamer {
 
 impl DiskStreamer {
     pub fn new(file_path: String, is_loop: bool) -> anyhow::Result<Self> {
-        let (tx, rx) = bounded(16); // Buffer up to 16 chunks
+        let (tx, rx) = bounded(128); // Buffer up to 128 chunks (prevents dropouts on surround audio)
         let is_running = Arc::new(AtomicBool::new(true));
 
         let path = std::path::PathBuf::from(file_path);

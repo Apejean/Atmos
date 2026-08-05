@@ -92,7 +92,7 @@ impl AudioMixer {
         let mut peak_limiter_enabled = true;
         let mut limiters = Vec::with_capacity(channels);
         for _ in 0..channels {
-            limiters.push(crate::audio::limiter::PeakLimiter::new(sample_rate as f32, 0.1, 100.0, 1.0));
+            limiters.push(crate::audio::limiter::PeakLimiter::new(sample_rate as f32, 2.5, 100.0, 1.0));
         }
 
         if let Ok(config_guard) = GLOBAL_STATE.config.read() {
@@ -374,11 +374,6 @@ impl AudioMixer {
                 if idx_i >= instance.stream_buffer.len() {
                     match stream_rx.try_recv() {
                         Ok(new_chunk) => {
-                            let frames_in_chunk = if instance.stream_buffer.is_empty() {
-                                0.0
-                            } else {
-                                (instance.stream_buffer.len() / channels) as f64
-                            };
                             let old_chunk = std::mem::replace(&mut instance.stream_buffer, new_chunk);
                             if let Err(e) = self.buf_gc_tx.try_send(old_chunk) {
                                 let v = e.into_inner();
@@ -388,10 +383,7 @@ impl AudioMixer {
                                     let _ = v;
                                 }
                             }
-                            instance.cursor -= frames_in_chunk;
-                            if instance.cursor < 0.0 {
-                                instance.cursor = 0.0;
-                            }
+                            instance.cursor = 0.0;
                         }
                         Err(crossbeam_channel::TryRecvError::Disconnected) => {
                             instance.is_stopping = true;
