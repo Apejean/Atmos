@@ -125,28 +125,12 @@ class _SpeakerNodeWidgetState extends ConsumerState<SpeakerNodeWidget> {
                 );
               },
               child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              SizedBox(
-                height: 44,
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    Positioned(
-                      left: 4,
-                      child: widget.isDuplicateChannel
-                          ? const Tooltip(
-                              message: '중복된 채널이 지정되었습니다!',
-                              child: Icon(
-                                Icons.warning_amber_rounded,
-                                size: 16,
-                                color: Colors.redAccent,
-                              ),
-                            )
-                          : const SizedBox.shrink(),
-                    ),
-                    Center(
-                      child: ValueListenableBuilder<double>(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      ValueListenableBuilder<double>(
                         valueListenable: _levelNotifier,
                         builder: (context, currentLevel, child) {
                           return Icon(
@@ -156,7 +140,19 @@ class _SpeakerNodeWidgetState extends ConsumerState<SpeakerNodeWidget> {
                           );
                         },
                       ),
-                    ),
+                      Positioned(
+                        left: 4,
+                        child: widget.isDuplicateChannel
+                            ? const Tooltip(
+                                message: '중복된 채널이 지정되었습니다!',
+                                child: Icon(
+                                  Icons.warning_amber_rounded,
+                                  size: 16,
+                                  color: Colors.redAccent,
+                                ),
+                              )
+                            : const SizedBox.shrink(),
+                      ),
                     Positioned(
                       right: 0,
                       child: Row(
@@ -190,7 +186,6 @@ class _SpeakerNodeWidgetState extends ConsumerState<SpeakerNodeWidget> {
                     ),
                   ],
                 ),
-              ),
               const SizedBox(height: 4),
               Container(
                 height: 30,
