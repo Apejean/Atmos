@@ -1984,7 +1984,7 @@ class _DraggableSpeakerWidgetState
       child: Transform.rotate(
         angle: widget.node.rotation * math.pi / 180.0,
         alignment: Alignment.topLeft,
-        origin: const Offset(50, 103),
+        origin: const Offset(50, 60),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -1995,7 +1995,7 @@ class _DraggableSpeakerWidgetState
                 final renderBox = context.findRenderObject() as RenderBox?;
                 if (renderBox != null) {
                   final globalCenter = renderBox.localToGlobal(
-                    const Offset(50, 103),
+                    const Offset(50, 60),
                   );
                   _initialTouchAngle = math.atan2(
                     details.globalPosition.dy - globalCenter.dy,
@@ -2008,7 +2008,7 @@ class _DraggableSpeakerWidgetState
                 final renderBox = context.findRenderObject() as RenderBox?;
                 if (renderBox != null) {
                   final globalCenter = renderBox.localToGlobal(
-                    const Offset(50, 103),
+                    const Offset(50, 60),
                   );
                   final currentTouchAngle = math.atan2(
                     details.globalPosition.dy - globalCenter.dy,
@@ -2441,7 +2441,7 @@ class _HeatmapPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     for (var node in nodes) {
-      final center = Offset(node.x + 50, node.y + 103);
+      final center = Offset(node.x + 50, node.y + 60);
       final double rotRad =
           (node.rotation - 90.0) * math.pi / 180.0; // Front axis
 

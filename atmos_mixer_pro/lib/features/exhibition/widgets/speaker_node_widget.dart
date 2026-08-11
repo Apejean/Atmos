@@ -127,62 +127,69 @@ class _SpeakerNodeWidgetState extends ConsumerState<SpeakerNodeWidget> {
               child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  if (widget.isDuplicateChannel)
-                    const Padding(
-                      padding: EdgeInsets.only(left: 4.0),
-                      child: Tooltip(
-                        message: '중복된 채널이 지정되었습니다!',
-                        child: Icon(
-                          Icons.warning_amber_rounded,
-                          size: 16,
-                          color: Colors.redAccent,
-                        ),
+              SizedBox(
+                height: 44,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Positioned(
+                      left: 4,
+                      child: widget.isDuplicateChannel
+                          ? const Tooltip(
+                              message: '중복된 채널이 지정되었습니다!',
+                              child: Icon(
+                                Icons.warning_amber_rounded,
+                                size: 16,
+                                color: Colors.redAccent,
+                              ),
+                            )
+                          : const SizedBox.shrink(),
+                    ),
+                    Center(
+                      child: ValueListenableBuilder<double>(
+                        valueListenable: _levelNotifier,
+                        builder: (context, currentLevel, child) {
+                          return Icon(
+                            Icons.speaker,
+                            size: 38,
+                            color: currentLevel > 0.1 ? baseColor : Colors.white70,
+                          );
+                        },
                       ),
-                    )
-                  else
-                    const SizedBox(width: 20),
-                  ValueListenableBuilder<double>(
-                    valueListenable: _levelNotifier,
-                    builder: (context, currentLevel, child) {
-                      return Icon(
-                        Icons.speaker,
-                        size: 38,
-                        color: currentLevel > 0.1 ? baseColor : Colors.white70,
-                      );
-                    },
-                  ),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (widget.onEdit != null)
-                        InkWell(
-                          onTap: widget.onEdit,
-                          child: const Padding(
-                            padding: EdgeInsets.only(bottom: 12.0, right: 4.0),
-                            child: Icon(
-                              Icons.tune,
-                              size: 15,
-                              color: AppColors.primaryNeon,
+                    ),
+                    Positioned(
+                      right: 0,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (widget.onEdit != null)
+                            InkWell(
+                              onTap: widget.onEdit,
+                              child: const Padding(
+                                padding: EdgeInsets.only(bottom: 12.0, right: 4.0),
+                                child: Icon(
+                                  Icons.tune,
+                                  size: 15,
+                                  color: AppColors.primaryNeon,
+                                ),
+                              ),
+                            ),
+                          InkWell(
+                            onTap: widget.onDelete,
+                            child: const Padding(
+                              padding: EdgeInsets.only(bottom: 12.0, right: 4.0),
+                              child: Icon(
+                                Icons.close,
+                                size: 16,
+                                color: Colors.redAccent,
+                              ),
                             ),
                           ),
-                        ),
-                      InkWell(
-                        onTap: widget.onDelete,
-                        child: const Padding(
-                          padding: EdgeInsets.only(bottom: 12.0, right: 4.0),
-                          child: Icon(
-                            Icons.close,
-                            size: 16,
-                            color: Colors.redAccent,
-                          ),
-                        ),
+                        ],
                       ),
-                    ],
-                  ),
-                ],
+                    ),
+                  ],
+                ),
               ),
               const SizedBox(height: 4),
               Container(
