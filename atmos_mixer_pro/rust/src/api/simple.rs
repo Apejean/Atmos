@@ -254,7 +254,7 @@ pub fn api_play_track(room_id: String, track_id: String) -> Result<(), AtmosErro
                                     track_id: hash_id(&track_id),
                                     track_id_str: track_id.clone(),
                                     data: None,
-                                    stream_receiver: Some(streamer.chunk_receiver),
+                                    stream_receiver: streamer.chunk_receiver.clone(),
                                     stream_sample_rate: streamer.sample_rate,
                                     stream_channels: streamer.channels,
                                     is_loop: track.is_loop,

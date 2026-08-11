@@ -149,7 +149,7 @@ pub struct SoundInstance {
     pub room_id: u32,
     pub track_id_str: String,
     pub data: Option<Arc<SoundData>>,
-    pub stream_receiver: Option<crossbeam_channel::Receiver<Vec<f32>>>,
+    pub stream_receiver: Option<rtrb::Consumer<Vec<f32>>>,
     pub stream_buffer: Vec<f32>,
     pub stream_sample_rate: u32,
     pub stream_channels: u16,
@@ -162,6 +162,8 @@ pub struct SoundInstance {
     pub output_stereo: bool,
     pub fade_weight: f32, // 0.0 to 1.0
     pub volume_smoother: crate::audio::dsp::dsp_utils::GainSmoother,
+    pub last_samples: Vec<f32>,
+    pub anti_click_multiplier: f32,
 }
 
 impl SoundInstance {
@@ -172,7 +174,7 @@ impl SoundInstance {
         room_id: u32,
         track_id_str: String,
         data: Option<Arc<SoundData>>,
-        stream_receiver: Option<crossbeam_channel::Receiver<Vec<f32>>>,
+        stream_receiver: Option<rtrb::Consumer<Vec<f32>>>,
         stream_sample_rate: u32,
         stream_channels: u16,
         is_loop: bool,
@@ -180,6 +182,7 @@ impl SoundInstance {
         output_channel: usize,
         output_stereo: bool,
     ) -> Self {
+        let channels_usize = stream_channels as usize;
         Self {
             instance_id,
             id,
@@ -199,6 +202,8 @@ impl SoundInstance {
             output_stereo,
             fade_weight: 0.0, // starts from 0 for fade in
             volume_smoother: crate::audio::dsp::dsp_utils::GainSmoother::new(volume, 0.005),
+            last_samples: vec![0.0; channels_usize.max(1)],
+            anti_click_multiplier: 1.0,
         }
     }
 }

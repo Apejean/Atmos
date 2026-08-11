@@ -363,37 +363,6 @@ impl AudioMixer {
 
         let mut temp_vals = std::mem::take(&mut self.temp_vals);
 
-        // Phase 2: Centralized Global Audio Clock / Block Fetch Loop
-        // We fetch chunks once per process block for all instances to ensure 100% sync
-        // and avoid lock-free channel overhead in the tight inner loop.
-        for instance in self.instances.iter_mut().flatten() {
-            if !instance.is_playing { continue; }
-            if let Some(stream_rx) = &instance.stream_receiver {
-                let channels = (instance.stream_channels as usize).max(1);
-                let idx_i = instance.cursor as usize * channels;
-                if idx_i >= instance.stream_buffer.len() {
-                    match stream_rx.try_recv() {
-                        Ok(new_chunk) => {
-                            let old_chunk = std::mem::replace(&mut instance.stream_buffer, new_chunk);
-                            if let Err(e) = self.buf_gc_tx.try_send(old_chunk) {
-                                let v = e.into_inner();
-                                if self.local_recycle.len() < self.local_recycle.capacity() {
-                                    self.local_recycle.push(v);
-                                } else {
-                                    let _ = v;
-                                }
-                            }
-                            instance.cursor = 0.0;
-                        }
-                        Err(crossbeam_channel::TryRecvError::Disconnected) => {
-                            instance.is_stopping = true;
-                        }
-                        Err(crossbeam_channel::TryRecvError::Empty) => {}
-                    }
-                }
-            }
-        }
-
         for frame in 0..frames {
             // Anti-zipper smoothing for spatial automation (~4ms time constant)
             for ch in 0..active_ch {
@@ -464,8 +433,33 @@ impl AudioMixer {
                 let vals = &mut temp_vals[..ch_limit];
                 let mut has_sample = false;
 
-                if instance.stream_receiver.is_some() {
-                    // Try_recv was done in the outer Block Fetch loop.
+                if let Some(stream_rx) = &mut instance.stream_receiver {
+                    if idx_i >= instance.stream_buffer.len() {
+                        match stream_rx.pop() {
+                            Ok(new_chunk) => {
+                                instance.anti_click_multiplier = 1.0;
+                                let frames_in_chunk = (instance.stream_buffer.len() / channels) as f64;
+                                let old_chunk = std::mem::replace(&mut instance.stream_buffer, new_chunk);
+                                if let Err(e) = self.buf_gc_tx.try_send(old_chunk) {
+                                    let v = e.into_inner();
+                                    if self.local_recycle.len() < self.local_recycle.capacity() {
+                                        self.local_recycle.push(v);
+                                    } else {
+                                        let _ = v;
+                                    }
+                                }
+                                instance.cursor -= frames_in_chunk;
+                                if instance.cursor < 0.0 {
+                                    instance.cursor = 0.0;
+                                }
+                                idx_f = instance.cursor;
+                                idx_base = idx_f as usize;
+                                frac = (idx_f - (idx_base as f64)) as f32;
+                                idx_i = idx_base * channels;
+                            }
+                            Err(rtrb::PopError::Empty) => {}
+                        }
+                    }
 
                     if idx_i < instance.stream_buffer.len() {
                         has_sample = true;
@@ -484,11 +478,15 @@ impl AudioMixer {
                             let s3 = instance.stream_buffer.get(idx3 + ch).copied().unwrap_or(s2);
                             
                             *val = crate::audio::dsp::dsp_utils::interpolate_hermite(s0, s1, s2, s3, frac);
+                            if let Some(last) = instance.last_samples.get_mut(ch) {
+                                *last = *val;
+                            }
                         }
                     } else {
                         has_sample = true;
-                        for val in vals.iter_mut().take(ch_limit) {
-                            *val = 0.0;
+                        instance.anti_click_multiplier *= 0.95; // 1-pole non-linear fade
+                        for (ch, val) in vals.iter_mut().enumerate().take(ch_limit) {
+                            *val = instance.last_samples.get(ch).copied().unwrap_or(0.0) * instance.anti_click_multiplier;
                         }
                     }
                 } else if let Some(data) = &instance.data {

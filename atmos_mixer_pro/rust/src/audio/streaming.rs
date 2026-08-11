@@ -1,20 +1,25 @@
-use crossbeam_channel::{bounded, Receiver};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use rtrb::{Consumer, RingBuffer};
+
+#[repr(align(128))]
+pub struct CachePadded<T> {
+    pub value: T,
+}
 
 pub struct DiskStreamer {
-    pub chunk_receiver: Receiver<Vec<f32>>,
-    pub is_running: Arc<AtomicBool>,
+    pub chunk_receiver: Option<Arc<std::sync::Mutex<Option<Consumer<Vec<f32>>>>>>,
+    pub is_running: Arc<CachePadded<AtomicBool>>,
     pub sample_rate: u32,
     pub channels: u16,
 }
 
 impl Default for DiskStreamer {
     fn default() -> Self {
-        let (_, rx) = bounded(1);
+        let (_, rx) = RingBuffer::new(1);
         Self {
-            chunk_receiver: rx,
-            is_running: Arc::new(AtomicBool::new(false)),
+            chunk_receiver: Some(Arc::new(std::sync::Mutex::new(Some(rx)))),
+            is_running: Arc::new(CachePadded { value: AtomicBool::new(false) }),
             sample_rate: 48000,
             channels: 2,
         }
@@ -23,8 +28,8 @@ impl Default for DiskStreamer {
 
 impl DiskStreamer {
     pub fn new(file_path: String, is_loop: bool) -> anyhow::Result<Self> {
-        let (tx, rx) = bounded(128); // Buffer up to 128 chunks (prevents dropouts on surround audio)
-        let is_running = Arc::new(AtomicBool::new(true));
+        let (mut tx, rx) = RingBuffer::new(128); // Buffer up to 128 chunks
+        let is_running = Arc::new(CachePadded { value: AtomicBool::new(true) });
 
         let path = std::path::PathBuf::from(file_path);
         let run_flag = is_running.clone();
@@ -105,7 +110,7 @@ impl DiskStreamer {
 
             let mut sample_buf = None;
 
-            while run_flag.load(Ordering::Relaxed) {
+            while run_flag.value.load(Ordering::Relaxed) {
                 let packet = match format.next_packet() {
                     Ok(p) => p,
                     Err(symphonia::core::errors::Error::ResetRequired) => {
@@ -167,9 +172,18 @@ impl DiskStreamer {
                             chunk.extend_from_slice(buf.samples());
 
                             // Send chunk to audio thread
-                            if tx.send(chunk).is_err() {
-                                // Receiver dropped, stop thread
-                                break;
+                            let mut item = chunk;
+                            loop {
+                                if !run_flag.value.load(Ordering::Relaxed) {
+                                    break;
+                                }
+                                match tx.push(item) {
+                                    Ok(_) => break,
+                                    Err(rtrb::PushError::Full(returned)) => {
+                                        std::thread::sleep(std::time::Duration::from_millis(1));
+                                        item = returned;
+                                    }
+                                }
                             }
                         }
                     }
@@ -185,7 +199,7 @@ impl DiskStreamer {
         });
 
         Ok(Self {
-            chunk_receiver: rx,
+            chunk_receiver: Some(Arc::new(std::sync::Mutex::new(Some(rx)))),
             is_running,
             sample_rate,
             channels,
