@@ -198,6 +198,7 @@ class _RoomCardState extends ConsumerState<RoomCard> {
         colorHex: widget.room.colorHex,
         volume: widget.room.volume,
         clearOscAddress: widget.room.clearOscAddress,
+                                volumeOscAddress: widget.room.volumeOscAddress,
         tracks: newTracks,
       );
 
@@ -258,6 +259,7 @@ class _RoomCardState extends ConsumerState<RoomCard> {
           colorHex: widget.room.colorHex,
           volume: widget.room.volume,
           clearOscAddress: widget.room.clearOscAddress,
+                                volumeOscAddress: widget.room.volumeOscAddress,
           tracks: widget.room.tracks,
         );
         ref
@@ -464,6 +466,7 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                                         colorHex: room.colorHex,
                                         volume: v,
                                         clearOscAddress: room.clearOscAddress,
+                                volumeOscAddress: room.volumeOscAddress,
                                         tracks: room.tracks,
                                       );
                                       ref
@@ -770,6 +773,7 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                                       colorHex: room.colorHex,
                                       volume: room.volume,
                                       clearOscAddress: room.clearOscAddress,
+                                volumeOscAddress: room.volumeOscAddress,
                                       tracks: newTracks,
                                     );
                                     ref
@@ -847,6 +851,7 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                                       colorHex: room.colorHex,
                                       volume: room.volume,
                                       clearOscAddress: room.clearOscAddress,
+                                volumeOscAddress: room.volumeOscAddress,
                                       tracks: newTracks,
                                     );
                                     ref
@@ -918,6 +923,7 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                                       colorHex: room.colorHex,
                                       volume: room.volume,
                                       clearOscAddress: room.clearOscAddress,
+                                volumeOscAddress: room.volumeOscAddress,
                                       tracks: newTracks,
                                     );
                                     ref
@@ -988,6 +994,7 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                                       colorHex: room.colorHex,
                                       volume: room.volume,
                                       clearOscAddress: room.clearOscAddress,
+                                volumeOscAddress: room.volumeOscAddress,
                                       tracks: newTracks,
                                     );
                                     ref
@@ -1058,6 +1065,7 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                                       colorHex: room.colorHex,
                                       volume: room.volume,
                                       clearOscAddress: room.clearOscAddress,
+                                volumeOscAddress: room.volumeOscAddress,
                                       tracks: newTracks,
                                     );
                                     ref
@@ -1128,6 +1136,7 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                                       colorHex: room.colorHex,
                                       volume: room.volume,
                                       clearOscAddress: room.clearOscAddress,
+                                volumeOscAddress: room.volumeOscAddress,
                                       tracks: newTracks,
                                     );
                                     rust_api.apiSetTrackOutput(

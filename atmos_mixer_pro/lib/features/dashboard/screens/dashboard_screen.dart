@@ -834,6 +834,7 @@ oscWhitelist: config.oscWhitelist,
                       colorHex: colorHex,
                       volume: 1.0,
                       clearOscAddress: '/room/clear',
+                      volumeOscAddress: '/room/volume',
                       tracks: [],
                     );
                     final updated = AppConfig(

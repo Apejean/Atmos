@@ -389,19 +389,13 @@ impl AudioEngine {
                     output_channel,
                     output_stereo,
                 } => {
-                    let mut stream_rx = None;
-                    if let Some(arc_mutex) = stream_receiver {
-                        if let Ok(mut lock) = arc_mutex.lock() {
-                            stream_rx = lock.take();
-                        }
-                    }
                     let instance = crate::audio::player::SoundInstance::new(
                         instance_id,
                         track_id,
                         room_id,
                         track_id_str,
                         data,
-                        stream_rx,
+                        stream_receiver,
                         stream_sample_rate,
                         stream_channels,
                         is_loop,

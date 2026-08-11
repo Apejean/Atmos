@@ -8,7 +8,7 @@ pub struct CachePadded<T> {
 }
 
 pub struct DiskStreamer {
-    pub chunk_receiver: Option<Arc<std::sync::Mutex<Option<Consumer<Vec<f32>>>>>>,
+    pub chunk_receiver: Option<Consumer<Vec<f32>>>,
     pub is_running: Arc<CachePadded<AtomicBool>>,
     pub sample_rate: u32,
     pub channels: u16,
@@ -18,7 +18,7 @@ impl Default for DiskStreamer {
     fn default() -> Self {
         let (_, rx) = RingBuffer::new(1);
         Self {
-            chunk_receiver: Some(Arc::new(std::sync::Mutex::new(Some(rx)))),
+            chunk_receiver: Some(rx),
             is_running: Arc::new(CachePadded { value: AtomicBool::new(false) }),
             sample_rate: 48000,
             channels: 2,
@@ -199,7 +199,7 @@ impl DiskStreamer {
         });
 
         Ok(Self {
-            chunk_receiver: Some(Arc::new(std::sync::Mutex::new(Some(rx)))),
+            chunk_receiver: Some(rx),
             is_running,
             sample_rate,
             channels,

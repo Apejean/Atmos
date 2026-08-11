@@ -244,7 +244,7 @@ pub fn api_play_track(room_id: String, track_id: String) -> Result<(), AtmosErro
 
                     // Start DiskStreamer for BGM or streaming tracks
                     match crate::audio::streaming::DiskStreamer::new(track.file_path.clone(), track.is_loop) {
-                        Ok(streamer) => {
+                        Ok(mut streamer) => {
                             GLOBAL_STATE.add_playing_track(instance_id, track_id.clone());
                             GLOBAL_STATE
                                 .command_sender
@@ -254,7 +254,7 @@ pub fn api_play_track(room_id: String, track_id: String) -> Result<(), AtmosErro
                                     track_id: hash_id(&track_id),
                                     track_id_str: track_id.clone(),
                                     data: None,
-                                    stream_receiver: streamer.chunk_receiver.clone(),
+                                    stream_receiver: streamer.chunk_receiver.take(),
                                     stream_sample_rate: streamer.sample_rate,
                                     stream_channels: streamer.channels,
                                     is_loop: track.is_loop,
@@ -1619,23 +1619,6 @@ pub fn api_calculate_eq_response_curve(
 }
 
 
-pub fn api_save_scene(scene_id: String, name: String) -> Result<(), AtmosError> {
-    let config_guard = crate::core::state::GLOBAL_STATE.config.read().unwrap_or_else(|e| e.into_inner());
-    if let Some(ref config) = *config_guard {
-        let dir = std::path::Path::new("scenes");
-        if !dir.exists() {
-            let _ = std::fs::create_dir_all(dir);
-        }
-        let file_path = dir.join(format!("{}_{}.json", scene_id, name));
-        config.save_to_file(file_path.to_string_lossy().to_string())?;
-    }
-    Ok(())
-}
-
-pub fn api_start_scheduler() -> Result<(), AtmosError> {
-    crate::audio::scheduler::start_scheduler();
-    Ok(())
-}
 pub fn api_get_active_output_channels(device_name: Option<String>) -> Result<Vec<String>, AtmosError> {
     api_get_device_channel_names(device_name)
 }

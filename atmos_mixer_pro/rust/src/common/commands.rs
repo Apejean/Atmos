@@ -1,7 +1,6 @@
 use crate::audio::player::SoundData;
 use std::sync::Arc;
 
-#[derive(Clone)]
 pub enum AudioCommand {
     PlayTrack {
         instance_id: u64,
@@ -9,7 +8,7 @@ pub enum AudioCommand {
         track_id: u32,
         track_id_str: String,
         data: Option<Arc<SoundData>>,
-        stream_receiver: Option<Arc<std::sync::Mutex<Option<rtrb::Consumer<Vec<f32>>>>>>,
+        stream_receiver: Option<rtrb::Consumer<Vec<f32>>>,
         stream_sample_rate: u32,
         stream_channels: u16,
         is_loop: bool,

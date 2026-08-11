@@ -137,6 +137,8 @@ pub struct RoomConfig {
     pub color_hex: String,
     pub volume: f32, // 0.0 to 1.0
     #[serde(default)]
+    pub volume_osc_address: String,
+    #[serde(default)]
     pub clear_osc_address: String,
     #[serde(default)]
     pub tracks: Vec<TrackConfig>,

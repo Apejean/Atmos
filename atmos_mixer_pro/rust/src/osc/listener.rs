@@ -216,7 +216,7 @@ fn handle_packet(packet: OscPacket, debouncer: &OscDebouncer) {
             for room in &config.rooms {
                 if room.clear_osc_address == msg.addr {
                     // Check Gating
-                    {
+                    if !config.is_exhibition_mode {
                         let active = crate::core::state::GLOBAL_STATE
                             .active_room_id
                             .read()
@@ -314,10 +314,28 @@ fn handle_packet(packet: OscPacket, debouncer: &OscDebouncer) {
 
                     matched = true;
                 }
+                if !room.volume_osc_address.is_empty() && room.volume_osc_address == msg.addr {
+                    if let Some(arg) = msg.args.get(0) {
+                        let vol = match arg {
+                            rosc::OscType::Float(f) => *f,
+                            rosc::OscType::Double(d) => *d as f32,
+                            rosc::OscType::Int(i) => *i as f32,
+                            _ => 0.0,
+                        };
+                        let volume = vol.clamp(0.0, 1.0);
+                        let _ = crate::core::state::GLOBAL_STATE.command_sender.lock().unwrap().push(
+                            crate::common::commands::AudioCommand::SetMasterVolume {
+                                room_id: hash_id(&room.id),
+                                volume,
+                            },
+                        );
+                        matched = true;
+                    }
+                }
                 for track in &room.tracks {
                     if track.play_osc_address == msg.addr {
                         // Check Gating
-                        {
+                        if !config.is_exhibition_mode {
                             let active = crate::core::state::GLOBAL_STATE
                                 .active_room_id
                                 .read()
@@ -371,7 +389,7 @@ fn handle_packet(packet: OscPacket, debouncer: &OscDebouncer) {
                     }
                     if track.stop_osc_address == msg.addr {
                         // Check Gating
-                        {
+                        if !config.is_exhibition_mode {
                             let active = crate::core::state::GLOBAL_STATE
                                 .active_room_id
                                 .read()

@@ -53,6 +53,7 @@ pub struct AudioMixer {
     pub peak_limiter_enabled: bool,
     pub limiters: Vec<crate::audio::limiter::PeakLimiter>,
     pub temp_room_vols: Vec<f32>,
+    pub temp_room_vols_target: Vec<f32>,
     pub channel_spatial_gains: Vec<f32>,
     pub channel_spatial_gains_target: Vec<f32>,
     pub temp_spatial_weights: Vec<f32>,
@@ -229,6 +230,7 @@ impl AudioMixer {
             peak_limiter_enabled,
             limiters,
             temp_room_vols: vec![1.0; 4096],
+            temp_room_vols_target: vec![1.0; 4096],
             channel_spatial_gains: vec![1.0; channels],
             channel_spatial_gains_target: vec![1.0; channels],
             temp_spatial_weights: vec![0.0; channels],
@@ -285,13 +287,13 @@ impl AudioMixer {
             }
         }
 
-        self.temp_room_vols.fill(1.0);
+        self.temp_room_vols_target.fill(1.0);
         for (i, inst_opt) in self.instances.iter().enumerate() {
             if let Some(inst) = inst_opt {
                 if inst.is_playing {
                     for (rid, rvol) in self.room_volumes.iter().flatten() {
                         if *rid == inst.room_id {
-                            self.temp_room_vols[i] = *rvol;
+                            self.temp_room_vols_target[i] = *rvol;
                             break;
                         }
                     }
@@ -398,6 +400,8 @@ impl AudioMixer {
                 if !instance.is_playing {
                     continue;
                 }
+
+                self.temp_room_vols[i] += 0.005 * (self.temp_room_vols_target[i] - self.temp_room_vols[i]);
 
                 // Update fade weight
                 if instance.is_stopping {

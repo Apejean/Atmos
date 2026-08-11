@@ -182,6 +182,7 @@ class RoomConfig {
   final String name;
   final String colorHex;
   final double volume;
+  final String volumeOscAddress;
   final String clearOscAddress;
   final List<TrackConfig> tracks;
 
@@ -190,6 +191,7 @@ class RoomConfig {
     required this.name,
     required this.colorHex,
     required this.volume,
+    required this.volumeOscAddress,
     required this.clearOscAddress,
     required this.tracks,
   });
@@ -200,6 +202,7 @@ class RoomConfig {
       name.hashCode ^
       colorHex.hashCode ^
       volume.hashCode ^
+      volumeOscAddress.hashCode ^
       clearOscAddress.hashCode ^
       tracks.hashCode;
 
@@ -212,6 +215,7 @@ class RoomConfig {
           name == other.name &&
           colorHex == other.colorHex &&
           volume == other.volume &&
+          volumeOscAddress == other.volumeOscAddress &&
           clearOscAddress == other.clearOscAddress &&
           tracks == other.tracks;
 }

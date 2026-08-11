@@ -261,15 +261,6 @@ Float32List apiCalculateEqResponseCurve({
   sampleRate: sampleRate,
 );
 
-Future<void> apiSaveScene({required String sceneId, required String name}) =>
-    RustLib.instance.api.crateApiSimpleApiSaveScene(
-      sceneId: sceneId,
-      name: name,
-    );
-
-Future<void> apiStartScheduler() =>
-    RustLib.instance.api.crateApiSimpleApiStartScheduler();
-
 Future<List<String>> apiGetActiveOutputChannels({String? deviceName}) => RustLib
     .instance
     .api

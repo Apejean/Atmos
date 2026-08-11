@@ -357,6 +357,7 @@ oscWhitelist: config.oscWhitelist,
               colorHex: r.colorHex,
               volume: r.volume,
               clearOscAddress: r.clearOscAddress,
+              volumeOscAddress: r.volumeOscAddress,
               tracks: r.tracks
                   .map(
                     (t) => TrackConfig(
@@ -407,6 +408,7 @@ oscWhitelist: config.oscWhitelist,
         colorHex: room.colorHex,
         volume: room.volume,
         clearOscAddress: room.clearOscAddress,
+              volumeOscAddress: room.volumeOscAddress,
         tracks: newTracks,
       );
     }).toList();
@@ -470,6 +472,7 @@ oscWhitelist: _tempConfig.oscWhitelist,
               colorHex: tempRoom.colorHex,
               volume: tempRoom.volume,
               clearOscAddress: tempRoom.clearOscAddress,
+              volumeOscAddress: tempRoom.volumeOscAddress,
               tracks: updatedTracks,
             );
           }).toList();
@@ -1061,6 +1064,58 @@ oscWhitelist: _tempConfig.oscWhitelist,
             ),
           ],
         ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            const SizedBox(
+              width: 120,
+              child: Text(
+                'Exhibition Mode',
+                style: TextStyle(
+                  color: Colors.white70,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
+              ),
+            ),
+            Switch(
+              value: _tempConfig.isExhibitionMode,
+              activeTrackColor: AppColors.primaryNeon.withValues(alpha: 0.5),
+              activeThumbColor: AppColors.primaryNeon,
+              onChanged: (val) {
+                setState(() {
+                  _tempConfig = AppConfig(
+                    oscWhitelist: _tempConfig.oscWhitelist,
+                    oscPort: _tempConfig.oscPort,
+                    deviceName: _tempConfig.deviceName,
+                    bufferSize: _tempConfig.bufferSize,
+                    themeStartOscAddress: _tempConfig.themeStartOscAddress,
+                    systemResetOscAddress: _tempConfig.systemResetOscAddress,
+                    monoConfigs: _tempConfig.monoConfigs,
+                    stereoConfigs: _tempConfig.stereoConfigs,
+                    multiConfigs: _tempConfig.multiConfigs,
+                    rooms: _tempConfig.rooms,
+                    isExhibitionMode: val,
+                    masterHeadroomDb: _tempConfig.masterHeadroomDb,
+                    peakLimiterEnabled: _tempConfig.peakLimiterEnabled,
+                    globalTrajectory: _tempConfig.globalTrajectory,
+                    roomZones: _tempConfig.roomZones,
+                  );
+                });
+              },
+            ),
+            const SizedBox(width: 8),
+            Text(
+              _tempConfig.isExhibitionMode ? 'On' : 'Off',
+              style: TextStyle(
+                color: _tempConfig.isExhibitionMode
+                    ? AppColors.primaryNeon
+                    : Colors.white54,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
 
         if (Platform.isWindows) ...[
           const SizedBox(height: 16),
@@ -1389,6 +1444,7 @@ oscWhitelist: _tempConfig.oscWhitelist,
                                 colorHex: room.colorHex,
                                 volume: room.volume,
                                 clearOscAddress: room.clearOscAddress,
+              volumeOscAddress: room.volumeOscAddress,
                                 tracks: newTracks,
                               );
                               setState(() {
@@ -1607,6 +1663,7 @@ oscWhitelist: _tempConfig.oscWhitelist,
                             colorHex: room.colorHex,
                             volume: room.volume,
                             clearOscAddress: val,
+                            volumeOscAddress: room.volumeOscAddress,
                             tracks: room.tracks,
                           );
                           setState(() {
@@ -1637,6 +1694,70 @@ oscWhitelist: _tempConfig.oscWhitelist,
                     ),
                   ],
                 ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    const SizedBox(
+                      width: 80,
+                      child: Text(
+                        '볼륨 마스터',
+                        style: TextStyle(
+                          color: AppColors.primaryNeon,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: Tooltip(
+                        message: '0.0~1.0 float 값을 수신합니다',
+                        child: TextFormField(
+                          initialValue: room.volumeOscAddress,
+                          style: const TextStyle(color: Colors.white),
+                          decoration: const InputDecoration(
+                            isDense: true,
+                            hintText: '예: /room1/volume',
+                          ),
+                          onChanged: (val) {
+                          final newRooms = List<RoomConfig>.from(
+                            _tempConfig.rooms,
+                          );
+                          newRooms[rIndex] = RoomConfig(
+                            id: room.id,
+                            name: room.name,
+                            colorHex: room.colorHex,
+                            volume: room.volume,
+                            clearOscAddress: room.clearOscAddress,
+                            volumeOscAddress: val,
+                            tracks: room.tracks,
+                          );
+                          setState(() {
+                            _tempConfig = AppConfig(
+                              oscWhitelist: _tempConfig.oscWhitelist,
+                              oscPort: _tempConfig.oscPort,
+                              deviceName: _tempConfig.deviceName,
+                              bufferSize: _tempConfig.bufferSize,
+                              themeStartOscAddress:
+                                  _tempConfig.themeStartOscAddress,
+                              systemResetOscAddress:
+                                  _tempConfig.systemResetOscAddress,
+                              monoConfigs: _tempConfig.monoConfigs,
+                              stereoConfigs: _tempConfig.stereoConfigs,
+                              multiConfigs: _tempConfig.multiConfigs,
+                              rooms: newRooms,
+                              isExhibitionMode: _tempConfig.isExhibitionMode,
+                              masterHeadroomDb: _tempConfig.masterHeadroomDb,
+                              peakLimiterEnabled:
+                                  _tempConfig.peakLimiterEnabled,
+                              globalTrajectory: _tempConfig.globalTrajectory,
+                              roomZones: _tempConfig.roomZones,
+                            );
+                          });
+                        },
+                      ),
+                    ),
+                  ),
+                ],
+              ),
                 const Divider(color: AppColors.darkGrey),
                 ...room.tracks.asMap().entries.map((entry) {
                   final tIndex = entry.key;
@@ -1692,6 +1813,7 @@ oscWhitelist: _tempConfig.oscWhitelist,
                                 colorHex: room.colorHex,
                                 volume: room.volume,
                                 clearOscAddress: room.clearOscAddress,
+              volumeOscAddress: room.volumeOscAddress,
                                 tracks: newTracks,
                               );
                               setState(() {
@@ -1762,6 +1884,7 @@ oscWhitelist: _tempConfig.oscWhitelist,
                                 colorHex: room.colorHex,
                                 volume: room.volume,
                                 clearOscAddress: room.clearOscAddress,
+              volumeOscAddress: room.volumeOscAddress,
                                 tracks: newTracks,
                               );
                               setState(() {

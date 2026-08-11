@@ -46,21 +46,7 @@ class ShortcutAction {
 }
 
 class ShortcutManagerConfig extends ChangeNotifier {
-  final Map<String, ShortcutAction> shortcuts = {
-    'save_scene': ShortcutAction(
-      id: 'save_scene',
-      name: '현재 씬 저장',
-      category: '전시/캔버스',
-      defaultKey: LogicalKeyboardKey.keyS,
-      defaultCtrl: true,
-    ),
-    'start_scheduler': ShortcutAction(
-      id: 'start_scheduler',
-      name: '스케줄러 시작',
-      category: '전시/캔버스',
-      defaultKey: LogicalKeyboardKey.space,
-    ),
-  };
+  final Map<String, ShortcutAction> shortcuts = {};
 
   void updateShortcut(String id, LogicalKeyboardKey key, {bool ctrl = false, bool shift = false, bool alt = false}) {
     final action = shortcuts[id];
