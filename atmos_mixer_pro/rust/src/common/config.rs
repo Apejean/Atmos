@@ -3,14 +3,15 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 pub struct Point3D {
     pub x: f32,
     pub y: f32,
     pub z: f32,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
+#[serde(default)]
 pub struct RoomZone {
     pub room_id: u32,
     pub boundary_min: Point3D,
@@ -21,14 +22,16 @@ pub struct RoomZone {
     pub boundary_eq_bands: Vec<EqBand>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
+#[serde(default)]
 pub struct Trajectory {
     pub waypoints: Vec<Point3D>,
     pub current_position: Point3D,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 pub enum EqType {
+    #[default]
     LowCut,
     LowShelf,
     Bell,
@@ -38,6 +41,7 @@ pub enum EqType {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(default)]
 pub struct EqBand {
     pub enabled: bool,
     pub freq: f32,
