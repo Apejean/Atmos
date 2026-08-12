@@ -106,69 +106,72 @@ class _SpeakerNodeWidgetState extends ConsumerState<SpeakerNodeWidget> {
                   child: child,
                 );
               },
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
+              child: Stack(
                 children: [
-                  Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      ValueListenableBuilder<double>(
-                        valueListenable: _levelNotifier,
-                        builder: (context, currentLevel, child) {
-                          return Icon(
-                            Icons.speaker,
-                            size: 38,
-                            color: currentLevel > 0.1 ? baseColor : Colors.white70,
-                          );
-                        },
-                      ),
-                      Positioned(
-                        left: 4,
-                        child: widget.isDuplicateChannel
-                            ? const Tooltip(
-                                message: '중복된 채널이 지정되었습니다!',
-                                child: Icon(
-                                  Icons.warning_amber_rounded,
-                                  size: 16,
-                                  color: Colors.redAccent,
-                                ),
-                              )
-                            : const SizedBox.shrink(),
-                      ),
+                  if (widget.onEdit != null)
                     Positioned(
-                      right: 0,
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (widget.onEdit != null)
-                            InkWell(
-                              onTap: widget.onEdit,
-                              child: const Padding(
-                                padding: EdgeInsets.only(bottom: 12.0, right: 4.0),
-                                child: Icon(
-                                  Icons.tune,
-                                  size: 15,
-                                  color: AppColors.primaryNeon,
-                                ),
-                              ),
-                            ),
-                          InkWell(
-                            onTap: widget.onDelete,
-                            child: const Padding(
-                              padding: EdgeInsets.only(bottom: 12.0, right: 4.0),
-                              child: Icon(
-                                Icons.close,
-                                size: 16,
-                                color: Colors.redAccent,
-                              ),
-                            ),
+                      top: 4,
+                      left: 4,
+                      child: InkWell(
+                        onTap: widget.onEdit,
+                        child: const Padding(
+                          padding: EdgeInsets.all(4.0),
+                          child: Icon(
+                            Icons.tune,
+                            size: 16,
+                            color: AppColors.primaryNeon,
                           ),
-                        ],
+                        ),
                       ),
                     ),
-                  ],
-                ),
-              const SizedBox(height: 4),
+                  Positioned(
+                    top: 4,
+                    right: 4,
+                    child: InkWell(
+                      onTap: widget.onDelete,
+                      child: const Padding(
+                        padding: EdgeInsets.all(4.0),
+                        child: Icon(
+                          Icons.close,
+                          size: 16,
+                          color: Colors.redAccent,
+                        ),
+                      ),
+                    ),
+                  ),
+                  Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Stack(
+                          alignment: Alignment.center,
+                          clipBehavior: Clip.none,
+                          children: [
+                            ValueListenableBuilder<double>(
+                              valueListenable: _levelNotifier,
+                              builder: (context, currentLevel, child) {
+                                return Icon(
+                                  Icons.speaker,
+                                  size: 38,
+                                  color: currentLevel > 0.1 ? baseColor : Colors.white70,
+                                );
+                              },
+                            ),
+                            if (widget.isDuplicateChannel)
+                              const Positioned(
+                                left: -22,
+                                child: Tooltip(
+                                  message: '중복된 채널이 지정되었습니다!',
+                                  child: Icon(
+                                    Icons.warning_amber_rounded,
+                                    size: 16,
+                                    color: Colors.redAccent,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
               Container(
                 height: 30,
                 padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -243,12 +246,15 @@ class _SpeakerNodeWidgetState extends ConsumerState<SpeakerNodeWidget> {
               ),
             ],
           ),
+        ),
+        ],
+      ),
             ),
           ),
         ),
         // Coordinate & 3D Orientation Badge positioned outside
         Positioned(
-          top: -24,
+          bottom: -28,
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
             decoration: BoxDecoration(

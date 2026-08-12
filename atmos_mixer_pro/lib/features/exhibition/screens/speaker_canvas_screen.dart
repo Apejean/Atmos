@@ -2147,7 +2147,7 @@ class _DraggableSpeakerWidgetState
               ),
               // Speaker Rotation Handle Knob
               Positioned(
-                top: -30,
+                top: 4,
                 child: GestureDetector(
                   behavior: HitTestBehavior.translucent,
                   onPanStart: (details) {
@@ -2542,15 +2542,13 @@ class _HeatmapPainter extends CustomPainter {
 
       // 2. 3D Pitch Tilt Projection (Elliptical Footprint)
       final double pitchRad = node.pitchTilt * math.pi / 180.0;
-      final double tiltOffset =
+      // Instead of shifting the start point, extend the distance based on Z and pitch
+      final double lengthExtension =
           node.heightZ *
           math.tan(pitchRad) *
-          40.0; // Floor projection offset in px
-      final Offset projectedCenter = Offset(
-        center.dx + tiltOffset * math.cos(rotRad),
-        center.dy + tiltOffset * math.sin(rotRad),
-      );
-      final double dist = node.dispersionDistance;
+          40.0; // Floor projection extension in px
+      final Offset projectedCenter = center; // Anchor at the speaker
+      final double dist = node.dispersionDistance + lengthExtension;
 
       // 3. Outer Elliptical Dispersion Beam Contour (-6dB)
       canvas.save();

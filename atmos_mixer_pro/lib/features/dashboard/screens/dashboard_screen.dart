@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -23,9 +24,42 @@ class DashboardScreen extends ConsumerStatefulWidget {
 class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   bool _isRecovering = false;
   final ScrollController _scrollController = ScrollController();
+  StreamSubscription<String>? _statusSub;
+
+  @override
+  void initState() {
+    super.initState();
+    _statusSub = rust_api.apiCreateStreamStatusStream().listen((status) {
+      if (!mounted) return;
+      if (status == 'Failover') {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              '⚠️ ASIO 오디오 인터페이스 연결이 끊어져 기본 출력 장치(WASAPI)로 임시 전환되었습니다. 환경설정에서 오디오 장치를 다시 확인해 주세요.',
+              style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+            ),
+            backgroundColor: Colors.redAccent,
+            duration: Duration(seconds: 10),
+          ),
+        );
+      } else if (status == 'HotReloading') {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              '🔄 오디오 스트림 복구 중... (Hot-Reload)',
+              style: TextStyle(color: Colors.black),
+            ),
+            backgroundColor: Colors.orangeAccent,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    });
+  }
 
   @override
   void dispose() {
+    _statusSub?.cancel();
     _scrollController.dispose();
     super.dispose();
   }
