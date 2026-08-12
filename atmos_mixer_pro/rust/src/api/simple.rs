@@ -1018,7 +1018,7 @@ pub fn api_get_output_devices() -> Result<Vec<OutputDeviceInfo>, AtmosError> {
                 continue; // Do not call host.output_devices() because querying ASIO devices breaks the COM lock!
             }
 
-            let mut devices_result = if is_asio_host {
+            let devices_result = if is_asio_host {
                 #[cfg(target_os = "windows")]
                 {
                     let (tx, rx) = std::sync::mpsc::channel();
@@ -1041,6 +1041,7 @@ pub fn api_get_output_devices() -> Result<Vec<OutputDeviceInfo>, AtmosError> {
                 host.output_devices()
             };
 
+            let mut devices_result = devices_result;
             if devices_result.is_err() && is_asio_host {
                 for _ in 0..2 {
                     std::thread::sleep(std::time::Duration::from_millis(300));
