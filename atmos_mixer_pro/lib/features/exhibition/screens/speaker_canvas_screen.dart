@@ -2149,7 +2149,7 @@ class _DraggableSpeakerWidgetState
               Positioned(
                 top: 4,
                 child: GestureDetector(
-                  behavior: HitTestBehavior.translucent,
+                  behavior: HitTestBehavior.opaque,
                   onPanStart: (details) {
                     final renderBox = context.findRenderObject() as RenderBox?;
                     if (renderBox != null) {
