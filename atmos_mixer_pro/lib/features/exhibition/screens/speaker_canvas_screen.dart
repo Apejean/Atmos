@@ -21,6 +21,7 @@ import 'package:atmos_mixer_pro/features/exhibition/state/trajectory_state.dart'
 import 'package:atmos_mixer_pro/features/exhibition/state/blueprint_state.dart';
 import 'package:atmos_mixer_pro/features/exhibition/widgets/trajectory_layer_painter.dart';
 import 'package:atmos_mixer_pro/features/exhibition/widgets/trajectory_sidebar_widget.dart';
+import 'package:atmos_mixer_pro/features/exhibition/widgets/trajectory_editor_toolbar.dart';
 import 'package:atmos_mixer_pro/core/theme/colors.dart';
 import 'package:atmos_mixer_pro/core/state/global_state.dart';
 import 'package:atmos_mixer_pro/src/rust/api/simple.dart' as rust_api;
@@ -52,15 +53,14 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
   bool _showRooms = true;
   bool _showTrajectories = true;
   bool _showHeatmap = true;
-  String _selectedOctaveFilter =
-      'All';
+  String _selectedOctaveFilter = 'All';
   String? _selectedRoomId;
   bool _isRoomInteracting = false;
 
   bool _isMeasuringScale = false;
   Offset? _measureStart;
   Offset? _measureEnd;
-  
+
   bool _isSidebarOpen = false;
 
   @override
@@ -149,11 +149,11 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
           : null,
     };
 
-    rust_api.apiUpdateSpatialConfigJson(jsonPayload: jsonEncode(payload)).catchError((
-      e,
-    ) {
-      debugPrint('Real-time FFI sync error: $e');
-    });
+    rust_api
+        .apiUpdateSpatialConfigJson(jsonPayload: jsonEncode(payload))
+        .catchError((e) {
+          debugPrint('Real-time FFI sync error: $e');
+        });
   }
 
   void _toggleAutomation() {
@@ -1208,12 +1208,18 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                               lastWp.position.dy + 1.0,
                             ),
                           );
-                          final wps = List<Waypoint>.from(trajectory.waypoints)..add(newWp);
-                          ref.read(trajectoryProvider.notifier).updateTrajectory(
-                            trajectory.copyWith(waypoints: wps),
-                          );
+                          final wps = List<Waypoint>.from(trajectory.waypoints)
+                            ..add(newWp);
+                          ref
+                              .read(trajectoryProvider.notifier)
+                              .updateTrajectory(
+                                trajectory.copyWith(waypoints: wps),
+                              );
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('경로점이 추가되었습니다.'), duration: Duration(seconds: 1)),
+                            const SnackBar(
+                              content: Text('경로점이 추가되었습니다.'),
+                              duration: Duration(seconds: 1),
+                            ),
                           );
                         }
                       },
@@ -1334,6 +1340,40 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
     );
   }
 
+  void _handleCanvasTapForDrawing(Offset canvasPos, WidgetRef ref) {
+    final activeId = ref.read(activeTrajectoryIdProvider);
+    if (activeId == null) return;
+
+    final trajectories = ref.read(trajectoryProvider);
+    final traj = trajectories.where((t) => t.id == activeId).firstOrNull;
+    if (traj == null) return;
+
+    final rooms = ref.read(roomZoneProvider);
+    final targetRoom = rooms
+        .where((r) => r.containsPoint(canvasPos.dx, canvasPos.dy))
+        .firstOrNull;
+
+    if (targetRoom != null) {
+      final rx = (canvasPos.dx - targetRoom.x) / targetRoom.width;
+      final ry = (canvasPos.dy - targetRoom.y) / targetRoom.height;
+      final newWaypoint = Waypoint(position: Offset(rx, ry));
+
+      final isNewRoom = traj.targetRoomZoneId != targetRoom.id;
+      final newWaypoints = isNewRoom
+          ? [newWaypoint]
+          : [...traj.waypoints, newWaypoint];
+
+      ref
+          .read(trajectoryProvider.notifier)
+          .updateTrajectory(
+            traj.copyWith(
+              targetRoomZoneId: targetRoom.id,
+              waypoints: newWaypoints,
+            ),
+          );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final blueprint = ref.watch(blueprintProvider);
@@ -1345,289 +1385,281 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
       },
       child: Scaffold(
         backgroundColor: AppColors.background,
-              appBar: AppBar(
-                title: Row(
-                  children: [
-                    const Text('Exhibition Canvas'),
-                    const Spacer(),
-                    Consumer(
-                      builder: (context, ref, child) {
-                        final isMasterMuted = ref.watch(
-                          engineStateProvider.select(
-                            (state) => state.masterMuteActive,
+        appBar: AppBar(
+          title: Row(
+            children: [
+              const Text('Exhibition Canvas'),
+              const Spacer(),
+              Consumer(
+                builder: (context, ref, child) {
+                  final isMasterMuted = ref.watch(
+                    engineStateProvider.select(
+                      (state) => state.masterMuteActive,
+                    ),
+                  );
+                  if (!isMasterMuted) return const SizedBox.shrink();
+                  return RepaintBoundary(
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: BackdropFilter(
+                        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 4,
                           ),
-                        );
-                        if (!isMasterMuted) return const SizedBox.shrink();
-                        return RepaintBoundary(
-                          child: ClipRRect(
+                          decoration: BoxDecoration(
+                            color: Colors.orange.shade800.withValues(
+                              alpha: 0.8,
+                            ),
                             borderRadius: BorderRadius.circular(4),
-                            child: BackdropFilter(
-                              filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 4,
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.warning_amber_rounded,
+                                color: Colors.white,
+                                size: 16,
+                              ),
+                              SizedBox(width: 8),
+                              Text(
+                                'MASTER MUTE ACTIVE',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12,
+                                  letterSpacing: 1.0,
                                 ),
-                                decoration: BoxDecoration(
-                                  color: Colors.orange.shade800.withValues(
-                                    alpha: 0.8,
-                                  ),
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: const Row(
-                                  mainAxisSize: MainAxisSize.min,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(width: 16),
+              IconButton(
+                tooltip: _isPlayingAutomation
+                    ? 'Stop Automation'
+                    : 'Play Automation',
+                icon: Icon(
+                  _isPlayingAutomation ? Icons.stop : Icons.play_arrow,
+                  color: _isPlayingAutomation
+                      ? Colors.redAccent
+                      : AppColors.primaryNeon,
+                ),
+                onPressed: _toggleAutomation,
+              ),
+              const SizedBox(width: 8),
+              IconButton(
+                tooltip: 'Set Blueprint',
+                icon: const Icon(Icons.image, color: Colors.white70),
+                onPressed: _pickBlueprint,
+              ),
+              const SizedBox(width: 8),
+              IconButton(
+                tooltip: 'Set Scale',
+                icon: const Icon(Icons.aspect_ratio, color: Colors.white70),
+                onPressed: () {
+                  showDialog(
+                    context: context,
+                    builder: (context) {
+                      double currentScale = blueprint.scale;
+                      return AlertDialog(
+                        backgroundColor: Colors.grey.shade900,
+                        title: const Text(
+                          'Set Physical Scale',
+                          style: TextStyle(color: Colors.white),
+                        ),
+                        content: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Text(
+                              'Pixels per Meter',
+                              style: TextStyle(color: Colors.white70),
+                            ),
+                            const SizedBox(height: 16),
+                            StatefulBuilder(
+                              builder: (context, setDialogState) {
+                                return Row(
                                   children: [
-                                    Icon(
-                                      Icons.warning_amber_rounded,
-                                      color: Colors.white,
-                                      size: 16,
-                                    ),
-                                    SizedBox(width: 8),
                                     Text(
-                                      'MASTER MUTE ACTIVE',
-                                      style: TextStyle(
+                                      '${currentScale.toInt()} px/m',
+                                      style: const TextStyle(
                                         color: Colors.white,
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 12,
-                                        letterSpacing: 1.0,
+                                      ),
+                                    ),
+                                    Expanded(
+                                      child: Slider(
+                                        value: currentScale,
+                                        min: 10.0,
+                                        max: 200.0,
+                                        activeColor: AppColors.primaryNeon,
+                                        onChanged: (val) {
+                                          setDialogState(() {
+                                            currentScale = val;
+                                          });
+                                          ref
+                                              .read(blueprintProvider.notifier)
+                                              .setScale(val);
+                                        },
                                       ),
                                     ),
                                   ],
-                                ),
-                              ),
+                                );
+                              },
+                            ),
+                          ],
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context),
+                            child: const Text(
+                              'Close',
+                              style: TextStyle(color: AppColors.primaryNeon),
                             ),
                           ),
-                        );
-                      },
-                    ),
-                    const SizedBox(width: 16),
-                    IconButton(
-                      tooltip: _isPlayingAutomation
-                          ? 'Stop Automation'
-                          : 'Play Automation',
-                      icon: Icon(
-                        _isPlayingAutomation ? Icons.stop : Icons.play_arrow,
-                        color: _isPlayingAutomation
-                            ? Colors.redAccent
-                            : AppColors.primaryNeon,
-                      ),
-                      onPressed: _toggleAutomation,
-                    ),
-                    const SizedBox(width: 8),
-                    IconButton(
-                      tooltip: 'Set Blueprint',
-                      icon: const Icon(Icons.image, color: Colors.white70),
-                      onPressed: _pickBlueprint,
-                    ),
-                    const SizedBox(width: 8),
-                    IconButton(
-                      tooltip: 'Set Scale',
-                      icon: const Icon(
-                        Icons.aspect_ratio,
-                        color: Colors.white70,
-                      ),
-                      onPressed: () {
-                        showDialog(
-                          context: context,
-                          builder: (context) {
-                            double currentScale = blueprint.scale;
-                            return AlertDialog(
-                              backgroundColor: Colors.grey.shade900,
-                              title: const Text(
-                                'Set Physical Scale',
-                                style: TextStyle(color: Colors.white),
-                              ),
-                              content: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const Text(
-                                    'Pixels per Meter',
-                                    style: TextStyle(color: Colors.white70),
-                                  ),
-                                  const SizedBox(height: 16),
-                                  StatefulBuilder(
-                                    builder: (context, setDialogState) {
-                                      return Row(
-                                        children: [
-                                          Text(
-                                            '${currentScale.toInt()} px/m',
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                            ),
-                                          ),
-                                          Expanded(
-                                            child: Slider(
-                                              value: currentScale,
-                                              min: 10.0,
-                                              max: 200.0,
-                                              activeColor:
-                                                  AppColors.primaryNeon,
-                                              onChanged: (val) {
-                                                setDialogState(() {
-                                                  currentScale = val;
-                                                });
-                                                ref
-                                                    .read(
-                                                      blueprintProvider
-                                                          .notifier,
-                                                    )
-                                                    .setScale(val);
-                                              },
-                                            ),
-                                          ),
-                                        ],
-                                      );
-                                    },
-                                  ),
-                                ],
-                              ),
-                              actions: [
-                                TextButton(
-                                  onPressed: () => Navigator.pop(context),
-                                  child: const Text(
-                                    'Close',
-                                    style: TextStyle(
-                                      color: AppColors.primaryNeon,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            );
-                          },
-                        );
-                      },
-                    ),
-                    const SizedBox(width: 8),
-                    Container(height: 24, width: 1, color: Colors.white24),
-                    const SizedBox(width: 8),
-                    Wrap(
-                      spacing: 8,
-                      children: [
-                        _buildLayerToggle(
-                          'Speaker Layer',
-                          Icons.speaker,
-                          _showSpeakers,
-                          () {
-                            setState(() => _showSpeakers = !_showSpeakers);
-                          },
-                        ),
-                        _buildLayerToggle(
-                          'Room Layer',
-                          Icons.meeting_room,
-                          _showRooms,
-                          () {
-                            setState(() => _showRooms = !_showRooms);
-                          },
-                        ),
-                        _buildLayerToggle(
-                          'Trajectory Layer',
-                          Icons.route,
-                          _showTrajectories,
-                          () {
-                            setState(() {
-                              _showTrajectories = !_showTrajectories;
-                              if (!_showTrajectories && _isPlayingAutomation) {
-                                _toggleAutomation(); // Pauses if playing
-                              }
-                            });
-                          },
-                        ),
-                        _buildLayerToggle(
-                          'Heatmap Layer',
-                          Icons.wb_sunny,
-                          _showHeatmap,
-                          () {
-                            setState(() => _showHeatmap = !_showHeatmap);
-                          },
-                        ),
-                      ],
-                    ),
-                    const SizedBox(width: 8),
-                    Container(height: 24, width: 1, color: Colors.white24),
-                    const SizedBox(width: 8),
-                    Row(
-                      children: ['All', '125Hz', '500Hz', '1kHz', '4kHz'].map((
-                        oct,
-                      ) {
-                        final isSelected = _selectedOctaveFilter == oct;
-                        return Padding(
-                          padding: const EdgeInsets.only(right: 4.0),
-                          child: FilterChip(
-                            label: Text(
-                              oct,
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: isSelected
-                                    ? Colors.black
-                                    : Colors.white70,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            selected: isSelected,
-                            selectedColor: AppColors.primaryNeon,
-                            backgroundColor: Colors.black45,
-                            checkmarkColor: Colors.black,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 4,
-                              vertical: 0,
-                            ),
-                            onSelected: (val) {
-                              if (val) {
-                                setState(() => _selectedOctaveFilter = oct);
-                              }
-                            },
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                    const SizedBox(width: 8),
-                    Container(height: 24, width: 1, color: Colors.white24),
-                    const SizedBox(width: 8),
-                    IconButton(
-                      icon: const Icon(
-                        Icons.settings_input_component,
-                        color: Colors.cyanAccent,
-                      ),
-                      onPressed: () {
-                        setState(() {
-                          _isSidebarOpen = !_isSidebarOpen;
-                        });
-                      },
-                      tooltip: 'Routing & Trajectories',
-                    ),
-                    IconButton(
-                      icon: const Icon(
-                        Icons.route_outlined,
-                        color: Colors.orangeAccent,
-                      ),
-                      onPressed: _clearTrajectories,
-                      tooltip: 'Clear Trajectories',
-                    ),
-                    IconButton(
-                      icon: const Icon(
-                        Icons.delete_sweep,
-                        color: Colors.redAccent,
-                      ),
-                      onPressed: _clearCanvas,
-                      tooltip: 'Clear Canvas',
-                    ),
-                  ],
-                ),
-                backgroundColor: Colors.black,
-              ),
-              body: LayoutBuilder(
-                builder: (context, constraints) {
-                  _viewportSize = Size(
-                    constraints.maxWidth,
-                    constraints.maxHeight,
+                        ],
+                      );
+                    },
                   );
-                  return Stack(
-                    children: [
-                      GestureDetector(
-                        onTap: () {
-                          if (!_isMeasuringScale) setState(() => _selectedRoomId = null);
-                        },
-                    child: InteractiveViewer(
+                },
+              ),
+              const SizedBox(width: 8),
+              Container(height: 24, width: 1, color: Colors.white24),
+              const SizedBox(width: 8),
+              Wrap(
+                spacing: 8,
+                children: [
+                  _buildLayerToggle(
+                    'Speaker Layer',
+                    Icons.speaker,
+                    _showSpeakers,
+                    () {
+                      setState(() => _showSpeakers = !_showSpeakers);
+                    },
+                  ),
+                  _buildLayerToggle(
+                    'Room Layer',
+                    Icons.meeting_room,
+                    _showRooms,
+                    () {
+                      setState(() => _showRooms = !_showRooms);
+                    },
+                  ),
+                  _buildLayerToggle(
+                    'Trajectory Layer',
+                    Icons.route,
+                    _showTrajectories,
+                    () {
+                      setState(() {
+                        _showTrajectories = !_showTrajectories;
+                        if (!_showTrajectories && _isPlayingAutomation) {
+                          _toggleAutomation(); // Pauses if playing
+                        }
+                      });
+                    },
+                  ),
+                  _buildLayerToggle(
+                    'Heatmap Layer',
+                    Icons.wb_sunny,
+                    _showHeatmap,
+                    () {
+                      setState(() => _showHeatmap = !_showHeatmap);
+                    },
+                  ),
+                ],
+              ),
+              const SizedBox(width: 8),
+              Container(height: 24, width: 1, color: Colors.white24),
+              const SizedBox(width: 8),
+              Row(
+                children: ['All', '125Hz', '500Hz', '1kHz', '4kHz'].map((oct) {
+                  final isSelected = _selectedOctaveFilter == oct;
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 4.0),
+                    child: FilterChip(
+                      label: Text(
+                        oct,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: isSelected ? Colors.black : Colors.white70,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      selected: isSelected,
+                      selectedColor: AppColors.primaryNeon,
+                      backgroundColor: Colors.black45,
+                      checkmarkColor: Colors.black,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 4,
+                        vertical: 0,
+                      ),
+                      onSelected: (val) {
+                        if (val) {
+                          setState(() => _selectedOctaveFilter = oct);
+                        }
+                      },
+                    ),
+                  );
+                }).toList(),
+              ),
+              const SizedBox(width: 8),
+              Container(height: 24, width: 1, color: Colors.white24),
+              const SizedBox(width: 8),
+              IconButton(
+                icon: const Icon(
+                  Icons.settings_input_component,
+                  color: Colors.cyanAccent,
+                ),
+                onPressed: () {
+                  setState(() {
+                    _isSidebarOpen = !_isSidebarOpen;
+                  });
+                },
+                tooltip: 'Routing & Trajectories',
+              ),
+              IconButton(
+                icon: const Icon(
+                  Icons.route_outlined,
+                  color: Colors.orangeAccent,
+                ),
+                onPressed: _clearTrajectories,
+                tooltip: 'Clear Trajectories',
+              ),
+              IconButton(
+                icon: const Icon(Icons.delete_sweep, color: Colors.redAccent),
+                onPressed: _clearCanvas,
+                tooltip: 'Clear Canvas',
+              ),
+            ],
+          ),
+          backgroundColor: Colors.black,
+        ),
+        body: LayoutBuilder(
+          builder: (context, constraints) {
+            _viewportSize = Size(constraints.maxWidth, constraints.maxHeight);
+            return Stack(
+              children: [
+                GestureDetector(
+                  onTapUp: (details) {
+                    if (ref.read(isDrawingModeProvider)) {
+                      final invertedMatrix =
+                          _transformationController.value.clone()..invert();
+                      final canvasPos = MatrixUtils.transformPoint(
+                        invertedMatrix,
+                        details.localPosition,
+                      );
+                      _handleCanvasTapForDrawing(canvasPos, ref);
+                      return;
+                    }
+                    if (!_isMeasuringScale)
+                      setState(() => _selectedRoomId = null);
+                  },
+                  child: InteractiveViewer(
                     transformationController: _transformationController,
                     panEnabled: !_isMeasuringScale && !_isRoomInteracting,
                     scaleEnabled: !_isMeasuringScale,
@@ -1640,322 +1672,339 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                         width: _canvasWidth,
                         height: _canvasHeight,
                         child: Stack(
-                        clipBehavior: Clip.none,
-                        children: [
-                          Positioned.fill(
-                            child: RepaintBoundary(
-                              child: CustomPaint(
-                                painter: _GridPainter(blueprint.scale),
-                              ),
-                            ),
-                          ),
-                          if (blueprint.imagePath != null)
+                          clipBehavior: Clip.none,
+                          children: [
                             Positioned.fill(
-                              child: Image.file(
-                                File(blueprint.imagePath!),
-                                fit: BoxFit.contain,
-                                color: Colors.white.withValues(
-                                  alpha: blueprint.opacity,
+                              child: RepaintBoundary(
+                                child: CustomPaint(
+                                  painter: _GridPainter(blueprint.scale),
                                 ),
-                                colorBlendMode: BlendMode.modulate,
                               ),
                             ),
-                          if (_showHeatmap)
-                            Consumer(
-                              builder: (context, ref, _) {
-                                final nodes = ref.watch(speakerLayoutProvider);
-                                final rooms = ref.watch(roomZoneProvider);
-                                return Positioned.fill(
-                                  child: RepaintBoundary(
-                                    child: CustomPaint(
-                                      painter: _HeatmapPainter(
-                                        nodes: nodes,
-                                        rooms: rooms,
-                                        selectedOctave: _selectedOctaveFilter,
+                            if (blueprint.imagePath != null)
+                              Positioned.fill(
+                                child: Image.file(
+                                  File(blueprint.imagePath!),
+                                  fit: BoxFit.contain,
+                                  color: Colors.white.withValues(
+                                    alpha: blueprint.opacity,
+                                  ),
+                                  colorBlendMode: BlendMode.modulate,
+                                ),
+                              ),
+                            if (_showHeatmap)
+                              Consumer(
+                                builder: (context, ref, _) {
+                                  final nodes = ref.watch(
+                                    speakerLayoutProvider,
+                                  );
+                                  final rooms = ref.watch(roomZoneProvider);
+                                  return Positioned.fill(
+                                    child: RepaintBoundary(
+                                      child: CustomPaint(
+                                        painter: _HeatmapPainter(
+                                          nodes: nodes,
+                                          rooms: rooms,
+                                          selectedOctave: _selectedOctaveFilter,
+                                        ),
                                       ),
                                     ),
-                                  ),
-                                );
-                              },
-                            ),
-                          if (_showRooms)
-                            Consumer(
-                              builder: (context, ref, _) {
-                                final rooms = ref.watch(roomZoneProvider);
-                                final nodes = ref.watch(speakerLayoutProvider);
-                                return Positioned.fill(
-                                  child: Stack(
-                                    clipBehavior: Clip.none,
-                                    children: rooms.map((room) {
-                                      final containedSpeakers =
-                                          _getSpeakersInRoom(room, nodes);
-                                      return RoomZoneWidget(
-                                        key: ValueKey(room.id),
-                                        room: room,
-                                        containedSpeakers: containedSpeakers,
-                                        transformationController:
-                                            _transformationController,
-                                        isSelected: _selectedRoomId == room.id,
-                                        onEdit: () => _editRoom(room),
-                                        onDragUpdate: _syncSpatialConfigRealtime,
-                                        onInteractionStart: () => setState(() {
-                                          _isRoomInteracting = true;
-                                          _selectedRoomId = room.id;
-                                        }),
-                                        onInteractionEnd: () => setState(() => _isRoomInteracting = false),
-                                      );
-                                    }).toList(),
-                                  ),
-                                );
-                              },
-                            ),
-                          if (_showTrajectories)
-                            Consumer(
-                              builder: (context, ref, _) {
-                                final trajectories = ref.watch(
-                                  trajectoryProvider,
-                                );
-                                return Stack(
-                                  children: [
-                                    Positioned.fill(
-                                      child: RepaintBoundary(
-                                        child: CustomPaint(
-                                          painter: TrajectoryLayerPainter(
-                                            trajectories: trajectories,
-                                            focusedTrajectoryId:
-                                                null, // we can implement focus later
-                                            scaleMeterToPixel: ref
-                                                .read(blueprintProvider)
-                                                .scale,
-                                            repaint: Listenable.merge(
-                                              trajectories,
+                                  );
+                                },
+                              ),
+                            if (_showRooms)
+                              Consumer(
+                                builder: (context, ref, _) {
+                                  final rooms = ref.watch(roomZoneProvider);
+                                  final nodes = ref.watch(
+                                    speakerLayoutProvider,
+                                  );
+                                  return Positioned.fill(
+                                    child: Stack(
+                                      clipBehavior: Clip.none,
+                                      children: rooms.map((room) {
+                                        final containedSpeakers =
+                                            _getSpeakersInRoom(room, nodes);
+                                        return RoomZoneWidget(
+                                          key: ValueKey(room.id),
+                                          room: room,
+                                          containedSpeakers: containedSpeakers,
+                                          transformationController:
+                                              _transformationController,
+                                          isSelected:
+                                              _selectedRoomId == room.id,
+                                          onEdit: () => _editRoom(room),
+                                          onDragUpdate:
+                                              _syncSpatialConfigRealtime,
+                                          onInteractionStart: () =>
+                                              setState(() {
+                                                _isRoomInteracting = true;
+                                                _selectedRoomId = room.id;
+                                              }),
+                                          onInteractionEnd: () => setState(
+                                            () => _isRoomInteracting = false,
+                                          ),
+                                        );
+                                      }).toList(),
+                                    ),
+                                  );
+                                },
+                              ),
+                            if (_showTrajectories)
+                              Consumer(
+                                builder: (context, ref, _) {
+                                  final trajectories = ref.watch(
+                                    trajectoryProvider,
+                                  );
+                                  return Stack(
+                                    children: [
+                                      Positioned.fill(
+                                        child: RepaintBoundary(
+                                          child: CustomPaint(
+                                            painter: TrajectoryLayerPainter(
+                                              trajectories: trajectories,
+                                              rooms: ref.watch(
+                                                roomZoneProvider,
+                                              ),
+                                              speakers: ref.watch(
+                                                speakerLayoutProvider,
+                                              ),
+                                              focusedTrajectoryId: ref.watch(
+                                                activeTrajectoryIdProvider,
+                                              ),
+                                              scaleMeterToPixel: ref
+                                                  .read(blueprintProvider)
+                                                  .scale,
+                                              repaint: Listenable.merge(
+                                                trajectories,
+                                              ),
                                             ),
                                           ),
                                         ),
                                       ),
-                                    ),
-                                    ...trajectories.map(
-                                      (t) => _DraggableTrajectoryPathWidget(
-                                        key: ValueKey('path_${t.id}'),
-                                        trajectory: t,
-                                        transformationController:
-                                            _transformationController,
-                                        onDragUpdate:
-                                            _syncSpatialConfigRealtime,
-                                        onLongPress: () => _editTrajectory(t),
-                                      ),
-                                    ),
-                                    ...trajectories.expand((t) {
-                                      return t.waypoints.asMap().entries.map((
-                                        entry,
-                                      ) {
-                                        final idx = entry.key;
-                                        final wp = entry.value;
-                                        return _DraggableWaypointWidget(
-                                          key: ValueKey('${t.id}_$idx'),
+                                      ...trajectories.map(
+                                        (t) => _DraggableTrajectoryPathWidget(
+                                          key: ValueKey('path_${t.id}'),
                                           trajectory: t,
-                                          waypointIndex: idx,
-                                          waypoint: wp,
                                           transformationController:
                                               _transformationController,
                                           onDragUpdate:
                                               _syncSpatialConfigRealtime,
-                                        );
-                                      });
-                                    }),
-                                  ],
-                                );
-                              },
-                            ),
-                          if (_showSpeakers)
-                            Consumer(
-                              builder: (context, ref, _) {
-                                final nodes = ref.watch(speakerLayoutProvider);
-                                final rooms = ref.watch(roomZoneProvider);
-                                return Stack(
-                                  clipBehavior: Clip.none,
-                                  children: nodes.map((node) {
-                                    final isDuplicate = nodes
-                                        .where(
-                                          (n) =>
-                                              n.id != node.id &&
-                                              n.channel == node.channel,
-                                        )
-                                        .isNotEmpty;
-                                    final roomColor = _getRoomColorForSpeaker(
-                                      node,
-                                      rooms,
-                                    );
-                                    return _DraggableSpeakerWidget(
-                                      key: ValueKey(node.id),
-                                      node: node,
-                                      roomColor:
-                                          roomColor ?? AppColors.primaryNeon,
-                                      isDuplicate: isDuplicate,
-                                      transformationController:
-                                          _transformationController,
-                                      onEdit: () => _editSpeaker(node),
-                                    );
-                                  }).toList(),
-                                );
-                              },
-                            ),
-                          if (_isMeasuringScale)
-                            Positioned.fill(
-                              child: Stack(
-                                children: [
-                                  MouseRegion(
-                                    cursor: SystemMouseCursors.precise,
-                                    child: GestureDetector(
-                                      behavior: HitTestBehavior.opaque,
-                                      onPanStart: (details) {
-                                      setState(() {
-                                        _measureStart = details.localPosition;
-                                        _measureEnd = details.localPosition;
-                                      });
-                                    },
-                                    onPanUpdate: (details) {
-                                      setState(() {
-                                        _measureEnd = details.localPosition;
-                                      });
-                                    },
-                                    onPanEnd: (details) {
-                                      if (_measureStart != null &&
-                                          _measureEnd != null) {
-                                        _finishMeasurement();
-                                      }
-                                    },
-                                    child: CustomPaint(
-                                      painter: _MeasurementPainter(
-                                        _measureStart,
-                                        _measureEnd,
+                                          onLongPress: () => _editTrajectory(t),
+                                        ),
                                       ),
-                                      size: Size.infinite,
-                                    ),
-                                  ),
-                                  ),
-                                  if (_measureEnd != null)
-                                    Positioned(
-                                      left: _measureEnd!.dx - 40,
-                                      top: _measureEnd!.dy - 90,
-                                      child: IgnorePointer(
-                                        child: RawMagnifier(
-                                          decoration: const MagnifierDecoration(
-                                            shape: CircleBorder(
-                                              side: BorderSide(color: Colors.cyanAccent, width: 2),
-                                            ),
+                                      ...trajectories.expand((t) {
+                                        return t.waypoints.asMap().entries.map((
+                                          entry,
+                                        ) {
+                                          final idx = entry.key;
+                                          final wp = entry.value;
+                                          return _DraggableWaypointWidget(
+                                            key: ValueKey('${t.id}_$idx'),
+                                            trajectory: t,
+                                            waypointIndex: idx,
+                                            waypoint: wp,
+                                            transformationController:
+                                                _transformationController,
+                                            onDragUpdate:
+                                                _syncSpatialConfigRealtime,
+                                          );
+                                        });
+                                      }),
+                                    ],
+                                  );
+                                },
+                              ),
+                            if (_showSpeakers)
+                              Consumer(
+                                builder: (context, ref, _) {
+                                  final nodes = ref.watch(
+                                    speakerLayoutProvider,
+                                  );
+                                  final rooms = ref.watch(roomZoneProvider);
+                                  return Stack(
+                                    clipBehavior: Clip.none,
+                                    children: nodes.map((node) {
+                                      final isDuplicate = nodes
+                                          .where(
+                                            (n) =>
+                                                n.id != node.id &&
+                                                n.channel == node.channel,
+                                          )
+                                          .isNotEmpty;
+                                      final roomColor = _getRoomColorForSpeaker(
+                                        node,
+                                        rooms,
+                                      );
+                                      return _DraggableSpeakerWidget(
+                                        key: ValueKey(node.id),
+                                        node: node,
+                                        roomColor:
+                                            roomColor ?? AppColors.primaryNeon,
+                                        isDuplicate: isDuplicate,
+                                        transformationController:
+                                            _transformationController,
+                                        onEdit: () => _editSpeaker(node),
+                                      );
+                                    }).toList(),
+                                  );
+                                },
+                              ),
+                            if (_isMeasuringScale)
+                              Positioned.fill(
+                                child: Stack(
+                                  children: [
+                                    MouseRegion(
+                                      cursor: SystemMouseCursors.precise,
+                                      child: GestureDetector(
+                                        behavior: HitTestBehavior.opaque,
+                                        onPanStart: (details) {
+                                          setState(() {
+                                            _measureStart =
+                                                details.localPosition;
+                                            _measureEnd = details.localPosition;
+                                          });
+                                        },
+                                        onPanUpdate: (details) {
+                                          setState(() {
+                                            _measureEnd = details.localPosition;
+                                          });
+                                        },
+                                        onPanEnd: (details) {
+                                          if (_measureStart != null &&
+                                              _measureEnd != null) {
+                                            _finishMeasurement();
+                                          }
+                                        },
+                                        child: CustomPaint(
+                                          painter: _MeasurementPainter(
+                                            _measureStart,
+                                            _measureEnd,
                                           ),
-                                          size: const Size(80, 80),
-                                          magnificationScale: 2.0,
-                                          focalPointOffset: const Offset(0, 50),
+                                          size: Size.infinite,
                                         ),
                                       ),
                                     ),
-                                ],
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              if (_isSidebarOpen)
-                Positioned.fill(
-                  child: TrajectorySidebarWidget(
-                    onClose: () {
-                      setState(() {
-                        _isSidebarOpen = false;
-                      });
-                    },
-                  ),
-                ),
-            ],
-          );
-        },
-              ),
-              floatingActionButton: PopupMenuButton<String>(
-                onSelected: (value) {
-                  if (value == 'speaker') {
-                    _addSpeaker();
-                  } else if (value == 'room') {
-                    _addRoom();
-                  } else if (value == 'trajectory') {
-                    _addTrajectory();
-                  } else if (value == 'measure') {
-                    setState(() {
-                      _isMeasuringScale = true;
-                      _measureStart = null;
-                      _measureEnd = null;
-                    });
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('도면상에 두 점을 드래그하여 기준선을 그려주세요.'),
-                      ),
-                    );
-                  }
-                },
-                itemBuilder: (BuildContext context) => [
-                  const PopupMenuItem(value: 'speaker', child: Text('스피커 추가')),
-                  const PopupMenuItem(value: 'room', child: Text('룸 구역 추가')),
-                  const PopupMenuItem(
-                    value: 'trajectory',
-                    child: Text('오디오 궤도 추가'),
-                  ),
-                  const PopupMenuItem(
-                    value: 'measure',
-                    child: Text('도면 스케일 측정'),
-                  ),
-                ],
-                child: FloatingActionButton(
-                  onPressed: null,
-                  backgroundColor: AppColors.primaryNeon,
-                  child: const Icon(Icons.add, color: Colors.black),
-                ),
-              ),
-              bottomNavigationBar: Container(
-                height: 120,
-                decoration: const BoxDecoration(
-                  color: AppColors.cardSurface,
-                  border: Border(top: BorderSide(color: Colors.white24)),
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      flex: 2,
-                      child: Padding(
-                        padding: const EdgeInsets.all(8.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'EBU R128 피크 미터',
-                              style: TextStyle(
-                                color: AppColors.primaryNeon,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 13,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Expanded(
-                              child: Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceEvenly,
-                                children: List.generate(
-                                  8,
-                                  (index) => NeonVUMeter(outputChannel: index),
+                                    if (_measureEnd != null)
+                                      Positioned(
+                                        left: _measureEnd!.dx - 40,
+                                        top: _measureEnd!.dy - 90,
+                                        child: IgnorePointer(
+                                          child: RawMagnifier(
+                                            decoration:
+                                                const MagnifierDecoration(
+                                                  shape: CircleBorder(
+                                                    side: BorderSide(
+                                                      color: Colors.cyanAccent,
+                                                      width: 2,
+                                                    ),
+                                                  ),
+                                                ),
+                                            size: const Size(80, 80),
+                                            magnificationScale: 2.0,
+                                            focalPointOffset: const Offset(
+                                              0,
+                                              50,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                  ],
                                 ),
                               ),
-                            ),
                           ],
                         ),
                       ),
                     ),
-
-                  ],
-                ), // Row
-              ), // Container
-            ), // Scaffold
+                  ),
+                ),
+                if (_isSidebarOpen)
+                  Positioned.fill(
+                    child: TrajectorySidebarWidget(
+                      onClose: () {
+                        setState(() {
+                          _isSidebarOpen = false;
+                        });
+                      },
+                    ),
+                  ),
+                const Positioned.fill(child: TrajectoryEditorToolbar()),
+              ],
+            );
+          },
+        ),
+        floatingActionButton: PopupMenuButton<String>(
+          onSelected: (value) {
+            if (value == 'speaker') {
+              _addSpeaker();
+            } else if (value == 'room') {
+              _addRoom();
+            } else if (value == 'trajectory') {
+              _addTrajectory();
+            } else if (value == 'measure') {
+              setState(() {
+                _isMeasuringScale = true;
+                _measureStart = null;
+                _measureEnd = null;
+              });
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('도면상에 두 점을 드래그하여 기준선을 그려주세요.')),
+              );
+            }
+          },
+          itemBuilder: (BuildContext context) => [
+            const PopupMenuItem(value: 'speaker', child: Text('스피커 추가')),
+            const PopupMenuItem(value: 'room', child: Text('룸 구역 추가')),
+            const PopupMenuItem(value: 'trajectory', child: Text('오디오 궤도 추가')),
+            const PopupMenuItem(value: 'measure', child: Text('도면 스케일 측정')),
+          ],
+          child: FloatingActionButton(
+            onPressed: null,
+            backgroundColor: AppColors.primaryNeon,
+            child: const Icon(Icons.add, color: Colors.black),
+          ),
+        ),
+        bottomNavigationBar: Container(
+          height: 120,
+          decoration: const BoxDecoration(
+            color: AppColors.cardSurface,
+            border: Border(top: BorderSide(color: Colors.white24)),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                flex: 2,
+                child: Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'EBU R128 피크 미터',
+                        style: TextStyle(
+                          color: AppColors.primaryNeon,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Expanded(
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: List.generate(
+                            8,
+                            (index) => NeonVUMeter(outputChannel: index),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ), // Row
+        ), // Container
+      ), // Scaffold
     ); // GestureDetector
   }
 }
@@ -2007,146 +2056,154 @@ class _DraggableSpeakerWidgetState
 
   @override
   Widget build(BuildContext context) {
+    // The speaker icon center relative to the 100x120 container
+    const originOffset = Offset(50, 43);
+
     return Positioned(
       left: _localX,
       top: _localY,
       child: Transform.rotate(
         angle: widget.node.rotation * math.pi / 180.0,
         alignment: Alignment.topLeft,
-        origin: const Offset(50, 22),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Speaker Rotation Handle Knob (Unified on top of speaker node)
-            GestureDetector(
-              behavior: HitTestBehavior.translucent,
-              onPanStart: (details) {
-                final renderBox = context.findRenderObject() as RenderBox?;
-                if (renderBox != null) {
-                  final globalCenter = renderBox.localToGlobal(
-                    const Offset(50, 22),
-                  );
-                  _initialTouchAngle = math.atan2(
-                    details.globalPosition.dy - globalCenter.dy,
-                    details.globalPosition.dx - globalCenter.dx,
-                  );
-                  _initialSpeakerRotation = widget.node.rotation;
-                }
-              },
-              onPanUpdate: (details) {
-                final renderBox = context.findRenderObject() as RenderBox?;
-                if (renderBox != null) {
-                  final globalCenter = renderBox.localToGlobal(
-                    const Offset(50, 22),
-                  );
-                  final currentTouchAngle = math.atan2(
-                    details.globalPosition.dy - globalCenter.dy,
-                    details.globalPosition.dx - globalCenter.dx,
-                  );
-                  final deltaAngle =
-                      (currentTouchAngle - _initialTouchAngle) * 180 / math.pi;
-                  double newRotation =
-                      (_initialSpeakerRotation + deltaAngle) % 360;
-                  if (newRotation < 0) newRotation += 360;
+        origin: originOffset,
+        child: SizedBox(
+          width: 100,
+          height: 120,
+          child: Stack(
+            clipBehavior: Clip.none,
+            alignment: Alignment.center,
+            children: [
+              // Draggable Speaker Box Body
+              Positioned.fill(
+                child: GestureDetector(
+                  onPanStart: (_) => setState(() => _isDragging = true),
+                  onPanUpdate: (details) {
+                    final scale = widget.transformationController.value
+                        .getMaxScaleOnAxis();
+                    final currentScale = scale > 0 ? scale : 1.0;
+                    final rad = widget.node.rotation * math.pi / 180.0;
+                    final localDx = details.delta.dx / currentScale;
+                    final localDy = details.delta.dy / currentScale;
 
-                  ref
-                      .read(speakerLayoutProvider.notifier)
-                      .updateSpeaker(
-                        widget.node.copyWith(rotation: newRotation),
-                        immediate: true,
+                    final globalDx =
+                        localDx * math.cos(rad) - localDy * math.sin(rad);
+                    final globalDy =
+                        localDx * math.sin(rad) + localDy * math.cos(rad);
+
+                    setState(() {
+                      _localX = (_localX + globalDx).clamp(
+                        0.0,
+                        _canvasWidth - _speakerSize,
                       );
-                }
-              },
-              child: Container(
-                margin: const EdgeInsets.only(bottom: 4),
-                width: 22,
-                height: 22,
-                decoration: BoxDecoration(
-                  color: AppColors.primaryNeon,
-                  shape: BoxShape.circle,
-                  border: Border.all(color: Colors.black, width: 2.0),
-                  boxShadow: const [
-                    BoxShadow(color: Colors.black54, blurRadius: 4),
-                  ],
-                ),
-                child: const Icon(
-                  Icons.rotate_right,
-                  size: 12,
-                  color: Colors.black,
-                ),
-              ),
-            ),
-            // Draggable Speaker Box Body
-            GestureDetector(
-              onPanStart: (_) => setState(() => _isDragging = true),
-              onPanUpdate: (details) {
-                final scale = widget.transformationController.value
-                    .getMaxScaleOnAxis();
-                final currentScale = scale > 0 ? scale : 1.0;
-                final rad = widget.node.rotation * math.pi / 180.0;
-                final localDx = details.delta.dx / currentScale;
-                final localDy = details.delta.dy / currentScale;
-
-                final globalDx =
-                    localDx * math.cos(rad) - localDy * math.sin(rad);
-                final globalDy =
-                    localDx * math.sin(rad) + localDy * math.cos(rad);
-
-                setState(() {
-                  _localX = (_localX + globalDx).clamp(
-                    0.0,
-                    _canvasWidth - _speakerSize,
-                  );
-                  _localY = (_localY + globalDy).clamp(
-                    0.0,
-                    _canvasHeight - _speakerSize,
-                  );
-                });
-                ref
-                    .read(speakerLayoutProvider.notifier)
-                    .updateSpeaker(
-                      widget.node.copyWith(x: _localX, y: _localY),
-                      immediate: true,
+                      _localY = (_localY + globalDy).clamp(
+                        0.0,
+                        _canvasHeight - _speakerSize,
+                      );
+                    });
+                    ref
+                        .read(speakerLayoutProvider.notifier)
+                        .updateSpeaker(
+                          widget.node.copyWith(x: _localX, y: _localY),
+                          immediate: false,
+                        );
+                  },
+                  onPanEnd: (details) {
+                    final snappedX =
+                        (_localX / ref.read(blueprintProvider).scale).round() *
+                        ref.read(blueprintProvider).scale;
+                    final snappedY =
+                        (_localY / ref.read(blueprintProvider).scale).round() *
+                        ref.read(blueprintProvider).scale;
+                    final updated = widget.node.copyWith(
+                      x: snappedX.clamp(0.0, _canvasWidth - _speakerSize),
+                      y: snappedY.clamp(0.0, _canvasHeight - _speakerSize),
                     );
-              },
-              onPanEnd: (details) {
-                final snappedX =
-                    (_localX / ref.read(blueprintProvider).scale).round() *
-                    ref.read(blueprintProvider).scale;
-                final snappedY =
-                    (_localY / ref.read(blueprintProvider).scale).round() *
-                    ref.read(blueprintProvider).scale;
-                final updated = widget.node.copyWith(
-                  x: snappedX.clamp(0.0, _canvasWidth - _speakerSize),
-                  y: snappedY.clamp(0.0, _canvasHeight - _speakerSize),
-                );
-                setState(() {
-                  _localX = updated.x;
-                  _localY = updated.y;
-                  _isDragging = false;
-                });
-                ref
-                    .read(speakerLayoutProvider.notifier)
-                    .updateSpeaker(updated, immediate: true);
-              },
-              child: SpeakerNodeWidget(
-                node: widget.node,
-                roomColor: widget.roomColor,
-                onChannelChanged: (ch) {
-                  ref
-                      .read(speakerLayoutProvider.notifier)
-                      .updateSpeaker(widget.node.copyWith(channel: ch));
-                },
-                onDelete: () {
-                  ref
-                      .read(speakerLayoutProvider.notifier)
-                      .removeSpeaker(widget.node.id);
-                },
-                onEdit: widget.onEdit,
-                isDuplicateChannel: widget.isDuplicate,
+                    setState(() {
+                      _localX = updated.x;
+                      _localY = updated.y;
+                      _isDragging = false;
+                    });
+                    ref
+                        .read(speakerLayoutProvider.notifier)
+                        .updateSpeaker(updated, immediate: true);
+                  },
+                  child: SpeakerNodeWidget(
+                    node: widget.node,
+                    roomColor: widget.roomColor,
+                    onChannelChanged: (ch) {
+                      ref
+                          .read(speakerLayoutProvider.notifier)
+                          .updateSpeaker(widget.node.copyWith(channel: ch));
+                    },
+                    onDelete: () {
+                      ref
+                          .read(speakerLayoutProvider.notifier)
+                          .removeSpeaker(widget.node.id);
+                    },
+                    onEdit: widget.onEdit,
+                    isDuplicateChannel: widget.isDuplicate,
+                  ),
+                ),
               ),
-            ),
-          ],
+              // Speaker Rotation Handle Knob
+              Positioned(
+                top: -30,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.translucent,
+                  onPanStart: (details) {
+                    final renderBox = context.findRenderObject() as RenderBox?;
+                    if (renderBox != null) {
+                      final globalCenter = renderBox.localToGlobal(originOffset);
+                      _initialTouchAngle = math.atan2(
+                        details.globalPosition.dy - globalCenter.dy,
+                        details.globalPosition.dx - globalCenter.dx,
+                      );
+                      _initialSpeakerRotation = widget.node.rotation;
+                    }
+                  },
+                  onPanUpdate: (details) {
+                    final renderBox = context.findRenderObject() as RenderBox?;
+                    if (renderBox != null) {
+                      final globalCenter = renderBox.localToGlobal(originOffset);
+                      final currentTouchAngle = math.atan2(
+                        details.globalPosition.dy - globalCenter.dy,
+                        details.globalPosition.dx - globalCenter.dx,
+                      );
+                      final deltaAngle =
+                          (currentTouchAngle - _initialTouchAngle) * 180 / math.pi;
+                      double newRotation =
+                          (_initialSpeakerRotation + deltaAngle) % 360;
+                      if (newRotation < 0) newRotation += 360;
+
+                      ref
+                          .read(speakerLayoutProvider.notifier)
+                          .updateSpeaker(
+                            widget.node.copyWith(rotation: newRotation),
+                            immediate: false,
+                          );
+                    }
+                  },
+                  child: Container(
+                    width: 22,
+                    height: 22,
+                    decoration: BoxDecoration(
+                      color: AppColors.primaryNeon,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.black, width: 2.0),
+                      boxShadow: const [
+                        BoxShadow(color: Colors.black54, blurRadius: 4),
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.rotate_right,
+                      size: 12,
+                      color: Colors.black,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -2236,7 +2293,8 @@ class _DraggableWaypointWidgetState
         },
         onLongPress: () {
           // 길게 누르기시 삭제 (최소 2개의 점은 유지해야 함)
-          if (widget.waypointIndex >= widget.trajectory.waypoints.length) return;
+          if (widget.waypointIndex >= widget.trajectory.waypoints.length)
+            return;
 
           if (widget.trajectory.waypoints.length > 2) {
             final wps = List<Waypoint>.from(widget.trajectory.waypoints);
@@ -2254,7 +2312,8 @@ class _DraggableWaypointWidgetState
         },
         onDoubleTap: () {
           // 더블 탭시 웨이포인트 삭제 (최소 2개의 점은 유지해야 함)
-          if (widget.waypointIndex >= widget.trajectory.waypoints.length) return;
+          if (widget.waypointIndex >= widget.trajectory.waypoints.length)
+            return;
 
           if (widget.trajectory.waypoints.length > 2) {
             final wps = List<Waypoint>.from(widget.trajectory.waypoints);
@@ -2388,7 +2447,7 @@ class _DraggableTrajectoryPathWidgetState
               final localPos = renderBox.globalToLocal(details.globalPosition);
               final canvasX = minX + localPos.dx;
               final canvasY = minY + localPos.dy;
-              
+
               final newWaypoint = Waypoint(
                 position: Offset(
                   canvasX / ref.read(blueprintProvider).scale,
@@ -2397,10 +2456,10 @@ class _DraggableTrajectoryPathWidgetState
               );
               final wps = List<Waypoint>.from(widget.trajectory.waypoints);
               wps.add(newWaypoint);
-              
-              ref.read(trajectoryProvider.notifier).updateTrajectory(
-                widget.trajectory.copyWith(waypoints: wps),
-              );
+
+              ref
+                  .read(trajectoryProvider.notifier)
+                  .updateTrajectory(widget.trajectory.copyWith(waypoints: wps));
             }
           },
           child: Container(color: Colors.transparent),
@@ -2470,8 +2529,8 @@ class _HeatmapPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     for (var node in nodes) {
-      // Offset matches the visual center of the speaker icon
-      final center = Offset(node.x + 50, node.y + 22);
+      // Offset matches the visual center of the speaker icon inside the 100x120 container
+      final center = Offset(node.x + 50, node.y + 43);
       final double rotRad =
           (node.rotation - 90.0) * math.pi / 180.0; // Front axis
 

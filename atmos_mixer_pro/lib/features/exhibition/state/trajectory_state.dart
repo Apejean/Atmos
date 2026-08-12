@@ -142,3 +142,25 @@ class TrajectoryState extends Notifier<List<TrajectoryModel>> {
 final trajectoryProvider = NotifierProvider<TrajectoryState, List<TrajectoryModel>>(
   TrajectoryState.new,
 );
+
+class ActiveTrajectoryIdNotifier extends Notifier<String?> {
+  @override
+  String? build() => null;
+  void set(String? id) => state = id;
+}
+
+final activeTrajectoryIdProvider = NotifierProvider<ActiveTrajectoryIdNotifier, String?>(
+  ActiveTrajectoryIdNotifier.new,
+);
+
+class IsDrawingModeNotifier extends Notifier<bool> {
+  @override
+  bool build() => false;
+  void set(bool value) => state = value;
+  void toggle() => state = !state;
+}
+
+final isDrawingModeProvider = NotifierProvider<IsDrawingModeNotifier, bool>(
+  IsDrawingModeNotifier.new,
+);
+

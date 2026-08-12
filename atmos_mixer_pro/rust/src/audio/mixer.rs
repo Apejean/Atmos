@@ -310,18 +310,30 @@ impl AudioMixer {
                     
                     // 2. Trajectory DBAP Weight Collection
                     if let Some(traj) = &self.trajectory {
-                        let dx = pos.x - traj.current_position.x;
-                        let dy = pos.y - traj.current_position.y;
-                        let dz = pos.z - traj.current_position.z;
-                        let dist = (dx*dx + dy*dy + dz*dz).sqrt();
-                        
-                        if dist < min_dist {
-                            min_dist = dist;
+                        let mut in_target_room = true;
+                        if let Some(target_zone_str) = &traj.target_room_zone_id {
+                            let target_rid = target_zone_str.parse::<u32>().unwrap_or_else(|_| crate::common::utils::hash_id(target_zone_str));
+                            if bound_room_id != Some(target_rid) {
+                                in_target_room = false;
+                            }
                         }
-                        
-                        let weight = 1.0 / (dist.powi(2) + blur_radius.powi(2));
-                        self.temp_spatial_weights[ch] = weight;
-                        sum_sq += weight * weight;
+
+                        if in_target_room {
+                            let dx = pos.x - traj.current_position.x;
+                            let dy = pos.y - traj.current_position.y;
+                            let dz = pos.z - traj.current_position.z;
+                            let dist = (dx*dx + dy*dy + dz*dz).sqrt();
+                            
+                            if dist < min_dist {
+                                min_dist = dist;
+                            }
+                            
+                            let weight = 1.0 / (dist.powi(2) + blur_radius.powi(2));
+                            self.temp_spatial_weights[ch] = weight;
+                            sum_sq += weight * weight;
+                        } else {
+                            self.temp_spatial_weights[ch] = 0.0;
+                        }
                     }
                 }
             }
@@ -550,7 +562,7 @@ impl AudioMixer {
                             };
                             let out_idx = frame * out_channels + hw_ch;
                             if is_enabled && out_idx < output.len() {
-                                output[out_idx] += mono_val * current_vol * self.channel_spatial_gains[hw_ch];
+                                output[out_idx] += mono_val * current_vol;
                             }
                         }
                     } else {
@@ -565,7 +577,7 @@ impl AudioMixer {
                                 };
                                 let out_idx = frame * out_channels + hw_ch;
                                 if is_enabled && out_idx < output.len() {
-                                    output[out_idx] += val * current_vol * self.channel_spatial_gains[hw_ch];
+                                    output[out_idx] += val * current_vol;
                                 }
                             }
                         }
@@ -574,13 +586,8 @@ impl AudioMixer {
                         if ch_limit == 1 && instance.output_stereo {
                             let hw_ch_r = instance.output_channel + 1;
                             if hw_ch_r < out_channels {
-                                let is_r_enabled = if hw_ch_r < GLOBAL_STATE.enabled_channels.len() {
-                                    GLOBAL_STATE.enabled_channels[hw_ch_r].load(Ordering::Relaxed)
-                                } else {
-                                    false
-                                };
                                 let out_idx_r = frame * out_channels + hw_ch_r;
-                                if is_r_enabled && out_idx_r < output.len() {
+                                if out_idx_r < output.len() {
                                     output[out_idx_r] += vals[0] * current_vol * self.channel_spatial_gains[hw_ch_r];
                                 }
                             }
@@ -625,22 +632,6 @@ impl AudioMixer {
         let headroom_gain = 10.0f32.powf(self.master_headroom_db / 20.0);
         
         for ch in 0..out_channels {
-            if ch >= GLOBAL_STATE.enabled_channels.len() {
-                break;
-            }
-            let is_enabled = GLOBAL_STATE.enabled_channels[ch].load(Ordering::Relaxed);
-            if !is_enabled {
-                GLOBAL_STATE.vu_levels[ch].store(0, Ordering::Relaxed);
-                // Zero out buffer for disabled channels to be absolutely safe
-                for frame in 0..frames {
-                    let sample_idx = frame * out_channels + ch;
-                    if sample_idx < output.len() {
-                        output[sample_idx] = 0.0;
-                    }
-                }
-                continue;
-            }
-
             let mut peak: f32 = 0.0;
             for frame in 0..frames {
                 let sample_idx = frame * out_channels + ch;
@@ -750,35 +741,65 @@ impl AudioMixer {
                 let mut max_dist = 0.0_f32;
                 let mut channel_dists = vec![0.0_f32; self.channel_positions.len()];
                 
+                let target_room_id = if let Some(traj) = &self.trajectory {
+                    traj.target_room_zone_id.as_ref().map(|s| s.parse::<u32>().unwrap_or_else(|_| crate::common::utils::hash_id(s)))
+                } else {
+                    None
+                };
+
                 for ch_idx in 0..self.channel_positions.len() {
                     if let Some(pos) = &self.channel_positions[ch_idx] {
-                        let t_pos = if let Some(tp) = &target_pos {
-                            tp.clone()
-                        } else {
-                            // Find zone center
-                            let mut cx = pos.x;
-                            let mut cz = pos.z;
-                            for zone in &self.room_zones {
-                                if pos.x >= zone.boundary_min.x && pos.x <= zone.boundary_max.x &&
-                                   pos.y >= zone.boundary_min.y && pos.y <= zone.boundary_max.y {
-                                    cx = (zone.boundary_min.x + zone.boundary_max.x) / 2.0;
-                                    cz = (zone.boundary_min.y + zone.boundary_max.y) / 2.0;
-                                    break;
-                                }
+                        let mut bound_room_id = None;
+                        for zone in &self.room_zones {
+                            if pos.x >= zone.boundary_min.x && pos.x <= zone.boundary_max.x &&
+                               pos.y >= zone.boundary_min.y && pos.y <= zone.boundary_max.y {
+                                bound_room_id = Some(zone.room_id);
+                                break;
                             }
-                            crate::common::config::Point3D { x: cx, y: pos.y, z: cz, ..Default::default() }
+                        }
+
+                        let in_target_room = match target_room_id {
+                            Some(target_id) => bound_room_id == Some(target_id),
+                            None => true,
                         };
-                        
-                        let dist = crate::audio::acoustic::distance_3d(pos, &t_pos);
-                        channel_dists[ch_idx] = dist;
-                        if dist > max_dist {
-                            max_dist = dist;
+
+                        if in_target_room {
+                            let t_pos = if let Some(tp) = &target_pos {
+                                tp.clone()
+                            } else {
+                                // Find zone center
+                                let mut cx = pos.x;
+                                let mut cz = pos.z;
+                                if let Some(rid) = bound_room_id {
+                                    for zone in &self.room_zones {
+                                        if zone.room_id == rid {
+                                            cx = (zone.boundary_min.x + zone.boundary_max.x) / 2.0;
+                                            cz = (zone.boundary_min.y + zone.boundary_max.y) / 2.0;
+                                            break;
+                                        }
+                                    }
+                                }
+                                crate::common::config::Point3D { x: cx, y: pos.y, z: cz, ..Default::default() }
+                            };
+                            
+                            let dist = crate::audio::acoustic::distance_3d(pos, &t_pos);
+                            channel_dists[ch_idx] = dist;
+                            if dist > max_dist {
+                                max_dist = dist;
+                            }
+                        } else {
+                            channel_dists[ch_idx] = -1.0;
                         }
                     }
                 }
 
                 // 4. Apply Time Alignment & Dynamic Off-axis EQ
                 for ch_idx in 0..self.channel_dsp.len() {
+                    let dist = channel_dists[ch_idx];
+                    if dist < 0.0 {
+                        continue; // Not participating in spatial DSP (isolated)
+                    }
+
                     if let Some(pos) = &self.channel_positions[ch_idx] {
                         let mut matched_zone = None;
                         for zone in &self.room_zones {
@@ -798,8 +819,6 @@ impl AudioMixer {
                         } else {
                             pos.clone()
                         };
-
-                        let dist = channel_dists[ch_idx];
                         
                         // Phase 2: Time Alignment Formula
                         let delay_seconds = (max_dist - dist) / crate::audio::acoustic::SPEED_OF_SOUND_M_S;

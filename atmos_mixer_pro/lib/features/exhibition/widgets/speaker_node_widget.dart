@@ -58,29 +58,11 @@ class _SpeakerNodeWidgetState extends ConsumerState<SpeakerNodeWidget> {
         ? Colors.redAccent
         : baseColor.withValues(alpha: 0.5);
 
-    return Column(
-      mainAxisSize: MainAxisSize.min,
+    return Stack(
+      clipBehavior: Clip.none,
+      alignment: Alignment.center,
       children: [
-        // Coordinate & 3D Orientation Badge
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-          decoration: BoxDecoration(
-            color: Colors.black87,
-            borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: Colors.white24, width: 0.5),
-          ),
-          child: Text(
-            'X: ${widget.node.x.round()}, Y: ${widget.node.y.round()} | Z: ${widget.node.heightZ.toStringAsFixed(1)}m, ∠${widget.node.pitchTilt.toInt()}°',
-            style: TextStyle(
-              fontSize: 9,
-              color: widget.isDuplicateChannel
-                  ? Colors.redAccent
-                  : Colors.white70,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
-        const SizedBox(height: 4),
+        // The main 100x120 container
         MouseRegion(
           onEnter: (_) => setState(() => _isHovered = true),
           onExit: (_) => setState(() => _isHovered = false),
@@ -264,7 +246,30 @@ class _SpeakerNodeWidgetState extends ConsumerState<SpeakerNodeWidget> {
             ),
           ),
         ),
+        // Coordinate & 3D Orientation Badge positioned outside
+        Positioned(
+          top: -24,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: Colors.black87,
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(color: Colors.white24, width: 0.5),
+            ),
+            child: Text(
+              'X: ${widget.node.x.round()}, Y: ${widget.node.y.round()} | Z: ${widget.node.heightZ.toStringAsFixed(1)}m, ∠${widget.node.pitchTilt.toInt()}°',
+              style: TextStyle(
+                fontSize: 9,
+                color: widget.isDuplicateChannel
+                    ? Colors.redAccent
+                    : Colors.white70,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ),
       ],
     );
+
   }
 }

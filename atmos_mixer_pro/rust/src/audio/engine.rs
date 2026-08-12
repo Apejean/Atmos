@@ -192,7 +192,17 @@ impl AudioEngine {
             .map(|c| c.sample_rate())
             .unwrap_or(cpal::SampleRate(48000));
 
-        if let Ok(supported_configs) = device.supported_output_configs() {
+        let mut supported_configs_result = device.supported_output_configs();
+        for _ in 0..3 {
+            if supported_configs_result.is_ok() {
+                break;
+            }
+            println!("⏳ [ASIO Lock Retry] COM object might be busy. Waiting 500ms...");
+            std::thread::sleep(std::time::Duration::from_millis(500));
+            supported_configs_result = device.supported_output_configs();
+        }
+
+        if let Ok(supported_configs) = supported_configs_result {
             for c in supported_configs {
                 if c.channels() > max_ch {
                     max_ch = c.channels();
@@ -508,6 +518,7 @@ impl AudioEngine {
                         mixer.trajectory = Some(crate::common::config::Trajectory {
                             waypoints: vec![],
                             current_position: position,
+                            ..Default::default()
                         });
                     }
                     mixer.recalculate_spatial_dsp();
@@ -543,6 +554,7 @@ impl AudioEngine {
                             mixer.trajectory = Some(crate::common::config::Trajectory {
                                 waypoints: vec![],
                                 current_position: point,
+                                ..Default::default()
                             });
                         }
                     } else {

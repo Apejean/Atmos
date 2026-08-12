@@ -1,13 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:atmos_mixer_pro/features/exhibition/models/trajectory.dart';
+import 'package:atmos_mixer_pro/features/exhibition/models/room_zone.dart';
+import 'package:atmos_mixer_pro/features/exhibition/models/speaker_node.dart';
 
 class TrajectoryLayerPainter extends CustomPainter {
   final List<TrajectoryModel> trajectories;
+  final List<RoomZone> rooms;
+  final List<SpeakerNode> speakers;
   final String? focusedTrajectoryId;
   final double scaleMeterToPixel;
 
   TrajectoryLayerPainter({
     required this.trajectories,
+    required this.rooms,
+    required this.speakers,
     required this.focusedTrajectoryId,
     required this.scaleMeterToPixel,
     required Listenable repaint,
@@ -42,7 +48,7 @@ class TrajectoryLayerPainter extends CustomPainter {
 
       canvas.drawPath(splinePath, pathPaint);
 
-      Offset currentPos = traj.getCurrentPositionMeter() * scaleMeterToPixel;
+      Offset currentPos = _getAbsoluteOffset(traj.getCurrentPositionMeter(), traj);
       final nodePaint = Paint()
         ..color = isFocused ? Colors.white : traj.color.withValues(alpha: opacity)
         ..style = PaintingStyle.fill;
@@ -60,9 +66,41 @@ class TrajectoryLayerPainter extends CustomPainter {
           ..strokeWidth = 2.0;
           
         for (var wp in traj.waypoints) {
-          Offset p = wp.position * scaleMeterToPixel;
+          Offset p = _getAbsoluteOffset(wp.position, traj);
           canvas.drawCircle(p, 6.0, waypointPaint);
           canvas.drawCircle(p, 6.0, waypointBorder);
+        }
+
+        // Draw Dynamic Gain Links & Halos for target room speakers
+        if (traj.targetRoomZoneId != null) {
+          final targetRoom = rooms.where((r) => r.id == traj.targetRoomZoneId).firstOrNull;
+          if (targetRoom != null) {
+            for (var speaker in speakers) {
+              // speaker.x, speaker.y are top-left, center is +30, +30 (assuming 60 size)
+              final speakerCenter = Offset(speaker.x + 30.0, speaker.y + 30.0);
+              if (targetRoom.containsPoint(speakerCenter.dx, speakerCenter.dy)) {
+                final dist = (speakerCenter - currentPos).distance;
+                // Basic inverse-distance attenuation approximation (clamped max width)
+                final strength = (100.0 / (dist + 1.0)).clamp(0.0, 1.0);
+                
+                // Dynamic Gain Link (Laser)
+                final linkPaint = Paint()
+                  ..color = traj.color.withValues(alpha: strength * 0.8)
+                  ..style = PaintingStyle.stroke
+                  ..strokeWidth = 1.0 + (strength * 3.0);
+                canvas.drawLine(currentPos, speakerCenter, linkPaint);
+
+                // Speaker Halo (Glow)
+                if (strength > 0.1) {
+                  final haloPaint = Paint()
+                    ..color = traj.color.withValues(alpha: strength * 0.4)
+                    ..style = PaintingStyle.fill
+                    ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12.0);
+                  canvas.drawCircle(speakerCenter, 40.0, haloPaint);
+                }
+              }
+            }
+          }
         }
       }
     }
@@ -73,22 +111,22 @@ class TrajectoryLayerPainter extends CustomPainter {
     if (traj.waypoints.isEmpty) return path;
     
     if (traj.waypoints.length == 1) {
-      Offset p = traj.waypoints.first.position * scaleMeterToPixel;
+      Offset p = _getAbsoluteOffset(traj.waypoints.first.position, traj);
       path.moveTo(p.dx, p.dy);
       path.lineTo(p.dx, p.dy);
       return path;
     }
     
     if (traj.waypoints.length == 2) {
-      Offset p0 = traj.waypoints.first.position * scaleMeterToPixel;
-      Offset p1 = traj.waypoints.last.position * scaleMeterToPixel;
+      Offset p0 = _getAbsoluteOffset(traj.waypoints.first.position, traj);
+      Offset p1 = _getAbsoluteOffset(traj.waypoints.last.position, traj);
       path.moveTo(p0.dx, p0.dy);
       path.lineTo(p1.dx, p1.dy);
       return path;
     }
     
     // For Catmull-Rom we sample points along the path
-    Offset start = traj.waypoints.first.position * scaleMeterToPixel;
+    Offset start = _getAbsoluteOffset(traj.waypoints.first.position, traj);
     path.moveTo(start.dx, start.dy);
     
     int resolution = traj.waypoints.length * 20; // 20 samples per segment
@@ -103,7 +141,7 @@ class TrajectoryLayerPainter extends CustomPainter {
       double localT = scaledT - p1;
 
       if (p2 >= traj.waypoints.length) {
-        Offset lastP = traj.waypoints.last.position * scaleMeterToPixel;
+        Offset lastP = _getAbsoluteOffset(traj.waypoints.last.position, traj);
         path.lineTo(lastP.dx, lastP.dy);
         continue;
       }
@@ -112,10 +150,10 @@ class TrajectoryLayerPainter extends CustomPainter {
       int p3 = (p2 + 1).clamp(0, traj.waypoints.length - 1);
 
       Offset catmullRomPoint = _calculateCatmullRom(
-        traj.waypoints[p0].position * scaleMeterToPixel,
-        traj.waypoints[p1].position * scaleMeterToPixel,
-        traj.waypoints[p2].position * scaleMeterToPixel,
-        traj.waypoints[p3].position * scaleMeterToPixel,
+        _getAbsoluteOffset(traj.waypoints[p0].position, traj),
+        _getAbsoluteOffset(traj.waypoints[p1].position, traj),
+        _getAbsoluteOffset(traj.waypoints[p2].position, traj),
+        _getAbsoluteOffset(traj.waypoints[p3].position, traj),
         localT
       );
       
@@ -137,6 +175,18 @@ class TrajectoryLayerPainter extends CustomPainter {
         (2 * p0.dy - 5 * p1.dy + 4 * p2.dy - p3.dy) * t2 +
         (-p0.dy + 3 * p1.dy - 3 * p2.dy + p3.dy) * t3);
     return Offset(x, y);
+  }
+
+  Offset _getAbsoluteOffset(Offset pos, TrajectoryModel traj) {
+    if (traj.targetRoomZoneId != null) {
+      final room = rooms.where((r) => r.id == traj.targetRoomZoneId).firstOrNull;
+      if (room != null) {
+        // Relative coordinates (0..1) -> Absolute canvas coordinates (px)
+        return Offset(room.x + pos.dx * room.width, room.y + pos.dy * room.height);
+      }
+    }
+    // Absolute coordinates (m) -> Absolute canvas coordinates (px)
+    return pos * scaleMeterToPixel;
   }
 
   @override

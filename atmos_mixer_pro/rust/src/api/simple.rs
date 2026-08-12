@@ -631,6 +631,17 @@ pub fn api_init_audio_system(device_name: Option<String>) -> Result<(), AtmosErr
         let mut engine = crate::audio::engine::AudioEngine::new();
         crate::audio::engine::ENGINE_INIT_SIGNAL.store(false, std::sync::atomic::Ordering::SeqCst);
         let device_name_clone = device_name.clone();
+        
+        let is_asio = if let Some(ref name) = device_name_clone {
+            name.starts_with("[ASIO]")
+        } else {
+            if let Some(config) = crate::core::state::GLOBAL_STATE.config.read().unwrap().as_ref() {
+                config.device_name.as_ref().map(|n| n.starts_with("[ASIO]")).unwrap_or(false)
+            } else {
+                false
+            }
+        };
+
         match engine.start(device_name_clone, rx) {
             Ok(_) => {
                 ENGINE_ACTIVE.store(true, std::sync::atomic::Ordering::SeqCst);
@@ -664,19 +675,21 @@ pub fn api_init_audio_system(device_name: Option<String>) -> Result<(), AtmosErr
                     monitor_timer += 1;
                     if monitor_timer >= 30 {
                         monitor_timer = 0;
-                        if let Ok(devices) = api_get_output_devices() {
-                            let current_names: Vec<String> = devices.into_iter().map(|d| d.name).collect();
-                            if let Some(last_count) = last_device_count {
-                                if last_count != current_names.len() || last_device_names != current_names {
-                                    println!("🔄 [Device Monitor] Detected devicelist change! (Topology changed)");
-                                    let mut err_guard = crate::core::state::GLOBAL_STATE.engine_error.write().unwrap_or_else(|e| e.into_inner());
-                                    *err_guard = Some("DeviceListChanged".to_string());
-                                    // Trigger auto-recovery by breaking the loop (similar to Ableton's behavior)
-                                    break;
+                        if !is_asio {
+                            if let Ok(devices) = api_get_output_devices() {
+                                let current_names: Vec<String> = devices.into_iter().map(|d| d.name).collect();
+                                if let Some(last_count) = last_device_count {
+                                    if last_count != current_names.len() || last_device_names != current_names {
+                                        println!("🔄 [Device Monitor] Detected devicelist change! (Topology changed)");
+                                        let mut err_guard = crate::core::state::GLOBAL_STATE.engine_error.write().unwrap_or_else(|e| e.into_inner());
+                                        *err_guard = Some("DeviceListChanged".to_string());
+                                        // Trigger auto-recovery by breaking the loop (similar to Ableton's behavior)
+                                        break;
+                                    }
                                 }
+                                last_device_count = Some(current_names.len());
+                                last_device_names = current_names;
                             }
-                            last_device_count = Some(current_names.len());
-                            last_device_names = current_names;
                         }
                     }
 
@@ -730,49 +743,12 @@ pub fn api_stop_audio_engine() {
 }
 
 pub fn api_open_asio_panel() {
-    #[cfg(target_os = "windows")]
-    {
-        use cpal::traits::{HostTrait, DeviceTrait};
-        use cpal::platform::AsioDevices;
-
-        let host = match cpal::host_from_id(cpal::HostId::Asio) {
-            Ok(h) => h,
-            Err(_) => {
-                crate::core::state::GLOBAL_STATE.log("ASIO host not available.".to_string());
-                return;
-            }
-        };
-
-        crate::core::state::GLOBAL_STATE.log("Pausing audio engine to open ASIO Control Panel...".to_string());
-        
-        let mut target_device = host.default_output_device();
-        
-        let config_guard = crate::core::state::GLOBAL_STATE.config.read().unwrap_or_else(|e| e.into_inner());
-        if let Some(config) = config_guard.as_ref() {
-            if let Some(device_name) = &config.device_name {
-                if device_name.starts_with("[ASIO]") {
-                    let actual_name = device_name.replace("[ASIO] ", "").trim().to_string();
-                    if let Ok(mut devices) = host.output_devices() {
-                        target_device = devices.find(|x| x.name().map(|n| n == actual_name).unwrap_or(false)).or(target_device);
-                    }
-                }
-            }
-        }
-        drop(config_guard);
-
-        // Drop COM locks by stopping engine
-        api_stop_audio_engine();
-        std::thread::sleep(std::time::Duration::from_millis(500));
-
-        if let Some(device) = target_device {
-            crate::core::state::GLOBAL_STATE.log(format!("Opening ASIO Panel for device: {:?} is no longer supported directly via cpal AsioExt.", device.name()));
-            crate::core::state::GLOBAL_STATE.log("Please open the ASIO control panel through your audio interface software.".to_string());
-        } else {
-            crate::core::state::GLOBAL_STATE.log("No ASIO device found to open control panel.".to_string());
-        }
-    }
+    crate::core::state::GLOBAL_STATE.log("ASIO Control Panel opening is no longer supported directly. Please open it via your driver's application (e.g. TotalMix).".to_string());
 }
 
+pub fn api_get_asio_panel() {
+    // dummy function
+}
 pub fn api_create_device_event_stream(sink: StreamSink<String>) {
     std::thread::spawn(move || {
         let mut last_err: Option<String> = None;
@@ -1432,7 +1408,7 @@ pub fn api_apply_global_tuning(master_headroom_db: f32, peak_limiter_enabled: bo
 
 #[derive(serde::Deserialize, Default)]
 #[serde(default)]
-struct SpatialConfigPayload {
+pub struct SpatialConfigPayload {
     pub channel_positions: Vec<Option<crate::common::config::Point3D>>,
     pub room_zones: Vec<crate::common::config::RoomZone>,
     pub trajectory: Option<crate::common::config::Trajectory>,

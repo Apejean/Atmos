@@ -68,7 +68,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.12.0';
 
   @override
-  int get rustContentHash => -1296520880;
+  int get rustContentHash => -834714257;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -246,6 +246,8 @@ abstract class RustLibApi extends BaseApi {
   Future<void> crateApiSimpleApiUpdateSpatialConfigJson({
     required String jsonPayload,
   });
+
+  Future<SpatialConfigPayload> crateApiSimpleSpatialConfigPayloadDefault();
 }
 
 class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
@@ -1843,10 +1845,50 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         argNames: ["jsonPayload"],
       );
 
+  @override
+  Future<SpatialConfigPayload> crateApiSimpleSpatialConfigPayloadDefault() {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 50,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_spatial_config_payload,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiSimpleSpatialConfigPayloadDefaultConstMeta,
+        argValues: [],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiSimpleSpatialConfigPayloadDefaultConstMeta =>
+      const TaskConstMeta(
+        debugName: "spatial_config_payload_default",
+        argNames: [],
+      );
+
   @protected
   AnyhowException dco_decode_AnyhowException(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return AnyhowException(raw as String);
+  }
+
+  @protected
+  Map<String, Point3D> dco_decode_Map_String_point_3_d_None(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return Map.fromEntries(
+      dco_decode_list_record_string_point_3_d(
+        raw,
+      ).map((e) => MapEntry(e.$1, e.$2)),
+    );
   }
 
   @protected
@@ -2044,6 +2086,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  List<Point3D?> dco_decode_list_opt_box_autoadd_point_3_d(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>)
+        .map(dco_decode_opt_box_autoadd_point_3_d)
+        .toList();
+  }
+
+  @protected
   List<OutputDeviceInfo> dco_decode_list_output_device_info(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return (raw as List<dynamic>).map(dco_decode_output_device_info).toList();
@@ -2065,6 +2115,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   Uint8List dco_decode_list_prim_u_8_strict(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw as Uint8List;
+  }
+
+  @protected
+  List<(String, Point3D)> dco_decode_list_record_string_point_3_d(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>)
+        .map(dco_decode_record_string_point_3_d)
+        .toList();
   }
 
   @protected
@@ -2130,13 +2188,26 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   Point3D dco_decode_point_3_d(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 3)
-      throw Exception('unexpected arr length: expect 3 but see ${arr.length}');
+    if (arr.length != 6)
+      throw Exception('unexpected arr length: expect 6 but see ${arr.length}');
     return Point3D(
       x: dco_decode_f_32(arr[0]),
       y: dco_decode_f_32(arr[1]),
       z: dco_decode_f_32(arr[2]),
+      yawRotation: dco_decode_f_32(arr[3]),
+      pitchTilt: dco_decode_f_32(arr[4]),
+      dispersionAngle: dco_decode_f_32(arr[5]),
     );
+  }
+
+  @protected
+  (String, Point3D) dco_decode_record_string_point_3_d(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 2) {
+      throw Exception('Expected 2 elements, got ${arr.length}');
+    }
+    return (dco_decode_String(arr[0]), dco_decode_point_3_d(arr[1]));
   }
 
   @protected
@@ -2182,6 +2253,20 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  SpatialConfigPayload dco_decode_spatial_config_payload(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 4)
+      throw Exception('unexpected arr length: expect 4 but see ${arr.length}');
+    return SpatialConfigPayload(
+      channelPositions: dco_decode_list_opt_box_autoadd_point_3_d(arr[0]),
+      roomZones: dco_decode_list_room_zone(arr[1]),
+      trajectory: dco_decode_opt_box_autoadd_trajectory(arr[2]),
+      trackPositions: dco_decode_Map_String_point_3_d_None(arr[3]),
+    );
+  }
+
+  @protected
   TrackConfig dco_decode_track_config(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
@@ -2205,11 +2290,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   Trajectory dco_decode_trajectory(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 2)
-      throw Exception('unexpected arr length: expect 2 but see ${arr.length}');
+    if (arr.length != 3)
+      throw Exception('unexpected arr length: expect 3 but see ${arr.length}');
     return Trajectory(
       waypoints: dco_decode_list_point_3_d(arr[0]),
       currentPosition: dco_decode_point_3_d(arr[1]),
+      targetRoomZoneId: dco_decode_opt_String(arr[2]),
     );
   }
 
@@ -2248,6 +2334,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var inner = sse_decode_String(deserializer);
     return AnyhowException(inner);
+  }
+
+  @protected
+  Map<String, Point3D> sse_decode_Map_String_point_3_d_None(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var inner = sse_decode_list_record_string_point_3_d(deserializer);
+    return Map.fromEntries(inner.map((e) => MapEntry(e.$1, e.$2)));
   }
 
   @protected
@@ -2493,6 +2588,20 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  List<Point3D?> sse_decode_list_opt_box_autoadd_point_3_d(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <Point3D?>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_opt_box_autoadd_point_3_d(deserializer));
+    }
+    return ans_;
+  }
+
+  @protected
   List<OutputDeviceInfo> sse_decode_list_output_device_info(
     SseDeserializer deserializer,
   ) {
@@ -2530,6 +2639,20 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var len_ = sse_decode_i_32(deserializer);
     return deserializer.buffer.getUint8List(len_);
+  }
+
+  @protected
+  List<(String, Point3D)> sse_decode_list_record_string_point_3_d(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <(String, Point3D)>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_record_string_point_3_d(deserializer));
+    }
+    return ans_;
   }
 
   @protected
@@ -2636,7 +2759,27 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_x = sse_decode_f_32(deserializer);
     var var_y = sse_decode_f_32(deserializer);
     var var_z = sse_decode_f_32(deserializer);
-    return Point3D(x: var_x, y: var_y, z: var_z);
+    var var_yawRotation = sse_decode_f_32(deserializer);
+    var var_pitchTilt = sse_decode_f_32(deserializer);
+    var var_dispersionAngle = sse_decode_f_32(deserializer);
+    return Point3D(
+      x: var_x,
+      y: var_y,
+      z: var_z,
+      yawRotation: var_yawRotation,
+      pitchTilt: var_pitchTilt,
+      dispersionAngle: var_dispersionAngle,
+    );
+  }
+
+  @protected
+  (String, Point3D) sse_decode_record_string_point_3_d(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_field0 = sse_decode_String(deserializer);
+    var var_field1 = sse_decode_point_3_d(deserializer);
+    return (var_field0, var_field1);
   }
 
   @protected
@@ -2688,6 +2831,25 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  SpatialConfigPayload sse_decode_spatial_config_payload(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_channelPositions = sse_decode_list_opt_box_autoadd_point_3_d(
+      deserializer,
+    );
+    var var_roomZones = sse_decode_list_room_zone(deserializer);
+    var var_trajectory = sse_decode_opt_box_autoadd_trajectory(deserializer);
+    var var_trackPositions = sse_decode_Map_String_point_3_d_None(deserializer);
+    return SpatialConfigPayload(
+      channelPositions: var_channelPositions,
+      roomZones: var_roomZones,
+      trajectory: var_trajectory,
+      trackPositions: var_trackPositions,
+    );
+  }
+
+  @protected
   TrackConfig sse_decode_track_config(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var var_id = sse_decode_String(deserializer);
@@ -2719,9 +2881,11 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var var_waypoints = sse_decode_list_point_3_d(deserializer);
     var var_currentPosition = sse_decode_point_3_d(deserializer);
+    var var_targetRoomZoneId = sse_decode_opt_String(deserializer);
     return Trajectory(
       waypoints: var_waypoints,
       currentPosition: var_currentPosition,
+      targetRoomZoneId: var_targetRoomZoneId,
     );
   }
 
@@ -2761,6 +2925,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_String(self.message, serializer);
+  }
+
+  @protected
+  void sse_encode_Map_String_point_3_d_None(
+    Map<String, Point3D> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_list_record_string_point_3_d(
+      self.entries.map((e) => (e.key, e.value)).toList(),
+      serializer,
+    );
   }
 
   @protected
@@ -2988,6 +3164,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_list_opt_box_autoadd_point_3_d(
+    List<Point3D?> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_opt_box_autoadd_point_3_d(item, serializer);
+    }
+  }
+
+  @protected
   void sse_encode_list_output_device_info(
     List<OutputDeviceInfo> self,
     SseSerializer serializer,
@@ -3026,6 +3214,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_i_32(self.length, serializer);
     serializer.buffer.putUint8List(self);
+  }
+
+  @protected
+  void sse_encode_list_record_string_point_3_d(
+    List<(String, Point3D)> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_record_string_point_3_d(item, serializer);
+    }
   }
 
   @protected
@@ -3129,6 +3329,19 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_f_32(self.x, serializer);
     sse_encode_f_32(self.y, serializer);
     sse_encode_f_32(self.z, serializer);
+    sse_encode_f_32(self.yawRotation, serializer);
+    sse_encode_f_32(self.pitchTilt, serializer);
+    sse_encode_f_32(self.dispersionAngle, serializer);
+  }
+
+  @protected
+  void sse_encode_record_string_point_3_d(
+    (String, Point3D) self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(self.$1, serializer);
+    sse_encode_point_3_d(self.$2, serializer);
   }
 
   @protected
@@ -3164,6 +3377,21 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_spatial_config_payload(
+    SpatialConfigPayload self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_list_opt_box_autoadd_point_3_d(
+      self.channelPositions,
+      serializer,
+    );
+    sse_encode_list_room_zone(self.roomZones, serializer);
+    sse_encode_opt_box_autoadd_trajectory(self.trajectory, serializer);
+    sse_encode_Map_String_point_3_d_None(self.trackPositions, serializer);
+  }
+
+  @protected
   void sse_encode_track_config(TrackConfig self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_String(self.id, serializer);
@@ -3183,6 +3411,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_list_point_3_d(self.waypoints, serializer);
     sse_encode_point_3_d(self.currentPosition, serializer);
+    sse_encode_opt_String(self.targetRoomZoneId, serializer);
   }
 
   @protected

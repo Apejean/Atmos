@@ -161,11 +161,27 @@ class Point3D {
   final double x;
   final double y;
   final double z;
+  final double yawRotation;
+  final double pitchTilt;
+  final double dispersionAngle;
 
-  const Point3D({required this.x, required this.y, required this.z});
+  const Point3D({
+    required this.x,
+    required this.y,
+    required this.z,
+    required this.yawRotation,
+    required this.pitchTilt,
+    required this.dispersionAngle,
+  });
 
   @override
-  int get hashCode => x.hashCode ^ y.hashCode ^ z.hashCode;
+  int get hashCode =>
+      x.hashCode ^
+      y.hashCode ^
+      z.hashCode ^
+      yawRotation.hashCode ^
+      pitchTilt.hashCode ^
+      dispersionAngle.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -174,7 +190,10 @@ class Point3D {
           runtimeType == other.runtimeType &&
           x == other.x &&
           y == other.y &&
-          z == other.z;
+          z == other.z &&
+          yawRotation == other.yawRotation &&
+          pitchTilt == other.pitchTilt &&
+          dispersionAngle == other.dispersionAngle;
 }
 
 class RoomConfig {
@@ -313,11 +332,17 @@ class TrackConfig {
 class Trajectory {
   final List<Point3D> waypoints;
   final Point3D currentPosition;
+  final String? targetRoomZoneId;
 
-  const Trajectory({required this.waypoints, required this.currentPosition});
+  const Trajectory({
+    required this.waypoints,
+    required this.currentPosition,
+    this.targetRoomZoneId,
+  });
 
   @override
-  int get hashCode => waypoints.hashCode ^ currentPosition.hashCode;
+  int get hashCode =>
+      waypoints.hashCode ^ currentPosition.hashCode ^ targetRoomZoneId.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -325,5 +350,6 @@ class Trajectory {
       other is Trajectory &&
           runtimeType == other.runtimeType &&
           waypoints == other.waypoints &&
-          currentPosition == other.currentPosition;
+          currentPosition == other.currentPosition &&
+          targetRoomZoneId == other.targetRoomZoneId;
 }

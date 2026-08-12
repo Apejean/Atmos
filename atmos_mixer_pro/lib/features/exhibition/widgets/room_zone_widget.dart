@@ -12,7 +12,6 @@ const double _canvasWidth = 2000.0;
 const double _canvasHeight = 2000.0;
 const double _speakerSize = 60.0;
 
-
 class RoomZoneWidget extends ConsumerStatefulWidget {
   final RoomZone room;
   final List<SpeakerNode> containedSpeakers;
@@ -36,8 +35,7 @@ class RoomZoneWidget extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<RoomZoneWidget> createState() =>
-      RoomZoneWidgetState();
+  ConsumerState<RoomZoneWidget> createState() => RoomZoneWidgetState();
 }
 
 class RoomZoneWidgetState extends ConsumerState<RoomZoneWidget> {
@@ -48,7 +46,6 @@ class RoomZoneWidgetState extends ConsumerState<RoomZoneWidget> {
   bool _isInteracting = false;
   Map<String, Offset> _draggedSpeakersOffsets = {};
 
-  
   double _initialRotation = 0.0;
   double _initialAngleToCenter = 0.0;
 
@@ -64,6 +61,10 @@ class RoomZoneWidgetState extends ConsumerState<RoomZoneWidget> {
   @override
   void didUpdateWidget(covariant RoomZoneWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
+    // Remove the _isInteracting guard completely because it prevents the widget
+    // from adopting external state changes (like rotation, size from settings dialog)
+    // while the user might not be actively "dragging" but the widget thinks it is.
+    // Instead, only adopt parent state if we're not currently generating local pan delta.
     if (!_isInteracting) {
       _localX = widget.room.x;
       _localY = widget.room.y;
@@ -73,7 +74,6 @@ class RoomZoneWidgetState extends ConsumerState<RoomZoneWidget> {
   }
 
   Widget _buildResizeHandle(Alignment alignment) {
-
     MouseCursor cursor = SystemMouseCursors.basic;
     if (alignment == Alignment.topLeft || alignment == Alignment.bottomRight) {
       cursor = SystemMouseCursors.resizeUpLeftDownRight;
@@ -88,8 +88,13 @@ class RoomZoneWidgetState extends ConsumerState<RoomZoneWidget> {
       cursor = SystemMouseCursors.resizeLeftRight;
     }
 
-    return Align(
-      alignment: alignment,
+    // Calculate center of handle based on the 40px margin
+    double centerX = 40.0 + (alignment.x + 1.0) / 2.0 * _localW;
+    double centerY = 40.0 + (alignment.y + 1.0) / 2.0 * _localH;
+
+    return Positioned(
+      left: centerX - 20.0,
+      top: centerY - 20.0,
       child: MouseRegion(
         cursor: cursor,
         child: GestureDetector(
@@ -97,12 +102,10 @@ class RoomZoneWidgetState extends ConsumerState<RoomZoneWidget> {
           onPanStart: (details) {
             setState(() {
               _isInteracting = true;
-widget.onInteractionStart?.call();
+              widget.onInteractionStart?.call();
             });
           },
           onPanUpdate: (details) {
-
-
             final scale = widget.transformationController.value
                 .getMaxScaleOnAxis();
             final currentScale = scale > 0 ? scale : 1.0;
@@ -178,13 +181,11 @@ widget.onInteractionStart?.call();
                     physicalWidth: _localW / scaleM,
                     physicalHeight: _localH / scaleM,
                   ),
-                  immediate: true,
+                  immediate: false,
                 );
             widget.onDragUpdate?.call();
           },
           onPanEnd: (_) {
-
-
             double snappedX =
                 (_localX / ref.read(blueprintProvider).scale).round() *
                 ref.read(blueprintProvider).scale;
@@ -258,29 +259,17 @@ widget.onInteractionStart?.call();
     final double doorWidth = 44.0;
 
     if (widget.room.doorWall == 0) {
-      left = (widget.room.doorOffset * _localW - doorWidth / 2).clamp(
-        0.0,
-        _localW - doorWidth,
-      );
-      top = -doorWidth / 2;
+      left = 40.0 + (widget.room.doorOffset * _localW) - doorWidth / 2;
+      top = 40.0 - doorWidth / 2;
     } else if (widget.room.doorWall == 1) {
-      left = _localW - doorWidth / 2;
-      top = (widget.room.doorOffset * _localH - doorWidth / 2).clamp(
-        0.0,
-        _localH - doorWidth,
-      );
+      left = 40.0 + _localW - doorWidth / 2;
+      top = 40.0 + (widget.room.doorOffset * _localH) - doorWidth / 2;
     } else if (widget.room.doorWall == 2) {
-      left = (widget.room.doorOffset * _localW - doorWidth / 2).clamp(
-        0.0,
-        _localW - doorWidth,
-      );
-      top = _localH - doorWidth / 2;
+      left = 40.0 + (widget.room.doorOffset * _localW) - doorWidth / 2;
+      top = 40.0 + _localH - doorWidth / 2;
     } else if (widget.room.doorWall == 3) {
-      left = -doorWidth / 2;
-      top = (widget.room.doorOffset * _localH - doorWidth / 2).clamp(
-        0.0,
-        _localH - doorWidth,
-      );
+      left = 40.0 - doorWidth / 2;
+      top = 40.0 + (widget.room.doorOffset * _localH) - doorWidth / 2;
     }
 
     return Positioned(
@@ -315,9 +304,9 @@ widget.onInteractionStart?.call();
               );
         },
         onPanEnd: (_) {
-            setState(() => _isInteracting = false);
-            widget.onInteractionEnd?.call();
-          },
+          setState(() => _isInteracting = false);
+          widget.onInteractionEnd?.call();
+        },
         child: Container(
           width: doorWidth,
           height: doorWidth,
@@ -335,8 +324,8 @@ widget.onInteractionStart?.call();
 
   Widget _buildRotateHandle() {
     return Positioned(
-      top: -36,
-      left: _localW / 2 - 12,
+      top: 4.0,
+      left: 40.0 + _localW / 2 - 12.0,
       child: MouseRegion(
         cursor: SystemMouseCursors.click,
         child: GestureDetector(
@@ -349,7 +338,7 @@ widget.onInteractionStart?.call();
               final localTouch = renderBox.globalToLocal(
                 details.globalPosition,
               );
-              final roomCenterLocal = Offset(_localW / 2, _localH / 2);
+              final roomCenterLocal = Offset(40.0 + _localW / 2, 40.0 + _localH / 2);
               _initialAngleToCenter = math.atan2(
                 localTouch.dy - roomCenterLocal.dy,
                 localTouch.dx - roomCenterLocal.dx,
@@ -363,7 +352,7 @@ widget.onInteractionStart?.call();
               final localTouch = renderBox.globalToLocal(
                 details.globalPosition,
               );
-              final roomCenterLocal = Offset(_localW / 2, _localH / 2);
+              final roomCenterLocal = Offset(40.0 + _localW / 2, 40.0 + _localH / 2);
               final currentAngleToCenter = math.atan2(
                 localTouch.dy - roomCenterLocal.dy,
                 localTouch.dx - roomCenterLocal.dx,
@@ -379,7 +368,7 @@ widget.onInteractionStart?.call();
                   .read(roomZoneProvider.notifier)
                   .updateRoomZone(
                     widget.room.copyWith(rotation: newRotation),
-                    immediate: true,
+                    immediate: false,
                   );
             }
           },
@@ -414,7 +403,9 @@ widget.onInteractionStart?.call();
 
   @override
   Widget build(BuildContext context) {
-    final roomColor = widget.isSelected ? Colors.blueAccent.withValues(alpha: 0.3) : Color(widget.room.color);
+    final roomColor = widget.isSelected
+        ? Colors.blueAccent.withValues(alpha: 0.3)
+        : Color(widget.room.color);
     final isHoveredOrActive = _isInteracting;
 
     return Positioned(
@@ -422,272 +413,287 @@ widget.onInteractionStart?.call();
       top: _localY - 40,
       width: _localW + 80,
       height: _localH + 80,
-      child: Builder(
-        builder: (context) {
-          return Stack(
-            clipBehavior: Clip.none,
-            children: [
-              Positioned(
-                left: 40,
-                top: 40,
-                width: _localW,
-                height: _localH,
-                child: Transform.rotate(
-                  angle: widget.room.rotation * math.pi / 180.0,
-                  child: Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                // Room Main Container & Drag Move Gesture
-                MouseRegion(
-                  cursor: SystemMouseCursors.move,
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onDoubleTap: widget.onEdit,
-                    onPanStart: (details) {
-                      setState(() => _isInteracting = true);
-                      widget.onInteractionStart?.call();
-                      _draggedSpeakersOffsets = {
-                        for (var s in widget.containedSpeakers)
-                          s.id: Offset(s.x, s.y),
-                      };
-                    },
-                    onPanUpdate: (details) {
-                      final scale = widget.transformationController.value
-                          .getMaxScaleOnAxis();
-                      final currentScale = scale > 0 ? scale : 1.0;
-                      final dx = details.delta.dx / currentScale;
-                      final dy = details.delta.dy / currentScale;
+      child: Transform.rotate(
+        angle: widget.room.rotation * math.pi / 180.0,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            // Room Main Container & Drag Move Gesture
+            Positioned(
+              left: 40.0,
+              top: 40.0,
+              right: 40.0,
+              bottom: 40.0,
+              child: MouseRegion(
+                cursor: SystemMouseCursors.move,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onDoubleTap: widget.onEdit,
+                  onPanStart: (details) {
+                    setState(() => _isInteracting = true);
+                    widget.onInteractionStart?.call();
+                    _draggedSpeakersOffsets = {
+                      for (var s in widget.containedSpeakers)
+                        s.id: Offset(s.x, s.y),
+                    };
+                  },
+                  onPanUpdate: (details) {
+                    final scale = widget.transformationController.value
+                        .getMaxScaleOnAxis();
+                    final currentScale = scale > 0 ? scale : 1.0;
+                    final dx = details.delta.dx / currentScale;
+                    final dy = details.delta.dy / currentScale;
 
-                      setState(() {
-                        _localX = (_localX + dx).clamp(
+                    setState(() {
+                      _localX = (_localX + dx).clamp(
+                        0.0,
+                        _canvasWidth - _localW,
+                      );
+                      _localY = (_localY + dy).clamp(
+                        0.0,
+                        _canvasHeight - _localH,
+                      );
+
+                      final currentNodes = ref.read(
+                        speakerLayoutProvider,
+                      );
+                      for (final nodeId
+                          in _draggedSpeakersOffsets.keys) {
+                        final prev = _draggedSpeakersOffsets[nodeId]!;
+                        final nx = (prev.dx + dx).clamp(
                           0.0,
-                          _canvasWidth - _localW,
+                          _canvasWidth - _speakerSize,
                         );
-                        _localY = (_localY + dy).clamp(
+                        final ny = (prev.dy + dy).clamp(
                           0.0,
-                          _canvasHeight - _localH,
+                          _canvasHeight - _speakerSize,
                         );
-
-                        final currentNodes = ref.read(speakerLayoutProvider);
-                        for (final nodeId in _draggedSpeakersOffsets.keys) {
-                          final prev = _draggedSpeakersOffsets[nodeId]!;
-                          final nx = (prev.dx + dx).clamp(
-                            0.0,
-                            _canvasWidth - _speakerSize,
-                          );
-                          final ny = (prev.dy + dy).clamp(
-                            0.0,
-                            _canvasHeight - _speakerSize,
-                          );
-                          _draggedSpeakersOffsets[nodeId] = Offset(nx, ny);
-                          try {
-                            final node = currentNodes.firstWhere(
-                              (n) => n.id == nodeId,
-                            );
-                            ref
-                                .read(speakerLayoutProvider.notifier)
-                                .updateSpeaker(node.copyWith(x: nx, y: ny));
-                          } catch (_) {}
-                        }
-                      });
-                      ref
-                          .read(roomZoneProvider.notifier)
-                          .updateRoomZone(
-                            widget.room.copyWith(x: _localX, y: _localY),
-                            immediate: true,
-                          );
-                      widget.onDragUpdate?.call();
-                    },
-                    onPanEnd: (details) {
-                      double snappedX =
-                          (_localX / ref.read(blueprintProvider).scale)
-                              .round() *
-                          ref.read(blueprintProvider).scale;
-                      double snappedY =
-                          (_localY / ref.read(blueprintProvider).scale)
-                              .round() *
-                          ref.read(blueprintProvider).scale;
-                      snappedX = snappedX.clamp(0.0, _canvasWidth - _localW);
-                      snappedY = snappedY.clamp(0.0, _canvasHeight - _localH);
-
-                      setState(() {
-                        _localX = snappedX;
-                        _localY = snappedY;
-                        _isInteracting = false;
-                      });
-                      widget.onInteractionEnd?.call();
-
-                      ref
-                          .read(roomZoneProvider.notifier)
-                          .updateRoomZone(
-                            widget.room.copyWith(x: snappedX, y: snappedY),
-                            immediate: true,
-                          );
-
-                      final currentNodes = ref.read(speakerLayoutProvider);
-                      for (final nodeId in _draggedSpeakersOffsets.keys) {
+                        _draggedSpeakersOffsets[nodeId] = Offset(
+                          nx,
+                          ny,
+                        );
                         try {
                           final node = currentNodes.firstWhere(
                             (n) => n.id == nodeId,
                           );
-                          final nX =
-                              (node.x / ref.read(blueprintProvider).scale)
-                                  .round() *
-                              ref.read(blueprintProvider).scale;
-                          final nY =
-                              (node.y / ref.read(blueprintProvider).scale)
-                                  .round() *
-                              ref.read(blueprintProvider).scale;
                           ref
                               .read(speakerLayoutProvider.notifier)
                               .updateSpeaker(
-                                node.copyWith(
-                                  x: nX.clamp(0.0, _canvasWidth - _speakerSize),
-                                  y: nY.clamp(
-                                    0.0,
-                                    _canvasHeight - _speakerSize,
-                                  ),
-                                ),
-                                immediate: true,
+                                node.copyWith(x: nx, y: ny),
                               );
                         } catch (_) {}
                       }
-                      _draggedSpeakersOffsets.clear();
-                      widget.onDragUpdate?.call();
-                    },
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: isHoveredOrActive
-                              ? roomColor.withValues(alpha: 0.35)
-                              : roomColor.withValues(alpha: 0.20),
-                          border: Border.all(
-                            color: isHoveredOrActive
-                                ? AppColors.primaryNeon
-                                : roomColor,
-                            width: isHoveredOrActive ? 3.0 : 2.5,
+                    });
+                    ref
+                        .read(roomZoneProvider.notifier)
+                        .updateRoomZone(
+                          widget.room.copyWith(x: _localX, y: _localY),
+                          immediate: false,
+                        );
+                    widget.onDragUpdate?.call();
+                  },
+                  onPanEnd: (details) {
+                    double snappedX =
+                        (_localX / ref.read(blueprintProvider).scale)
+                            .round() *
+                        ref.read(blueprintProvider).scale;
+                    double snappedY =
+                        (_localY / ref.read(blueprintProvider).scale)
+                            .round() *
+                        ref.read(blueprintProvider).scale;
+                    snappedX = snappedX.clamp(
+                      0.0,
+                      _canvasWidth - _localW,
+                    );
+                    snappedY = snappedY.clamp(
+                      0.0,
+                      _canvasHeight - _localH,
+                    );
+
+                    setState(() {
+                      _localX = snappedX;
+                      _localY = snappedY;
+                      _isInteracting = false;
+                    });
+                    widget.onInteractionEnd?.call();
+
+                    ref
+                        .read(roomZoneProvider.notifier)
+                        .updateRoomZone(
+                          widget.room.copyWith(
+                            x: snappedX,
+                            y: snappedY,
                           ),
-                          borderRadius: BorderRadius.circular(8),
-                          boxShadow: [
-                            BoxShadow(
-                              color: isHoveredOrActive
-                                  ? AppColors.primaryNeon.withValues(alpha: 0.5)
-                                  : roomColor.withValues(alpha: 0.25),
-                              blurRadius: isHoveredOrActive ? 16 : 12,
-                              spreadRadius: isHoveredOrActive ? 2 : 1,
-                            ),
-                          ],
+                          immediate: true,
+                        );
+
+                    final currentNodes = ref.read(
+                      speakerLayoutProvider,
+                    );
+                    for (final nodeId in _draggedSpeakersOffsets.keys) {
+                      try {
+                        final node = currentNodes.firstWhere(
+                          (n) => n.id == nodeId,
+                        );
+                        final nX =
+                            (node.x / ref.read(blueprintProvider).scale)
+                                .round() *
+                            ref.read(blueprintProvider).scale;
+                        final nY =
+                            (node.y / ref.read(blueprintProvider).scale)
+                                .round() *
+                            ref.read(blueprintProvider).scale;
+                        ref
+                            .read(speakerLayoutProvider.notifier)
+                            .updateSpeaker(
+                              node.copyWith(
+                                x: nX.clamp(
+                                  0.0,
+                                  _canvasWidth - _speakerSize,
+                                ),
+                                y: nY.clamp(
+                                  0.0,
+                                  _canvasHeight - _speakerSize,
+                                ),
+                              ),
+                              immediate: true,
+                            );
+                      } catch (_) {}
+                    }
+                    _draggedSpeakersOffsets.clear();
+                    widget.onDragUpdate?.call();
+                  },
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: isHoveredOrActive
+                            ? roomColor.withValues(alpha: 0.35)
+                            : roomColor.withValues(alpha: 0.20),
+                        border: Border.all(
+                          color: isHoveredOrActive
+                              ? AppColors.primaryNeon
+                              : roomColor,
+                          width: isHoveredOrActive ? 3.0 : 2.5,
                         ),
-                        child: Center(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    widget.room.label,
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                      letterSpacing: 0.5,
-                                    ),
+                        borderRadius: BorderRadius.circular(8),
+                        boxShadow: [
+                          BoxShadow(
+                            color: isHoveredOrActive
+                                ? AppColors.primaryNeon.withValues(
+                                    alpha: 0.5,
+                                  )
+                                : roomColor.withValues(alpha: 0.25),
+                            blurRadius: isHoveredOrActive ? 16 : 12,
+                            spreadRadius: isHoveredOrActive ? 2 : 1,
+                          ),
+                        ],
+                      ),
+                      child: Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  widget.room.label,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: 0.5,
                                   ),
-                                  const SizedBox(width: 8),
-                                  MouseRegion(
-                                    cursor: SystemMouseCursors.click,
-                                    child: GestureDetector(
-                                      onTap: widget.onEdit,
-                                      child: Container(
-                                        padding: const EdgeInsets.all(4),
-                                        decoration: BoxDecoration(
-                                          color: Colors.black45,
-                                          borderRadius: BorderRadius.circular(
-                                            4,
-                                          ),
-                                          border: Border.all(
-                                            color: Colors.white38,
-                                          ),
+                                ),
+                                const SizedBox(width: 8),
+                                MouseRegion(
+                                  cursor: SystemMouseCursors.click,
+                                  child: GestureDetector(
+                                    onTap: widget.onEdit,
+                                    child: Container(
+                                      padding: const EdgeInsets.all(4),
+                                      decoration: BoxDecoration(
+                                        color: Colors.black45,
+                                        borderRadius:
+                                            BorderRadius.circular(4),
+                                        border: Border.all(
+                                          color: Colors.white38,
                                         ),
-                                        child: const Icon(
-                                          Icons.tune,
-                                          size: 14,
-                                          color: AppColors.primaryNeon,
-                                        ),
+                                      ),
+                                      child: const Icon(
+                                        Icons.tune,
+                                        size: 14,
+                                        color: AppColors.primaryNeon,
                                       ),
                                     ),
                                   ),
-                                ],
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                '${widget.room.physicalWidth.toStringAsFixed(1)}m × ${widget.room.physicalHeight.toStringAsFixed(1)}m (${widget.room.rotation.toInt()}°)',
-                                style: TextStyle(
-                                  color: Colors.white.withValues(alpha: 0.85),
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
                                 ),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '${widget.room.physicalWidth.toStringAsFixed(1)}m × ${widget.room.physicalHeight.toStringAsFixed(1)}m (${widget.room.rotation.toInt()}°)',
+                              style: TextStyle(
+                                color: Colors.white.withValues(
+                                  alpha: 0.85,
+                                ),
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
                               ),
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
                   ),
                 ),
-                if (widget.room.hasDoor) _buildDoorHandle(),
-                _buildRotateHandle(),
-                Positioned(
-                  top: -28,
-                  left: 0,
-                  child: Wrap(
-                    spacing: 4,
-                    children: widget.containedSpeakers
-                        .map(
-                          (s) => Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: roomColor,
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              '[Ch ${s.channel + 1}]',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        )
-                        .toList(),
-                  ),
-                ),
-                _buildResizeHandle(Alignment.topLeft),
-                _buildResizeHandle(Alignment.topCenter),
-                _buildResizeHandle(Alignment.topRight),
-                _buildResizeHandle(Alignment.centerLeft),
-                _buildResizeHandle(Alignment.centerRight),
-                _buildResizeHandle(Alignment.bottomLeft),
-                _buildResizeHandle(Alignment.bottomCenter),
-                _buildResizeHandle(Alignment.bottomRight),
-              ],
+              ),
             ),
-          ),
+            if (widget.room.hasDoor) _buildDoorHandle(),
+            _buildRotateHandle(),
+            Positioned(
+              top: 12, // 40 margin - 28 = 12
+              left: 40,
+              child: Wrap(
+                spacing: 4,
+                children: widget.containedSpeakers
+                    .map(
+                      (s) => Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: roomColor,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          '[Ch ${s.channel + 1}]',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    )
+                    .toList(),
+              ),
+            ),
+            _buildResizeHandle(Alignment.topLeft),
+            _buildResizeHandle(Alignment.topCenter),
+            _buildResizeHandle(Alignment.topRight),
+            _buildResizeHandle(Alignment.centerLeft),
+            _buildResizeHandle(Alignment.centerRight),
+            _buildResizeHandle(Alignment.bottomLeft),
+            _buildResizeHandle(Alignment.bottomCenter),
+            _buildResizeHandle(Alignment.bottomRight),
+          ],
         ),
-      ],
-    );
-  },
-),
+      ),
     );
   }
 }
-
 
 class CadDoorPainter extends CustomPainter {
   final Color color;
@@ -724,4 +730,3 @@ class CadDoorPainter extends CustomPainter {
     return oldDelegate.color != color || oldDelegate.wall != wall;
   }
 }
-

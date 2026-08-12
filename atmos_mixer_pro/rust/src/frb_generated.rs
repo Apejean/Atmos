@@ -38,7 +38,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueMoi,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.12.0";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -1296520880;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -834714257;
 
 // Section: executor
 
@@ -1762,6 +1762,39 @@ fn wire__crate__api__simple__api_update_spatial_config_json_impl(
         },
     )
 }
+fn wire__crate__api__simple__spatial_config_payload_default_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "spatial_config_payload_default",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, ()>((move || {
+                    let output_ok =
+                        Result::<_, ()>::Ok(crate::api::simple::SpatialConfigPayload::default())?;
+                    Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
 
 // Section: dart2rust
 
@@ -1770,6 +1803,14 @@ impl SseDecode for flutter_rust_bridge::for_generated::anyhow::Error {
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
         let mut inner = <String>::sse_decode(deserializer);
         return flutter_rust_bridge::for_generated::anyhow::anyhow!("{}", inner);
+    }
+}
+
+impl SseDecode for std::collections::HashMap<String, crate::common::config::Point3D> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut inner = <Vec<(String, crate::common::config::Point3D)>>::sse_decode(deserializer);
+        return inner.into_iter().collect();
     }
 }
 
@@ -2022,6 +2063,20 @@ impl SseDecode for Vec<crate::common::config::EqBand> {
     }
 }
 
+impl SseDecode for Vec<Option<crate::common::config::Point3D>> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = Vec::with_capacity(len_ as usize);
+        for idx_ in 0..len_ {
+            ans_.push(<Option<crate::common::config::Point3D>>::sse_decode(
+                deserializer,
+            ));
+        }
+        return ans_;
+    }
+}
+
 impl SseDecode for Vec<crate::api::simple::OutputDeviceInfo> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -2067,6 +2122,20 @@ impl SseDecode for Vec<u8> {
         let mut ans_ = Vec::with_capacity(len_ as usize);
         for idx_ in 0..len_ {
             ans_.push(<u8>::sse_decode(deserializer));
+        }
+        return ans_;
+    }
+}
+
+impl SseDecode for Vec<(String, crate::common::config::Point3D)> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = Vec::with_capacity(len_ as usize);
+        for idx_ in 0..len_ {
+            ans_.push(<(String, crate::common::config::Point3D)>::sse_decode(
+                deserializer,
+            ));
         }
         return ans_;
     }
@@ -2181,12 +2250,26 @@ impl SseDecode for crate::common::config::Point3D {
         let mut var_x = <f32>::sse_decode(deserializer);
         let mut var_y = <f32>::sse_decode(deserializer);
         let mut var_z = <f32>::sse_decode(deserializer);
+        let mut var_yawRotation = <f32>::sse_decode(deserializer);
+        let mut var_pitchTilt = <f32>::sse_decode(deserializer);
+        let mut var_dispersionAngle = <f32>::sse_decode(deserializer);
         return crate::common::config::Point3D {
             x: var_x,
             y: var_y,
             z: var_z,
-            ..Default::default()
+            yaw_rotation: var_yawRotation,
+            pitch_tilt: var_pitchTilt,
+            dispersion_angle: var_dispersionAngle,
         };
+    }
+}
+
+impl SseDecode for (String, crate::common::config::Point3D) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_field0 = <String>::sse_decode(deserializer);
+        let mut var_field1 = <crate::common::config::Point3D>::sse_decode(deserializer);
+        return (var_field0, var_field1);
     }
 }
 
@@ -2240,6 +2323,27 @@ impl SseDecode for crate::common::config::RoomZone {
     }
 }
 
+impl SseDecode for crate::api::simple::SpatialConfigPayload {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_channelPositions =
+            <Vec<Option<crate::common::config::Point3D>>>::sse_decode(deserializer);
+        let mut var_roomZones = <Vec<crate::common::config::RoomZone>>::sse_decode(deserializer);
+        let mut var_trajectory =
+            <Option<crate::common::config::Trajectory>>::sse_decode(deserializer);
+        let mut var_trackPositions = <std::collections::HashMap<
+            String,
+            crate::common::config::Point3D,
+        >>::sse_decode(deserializer);
+        return crate::api::simple::SpatialConfigPayload {
+            channel_positions: var_channelPositions,
+            room_zones: var_roomZones,
+            trajectory: var_trajectory,
+            track_positions: var_trackPositions,
+        };
+    }
+}
+
 impl SseDecode for crate::common::config::TrackConfig {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -2273,9 +2377,11 @@ impl SseDecode for crate::common::config::Trajectory {
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
         let mut var_waypoints = <Vec<crate::common::config::Point3D>>::sse_decode(deserializer);
         let mut var_currentPosition = <crate::common::config::Point3D>::sse_decode(deserializer);
+        let mut var_targetRoomZoneId = <Option<String>>::sse_decode(deserializer);
         return crate::common::config::Trajectory {
             waypoints: var_waypoints,
             current_position: var_currentPosition,
+            target_room_zone_id: var_targetRoomZoneId,
         };
     }
 }
@@ -2480,6 +2586,12 @@ fn pde_ffi_dispatcher_primary_impl(
             data_len,
         ),
         49 => wire__crate__api__simple__api_update_spatial_config_json_impl(
+            port,
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
+        50 => wire__crate__api__simple__spatial_config_payload_default_impl(
             port,
             ptr,
             rust_vec_len,
@@ -2700,6 +2812,9 @@ impl flutter_rust_bridge::IntoDart for crate::common::config::Point3D {
             self.x.into_into_dart().into_dart(),
             self.y.into_into_dart().into_dart(),
             self.z.into_into_dart().into_dart(),
+            self.yaw_rotation.into_into_dart().into_dart(),
+            self.pitch_tilt.into_into_dart().into_dart(),
+            self.dispersion_angle.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
@@ -2766,6 +2881,29 @@ impl flutter_rust_bridge::IntoIntoDart<crate::common::config::RoomZone>
     }
 }
 // Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::api::simple::SpatialConfigPayload {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.channel_positions.into_into_dart().into_dart(),
+            self.room_zones.into_into_dart().into_dart(),
+            self.trajectory.into_into_dart().into_dart(),
+            self.track_positions.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::api::simple::SpatialConfigPayload
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::api::simple::SpatialConfigPayload>
+    for crate::api::simple::SpatialConfigPayload
+{
+    fn into_into_dart(self) -> crate::api::simple::SpatialConfigPayload {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
 impl flutter_rust_bridge::IntoDart for crate::common::config::TrackConfig {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         [
@@ -2800,6 +2938,7 @@ impl flutter_rust_bridge::IntoDart for crate::common::config::Trajectory {
         [
             self.waypoints.into_into_dart().into_dart(),
             self.current_position.into_into_dart().into_dart(),
+            self.target_room_zone_id.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
@@ -2820,6 +2959,16 @@ impl SseEncode for flutter_rust_bridge::for_generated::anyhow::Error {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
         <String>::sse_encode(format!("{:?}", self), serializer);
+    }
+}
+
+impl SseEncode for std::collections::HashMap<String, crate::common::config::Point3D> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <Vec<(String, crate::common::config::Point3D)>>::sse_encode(
+            self.into_iter().collect(),
+            serializer,
+        );
     }
 }
 
@@ -3017,6 +3166,16 @@ impl SseEncode for Vec<crate::common::config::EqBand> {
     }
 }
 
+impl SseEncode for Vec<Option<crate::common::config::Point3D>> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <Option<crate::common::config::Point3D>>::sse_encode(item, serializer);
+        }
+    }
+}
+
 impl SseEncode for Vec<crate::api::simple::OutputDeviceInfo> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -3053,6 +3212,16 @@ impl SseEncode for Vec<u8> {
         <i32>::sse_encode(self.len() as _, serializer);
         for item in self {
             <u8>::sse_encode(item, serializer);
+        }
+    }
+}
+
+impl SseEncode for Vec<(String, crate::common::config::Point3D)> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <(String, crate::common::config::Point3D)>::sse_encode(item, serializer);
         }
     }
 }
@@ -3142,6 +3311,17 @@ impl SseEncode for crate::common::config::Point3D {
         <f32>::sse_encode(self.x, serializer);
         <f32>::sse_encode(self.y, serializer);
         <f32>::sse_encode(self.z, serializer);
+        <f32>::sse_encode(self.yaw_rotation, serializer);
+        <f32>::sse_encode(self.pitch_tilt, serializer);
+        <f32>::sse_encode(self.dispersion_angle, serializer);
+    }
+}
+
+impl SseEncode for (String, crate::common::config::Point3D) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(self.0, serializer);
+        <crate::common::config::Point3D>::sse_encode(self.1, serializer);
     }
 }
 
@@ -3177,6 +3357,22 @@ impl SseEncode for crate::common::config::RoomZone {
     }
 }
 
+impl SseEncode for crate::api::simple::SpatialConfigPayload {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <Vec<Option<crate::common::config::Point3D>>>::sse_encode(
+            self.channel_positions,
+            serializer,
+        );
+        <Vec<crate::common::config::RoomZone>>::sse_encode(self.room_zones, serializer);
+        <Option<crate::common::config::Trajectory>>::sse_encode(self.trajectory, serializer);
+        <std::collections::HashMap<String, crate::common::config::Point3D>>::sse_encode(
+            self.track_positions,
+            serializer,
+        );
+    }
+}
+
 impl SseEncode for crate::common::config::TrackConfig {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -3198,6 +3394,7 @@ impl SseEncode for crate::common::config::Trajectory {
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
         <Vec<crate::common::config::Point3D>>::sse_encode(self.waypoints, serializer);
         <crate::common::config::Point3D>::sse_encode(self.current_position, serializer);
+        <Option<String>>::sse_encode(self.target_room_zone_id, serializer);
     }
 }
 

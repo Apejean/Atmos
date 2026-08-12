@@ -165,7 +165,7 @@ oscWhitelist: const [],
     });
 
     // 1. Stop engine to release COM lock
-    rust_api.apiStopAudioEngine();
+    await rust_api.apiStopAudioEngine();
 
     // 2. Clear cache to force deep scan
     GlobalDeviceCache.devices = null;
@@ -212,8 +212,8 @@ oscWhitelist: _tempConfig.oscWhitelist,
       }
       _applyLoadedDevices(devices);
 
-      // 6. Restart engine using the new force restart API
-      rust_api.apiForceRestartEngine(deviceName: _tempConfig.deviceName);
+      // 6. Restart engine using the init API
+      await rust_api.apiInitAudioSystem(deviceName: _tempConfig.deviceName);
     } catch (e) {
       if (mounted) {
         ref.read(globalErrorProvider.notifier).showError('장치 스캔 실패: $e');
@@ -1117,25 +1117,7 @@ oscWhitelist: _tempConfig.oscWhitelist,
           ],
         ),
 
-        if (Platform.isWindows) ...[
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              const SizedBox(width: 120),
-              ElevatedButton.icon(
-                icon: const Icon(Icons.settings_applications),
-                label: const Text('ASIO 제어판 열기'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.cardSurfaceSolid,
-                  foregroundColor: Colors.white,
-                ),
-                onPressed: () {
-                  rust_api.apiOpenAsioPanel();
-                },
-              ),
-            ],
-          ),
-        ],
+
 
         const SizedBox(height: 24),
         const Text(

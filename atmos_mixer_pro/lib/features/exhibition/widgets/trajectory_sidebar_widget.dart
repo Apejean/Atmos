@@ -179,78 +179,87 @@ class _TrajectorySidebarWidgetState extends ConsumerState<TrajectorySidebarWidge
           const Text('No trajectories available.', style: TextStyle(color: Colors.white54, fontSize: 12))
         else
           ...trajectories.map((traj) {
-            return Container(
-              margin: const EdgeInsets.only(bottom: 12),
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.05),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: traj.color.withValues(alpha: 0.5)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        traj.name,
-                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                      ),
-                      Switch(
-                        value: traj.isVisible,
-                        onChanged: (val) {
-                          ref.read(trajectoryProvider.notifier).updateTrajectory(
-                            traj.copyWith(isVisible: val),
-                          );
-                        },
-                        activeThumbColor: AppColors.primaryNeon,
-                      ),
-                    ],
+            final isActive = ref.watch(activeTrajectoryIdProvider) == traj.id;
+            return GestureDetector(
+              onTap: () {
+                ref.read(activeTrajectoryIdProvider.notifier).set(traj.id);
+              },
+              child: Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: isActive ? traj.color.withValues(alpha: 0.15) : Colors.white.withValues(alpha: 0.05),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: isActive ? traj.color : traj.color.withValues(alpha: 0.5),
+                    width: isActive ? 2 : 1,
                   ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      const Text('Speed', style: TextStyle(color: Colors.white70, fontSize: 12)),
-                      Expanded(
-                        child: Slider(
-                          value: traj.speed,
-                          min: 0.1,
-                          max: 10.0,
-                          activeColor: traj.color,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          traj.name,
+                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                        ),
+                        Switch(
+                          value: traj.isVisible,
                           onChanged: (val) {
                             ref.read(trajectoryProvider.notifier).updateTrajectory(
-                              traj.copyWith(speed: val),
+                              traj.copyWith(isVisible: val),
                             );
                           },
+                          activeThumbColor: AppColors.primaryNeon,
                         ),
-                      ),
-                      Text(traj.speed.toStringAsFixed(1), style: const TextStyle(color: Colors.white54, fontSize: 12)),
-                    ],
-                  ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text('Ping-Pong (Loop)', style: TextStyle(color: Colors.white70, fontSize: 12)),
-                      Checkbox(
-                        value: traj.isPingPong,
-                        activeColor: traj.color,
-                        onChanged: (val) {
-                          if (val != null) {
-                            ref.read(trajectoryProvider.notifier).updateTrajectory(
-                              traj.copyWith(isPingPong: val),
-                            );
-                          }
-                        },
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Waypoints: ${traj.waypoints.length}',
-                    style: const TextStyle(color: Colors.white54, fontSize: 11),
-                  ),
-                ],
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        const Text('Speed', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                        Expanded(
+                          child: Slider(
+                            value: traj.speed,
+                            min: 0.1,
+                            max: 10.0,
+                            activeColor: traj.color,
+                            onChanged: (val) {
+                              ref.read(trajectoryProvider.notifier).updateTrajectory(
+                                traj.copyWith(speed: val),
+                              );
+                            },
+                          ),
+                        ),
+                        Text(traj.speed.toStringAsFixed(1), style: const TextStyle(color: Colors.white54, fontSize: 12)),
+                      ],
+                    ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('Ping-Pong (Loop)', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                        Checkbox(
+                          value: traj.isPingPong,
+                          activeColor: traj.color,
+                          onChanged: (val) {
+                            if (val != null) {
+                              ref.read(trajectoryProvider.notifier).updateTrajectory(
+                                traj.copyWith(isPingPong: val),
+                              );
+                            }
+                          },
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Waypoints: ${traj.waypoints.length}',
+                      style: const TextStyle(color: Colors.white54, fontSize: 11),
+                    ),
+                  ],
+                ),
               ),
             );
           }),

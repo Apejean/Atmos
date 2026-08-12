@@ -26,6 +26,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   AnyhowException dco_decode_AnyhowException(dynamic raw);
 
   @protected
+  Map<String, Point3D> dco_decode_Map_String_point_3_d_None(dynamic raw);
+
+  @protected
   Map<int, ChannelSetting> dco_decode_Map_u_32_channel_setting_None(
     dynamic raw,
   );
@@ -94,6 +97,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<EqBand> dco_decode_list_eq_band(dynamic raw);
 
   @protected
+  List<Point3D?> dco_decode_list_opt_box_autoadd_point_3_d(dynamic raw);
+
+  @protected
   List<OutputDeviceInfo> dco_decode_list_output_device_info(dynamic raw);
 
   @protected
@@ -104,6 +110,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   Uint8List dco_decode_list_prim_u_8_strict(dynamic raw);
+
+  @protected
+  List<(String, Point3D)> dco_decode_list_record_string_point_3_d(dynamic raw);
 
   @protected
   List<(int, ChannelSetting)> dco_decode_list_record_u_32_channel_setting(
@@ -135,6 +144,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   Point3D dco_decode_point_3_d(dynamic raw);
 
   @protected
+  (String, Point3D) dco_decode_record_string_point_3_d(dynamic raw);
+
+  @protected
   (int, ChannelSetting) dco_decode_record_u_32_channel_setting(dynamic raw);
 
   @protected
@@ -142,6 +154,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   RoomZone dco_decode_room_zone(dynamic raw);
+
+  @protected
+  SpatialConfigPayload dco_decode_spatial_config_payload(dynamic raw);
 
   @protected
   TrackConfig dco_decode_track_config(dynamic raw);
@@ -166,6 +181,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   AnyhowException sse_decode_AnyhowException(SseDeserializer deserializer);
+
+  @protected
+  Map<String, Point3D> sse_decode_Map_String_point_3_d_None(
+    SseDeserializer deserializer,
+  );
 
   @protected
   Map<int, ChannelSetting> sse_decode_Map_u_32_channel_setting_None(
@@ -244,6 +264,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<EqBand> sse_decode_list_eq_band(SseDeserializer deserializer);
 
   @protected
+  List<Point3D?> sse_decode_list_opt_box_autoadd_point_3_d(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   List<OutputDeviceInfo> sse_decode_list_output_device_info(
     SseDeserializer deserializer,
   );
@@ -256,6 +281,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   Uint8List sse_decode_list_prim_u_8_strict(SseDeserializer deserializer);
+
+  @protected
+  List<(String, Point3D)> sse_decode_list_record_string_point_3_d(
+    SseDeserializer deserializer,
+  );
 
   @protected
   List<(int, ChannelSetting)> sse_decode_list_record_u_32_channel_setting(
@@ -289,6 +319,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   Point3D sse_decode_point_3_d(SseDeserializer deserializer);
 
   @protected
+  (String, Point3D) sse_decode_record_string_point_3_d(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   (int, ChannelSetting) sse_decode_record_u_32_channel_setting(
     SseDeserializer deserializer,
   );
@@ -298,6 +333,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   RoomZone sse_decode_room_zone(SseDeserializer deserializer);
+
+  @protected
+  SpatialConfigPayload sse_decode_spatial_config_payload(
+    SseDeserializer deserializer,
+  );
 
   @protected
   TrackConfig sse_decode_track_config(SseDeserializer deserializer);
@@ -323,6 +363,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_AnyhowException(
     AnyhowException self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_Map_String_point_3_d_None(
+    Map<String, Point3D> self,
     SseSerializer serializer,
   );
 
@@ -420,6 +466,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_list_eq_band(List<EqBand> self, SseSerializer serializer);
 
   @protected
+  void sse_encode_list_opt_box_autoadd_point_3_d(
+    List<Point3D?> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_list_output_device_info(
     List<OutputDeviceInfo> self,
     SseSerializer serializer,
@@ -437,6 +489,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_list_prim_u_8_strict(
     Uint8List self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_record_string_point_3_d(
+    List<(String, Point3D)> self,
     SseSerializer serializer,
   );
 
@@ -486,6 +544,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_point_3_d(Point3D self, SseSerializer serializer);
 
   @protected
+  void sse_encode_record_string_point_3_d(
+    (String, Point3D) self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_record_u_32_channel_setting(
     (int, ChannelSetting) self,
     SseSerializer serializer,
@@ -496,6 +560,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_room_zone(RoomZone self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_spatial_config_payload(
+    SpatialConfigPayload self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_track_config(TrackConfig self, SseSerializer serializer);

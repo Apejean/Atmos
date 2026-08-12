@@ -33,6 +33,8 @@ pub struct RoomZone {
 pub struct Trajectory {
     pub waypoints: Vec<Point3D>,
     pub current_position: Point3D,
+    #[serde(default)]
+    pub target_room_zone_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]

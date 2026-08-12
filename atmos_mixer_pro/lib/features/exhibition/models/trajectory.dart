@@ -3,6 +3,9 @@ import 'package:flutter/foundation.dart';
 import 'dart:math' as math;
 
 class Waypoint {
+  // Note: For Room-Bound trajectories, position is a relative coordinate (0.0 ~ 1.0)
+  // based on the target room's dimensions. For global trajectories, it may represent
+  // absolute meters or normalized canvas coordinates depending on usage.
   final Offset position;
   final double heightZ;
 
@@ -32,6 +35,7 @@ class TrajectoryModel extends ChangeNotifier {
   String? audioFilePath;
   String? audioTrackId;
   String? stemGroupId;
+  String? targetRoomZoneId;
 
   double progress = 0.0;
   double direction = 1.0;
@@ -47,6 +51,7 @@ class TrajectoryModel extends ChangeNotifier {
     this.audioFilePath,
     this.audioTrackId,
     this.stemGroupId,
+    this.targetRoomZoneId,
   });
 
   Map<String, dynamic> toJson() {
@@ -61,6 +66,7 @@ class TrajectoryModel extends ChangeNotifier {
       'audioFilePath': audioFilePath,
       'audioTrackId': audioTrackId,
       'stemGroupId': stemGroupId,
+      'targetRoomZoneId': targetRoomZoneId,
     };
   }
 
@@ -78,6 +84,7 @@ class TrajectoryModel extends ChangeNotifier {
       audioFilePath: json['audioFilePath'] as String?,
       audioTrackId: json['audioTrackId'] as String?,
       stemGroupId: json['stemGroupId'] as String?,
+      targetRoomZoneId: json['targetRoomZoneId'] as String?,
     );
   }
 
@@ -180,6 +187,7 @@ class TrajectoryModel extends ChangeNotifier {
     String? audioFilePath,
     String? audioTrackId,
     String? stemGroupId,
+    String? targetRoomZoneId,
   }) {
     return TrajectoryModel(
       id: id ?? this.id,
@@ -192,6 +200,7 @@ class TrajectoryModel extends ChangeNotifier {
       audioFilePath: audioFilePath ?? this.audioFilePath,
       audioTrackId: audioTrackId ?? this.audioTrackId,
       stemGroupId: stemGroupId ?? this.stemGroupId,
+      targetRoomZoneId: targetRoomZoneId ?? this.targetRoomZoneId,
     );
   }
 }
