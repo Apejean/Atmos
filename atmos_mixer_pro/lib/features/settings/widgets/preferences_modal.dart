@@ -171,34 +171,10 @@ oscWhitelist: const [],
     GlobalDeviceCache.devices = null;
     GlobalDeviceCache.channels.clear();
 
-    // 3. Clear UI list and channel list while scanning
-    if (mounted) {
-      setState(() {
-        _devices = [];
-        _channelNames = [];
-        _tempConfig = AppConfig(
-oscWhitelist: _tempConfig.oscWhitelist,
+    // 3. (Removed) We no longer clear UI lists while scanning to prevent visual blinking and state loss.
 
-          oscPort: _tempConfig.oscPort,
-          deviceName: null,
-          bufferSize: _tempConfig.bufferSize,
-          themeStartOscAddress: _tempConfig.themeStartOscAddress,
-          systemResetOscAddress: _tempConfig.systemResetOscAddress,
-          monoConfigs: _tempConfig.monoConfigs,
-          stereoConfigs: _tempConfig.stereoConfigs,
-          multiConfigs: _tempConfig.multiConfigs,
-          rooms: _tempConfig.rooms,
-          isExhibitionMode: _tempConfig.isExhibitionMode,
-          masterHeadroomDb: _tempConfig.masterHeadroomDb,
-          peakLimiterEnabled: _tempConfig.peakLimiterEnabled,
-          globalTrajectory: _tempConfig.globalTrajectory,
-          roomZones: _tempConfig.roomZones,
-        );
-      });
-    }
-
-    // 4. Force a short delay to ensure ASIO driver unloads completely
-    await Future.delayed(const Duration(milliseconds: 1000));
+    // 4. Give a tiny delay for backend async stop to process, Rust backend handles retries internally now
+    await Future.delayed(const Duration(milliseconds: 50));
 
     // 5. Deep Scan
     try {

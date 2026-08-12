@@ -1018,7 +1018,48 @@ pub fn api_get_output_devices() -> Result<Vec<OutputDeviceInfo>, AtmosError> {
                 continue; // Do not call host.output_devices() because querying ASIO devices breaks the COM lock!
             }
 
-            let devices = match host.output_devices() {
+            let mut devices_result = if is_asio_host {
+                #[cfg(target_os = "windows")]
+                {
+                    let (tx, rx) = std::sync::mpsc::channel();
+                    std::thread::spawn(move || {
+                        let res = cpal::host_from_id(cpal::HostId::Asio).map(|h| h.output_devices());
+                        let _ = tx.send(res);
+                    });
+                    match rx.recv_timeout(std::time::Duration::from_secs(2)) {
+                        Ok(Ok(Ok(d))) => Ok(d),
+                        Ok(Ok(Err(e))) => Err(e),
+                        Ok(Err(e)) => Err(cpal::DevicesError::BackendSpecific { err: cpal::BackendSpecificError { description: "ASIO host init failed".to_string() } }),
+                        Err(_) => Err(cpal::DevicesError::BackendSpecific { err: cpal::BackendSpecificError { description: "ASIO scan timed out (buggy driver?)".to_string() } }),
+                    }
+                }
+                #[cfg(not(target_os = "windows"))]
+                {
+                    host.output_devices()
+                }
+            } else {
+                host.output_devices()
+            };
+
+            if devices_result.is_err() && is_asio_host {
+                for _ in 0..2 {
+                    std::thread::sleep(std::time::Duration::from_millis(300));
+                    #[cfg(target_os = "windows")]
+                    {
+                        let (tx, rx) = std::sync::mpsc::channel();
+                        std::thread::spawn(move || {
+                            let res = cpal::host_from_id(cpal::HostId::Asio).map(|h| h.output_devices());
+                            let _ = tx.send(res);
+                        });
+                        match rx.recv_timeout(std::time::Duration::from_secs(2)) {
+                            Ok(Ok(Ok(d))) => { devices_result = Ok(d); break; }
+                            _ => {}
+                        }
+                    }
+                }
+            }
+
+            let devices = match devices_result {
                 Ok(d) => d,
                 Err(e) => {
                     eprintln!(
@@ -1026,6 +1067,30 @@ pub fn api_get_output_devices() -> Result<Vec<OutputDeviceInfo>, AtmosError> {
                         host.id().name(),
                         e
                     );
+                    // If ASIO fails completely but we have a saved ASIO device, inject it manually to prevent UI reset
+                    if is_asio_host {
+                        if let Some(config) = crate::core::state::GLOBAL_STATE.config.read().unwrap().as_ref() {
+                            if let Some(ref saved_name) = config.device_name {
+                                if saved_name.starts_with("[ASIO]") {
+                                    let actual_name = saved_name.replace("[ASIO] ", "").trim().to_string();
+                                    let max_channels = if crate::core::state::GLOBAL_STATE.active_device_channels.load(std::sync::atomic::Ordering::SeqCst) > 0 {
+                                        crate::core::state::GLOBAL_STATE.active_device_channels.load(std::sync::atomic::Ordering::SeqCst)
+                                    } else { 2 };
+                                    
+                                    #[cfg(target_os = "windows")]
+                                    let channel_names = crate::audio::channel_names::get_channel_names_win(&actual_name, max_channels);
+                                    #[cfg(not(target_os = "windows"))]
+                                    let channel_names = vec![];
+
+                                    device_info_list.push(OutputDeviceInfo {
+                                        name: saved_name.clone(),
+                                        max_channels,
+                                        channel_names,
+                                    });
+                                }
+                            }
+                        }
+                    }
                     continue;
                 }
             };
@@ -1061,7 +1126,32 @@ pub fn api_get_output_devices() -> Result<Vec<OutputDeviceInfo>, AtmosError> {
                             max_channels = 2;
                         }
                     } else {
-                        if let Ok(supported_configs) = device.supported_output_configs() {
+                        // Skip capability probing for known buggy generic ASIO drivers to prevent app hangs
+                        let actual_name_lower = actual_name.to_lowercase();
+                        let is_buggy_generic_asio = is_asio_host && (
+                            actual_name_lower.contains("generic low latency") ||
+                            actual_name_lower.contains("fl studio") ||
+                            actual_name_lower.contains("asio4all") ||
+                            actual_name_lower.contains("realtek asio")
+                        );
+
+                        let mut configs_result = if is_buggy_generic_asio {
+                            Err(cpal::SupportedStreamConfigsError::BackendSpecific { err: cpal::BackendSpecificError { description: "Skipped buggy driver".to_string() } })
+                        } else {
+                            device.supported_output_configs()
+                        };
+
+                        if configs_result.is_err() && is_asio_host && !is_buggy_generic_asio {
+                            for _ in 0..3 {
+                                std::thread::sleep(std::time::Duration::from_millis(500));
+                                configs_result = device.supported_output_configs();
+                                if configs_result.is_ok() {
+                                    break;
+                                }
+                            }
+                        }
+
+                        if let Ok(supported_configs) = configs_result {
                             for config in supported_configs {
                                 let channels = config.channels() as u32;
                                 if channels > max_channels {
@@ -1073,6 +1163,20 @@ pub fn api_get_output_devices() -> Result<Vec<OutputDeviceInfo>, AtmosError> {
                             let channels = default_config.channels() as u32;
                             if channels > max_channels {
                                 max_channels = channels;
+                            }
+                        }
+
+                        // Fallback: If ASIO max_channels is still 2 after query fails or returns only 2, and it matches the saved active ASIO device, reuse the active channel count
+                        if is_asio_host && max_channels <= 2 {
+                            if let Some(config) = crate::core::state::GLOBAL_STATE.config.read().unwrap().as_ref() {
+                                if let Some(ref saved_name) = config.device_name {
+                                    if saved_name.trim() == name.trim() {
+                                        let active_ch = crate::core::state::GLOBAL_STATE.active_device_channels.load(std::sync::atomic::Ordering::SeqCst);
+                                        if active_ch > max_channels {
+                                            max_channels = active_ch;
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
