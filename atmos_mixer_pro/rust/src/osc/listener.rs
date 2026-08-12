@@ -106,6 +106,7 @@ fn handle_packet(packet: OscPacket, debouncer: &OscDebouncer) {
                                         x: coords[0],
                                         y: coords[1],
                                         z: coords[2],
+                                        ..Default::default()
                                     },
                                 });
                             }
@@ -181,7 +182,7 @@ fn handle_packet(packet: OscPacket, debouncer: &OscDebouncer) {
                     if let rosc::OscType::Float(f) = msg.args[1] { y = f; }
                     if let rosc::OscType::Float(f) = msg.args[2] { z = f; }
                     
-                    let pos = crate::common::config::Point3D { x, y, z };
+                    let pos = crate::common::config::Point3D { x, y, z, ..Default::default() };
                     let _ = crate::core::state::GLOBAL_STATE.command_sender.lock().unwrap().push(
                         crate::common::commands::AudioCommand::UpdateTrajectoryPosition {
                             position: pos,
@@ -301,6 +302,7 @@ fn handle_packet(packet: OscPacket, debouncer: &OscDebouncer) {
                                                 volume: next_t.volume,
                                                 output_channel: next_t.output_channel as usize,
                                                 output_stereo: next_t.output_stereo,
+                                                current_position: None,
                                             });
                                             }
                                         }
@@ -379,6 +381,7 @@ fn handle_packet(packet: OscPacket, debouncer: &OscDebouncer) {
                                     volume: track.volume,
                                     output_channel: track.output_channel as usize,
                                     output_stereo: track.output_stereo,
+                                    current_position: None,
                                 },
                             );
                         } else {

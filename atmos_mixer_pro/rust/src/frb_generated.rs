@@ -2185,6 +2185,7 @@ impl SseDecode for crate::common::config::Point3D {
             x: var_x,
             y: var_y,
             z: var_z,
+            ..Default::default()
         };
     }
 }

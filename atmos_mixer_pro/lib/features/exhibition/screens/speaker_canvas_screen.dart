@@ -20,6 +20,7 @@ import 'package:atmos_mixer_pro/features/exhibition/models/trajectory.dart';
 import 'package:atmos_mixer_pro/features/exhibition/state/trajectory_state.dart';
 import 'package:atmos_mixer_pro/features/exhibition/state/blueprint_state.dart';
 import 'package:atmos_mixer_pro/features/exhibition/widgets/trajectory_layer_painter.dart';
+import 'package:atmos_mixer_pro/features/exhibition/widgets/trajectory_sidebar_widget.dart';
 import 'package:atmos_mixer_pro/core/theme/colors.dart';
 import 'package:atmos_mixer_pro/core/state/global_state.dart';
 import 'package:atmos_mixer_pro/src/rust/api/simple.dart' as rust_api;
@@ -54,11 +55,13 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
   String _selectedOctaveFilter =
       'All';
   String? _selectedRoomId;
-  bool _isRoomInteracting = false; // 'All', '125Hz', '500Hz', '1kHz', '4kHz'
+  bool _isRoomInteracting = false;
 
   bool _isMeasuringScale = false;
   Offset? _measureStart;
   Offset? _measureEnd;
+  
+  bool _isSidebarOpen = false;
 
   @override
   void initState() {
@@ -1582,6 +1585,18 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                     const SizedBox(width: 8),
                     IconButton(
                       icon: const Icon(
+                        Icons.settings_input_component,
+                        color: Colors.cyanAccent,
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          _isSidebarOpen = !_isSidebarOpen;
+                        });
+                      },
+                      tooltip: 'Routing & Trajectories',
+                    ),
+                    IconButton(
+                      icon: const Icon(
                         Icons.route_outlined,
                         color: Colors.orangeAccent,
                       ),
@@ -1606,10 +1621,12 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                     constraints.maxWidth,
                     constraints.maxHeight,
                   );
-                  return GestureDetector(
-                    onTap: () {
-                      if (!_isMeasuringScale) setState(() => _selectedRoomId = null);
-                    },
+                  return Stack(
+                    children: [
+                      GestureDetector(
+                        onTap: () {
+                          if (!_isMeasuringScale) setState(() => _selectedRoomId = null);
+                        },
                     child: InteractiveViewer(
                     transformationController: _transformationController,
                     panEnabled: !_isMeasuringScale && !_isRoomInteracting,
@@ -1842,8 +1859,20 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                     ),
                   ),
                 ),
-              );
-            },
+              ),
+              if (_isSidebarOpen)
+                Positioned.fill(
+                  child: TrajectorySidebarWidget(
+                    onClose: () {
+                      setState(() {
+                        _isSidebarOpen = false;
+                      });
+                    },
+                  ),
+                ),
+            ],
+          );
+        },
               ),
               floatingActionButton: PopupMenuButton<String>(
                 onSelected: (value) {
@@ -1984,7 +2013,7 @@ class _DraggableSpeakerWidgetState
       child: Transform.rotate(
         angle: widget.node.rotation * math.pi / 180.0,
         alignment: Alignment.topLeft,
-        origin: const Offset(50, 60),
+        origin: const Offset(50, 22),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -1995,7 +2024,7 @@ class _DraggableSpeakerWidgetState
                 final renderBox = context.findRenderObject() as RenderBox?;
                 if (renderBox != null) {
                   final globalCenter = renderBox.localToGlobal(
-                    const Offset(50, 60),
+                    const Offset(50, 22),
                   );
                   _initialTouchAngle = math.atan2(
                     details.globalPosition.dy - globalCenter.dy,
@@ -2008,7 +2037,7 @@ class _DraggableSpeakerWidgetState
                 final renderBox = context.findRenderObject() as RenderBox?;
                 if (renderBox != null) {
                   final globalCenter = renderBox.localToGlobal(
-                    const Offset(50, 60),
+                    const Offset(50, 22),
                   );
                   final currentTouchAngle = math.atan2(
                     details.globalPosition.dy - globalCenter.dy,
@@ -2441,7 +2470,8 @@ class _HeatmapPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     for (var node in nodes) {
-      final center = Offset(node.x + 50, node.y + 60);
+      // Offset matches the visual center of the speaker icon
+      final center = Offset(node.x + 50, node.y + 22);
       final double rotRad =
           (node.rotation - 90.0) * math.pi / 180.0; // Front axis
 

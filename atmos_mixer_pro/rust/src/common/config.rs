@@ -8,6 +8,12 @@ pub struct Point3D {
     pub x: f32,
     pub y: f32,
     pub z: f32,
+    #[serde(default)]
+    pub yaw_rotation: f32,
+    #[serde(default)]
+    pub pitch_tilt: f32,
+    #[serde(default)]
+    pub dispersion_angle: f32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]

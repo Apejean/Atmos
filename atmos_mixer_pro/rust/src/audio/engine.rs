@@ -388,6 +388,7 @@ impl AudioEngine {
                     volume,
                     output_channel,
                     output_stereo,
+                    current_position,
                 } => {
                     let instance = crate::audio::player::SoundInstance::new(
                         instance_id,
@@ -402,6 +403,7 @@ impl AudioEngine {
                         volume,
                         output_channel,
                         output_stereo,
+                        current_position,
                     );
                     // instance.volume is already set in new
                     if let Some(slot) = mixer.instances.iter_mut().find(|s| s.is_none()) {
@@ -484,13 +486,20 @@ impl AudioEngine {
                         mixer.channel_dsp[channel].update_eq_targets(&eq_bands, mixer.sample_rate as f32);
                     }
                 }
-                AudioCommand::UpdateSpatialConfig { channel_positions, room_zones, trajectory } => {
+                AudioCommand::UpdateSpatialConfig { channel_positions, room_zones, trajectory, track_positions } => {
                     let old_positions = std::mem::replace(&mut mixer.channel_positions, channel_positions);
                     let old_zones = std::mem::replace(&mut mixer.room_zones, room_zones);
                     let old_traj = std::mem::replace(&mut mixer.trajectory, trajectory);
                     let _ = mixer.spatial_gc_tx.try_send(crate::audio::mixer::SpatialGarbage::ChannelPositions(old_positions));
                     let _ = mixer.spatial_gc_tx.try_send(crate::audio::mixer::SpatialGarbage::RoomZones(old_zones));
                     let _ = mixer.spatial_gc_tx.try_send(crate::audio::mixer::SpatialGarbage::Trajectory(old_traj));
+                    
+                    for inst in mixer.instances.iter_mut().flatten() {
+                        if let Some(pos) = track_positions.get(&inst.track_id_str) {
+                            inst.current_position = Some(pos.clone());
+                        }
+                    }
+                    mixer.recalculate_spatial_dsp();
                 }
                 AudioCommand::UpdateTrajectoryPosition { position } => {
                     if let Some(traj) = &mut mixer.trajectory {
@@ -501,6 +510,7 @@ impl AudioEngine {
                             current_position: position,
                         });
                     }
+                    mixer.recalculate_spatial_dsp();
                 }
                 AudioCommand::UpdateSingleBandEq { channel, band, freq, gain_db, q_factor, filter_type_idx } => {
                     if channel < mixer.channel_dsp.len() && band < mixer.channel_dsp[channel].target_bands.len() {
@@ -524,7 +534,7 @@ impl AudioEngine {
                     }
                 }
                 AudioCommand::UpdateSoundSourcePosition { sound_id, x, y, z } => {
-                    let point = crate::common::config::Point3D { x, y, z };
+                    let point = crate::common::config::Point3D { x, y, z, ..Default::default() };
                     // If it's the global trajectory ID we update it
                     if sound_id == "global_trajectory" || sound_id == "trajectory" {
                         if let Some(traj) = &mut mixer.trajectory {
@@ -542,6 +552,7 @@ impl AudioEngine {
                             traj.current_position = point;
                         }
                     }
+                    mixer.recalculate_spatial_dsp();
                 }
                 AudioCommand::ApplyGlobalTuning { master_headroom_db, peak_limiter_enabled } => {
                     mixer.master_headroom_db = master_headroom_db;

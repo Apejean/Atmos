@@ -164,6 +164,9 @@ pub struct SoundInstance {
     pub volume_smoother: crate::audio::dsp::dsp_utils::GainSmoother,
     pub last_samples: Vec<f32>,
     pub anti_click_multiplier: f32,
+    pub current_position: Option<crate::common::config::Point3D>,
+    pub spatial_gains: Vec<f32>,
+    pub spatial_gains_target: Vec<f32>,
 }
 
 impl SoundInstance {
@@ -181,6 +184,7 @@ impl SoundInstance {
         volume: f32,
         output_channel: usize,
         output_stereo: bool,
+        current_position: Option<crate::common::config::Point3D>,
     ) -> Self {
         let channels_usize = stream_channels as usize;
         Self {
@@ -204,6 +208,9 @@ impl SoundInstance {
             volume_smoother: crate::audio::dsp::dsp_utils::GainSmoother::new(volume, 0.005),
             last_samples: vec![0.0; channels_usize.max(1)],
             anti_click_multiplier: 1.0,
+            current_position,
+            spatial_gains: Vec::new(),
+            spatial_gains_target: Vec::new(),
         }
     }
 }

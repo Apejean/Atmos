@@ -1,6 +1,6 @@
 use crate::common::config::Point3D;
 
-pub const SPEED_OF_SOUND_M_S: f32 = 343.0;
+pub const SPEED_OF_SOUND_M_S: f32 = 340.0;
 pub const CORNER_PROXIMITY_THRESHOLD_M: f32 = 1.0; // 1 meter threshold to be considered in a "corner"
 
 /// Calculates 2D Euclidean distance on the X-Z plane
@@ -59,4 +59,50 @@ pub fn is_in_corner(point: &Point3D, polygon: &[Point3D]) -> bool {
         }
     }
     false
+}
+
+/// Calculates the forward vector from pitch (tilt) and yaw (rotation) in degrees
+pub fn calculate_forward_vector(pitch_tilt: f32, yaw_rotation: f32) -> Point3D {
+    let pitch_rad = pitch_tilt.to_radians();
+    let yaw_rad = yaw_rotation.to_radians();
+    
+    // Assuming standard spherical coordinates (Y up, Z forward, X right)
+    let x = pitch_rad.cos() * yaw_rad.sin();
+    let y = pitch_rad.sin();
+    let z = pitch_rad.cos() * yaw_rad.cos();
+    
+    Point3D { x, y, z, ..Default::default() }
+}
+
+/// Creates a vector from point p1 to point p2
+pub fn vector_from_to(p1: &Point3D, p2: &Point3D) -> Point3D {
+    Point3D {
+        x: p2.x - p1.x,
+        y: p2.y - p1.y,
+        z: p2.z - p1.z,
+        ..Default::default()
+    }
+}
+
+/// Normalizes a vector. Returns (0, 0, 0) if length is 0.
+pub fn normalize(v: &Point3D) -> Point3D {
+    let len = (v.x * v.x + v.y * v.y + v.z * v.z).sqrt();
+    if len > 1e-9 {
+        Point3D {
+            x: v.x / len,
+            y: v.y / len,
+            z: v.z / len,
+            ..Default::default()
+        }
+    } else {
+        Point3D { x: 0.0, y: 0.0, z: 0.0, ..Default::default() }
+    }
+}
+
+/// Calculates the angle in degrees between two normalized vectors
+pub fn angle_between_vectors(v1: &Point3D, v2: &Point3D) -> f32 {
+    let dot = v1.x * v2.x + v1.y * v2.y + v1.z * v2.z;
+    // Clamp dot product to avoid NaN in acos due to floating point inaccuracies
+    let dot_clamped = dot.clamp(-1.0, 1.0);
+    dot_clamped.acos().to_degrees()
 }

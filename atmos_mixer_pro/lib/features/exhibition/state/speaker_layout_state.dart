@@ -95,7 +95,10 @@ class SpeakerLayoutState extends Notifier<List<SpeakerNode>> {
           return {
             'x': node.x / ref.read(blueprintProvider).scale,
             'y': node.y / ref.read(blueprintProvider).scale,
-            'z': 0.0,
+            'z': node.heightZ,
+            'yaw_rotation': node.rotation,
+            'pitch_tilt': node.pitchTilt,
+            'dispersion_angle': node.dispersionAngle,
           };
         },
       ),

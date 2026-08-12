@@ -261,6 +261,7 @@ pub fn api_play_track(room_id: String, track_id: String) -> Result<(), AtmosErro
                                     volume: track.volume,
                                     output_channel: track.output_channel as usize,
                                     output_stereo: track.output_stereo,
+                                    current_position: None,
                                 })
                                 .map_err(|e| AtmosError {
                                     message: e.to_string(),
@@ -307,6 +308,7 @@ pub fn api_play_track(room_id: String, track_id: String) -> Result<(), AtmosErro
                                 volume: track.volume,
                                 output_channel: track.output_channel as usize,
                                 output_stereo: track.output_stereo,
+                                current_position: None,
                             })
                             .map_err(|e| AtmosError {
                                 message: e.to_string(),
@@ -332,6 +334,7 @@ pub fn api_play_track(room_id: String, track_id: String) -> Result<(), AtmosErro
                                 volume: track.volume,
                                 output_channel: track.output_channel as usize,
                                 output_stereo: track.output_stereo,
+                                current_position: None,
                             })
                             .map_err(|e| AtmosError {
                                 message: e.to_string(),
@@ -370,6 +373,7 @@ pub fn api_play_track(room_id: String, track_id: String) -> Result<(), AtmosErro
                                         volume: track.volume,
                                         output_channel: track.output_channel as usize,
                                         output_stereo: track.output_stereo,
+                                        current_position: None,
                                     })
                                     .map_err(|e| AtmosError {
                                         message: e.to_string(),
@@ -1432,6 +1436,7 @@ struct SpatialConfigPayload {
     pub channel_positions: Vec<Option<crate::common::config::Point3D>>,
     pub room_zones: Vec<crate::common::config::RoomZone>,
     pub trajectory: Option<crate::common::config::Trajectory>,
+    pub track_positions: std::collections::HashMap<String, crate::common::config::Point3D>,
 }
 
 pub fn api_update_spatial_config_json(json_payload: String) -> Result<(), AtmosError> {
@@ -1445,6 +1450,7 @@ pub fn api_update_spatial_config_json(json_payload: String) -> Result<(), AtmosE
             channel_positions: payload.channel_positions,
             room_zones: payload.room_zones,
             trajectory: payload.trajectory,
+            track_positions: payload.track_positions,
         })
         .map_err(|e| AtmosError {
             message: format!("Failed to send UpdateSpatialConfig: {}", e),
@@ -1462,7 +1468,7 @@ pub fn api_calculate_bezier_point(t: f32, p0: Point3D, p1: Point3D, p2: Point3D,
     let uuu = uu * u;
     let ttt = tt * t;
 
-    let mut p = Point3D { x: 0.0, y: 0.0, z: 0.0 };
+    let mut p = Point3D { x: 0.0, y: 0.0, z: 0.0, ..Default::default() };
     
     p.x = uuu * p0.x;
     p.x += 3.0 * uu * t * p1.x;

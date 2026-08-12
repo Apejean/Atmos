@@ -15,6 +15,7 @@ pub enum AudioCommand {
         volume: f32,
         output_channel: usize,
         output_stereo: bool,
+        current_position: Option<crate::common::config::Point3D>,
     },
     StopTrack {
         room_id: u32,
@@ -65,6 +66,7 @@ pub enum AudioCommand {
         channel_positions: Vec<Option<crate::common::config::Point3D>>,
         room_zones: Vec<crate::common::config::RoomZone>,
         trajectory: Option<crate::common::config::Trajectory>,
+        track_positions: std::collections::HashMap<String, crate::common::config::Point3D>,
     },
     UpdateTrajectoryPosition {
         position: crate::common::config::Point3D,

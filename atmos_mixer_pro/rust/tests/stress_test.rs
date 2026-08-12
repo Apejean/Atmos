@@ -48,6 +48,7 @@ fn test_room_clear_spam_no_duplicate() {
                     volume: 1.0,
                     output_channel: 0,
                     output_stereo: true,
+                    current_position: None,
                 });
         }
     }
@@ -97,6 +98,7 @@ fn test_system_reset_theme_start_glitch() {
                     volume: 1.0,
                     output_channel: 0,
                     output_stereo: true,
+                    current_position: None,
                 });
         }
     });
