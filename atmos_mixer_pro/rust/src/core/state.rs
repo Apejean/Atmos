@@ -48,6 +48,7 @@ pub struct GlobalEngineState {
     pub is_exhibition_mode: AtomicBool,
     pub engine_error: RwLock<Option<String>>,
     pub rta_magnitudes_ref: RwLock<Option<Arc<parking_lot::RwLock<Vec<f32>>>>>,
+    pub is_failover_mode: AtomicBool,
 }
 
 impl Default for GlobalEngineState {
@@ -92,6 +93,7 @@ impl GlobalEngineState {
             is_exhibition_mode: AtomicBool::new(false),
             engine_error: RwLock::new(None),
             rta_magnitudes_ref: RwLock::new(None),
+            is_failover_mode: AtomicBool::new(false),
         }
     }
 

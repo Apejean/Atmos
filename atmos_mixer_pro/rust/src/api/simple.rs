@@ -592,6 +592,30 @@ lazy_static::lazy_static! {
     static ref ENGINE_GENERATION: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
     pub static ref ENGINE_ACTIVE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
     static ref ENGINE_THREAD: std::sync::Mutex<Option<std::thread::JoinHandle<()>>> = std::sync::Mutex::new(None);
+    static ref STREAM_STATUS_SINK: std::sync::RwLock<Option<StreamSink<String>>> = std::sync::RwLock::new(None);
+}
+
+pub fn broadcast_stream_status(status: String) {
+    if let Some(sink) = STREAM_STATUS_SINK.read().unwrap().as_ref() {
+        let _ = sink.add(status);
+    }
+}
+
+pub fn api_create_stream_status_stream(sink: StreamSink<String>) {
+    let mut guard = STREAM_STATUS_SINK.write().unwrap();
+    *guard = Some(sink.clone());
+    drop(guard);
+    
+    // Initial status
+    if ENGINE_ACTIVE.load(std::sync::atomic::Ordering::SeqCst) {
+        if crate::core::state::GLOBAL_STATE.is_failover_mode.load(std::sync::atomic::Ordering::Relaxed) {
+            let _ = sink.add("Failover".to_string());
+        } else {
+            let _ = sink.add("Running".to_string());
+        }
+    } else {
+        let _ = sink.add("Stopped".to_string());
+    }
 }
 
 pub fn api_init_audio_system(device_name: Option<String>) -> Result<(), AtmosError> {
@@ -655,6 +679,12 @@ pub fn api_init_audio_system(device_name: Option<String>) -> Result<(), AtmosErr
                 
                 let _ = tx.send(Ok(()));
                 
+                if crate::core::state::GLOBAL_STATE.is_failover_mode.load(std::sync::atomic::Ordering::Relaxed) {
+                    broadcast_stream_status("Failover".to_string());
+                } else {
+                    broadcast_stream_status("Running".to_string());
+                }
+                
                 // Keep thread alive until next generation, and watch for DeviceNotAvailable
                 let mut last_device_count: Option<usize> = None;
                 let mut last_device_names: Vec<String> = Vec::new();
@@ -698,13 +728,20 @@ pub fn api_init_audio_system(device_name: Option<String>) -> Result<(), AtmosErr
                 
                 drop(engine);
                 ENGINE_ACTIVE.store(false, std::sync::atomic::Ordering::SeqCst);
+                broadcast_stream_status("Stopped".to_string());
                 
                 // If it wasn't a manual stop, auto restart
                 if ENGINE_GENERATION.load(std::sync::atomic::Ordering::SeqCst) == gen {
-                    std::thread::sleep(std::time::Duration::from_secs(3));
+                    std::thread::sleep(std::time::Duration::from_millis(100)); // Fast auto hot-reload
                     if ENGINE_GENERATION.load(std::sync::atomic::Ordering::SeqCst) == gen {
-                        println!("🔄 [디버깅] 자동 재연결 수행!");
-                        api_start_audio_engine(device_name.clone());
+                        println!("🔄 [디버깅] 자동 재연결(Hot-Reload) 수행!");
+                        broadcast_stream_status("HotReloading".to_string());
+                        if let Err(_e) = api_init_audio_system(device_name.clone()) {
+                            // Emergency Failover
+                            println!("🚨 [Failover] 장치 재연결 실패. WASAPI 기본 장치로 강제 비상 전환!");
+                            crate::core::state::GLOBAL_STATE.is_failover_mode.store(true, std::sync::atomic::Ordering::Relaxed);
+                            let _ = api_init_audio_system(None); // None forces default OS device
+                        }
                     }
                 }
             }
@@ -740,6 +777,7 @@ pub fn api_is_engine_ready() -> bool {
 pub fn api_stop_audio_engine() {
     let _ = ENGINE_GENERATION.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
     println!("✅ [디버깅] 백엔드 오디오 엔진 명시적 종료 지시 완료. (비동기 종료 진행)");
+    broadcast_stream_status("Stopped".to_string());
 }
 
 pub fn api_open_asio_panel() {

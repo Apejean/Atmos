@@ -656,6 +656,9 @@ impl AudioMixer {
                     if self.master_mute {
                         val = 0.0;
                     }
+                    if GLOBAL_STATE.is_failover_mode.load(Ordering::Relaxed) {
+                        val *= 0.01; // -40dB safety pad
+                    }
                     output[sample_idx] = val;
 
                     let abs_val = val.abs();

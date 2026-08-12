@@ -8,8 +8,8 @@ import '../frb_generated.dart';
 import 'error.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `ENGINE_ACTIVE`, `ENGINE_GENERATION`, `ENGINE_THREAD`, `VU_THREAD_RUNNING`
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `deref`, `deref`, `deref`, `deref`, `fmt`, `fmt`, `initialize`, `initialize`, `initialize`, `initialize`
+// These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `ENGINE_ACTIVE`, `ENGINE_GENERATION`, `ENGINE_THREAD`, `STREAM_STATUS_SINK`, `VU_THREAD_RUNNING`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `deref`, `deref`, `deref`, `deref`, `deref`, `fmt`, `fmt`, `initialize`, `initialize`, `initialize`, `initialize`, `initialize`
 
 Future<void> apiUpdateSingleBandEq({
   required BigInt channelIndex,
@@ -138,6 +138,12 @@ Future<void> apiSetChannelEq({
 Stream<Float32List> apiCreateVuStream() =>
     RustLib.instance.api.crateApiSimpleApiCreateVuStream();
 
+Future<void> broadcastStreamStatus({required String status}) =>
+    RustLib.instance.api.crateApiSimpleBroadcastStreamStatus(status: status);
+
+Stream<String> apiCreateStreamStatusStream() =>
+    RustLib.instance.api.crateApiSimpleApiCreateStreamStatusStream();
+
 Future<void> apiInitAudioSystem({String? deviceName}) => RustLib.instance.api
     .crateApiSimpleApiInitAudioSystem(deviceName: deviceName);
 
@@ -152,6 +158,9 @@ Future<void> apiStopAudioEngine() =>
 
 Future<void> apiOpenAsioPanel() =>
     RustLib.instance.api.crateApiSimpleApiOpenAsioPanel();
+
+Future<void> apiGetAsioPanel() =>
+    RustLib.instance.api.crateApiSimpleApiGetAsioPanel();
 
 Stream<String> apiCreateDeviceEventStream() =>
     RustLib.instance.api.crateApiSimpleApiCreateDeviceEventStream();
