@@ -1661,7 +1661,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                   },
                   child: InteractiveViewer(
                     transformationController: _transformationController,
-                    panEnabled: !_isMeasuringScale && !_isRoomInteracting,
+                    panEnabled: !_isMeasuringScale,
                     scaleEnabled: !_isMeasuringScale,
                     boundaryMargin: const EdgeInsets.all(double.infinity),
                     minScale: 0.1,
@@ -2153,7 +2153,9 @@ class _DraggableSpeakerWidgetState
                   onPanStart: (details) {
                     final renderBox = context.findRenderObject() as RenderBox?;
                     if (renderBox != null) {
-                      final globalCenter = renderBox.localToGlobal(originOffset);
+                      final globalCenter = renderBox.localToGlobal(
+                        originOffset,
+                      );
                       _initialTouchAngle = math.atan2(
                         details.globalPosition.dy - globalCenter.dy,
                         details.globalPosition.dx - globalCenter.dx,
@@ -2164,13 +2166,17 @@ class _DraggableSpeakerWidgetState
                   onPanUpdate: (details) {
                     final renderBox = context.findRenderObject() as RenderBox?;
                     if (renderBox != null) {
-                      final globalCenter = renderBox.localToGlobal(originOffset);
+                      final globalCenter = renderBox.localToGlobal(
+                        originOffset,
+                      );
                       final currentTouchAngle = math.atan2(
                         details.globalPosition.dy - globalCenter.dy,
                         details.globalPosition.dx - globalCenter.dx,
                       );
                       final deltaAngle =
-                          (currentTouchAngle - _initialTouchAngle) * 180 / math.pi;
+                          (currentTouchAngle - _initialTouchAngle) *
+                          180 /
+                          math.pi;
                       double newRotation =
                           (_initialSpeakerRotation + deltaAngle) % 360;
                       if (newRotation < 0) newRotation += 360;
