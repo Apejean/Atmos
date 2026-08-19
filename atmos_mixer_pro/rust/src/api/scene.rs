@@ -48,7 +48,7 @@ pub fn load_scene(scene_id: &str) -> Result<(), AtmosError> {
     }
     
     // Notify audio engine to update config
-    let _ = crate::core::state::GLOBAL_STATE.command_sender.lock().unwrap().push(crate::common::commands::AudioCommand::UpdateSpatialConfig {
+    let _ = crate::core::state::GLOBAL_STATE.command_sender.send(crate::common::commands::AudioCommand::UpdateSpatialConfig {
         channel_positions: new_config.mono_configs.iter().map(|(&id, c)| (id, c.position.clone())).collect(),
         room_zones: new_config.room_zones.clone(),
         trajectory: new_config.global_trajectory.clone(),
@@ -67,7 +67,7 @@ pub fn clear_room() -> Result<(), AtmosError> {
         state.global_trajectory = None;
     }
     
-    let _ = crate::core::state::GLOBAL_STATE.command_sender.lock().unwrap().push(crate::common::commands::AudioCommand::UpdateSpatialConfig {
+    let _ = crate::core::state::GLOBAL_STATE.command_sender.send(crate::common::commands::AudioCommand::UpdateSpatialConfig {
         channel_positions: std::collections::HashMap::new(),
         room_zones: Vec::new(),
         trajectory: None,

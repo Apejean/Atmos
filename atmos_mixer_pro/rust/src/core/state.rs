@@ -1,7 +1,7 @@
 use crate::api::simple::EngineStateUpdate;
 use crate::common::commands::AudioCommand;
 use crate::frb_generated::StreamSink;
-use rtrb::{Producer, RingBuffer};
+
 use std::sync::Mutex;
 use lazy_static::lazy_static;
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
@@ -24,9 +24,8 @@ use std::collections::HashMap;
 use std::sync::RwLock;
 
 pub struct GlobalEngineState {
-    // Command channel to audio thread (Lock-free SPSC rtrb)
-    // Producer is wrapped in Mutex so FFI threads can share it.
-    pub command_sender: Mutex<Producer<AudioCommand>>,
+    pub command_sender: crossbeam_channel::Sender<AudioCommand>,
+    pub command_receiver: crossbeam_channel::Receiver<AudioCommand>,
 
     pub active_room_id: RwLock<Option<String>>,
     pub is_ducking: AtomicBool,
@@ -39,6 +38,7 @@ pub struct GlobalEngineState {
     pub sound_cache: RwLock<HashMap<String, Arc<SoundData>>>,
     pub preloaded_sounds: RwLock<HashMap<String, Arc<SoundData>>>,
     pub config: RwLock<Option<AppConfig>>,
+    pub config_version: std::sync::atomic::AtomicU64,
     pub playing_track_ids: RwLock<HashMap<u64, String>>,
     pub broadcast_lock: std::sync::Mutex<()>,
 
@@ -59,7 +59,7 @@ impl Default for GlobalEngineState {
 
 impl GlobalEngineState {
     pub fn new() -> Self {
-        let (producer, _consumer) = RingBuffer::new(8192);
+        let (sender, receiver) = crossbeam_channel::unbounded();
 
         let mut vu = Vec::with_capacity(4096);
         let mut sg = Vec::with_capacity(4096);
@@ -76,7 +76,8 @@ impl GlobalEngineState {
             AtomicU32::new(0),
         ];
         Self {
-            command_sender: Mutex::new(producer),
+            command_sender: sender,
+            command_receiver: receiver,
             active_room_id: RwLock::new(None),
             is_ducking: AtomicBool::new(false),
             enabled_channels: enabled,
@@ -86,6 +87,7 @@ impl GlobalEngineState {
             sound_cache: RwLock::new(HashMap::new()),
             preloaded_sounds: RwLock::new(HashMap::new()),
             config: RwLock::new(None),
+            config_version: std::sync::atomic::AtomicU64::new(1),
             playing_track_ids: RwLock::new(HashMap::new()),
             broadcast_lock: std::sync::Mutex::new(()),
             state_sink: RwLock::new(None),

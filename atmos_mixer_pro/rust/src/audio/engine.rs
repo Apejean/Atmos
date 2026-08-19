@@ -2,7 +2,7 @@ use crate::audio::mixer::AudioMixer;
 use crate::common::commands::AudioCommand;
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::{OutputCallbackInfo, SampleFormat, Stream, StreamConfig};
-use rtrb::Consumer;
+
 use std::sync::atomic::{AtomicBool, Ordering};
 
 lazy_static::lazy_static! {
@@ -103,7 +103,7 @@ impl AudioEngine {
     pub fn start(
         &mut self,
         device_name: Option<String>,
-        cmd_receiver: Consumer<AudioCommand>,
+        cmd_receiver: crossbeam_channel::Receiver<AudioCommand>,
     ) -> Result<(), String> {
         #[cfg(target_os = "windows")]
         {
@@ -381,9 +381,9 @@ impl AudioEngine {
         Ok(())
     }
 
-    fn process_commands(mixer: &mut AudioMixer, rx: &mut Consumer<AudioCommand>) {
+    fn process_commands(mixer: &mut AudioMixer, rx: &crossbeam_channel::Receiver<AudioCommand>) {
         // Lock-free pop from command queue
-        while let Ok(cmd) = rx.pop() {
+        while let Ok(cmd) = rx.try_recv() {
             match cmd {
                 AudioCommand::PlayTrack {
                     instance_id,
