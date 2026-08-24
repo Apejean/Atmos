@@ -54,8 +54,12 @@ pub struct AudioMixer {
     pub limiters: Vec<crate::audio::limiter::PeakLimiter>,
     pub temp_room_vols: Vec<f32>,
     pub temp_room_vols_target: Vec<f32>,
+    pub temp_room_vols_start: Vec<f32>,
+    pub temp_room_vols_phase: Vec<f32>,
     pub channel_spatial_gains: Vec<f32>,
     pub channel_spatial_gains_target: Vec<f32>,
+    pub channel_spatial_gains_start: Vec<f32>,
+    pub channel_spatial_gains_phase: Vec<f32>,
     pub temp_spatial_weights: Vec<f32>,
     pub analysis_tx: Option<rtrb::Producer<f32>>,
     pub temp_vals: Vec<f32>,
@@ -63,6 +67,7 @@ pub struct AudioMixer {
     pub spatializer: Option<crate::audio::spatial::Spatializer3D>,
     pub reverb: crate::audio::reverb::VirtualRoomReverb,
     pub binaural: crate::audio::binaural::VirtualMixRoomBinaural,
+    pub smoothed_trajectory_pos: Option<crate::common::config::Point3D>,
 }
 
 impl AudioMixer {
@@ -167,14 +172,18 @@ impl AudioMixer {
             channel_dsp,
             channel_positions,
             room_zones,
-            trajectory,
+            trajectory: trajectory.clone(),
             master_headroom_db,
             peak_limiter_enabled,
             limiters,
             temp_room_vols: vec![1.0; 4096],
             temp_room_vols_target: vec![1.0; 4096],
+            temp_room_vols_start: vec![1.0; 4096],
+            temp_room_vols_phase: vec![1.0; 4096],
             channel_spatial_gains: vec![1.0; channels],
             channel_spatial_gains_target: vec![1.0; channels],
+            channel_spatial_gains_start: vec![1.0; channels],
+            channel_spatial_gains_phase: vec![1.0; channels],
             temp_spatial_weights: vec![0.0; channels],
             analysis_tx,
             temp_vals: vec![0.0; channels],
@@ -182,6 +191,7 @@ impl AudioMixer {
             spatializer: None,
             reverb: crate::audio::reverb::VirtualRoomReverb::new(sample_rate as f32),
             binaural: crate::audio::binaural::VirtualMixRoomBinaural::new(channels, 1024), // Using 1024 as default block size for now
+            smoothed_trajectory_pos: trajectory.as_ref().map(|t| t.current_position.clone()),
         };
         
         mixer.recalculate_spatial_dsp();
@@ -282,6 +292,20 @@ impl AudioMixer {
         self.channel_spatial_gains_target[..active_ch].fill(1.0);
         self.temp_spatial_weights[..active_ch].fill(0.0);
 
+        if let Some(traj) = &self.trajectory {
+            if let Some(current_pos) = &mut self.smoothed_trajectory_pos {
+                // 1-pole Low-pass filter (Exponential Smoothing) for 60fps OSC
+                let alpha = 0.15; // Smooth over chunks to remove zipper noise
+                current_pos.x += alpha * (traj.current_position.x - current_pos.x);
+                current_pos.y += alpha * (traj.current_position.y - current_pos.y);
+                current_pos.z += alpha * (traj.current_position.z - current_pos.z);
+            } else {
+                self.smoothed_trajectory_pos = Some(traj.current_position.clone());
+            }
+        } else {
+            self.smoothed_trajectory_pos = None;
+        }
+
         let mut sum_sq = 0.0;
         let mut min_dist = f32::MAX;
         let blur_radius = 2.0f32;
@@ -319,9 +343,10 @@ impl AudioMixer {
                         }
 
                         if in_target_room {
-                            let dx = pos.x - traj.current_position.x;
-                            let dy = pos.y - traj.current_position.y;
-                            let dz = pos.z - traj.current_position.z;
+                            let smoothed_pos = self.smoothed_trajectory_pos.as_ref().unwrap();
+                            let dx = pos.x - smoothed_pos.x;
+                            let dy = pos.y - smoothed_pos.y;
+                            let dz = pos.z - smoothed_pos.z;
                             let dist = (dx*dx + dy*dy + dz*dz).sqrt();
                             
                             if dist < min_dist {
@@ -354,9 +379,25 @@ impl AudioMixer {
         let mut temp_vals = std::mem::take(&mut self.temp_vals);
 
         for frame in 0..frames {
-            // Anti-zipper smoothing for spatial automation (~4ms time constant)
+            // Anti-zipper smoothing for spatial automation (~4ms time constant) and 50ms Equal-Power Crossfade for Scene changes
+            let fade_step = 1.0 / (self.sample_rate as f32 * 0.05); // 50ms
+            
             for ch in 0..active_ch {
-                self.channel_spatial_gains[ch] += 0.005 * (self.channel_spatial_gains_target[ch] - self.channel_spatial_gains[ch]);
+                if (self.channel_spatial_gains_target[ch] - self.channel_spatial_gains[ch]).abs() > 0.1 && self.channel_spatial_gains_phase[ch] >= 1.0 {
+                    self.channel_spatial_gains_start[ch] = self.channel_spatial_gains[ch];
+                    self.channel_spatial_gains_phase[ch] = 0.0;
+                }
+                
+                if self.channel_spatial_gains_phase[ch] < 1.0 {
+                    self.channel_spatial_gains_phase[ch] = (self.channel_spatial_gains_phase[ch] + fade_step).min(1.0);
+                    let p = self.channel_spatial_gains_phase[ch];
+                    let s = self.channel_spatial_gains_start[ch];
+                    let t = self.channel_spatial_gains_target[ch];
+                    self.channel_spatial_gains[ch] = s * (p * std::f32::consts::FRAC_PI_2).cos() + t * (p * std::f32::consts::FRAC_PI_2).sin();
+                } else {
+                    self.channel_spatial_gains[ch] += 0.005 * (self.channel_spatial_gains_target[ch] - self.channel_spatial_gains[ch]);
+                }
+                
                 if ch < GLOBAL_STATE.spatial_gains.len() {
                     GLOBAL_STATE.spatial_gains[ch].store(self.channel_spatial_gains[ch].to_bits(), Ordering::Relaxed);
                 }
@@ -389,7 +430,20 @@ impl AudioMixer {
                     continue;
                 }
 
-                self.temp_room_vols[i] += 0.005 * (self.temp_room_vols_target[i] - self.temp_room_vols[i]);
+                if (self.temp_room_vols_target[i] - self.temp_room_vols[i]).abs() > 0.1 && self.temp_room_vols_phase[i] >= 1.0 {
+                    self.temp_room_vols_start[i] = self.temp_room_vols[i];
+                    self.temp_room_vols_phase[i] = 0.0;
+                }
+                
+                if self.temp_room_vols_phase[i] < 1.0 {
+                    self.temp_room_vols_phase[i] = (self.temp_room_vols_phase[i] + fade_step).min(1.0);
+                    let p = self.temp_room_vols_phase[i];
+                    let s = self.temp_room_vols_start[i];
+                    let t = self.temp_room_vols_target[i];
+                    self.temp_room_vols[i] = s * (p * std::f32::consts::FRAC_PI_2).cos() + t * (p * std::f32::consts::FRAC_PI_2).sin();
+                } else {
+                    self.temp_room_vols[i] += 0.005 * (self.temp_room_vols_target[i] - self.temp_room_vols[i]);
+                }
                 
                 if instance.output_channel == usize::MAX {
                     let active_ch = out_channels.min(self.channel_positions.len());

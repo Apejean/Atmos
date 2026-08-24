@@ -11,6 +11,11 @@ import 'package:atmos_mixer_pro/features/settings/widgets/tuning_modal.dart';
 import 'package:atmos_mixer_pro/features/dashboard/widgets/osc_monitor_dialog.dart';
 import 'package:atmos_mixer_pro/features/dashboard/widgets/master_limiter_meter.dart';
 import 'package:atmos_mixer_pro/features/dashboard/widgets/resampler_status_badge.dart';
+import 'package:atmos_mixer_pro/features/dashboard/widgets/rta_spectrum_overlay.dart';
+import 'package:atmos_mixer_pro/features/dashboard/widgets/multitrack_timeline.dart';
+import 'package:atmos_mixer_pro/features/dashboard/widgets/orbit_3d_view_dialog.dart';
+import 'package:atmos_mixer_pro/features/dashboard/widgets/auto_calibration_modal.dart';
+import 'package:atmos_mixer_pro/features/dashboard/widgets/sunrise_sunset_schedule_dialog.dart';
 import 'package:atmos_mixer_pro/features/exhibition/screens/speaker_canvas_screen.dart'
     as atmos_exhibition;
 import 'package:atmos_mixer_pro/src/rust/api/simple.dart' as rust_api;
@@ -883,6 +888,73 @@ oscWhitelist: config.oscWhitelist,
                   '시스템 리셋',
                   style: TextStyle(color: Colors.white),
                 ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.view_in_ar, color: AppColors.primaryNeon),
+                tooltip: '3D Orbit Perspective View',
+                onPressed: () {
+                  showDialog(
+                    context: context,
+                    builder: (context) => const Orbit3DViewDialog(),
+                  );
+                },
+              ),
+              IconButton(
+                icon: const Icon(Icons.graphic_eq, color: AppColors.primaryNeon),
+                tooltip: '24ch RTA Spectrum & Multitrack Timeline Analyzer',
+                onPressed: () {
+                  showDialog(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      backgroundColor: const Color(0xFF1E1E2C),
+                      title: const Text(
+                        '24ch Real-Time Analyzer & Multitrack Timeline',
+                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                      ),
+                      content: const SizedBox(
+                        width: 720,
+                        height: 500,
+                        child: Column(
+                          children: [
+                            Expanded(child: RtaSpectrumOverlayWidget()),
+                            SizedBox(height: 12),
+                            Expanded(child: MultitrackTimelineWidget()),
+                          ],
+                        ),
+                      ),
+                      actions: [
+                        ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primaryNeon,
+                            foregroundColor: Colors.black,
+                          ),
+                          onPressed: () => Navigator.of(context).pop(),
+                          child: const Text('Close'),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+              IconButton(
+                icon: const Icon(Icons.tune, color: Colors.cyanAccent),
+                tooltip: '1-Click Auto Calibration',
+                onPressed: () {
+                  showDialog(
+                    context: context,
+                    builder: (context) => const AutoCalibrationModal(),
+                  );
+                },
+              ),
+              IconButton(
+                icon: const Icon(Icons.wb_sunny_outlined, color: Colors.amberAccent),
+                tooltip: 'Sunrise / Sunset Exhibition Scheduler',
+                onPressed: () {
+                  showDialog(
+                    context: context,
+                    builder: (context) => const SunriseSunsetScheduleDialog(),
+                  );
+                },
               ),
               ElevatedButton(
                 style: ElevatedButton.styleFrom(

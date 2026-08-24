@@ -697,6 +697,13 @@ pub fn api_init_audio_system(device_name: Option<String>) -> Result<(), AtmosErr
                     if ENGINE_GENERATION.load(std::sync::atomic::Ordering::SeqCst) != gen {
                         break;
                     }
+
+                    if crate::core::state::GLOBAL_STATE.device_needs_reset.load(std::sync::atomic::Ordering::Acquire) {
+                        println!("⚠️ [디버깅] ASIO 장치 핫리로드 요청 수신 (kAsioResetRequest)");
+                        crate::core::state::GLOBAL_STATE.device_needs_reset.store(false, std::sync::atomic::Ordering::Release);
+                        break;
+                    }
+
                     if let Some(err) = crate::core::state::GLOBAL_STATE.engine_error.read().unwrap_or_else(|e| e.into_inner()).as_ref() {
                         if err == "DeviceNotAvailable" {
                             println!("⚠️ [디버깅] 오디오 장치 유실 감지! (rtrb SPSC 환경, 큐 대기 상태)");
