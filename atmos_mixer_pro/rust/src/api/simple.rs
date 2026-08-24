@@ -224,7 +224,7 @@ pub fn api_play_track(room_id: String, track_id: String) -> Result<(), AtmosErro
             if let Some(track) = room.tracks.iter().find(|t| t.id == track_id) {
                 let instance_id = std::time::SystemTime::now()
                     .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap()
+                    .unwrap_or(std::time::Duration::from_secs(0))
                     .as_nanos() as u64;
 
                 let _ = GLOBAL_STATE
@@ -566,7 +566,7 @@ lazy_static::lazy_static! {
 pub fn api_create_vu_stream(sink: StreamSink<Vec<f32>>) {
     let session_id = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
+        .unwrap_or(std::time::Duration::from_secs(0))
         .as_millis() as u64;
     VU_THREAD_RUNNING.store(session_id, std::sync::atomic::Ordering::Relaxed);
 
@@ -601,13 +601,13 @@ lazy_static::lazy_static! {
 }
 
 pub fn broadcast_stream_status(status: String) {
-    if let Some(sink) = STREAM_STATUS_SINK.read().unwrap().as_ref() {
+    if let Some(sink) = STREAM_STATUS_SINK.read().unwrap_or_else(|e| e.into_inner()).as_ref() {
         let _ = sink.add(status);
     }
 }
 
 pub fn api_create_stream_status_stream(sink: StreamSink<String>) {
-    let mut guard = STREAM_STATUS_SINK.write().unwrap();
+    let mut guard = STREAM_STATUS_SINK.write().unwrap_or_else(|e| e.into_inner());
     *guard = Some(sink.clone());
     drop(guard);
     
@@ -662,7 +662,7 @@ pub fn api_init_audio_system(device_name: Option<String>) -> Result<(), AtmosErr
         let is_asio = if let Some(ref name) = device_name_clone {
             name.starts_with("[ASIO]")
         } else {
-            if let Some(config) = crate::core::state::GLOBAL_STATE.config.read().unwrap().as_ref() {
+            if let Some(config) = crate::core::state::GLOBAL_STATE.config.read().unwrap_or_else(|e| e.into_inner()).as_ref() {
                 config.device_name.as_ref().map(|n| n.starts_with("[ASIO]")).unwrap_or(false)
             } else {
                 false
@@ -712,7 +712,7 @@ pub fn api_init_audio_system(device_name: Option<String>) -> Result<(), AtmosErr
                     }
 
                     // Watchdog: Check if callback hasn't fired in >1000ms
-                    let now_ms = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis() as u64;
+                    let now_ms = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or(std::time::Duration::from_secs(0)).as_millis() as u64;
                     let last_cb = crate::core::state::GLOBAL_STATE.watchdog_last_callback.load(std::sync::atomic::Ordering::Relaxed);
                     if last_cb > 0 && (now_ms > last_cb + 1000) {
                         println!("🚨 [Watchdog] 오디오 스레드 콜백 응답 없음 (1000ms 초과)! 엔진 강제 재기동...");
@@ -1024,7 +1024,7 @@ pub fn api_get_output_devices() -> Result<Vec<OutputDeviceInfo>, AtmosError> {
             if let Some(config) = crate::core::state::GLOBAL_STATE
                 .config
                 .read()
-                .unwrap()
+                .unwrap_or_else(|e| e.into_inner())
                 .as_ref()
             {
                 if let Some(ref saved_name) = config.device_name {
@@ -1130,7 +1130,7 @@ pub fn api_get_output_devices() -> Result<Vec<OutputDeviceInfo>, AtmosError> {
                     );
                     // If ASIO fails completely but we have a saved ASIO device, inject it manually to prevent UI reset
                     if is_asio_host {
-                        if let Some(config) = crate::core::state::GLOBAL_STATE.config.read().unwrap().as_ref() {
+                        if let Some(config) = crate::core::state::GLOBAL_STATE.config.read().unwrap_or_else(|e| e.into_inner()).as_ref() {
                             if let Some(ref saved_name) = config.device_name {
                                 if saved_name.starts_with("[ASIO]") {
                                     let _actual_name = saved_name.replace("[ASIO] ", "").trim().to_string();
@@ -1168,7 +1168,7 @@ pub fn api_get_output_devices() -> Result<Vec<OutputDeviceInfo>, AtmosError> {
                         if let Some(config) = crate::core::state::GLOBAL_STATE
                             .config
                             .read()
-                            .unwrap()
+                            .unwrap_or_else(|e| e.into_inner())
                             .as_ref()
                         {
                             if let Some(ref saved_name) = config.device_name {
@@ -1229,7 +1229,7 @@ pub fn api_get_output_devices() -> Result<Vec<OutputDeviceInfo>, AtmosError> {
 
                         // Fallback: If ASIO max_channels is still 2 after query fails or returns only 2, and it matches the saved active ASIO device, reuse the active channel count
                         if is_asio_host && max_channels <= 2 {
-                            if let Some(config) = crate::core::state::GLOBAL_STATE.config.read().unwrap().as_ref() {
+                            if let Some(config) = crate::core::state::GLOBAL_STATE.config.read().unwrap_or_else(|e| e.into_inner()).as_ref() {
                                 if let Some(ref saved_name) = config.device_name {
                                     if saved_name.trim() == name.trim() {
                                         let active_ch = crate::core::state::GLOBAL_STATE.active_device_channels.load(std::sync::atomic::Ordering::SeqCst);
@@ -1292,7 +1292,7 @@ pub fn api_get_device_channel_count(device_name: Option<String>) -> Result<u32, 
             if let Some(config) = crate::core::state::GLOBAL_STATE
                 .config
                 .read()
-                .unwrap()
+                .unwrap_or_else(|e| e.into_inner())
                 .as_ref()
             {
                 if let Some(ref saved_name) = config.device_name {
