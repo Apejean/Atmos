@@ -9,6 +9,8 @@ import 'package:atmos_mixer_pro/features/dashboard/widgets/room_card.dart';
 import 'package:atmos_mixer_pro/features/settings/widgets/preferences_modal.dart';
 import 'package:atmos_mixer_pro/features/settings/widgets/tuning_modal.dart';
 import 'package:atmos_mixer_pro/features/dashboard/widgets/osc_monitor_dialog.dart';
+import 'package:atmos_mixer_pro/features/dashboard/widgets/master_limiter_meter.dart';
+import 'package:atmos_mixer_pro/features/dashboard/widgets/resampler_status_badge.dart';
 import 'package:atmos_mixer_pro/features/exhibition/screens/speaker_canvas_screen.dart'
     as atmos_exhibition;
 import 'package:atmos_mixer_pro/src/rust/api/simple.dart' as rust_api;
@@ -726,6 +728,21 @@ oscWhitelist: config.oscWhitelist,
                 ),
               );
             },
+          ),
+          const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ResamplerStatusBadgeWidget(
+                fileSampleRate: 44100,
+                deviceSampleRate: 48000,
+                forceActive: true,
+              ),
+              SizedBox(width: 8),
+              MasterLimiterMeterWidget(
+                initialGainReductionDb: 0.0,
+                enableSimulationToggle: true,
+              ),
+            ],
           ),
           Wrap(
             spacing: 8,
