@@ -22,6 +22,13 @@ pub enum AudioCommand {
         track_id: u32,
     },
     StopAll,
+    SetBinauralEnabled {
+        enabled: bool,
+    },
+    SetReverbParams {
+        mix: f32,
+        decay: f32,
+    },
     SetMasterMute {
         muted: bool,
     },

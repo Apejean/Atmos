@@ -11,3 +11,5 @@ pub mod rta;
 pub mod svf;
 pub mod limiter;
 pub mod analysis;
+pub mod reverb;
+pub mod binaural;

@@ -1752,3 +1752,26 @@ pub fn api_calculate_eq_response_curve(
 pub fn api_get_active_output_channels(device_name: Option<String>) -> Result<Vec<String>, AtmosError> {
     api_get_device_channel_names(device_name)
 }
+
+pub fn api_get_osc_metrics() -> crate::osc::metrics::OscMetricsDto {
+    crate::osc::metrics::GLOBAL_OSC_METRICS.get_metrics()
+}
+
+pub fn api_reset_osc_metrics() {
+    crate::osc::metrics::GLOBAL_OSC_METRICS.reset();
+}
+
+
+#[flutter_rust_bridge::frb(sync)]
+pub fn api_set_binaural_enabled(enabled: bool) {
+    let _ = crate::core::state::GLOBAL_STATE
+        .command_sender
+        .send(crate::common::commands::AudioCommand::SetBinauralEnabled { enabled });
+}
+
+#[flutter_rust_bridge::frb(sync)]
+pub fn api_set_reverb_params(mix: f32, decay: f32) {
+    let _ = crate::core::state::GLOBAL_STATE
+        .command_sender
+        .send(crate::common::commands::AudioCommand::SetReverbParams { mix, decay });
+}

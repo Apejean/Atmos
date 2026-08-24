@@ -5,6 +5,7 @@
 
 import '../common/config.dart';
 import '../frb_generated.dart';
+import '../osc/metrics.dart';
 import 'error.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
@@ -274,6 +275,20 @@ Future<List<String>> apiGetActiveOutputChannels({String? deviceName}) => RustLib
     .instance
     .api
     .crateApiSimpleApiGetActiveOutputChannels(deviceName: deviceName);
+
+Future<OscMetricsDto> apiGetOscMetrics() =>
+    RustLib.instance.api.crateApiSimpleApiGetOscMetrics();
+
+Future<void> apiResetOscMetrics() =>
+    RustLib.instance.api.crateApiSimpleApiResetOscMetrics();
+
+void apiSetBinauralEnabled({required bool enabled}) =>
+    RustLib.instance.api.crateApiSimpleApiSetBinauralEnabled(enabled: enabled);
+
+void apiSetReverbParams({required double mix, required double decay}) => RustLib
+    .instance
+    .api
+    .crateApiSimpleApiSetReverbParams(mix: mix, decay: decay);
 
 class ChannelTuningParams {
   final int channel;

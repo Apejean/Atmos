@@ -436,6 +436,12 @@ impl AudioEngine {
                         inst.is_stopping = true;
                     }
                 }
+                AudioCommand::SetBinauralEnabled { enabled } => {
+                    mixer.binaural.enabled = enabled;
+                }
+                AudioCommand::SetReverbParams { mix, decay } => {
+                    mixer.reverb.set_params(decay, mix);
+                }
                 AudioCommand::SetMasterMute { muted } => {
                     mixer.master_mute = muted;
                 }

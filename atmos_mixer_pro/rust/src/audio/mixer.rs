@@ -60,6 +60,9 @@ pub struct AudioMixer {
     pub analysis_tx: Option<rtrb::Producer<f32>>,
     pub temp_vals: Vec<f32>,
     pub master_clock: f64,
+    pub spatializer: Option<crate::audio::spatial::Spatializer3D>,
+    pub reverb: crate::audio::reverb::VirtualRoomReverb,
+    pub binaural: crate::audio::binaural::VirtualMixRoomBinaural,
 }
 
 impl AudioMixer {
@@ -176,6 +179,9 @@ impl AudioMixer {
             analysis_tx,
             temp_vals: vec![0.0; channels],
             master_clock: 0.0,
+            spatializer: None,
+            reverb: crate::audio::reverb::VirtualRoomReverb::new(sample_rate as f32),
+            binaural: crate::audio::binaural::VirtualMixRoomBinaural::new(channels, 1024), // Using 1024 as default block size for now
         };
         
         mixer.recalculate_spatial_dsp();
@@ -624,6 +630,22 @@ impl AudioMixer {
                     let mut val = output[sample_idx];
                     val = self.channel_dsp[ch].process(val, fs);
                     output[sample_idx] = val;
+                }
+            }
+        }
+        
+        // Apply Binaural Processing (De-interleaves, convolves, and re-interleaves to Ch0 & Ch1)
+        self.binaural.process_interleaved(output, out_channels);
+
+        // Apply Global Reverb to Ch0 and Ch1
+        if out_channels >= 2 && self.reverb.mix > 0.0 {
+            for frame in 0..frames {
+                let idx_l = frame * out_channels + 0;
+                let idx_r = frame * out_channels + 1;
+                if idx_r < output.len() {
+                    let (rl, rr) = self.reverb.process_stereo(output[idx_l], output[idx_r]);
+                    output[idx_l] = rl;
+                    output[idx_r] = rr;
                 }
             }
         }
