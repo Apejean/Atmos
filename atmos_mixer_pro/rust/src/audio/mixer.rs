@@ -4,6 +4,9 @@ use std::sync::atomic::Ordering;
 use crate::audio::dsp::dsp_utils::ChannelDspState;
 
 pub enum SpatialGarbage {
+    Command(crate::common::commands::AudioCommand),
+    TrackPositions(std::collections::HashMap<String, crate::common::config::Point3D>),
+    EqBands(Vec<crate::common::config::EqBand>),
     RoomZones(Vec<crate::common::config::RoomZone>),
     Trajectory(Option<crate::common::config::Trajectory>),
     ChannelPositions(Vec<Option<crate::common::config::Point3D>>),
@@ -199,7 +202,7 @@ impl AudioMixer {
             master_clock: 0.0,
             spatializer: None,
             reverb: crate::audio::reverb::VirtualRoomReverb::new(sample_rate as f32),
-            binaural: crate::audio::binaural::VirtualMixRoomBinaural::new(channels, 1024), // Using 1024 as default block size for now
+            binaural: crate::audio::binaural::VirtualMixRoomBinaural::new(channels, 8192), // Using 1024 as default block size for now
             smoothed_trajectory_pos: trajectory.as_ref().map(|t| t.current_position.clone()),
         };
         
@@ -508,7 +511,7 @@ impl AudioMixer {
                                     if self.local_recycle.len() < self.local_recycle.capacity() {
                                         self.local_recycle.extend(std::iter::once(v));
                                     } else {
-                                        crate::core::state::GLOBAL_STATE.log("Emergency buffer leak to prevent audio stall".to_string());
+                                        // Emergency buffer leak
                                         std::mem::forget(v);
                                     }
                                 }

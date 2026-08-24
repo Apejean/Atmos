@@ -305,7 +305,7 @@ impl AudioEngine {
                 None,
             ),
             SampleFormat::I16 => {
-                let mut temp_buf: Vec<f32> = vec![0.0; 8192];
+                let mut temp_buf: Vec<f32> = vec![0.0; 65536];
                 device.build_output_stream(
                     &config,
                     move |data: &mut [i16], _: &OutputCallbackInfo| {
@@ -317,10 +317,7 @@ impl AudioEngine {
                         crate::core::state::GLOBAL_STATE.watchdog_last_callback.store(now_ms, Ordering::Relaxed);
 
                         Self::process_commands(&mut mixer, &mut cmd_receiver_f32);
-                        if temp_buf.len() < data.len() {
-                            temp_buf.resize(data.len(), 0.0);
-                        }
-                        let temp = &mut temp_buf[..data.len()];
+                        let len = data.len().min(temp_buf.len()); let temp = &mut temp_buf[..len];
                         mixer.process(temp, config.channels as usize);
                         for (dst, src) in data.iter_mut().zip(temp.iter()) {
                             *dst = cpal::Sample::from_sample(*src);
@@ -331,7 +328,7 @@ impl AudioEngine {
                 )
             }
             SampleFormat::I32 => {
-                let mut temp_buf: Vec<f32> = vec![0.0; 8192];
+                let mut temp_buf: Vec<f32> = vec![0.0; 65536];
                 device.build_output_stream(
                     &config,
                     move |data: &mut [i32], _: &OutputCallbackInfo| {
@@ -343,10 +340,7 @@ impl AudioEngine {
                         crate::core::state::GLOBAL_STATE.watchdog_last_callback.store(now_ms, Ordering::Relaxed);
 
                         Self::process_commands(&mut mixer, &mut cmd_receiver_f32);
-                        if temp_buf.len() < data.len() {
-                            temp_buf.resize(data.len(), 0.0);
-                        }
-                        let temp = &mut temp_buf[..data.len()];
+                        let len = data.len().min(temp_buf.len()); let temp = &mut temp_buf[..len];
                         mixer.process(temp, config.channels as usize);
                         for (dst, src) in data.iter_mut().zip(temp.iter()) {
                             *dst = cpal::Sample::from_sample(*src);
@@ -357,7 +351,7 @@ impl AudioEngine {
                 )
             }
             SampleFormat::U16 => {
-                let mut temp_buf: Vec<f32> = vec![0.0; 8192];
+                let mut temp_buf: Vec<f32> = vec![0.0; 65536];
                 device.build_output_stream(
                     &config,
                     move |data: &mut [u16], _: &OutputCallbackInfo| {
@@ -369,10 +363,7 @@ impl AudioEngine {
                         crate::core::state::GLOBAL_STATE.watchdog_last_callback.store(now_ms, Ordering::Relaxed);
 
                         Self::process_commands(&mut mixer, &mut cmd_receiver_f32);
-                        if temp_buf.len() < data.len() {
-                            temp_buf.resize(data.len(), 0.0);
-                        }
-                        let temp = &mut temp_buf[..data.len()];
+                        let len = data.len().min(temp_buf.len()); let temp = &mut temp_buf[..len];
                         mixer.process(temp, config.channels as usize);
                         for (dst, src) in data.iter_mut().zip(temp.iter()) {
                             *dst = cpal::Sample::from_sample(*src);
@@ -441,7 +432,7 @@ impl AudioEngine {
                             let _ = mixer.gc_sender.try_send(old);
                         }
                     } else {
-                        eprintln!("Mixer object pool full!");
+                        // Mixer object pool full
                     }
                 }
                 AudioCommand::StopTrack { room_id, track_id } => {
@@ -515,12 +506,14 @@ impl AudioEngine {
                     if channel < mixer.channel_dsp.len() {
                         mixer.channel_dsp[channel].update_eq_targets(&bands, mixer.sample_rate as f32);
                     }
+                    let _ = mixer.spatial_gc_tx.try_send(crate::audio::mixer::SpatialGarbage::EqBands(bands));
                 }
                 AudioCommand::ApplyChannelTuning { channel, delay_ms, eq_bands } => {
                     if channel < mixer.channel_dsp.len() {
                         mixer.channel_dsp[channel].update_delay_target(delay_ms);
                         mixer.channel_dsp[channel].update_eq_targets(&eq_bands, mixer.sample_rate as f32);
                     }
+                    let _ = mixer.spatial_gc_tx.try_send(crate::audio::mixer::SpatialGarbage::EqBands(eq_bands));
                 }
                 AudioCommand::UpdateSpatialConfig { channel_positions, room_zones, trajectory, track_positions } => {
                     let old_positions = std::mem::replace(&mut mixer.channel_positions, channel_positions);
@@ -536,6 +529,7 @@ impl AudioEngine {
                         }
                     }
                     mixer.recalculate_spatial_dsp();
+                    let _ = mixer.spatial_gc_tx.try_send(crate::audio::mixer::SpatialGarbage::TrackPositions(track_positions));
                 }
                 AudioCommand::UpdateTrajectoryPosition { position } => {
                     if let Some(traj) = &mut mixer.trajectory {

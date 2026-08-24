@@ -1089,7 +1089,7 @@ pub fn api_get_output_devices() -> Result<Vec<OutputDeviceInfo>, AtmosError> {
                     match rx.recv_timeout(std::time::Duration::from_secs(2)) {
                         Ok(Ok(Ok(d))) => Ok(d),
                         Ok(Ok(Err(e))) => Err(e),
-                        Ok(Err(e)) => Err(cpal::DevicesError::BackendSpecific { err: cpal::BackendSpecificError { description: "ASIO host init failed".to_string() } }),
+                        Ok(Err(_e)) => Err(cpal::DevicesError::BackendSpecific { err: cpal::BackendSpecificError { description: "ASIO host init failed".to_string() } }),
                         Err(_) => Err(cpal::DevicesError::BackendSpecific { err: cpal::BackendSpecificError { description: "ASIO scan timed out (buggy driver?)".to_string() } }),
                     }
                 }
@@ -1101,7 +1101,8 @@ pub fn api_get_output_devices() -> Result<Vec<OutputDeviceInfo>, AtmosError> {
                 host.output_devices()
             };
 
-            let devices_result = devices_result;
+            #[allow(unused_mut)]
+            let mut devices_result = devices_result;
             if devices_result.is_err() && is_asio_host {
                 for _ in 0..2 {
                     std::thread::sleep(std::time::Duration::from_millis(300));
