@@ -46,7 +46,7 @@ pub fn api_update_sound_source_position(sound_id: String, x: f32, y: f32, z: f32
 }
 
 pub fn api_get_config(path: String) -> AppConfig {
-    let config = AppConfig::load_from_file(path, 48000).unwrap_or_default();
+    let config = AppConfig::load_from_file(path).unwrap_or_default();
 
     for b in &GLOBAL_STATE.enabled_channels {
         b.store(false, std::sync::atomic::Ordering::Relaxed);
@@ -1084,7 +1084,7 @@ pub fn api_get_output_devices() -> Result<Vec<OutputDeviceInfo>, AtmosError> {
                 host.output_devices()
             };
 
-            let mut devices_result = devices_result;
+            let devices_result = devices_result;
             if devices_result.is_err() && is_asio_host {
                 for _ in 0..2 {
                     std::thread::sleep(std::time::Duration::from_millis(300));
@@ -1116,7 +1116,7 @@ pub fn api_get_output_devices() -> Result<Vec<OutputDeviceInfo>, AtmosError> {
                         if let Some(config) = crate::core::state::GLOBAL_STATE.config.read().unwrap().as_ref() {
                             if let Some(ref saved_name) = config.device_name {
                                 if saved_name.starts_with("[ASIO]") {
-                                    let actual_name = saved_name.replace("[ASIO] ", "").trim().to_string();
+                                    let _actual_name = saved_name.replace("[ASIO] ", "").trim().to_string();
                                     let max_channels = if crate::core::state::GLOBAL_STATE.active_device_channels.load(std::sync::atomic::Ordering::SeqCst) > 0 {
                                         crate::core::state::GLOBAL_STATE.active_device_channels.load(std::sync::atomic::Ordering::SeqCst)
                                     } else { 2 };

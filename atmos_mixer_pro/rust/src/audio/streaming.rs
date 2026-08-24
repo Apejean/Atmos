@@ -1,7 +1,7 @@
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use rtrb::{Consumer, RingBuffer};
-use rubato::{Resampler, SincFixedIn, InterpolationType, InterpolationParameters, WindowFunction};
+use rubato::{Resampler, SincFixedOut, InterpolationType, InterpolationParameters, WindowFunction};
 
 #[repr(align(128))]
 pub struct CachePadded<T> {
@@ -40,7 +40,7 @@ impl Drop for DiskStreamer {
 
 impl DiskStreamer {
     pub fn new(file_path: String, is_loop: bool, target_sample_rate: u32) -> anyhow::Result<Self> {
-        let (mut tx, rx) = RingBuffer::new(128); // Buffer up to 128 chunks
+        let (mut tx, rx) = RingBuffer::new(128);
         let is_running = Arc::new(CachePadded { value: AtomicBool::new(true) });
 
         let path = std::path::PathBuf::from(file_path);
@@ -59,28 +59,15 @@ impl DiskStreamer {
         let metadata_opts = symphonia::core::meta::MetadataOptions::default();
         let decoder_opts = symphonia::core::codecs::DecoderOptions::default();
 
-        let probed = symphonia::default::get_probe().format(
-            &hint,
-            mss_probe,
-            &format_opts,
-            &metadata_opts,
-        )?;
+        let probed = symphonia::default::get_probe().format(&hint, mss_probe, &format_opts, &metadata_opts)?;
 
-        let track = probed
-            .format
-            .default_track()
-            .ok_or_else(|| anyhow::anyhow!("No default track"))?;
+        let track = probed.format.default_track().ok_or_else(|| anyhow::anyhow!("No default track"))?;
         let src_sample_rate = track.codec_params.sample_rate.unwrap_or(48000);
-        let channels = track
-            .codec_params
-            .channels
-            .map(|c| c.count() as u16)
-            .unwrap_or(2);
-        let max_frames = track.codec_params.max_frames_per_packet.unwrap_or(4096) as usize;
+        let channels = track.codec_params.channels.map(|c| c.count() as u16).unwrap_or(2);
         let track_id = track.id;
         
         let needs_resampling = src_sample_rate != target_sample_rate;
-        let output_sample_rate = target_sample_rate;
+        let output_sample_rate = if needs_resampling { target_sample_rate } else { src_sample_rate };
 
         let handle = std::thread::spawn(move || {
             let file = match std::fs::File::open(&path) {
@@ -92,12 +79,7 @@ impl DiskStreamer {
             };
 
             let mss = symphonia::core::io::MediaSourceStream::new(file, Default::default());
-            let probed = match symphonia::default::get_probe().format(
-                &hint,
-                mss,
-                &format_opts,
-                &metadata_opts,
-            ) {
+            let probed = match symphonia::default::get_probe().format(&hint, mss, &format_opts, &metadata_opts) {
                 Ok(p) => p,
                 Err(e) => {
                     eprintln!("DiskStreamer probe error: {}", e);
@@ -108,20 +90,16 @@ impl DiskStreamer {
             let mut format = probed.format;
             let track = match format.default_track() {
                 Some(t) => t,
-                None => {
-                    eprintln!("DiskStreamer: No default track");
+                None => return,
+            };
+
+            let mut decoder = match symphonia::default::get_codecs().make(&track.codec_params, &decoder_opts) {
+                Ok(d) => d,
+                Err(e) => {
+                    eprintln!("DiskStreamer decoder error: {}", e);
                     return;
                 }
             };
-
-            let mut decoder =
-                match symphonia::default::get_codecs().make(&track.codec_params, &decoder_opts) {
-                    Ok(d) => d,
-                    Err(e) => {
-                        eprintln!("DiskStreamer decoder error: {}", e);
-                        return;
-                    }
-                };
 
             let mut sample_buf = None;
             
@@ -133,18 +111,20 @@ impl DiskStreamer {
                     oversampling_factor: 256,
                     window: WindowFunction::BlackmanHarris2,
                 };
-                Some(SincFixedIn::<f32>::new(
+                // Fixed output chunk size of 1024 frames
+                Some(SincFixedOut::<f32>::new(
                     target_sample_rate as f64 / src_sample_rate as f64,
                     2.0,
                     params,
-                    max_frames,
+                    1024,
                     channels as usize,
                 ).unwrap())
             } else {
                 None
             };
             
-            let mut resampler_in_buf = vec![vec![0.0; max_frames]; channels as usize];
+            // Buffer to accumulate input samples for SincFixedOut
+            let mut input_accumulator = vec![Vec::<f32>::new(); channels as usize];
 
             while run_flag.value.load(Ordering::Relaxed) {
                 let packet = match format.next_packet() {
@@ -178,10 +158,7 @@ impl DiskStreamer {
                         }
                         break;
                     }
-                    Err(e) => {
-                        eprintln!("Packet error: {}", e);
-                        continue;
-                    }
+                    Err(_) => continue,
                 };
 
                 if packet.track_id() != track_id {
@@ -192,72 +169,71 @@ impl DiskStreamer {
                     Ok(audio_buf) => {
                         if sample_buf.is_none() {
                             let spec = *audio_buf.spec();
-                            let duration = std::cmp::max(audio_buf.capacity() as u64, max_frames as u64);
                             sample_buf = Some(symphonia::core::audio::SampleBuffer::<f32>::new(
-                                duration, spec,
+                                audio_buf.capacity() as u64, spec,
                             ));
                         }
 
                         if let Some(buf) = &mut sample_buf {
                             buf.copy_interleaved_ref(audio_buf);
                             
-                            let mut chunk = Vec::new();
-                            let frames = buf.samples().len() / channels as usize;
-                            
                             if let Some(r) = &mut resampler {
-                                // De-interleave
+                                let frames = buf.samples().len() / channels as usize;
                                 for ch in 0..channels as usize {
-                                    resampler_in_buf[ch].clear();
-                                }
-                                for frame in 0..frames {
-                                    for ch in 0..channels as usize {
-                                        resampler_in_buf[ch].push(buf.samples()[frame * channels as usize + ch]);
+                                    for frame in 0..frames {
+                                        input_accumulator[ch].push(buf.samples()[frame * channels as usize + ch]);
                                     }
                                 }
                                 
-                                // Resample
-                                match r.process(&resampler_in_buf, None) {
-                                    Ok(resampled) => {
+                                while input_accumulator[0].len() >= r.input_frames_next() {
+                                    let required = r.input_frames_next();
+                                    let mut process_buf = vec![vec![0.0; required]; channels as usize];
+                                    for ch in 0..channels as usize {
+                                        let drained: Vec<f32> = input_accumulator[ch].drain(0..required).collect();
+                                        process_buf[ch].copy_from_slice(&drained);
+                                    }
+                                    
+                                    if let Ok(resampled) = r.process(&process_buf, None) {
                                         let out_frames = resampled[0].len();
-                                        chunk.reserve(out_frames * channels as usize);
-                                        // Interleave
+                                        let mut chunk = Vec::with_capacity(out_frames * channels as usize);
                                         for frame in 0..out_frames {
                                             for ch in 0..channels as usize {
                                                 chunk.push(resampled[ch][frame]);
                                             }
                                         }
-                                    }
-                                    Err(e) => {
-                                        eprintln!("Resampling error: {}", e);
-                                        continue;
+                                        
+                                        // Send chunk
+                                        let mut item = chunk;
+                                        loop {
+                                            if !run_flag.value.load(Ordering::Relaxed) { break; }
+                                            match tx.push(item) {
+                                                Ok(_) => break,
+                                                Err(rtrb::PushError::Full(returned)) => {
+                                                    std::thread::sleep(std::time::Duration::from_millis(1));
+                                                    item = returned;
+                                                }
+                                            }
+                                        }
                                     }
                                 }
                             } else {
+                                let mut chunk = Vec::with_capacity(buf.samples().len());
                                 chunk.extend_from_slice(buf.samples());
-                            }
-
-                            let mut item = chunk;
-                            loop {
-                                if !run_flag.value.load(Ordering::Relaxed) {
-                                    break;
-                                }
-                                match tx.push(item) {
-                                    Ok(_) => break,
-                                    Err(rtrb::PushError::Full(returned)) => {
-                                        std::thread::sleep(std::time::Duration::from_millis(1));
-                                        item = returned;
+                                let mut item = chunk;
+                                loop {
+                                    if !run_flag.value.load(Ordering::Relaxed) { break; }
+                                    match tx.push(item) {
+                                        Ok(_) => break,
+                                        Err(rtrb::PushError::Full(returned)) => {
+                                            std::thread::sleep(std::time::Duration::from_millis(1));
+                                            item = returned;
+                                        }
                                     }
                                 }
                             }
                         }
                     }
-                    Err(symphonia::core::errors::Error::DecodeError(e)) => {
-                        eprintln!("Decode error (ignoring): {}", e);
-                    }
-                    Err(e) => {
-                        eprintln!("Fatal decode error: {}", e);
-                        break;
-                    }
+                    Err(_) => {}
                 }
             }
         });

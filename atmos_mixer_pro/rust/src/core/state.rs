@@ -2,7 +2,6 @@ use crate::api::simple::EngineStateUpdate;
 use crate::common::commands::AudioCommand;
 use crate::frb_generated::StreamSink;
 
-use std::sync::Mutex;
 use lazy_static::lazy_static;
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::Arc;

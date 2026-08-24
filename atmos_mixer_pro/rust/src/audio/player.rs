@@ -7,7 +7,7 @@ use symphonia::core::formats::FormatOptions;
 use symphonia::core::io::MediaSourceStream;
 use symphonia::core::meta::MetadataOptions;
 use symphonia::core::probe::Hint;
-use rubato::{Resampler, SincFixedIn, InterpolationType, InterpolationParameters, WindowFunction};
+use rubato::{Resampler, SincFixedOut, InterpolationType, InterpolationParameters, WindowFunction};
 
 pub struct SoundData {
     pub samples: Vec<f32>,
@@ -92,7 +92,7 @@ impl SoundData {
 
         let mut sample_buf = None;
         let mut all_samples = Vec::new();
-        let mut actual_channels = channels;
+        let actual_channels = channels;
 
         loop {
             let packet = match format.next_packet() {
@@ -133,7 +133,7 @@ impl SoundData {
 
         let needs_resampling = src_sample_rate != target_sample_rate && target_sample_rate > 0;
         
-        if needs_resampling && all_samples.len() > 0 {
+        if needs_resampling && !all_samples.is_empty() {
             let frames = all_samples.len() / channels as usize;
             let mut deinterleaved = vec![vec![0.0; frames]; channels as usize];
             for frame in 0..frames {
@@ -150,24 +150,40 @@ impl SoundData {
                 window: WindowFunction::BlackmanHarris2,
             };
             
-            let mut resampler = SincFixedIn::<f32>::new(
+            let mut resampler = SincFixedOut::<f32>::new(
                 target_sample_rate as f64 / src_sample_rate as f64,
                 2.0,
                 params,
-                frames,
+                1024,
                 channels as usize,
             ).unwrap();
             
-            if let Ok(resampled) = resampler.process(&deinterleaved, None) {
-                let out_frames = resampled[0].len();
-                let mut interleaved = Vec::with_capacity(out_frames * channels as usize);
-                for frame in 0..out_frames {
-                    for ch in 0..channels as usize {
-                        interleaved.push(resampled[ch][frame]);
+            let mut resampled_samples = Vec::new();
+            let mut input_idx = 0;
+            
+            while input_idx < frames {
+                let required = resampler.input_frames_next();
+                if input_idx + required > frames {
+                    break;
+                }
+                
+                let mut process_buf = vec![vec![0.0; required]; channels as usize];
+                for ch in 0..channels as usize {
+                    process_buf[ch].copy_from_slice(&deinterleaved[ch][input_idx..input_idx + required]);
+                }
+                
+                if let Ok(resampled) = resampler.process(&process_buf, None) {
+                    let out_frames = resampled[0].len();
+                    for frame in 0..out_frames {
+                        for ch in 0..channels as usize {
+                            resampled_samples.push(resampled[ch][frame]);
+                        }
                     }
                 }
-                all_samples = interleaved;
+                input_idx += required;
             }
+            
+            all_samples = resampled_samples;
         }
 
         Ok(Self {

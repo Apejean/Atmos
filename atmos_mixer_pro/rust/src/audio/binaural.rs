@@ -1,6 +1,5 @@
 use realfft::RealFftPlanner;
 use rustfft::num_complex::Complex;
-use std::sync::Arc;
 
 pub struct BinauralChannel {
     ir_left_freq: Vec<Complex<f32>>,

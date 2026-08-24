@@ -2,7 +2,6 @@ use symphonia::core::probe::Hint;
 use symphonia::core::formats::FormatOptions;
 use symphonia::core::meta::MetadataOptions;
 use symphonia::core::io::MediaSourceStream;
-use symphonia::core::codecs::DecoderOptions;
 use std::fs::File;
 
 fn main() {
