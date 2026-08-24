@@ -1133,7 +1133,7 @@ pub fn api_get_output_devices() -> Result<Vec<OutputDeviceInfo>, AtmosError> {
                         if let Some(config) = crate::core::state::GLOBAL_STATE.config.read().unwrap_or_else(|e| e.into_inner()).as_ref() {
                             if let Some(ref saved_name) = config.device_name {
                                 if saved_name.starts_with("[ASIO]") {
-                                    let _actual_name = saved_name.replace("[ASIO] ", "").trim().to_string();
+                                    let actual_name = saved_name.replace("[ASIO] ", "").trim().to_string();
                                     let max_channels = if crate::core::state::GLOBAL_STATE.active_device_channels.load(std::sync::atomic::Ordering::SeqCst) > 0 {
                                         crate::core::state::GLOBAL_STATE.active_device_channels.load(std::sync::atomic::Ordering::SeqCst)
                                     } else { 2 };

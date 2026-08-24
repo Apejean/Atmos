@@ -1828,8 +1828,8 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
               children: [
                 InteractiveViewer(
                   transformationController: _transformationController,
-                  panEnabled: !_isMeasuringScale,
-                  scaleEnabled: !_isMeasuringScale,
+                  panEnabled: !_isMeasuringScale && !_isRoomInteracting,
+                  scaleEnabled: !_isMeasuringScale && !_isRoomInteracting,
                   boundaryMargin: const EdgeInsets.all(double.infinity),
                   minScale: 0.1,
                   maxScale: 2.0,
