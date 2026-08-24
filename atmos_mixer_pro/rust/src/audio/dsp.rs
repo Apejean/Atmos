@@ -142,6 +142,10 @@ pub mod dsp_utils {
         pub current_bands: Vec<EqBand>,
         pub eq_filters: Vec<EqFilterState>,
         pub dc_blocker: DcBlocker,
+        
+        pub target_distance_meters: f32,
+        pub current_distance_meters: f32,
+        pub air_absorption: crate::audio::dsp::acoustic_physics::AirAbsorptionFilter,
     }
     
     impl Default for ChannelDspState {
@@ -165,6 +169,9 @@ pub mod dsp_utils {
                 current_bands: vec![EqBand::default(); MAX_EQ_BANDS],
                 eq_filters,
                 dc_blocker: DcBlocker::new(),
+                target_distance_meters: 0.0,
+                current_distance_meters: 0.0,
+                air_absorption: crate::audio::dsp::acoustic_physics::AirAbsorptionFilter::new(),
             }
         }
     
@@ -190,9 +197,22 @@ pub mod dsp_utils {
             }
         }
     
+        pub fn update_distance(&mut self, target_dist: f32) {
+            self.target_distance_meters = target_dist;
+        }
+
         #[inline(always)]
         pub fn process(&mut self, input: f32, fs: f32) -> f32 {
-            // Delay parameter smoothing
+            // Distance and Delay parameter smoothing
+            let diff_dist = self.target_distance_meters - self.current_distance_meters;
+            if diff_dist.abs() > 0.01 {
+                self.current_distance_meters += diff_dist * 0.005;
+            } else {
+                self.current_distance_meters = self.target_distance_meters;
+            }
+
+            self.air_absorption.set_distance(self.current_distance_meters, fs);
+
             let diff = self.target_delay_ms - self.current_delay_ms;
             if diff.abs() > 0.001 {
                 self.current_delay_ms += diff * 0.005; // Smoothing factor
@@ -203,18 +223,23 @@ pub mod dsp_utils {
             // Write to delay buffer
             self.delay_buffer[self.delay_write_idx] = input;
             
-            // Read from delay buffer with fractional interpolation
-            let delay_samples = (self.current_delay_ms / 1000.0 * fs).clamp(0.0, (DELAY_BUFFER_SIZE - 2) as f32);
+            // Read from delay buffer with hermite interpolation
+            let delay_samples = (self.current_delay_ms / 1000.0 * fs).clamp(0.0, (DELAY_BUFFER_SIZE - 4) as f32);
             let delay_int = delay_samples.floor() as usize;
             let delay_frac = delay_samples - delay_int as f32;
             
-            let read_idx1 = (self.delay_write_idx + DELAY_BUFFER_SIZE - delay_int) % DELAY_BUFFER_SIZE;
-            let read_idx2 = (self.delay_write_idx + DELAY_BUFFER_SIZE - delay_int - 1) % DELAY_BUFFER_SIZE;
+            // For hermite we need 4 points: x0, x1, x2, x3. We want to interpolate between x1 and x2.
+            let read_idx_x0 = (self.delay_write_idx + DELAY_BUFFER_SIZE - delay_int + 1) % DELAY_BUFFER_SIZE;
+            let read_idx_x1 = (self.delay_write_idx + DELAY_BUFFER_SIZE - delay_int) % DELAY_BUFFER_SIZE;
+            let read_idx_x2 = (self.delay_write_idx + DELAY_BUFFER_SIZE - delay_int - 1) % DELAY_BUFFER_SIZE;
+            let read_idx_x3 = (self.delay_write_idx + DELAY_BUFFER_SIZE - delay_int - 2) % DELAY_BUFFER_SIZE;
             
-            let s1 = self.delay_buffer[read_idx1];
-            let s2 = self.delay_buffer[read_idx2];
+            let x0 = self.delay_buffer[read_idx_x0];
+            let x1 = self.delay_buffer[read_idx_x1];
+            let x2 = self.delay_buffer[read_idx_x2];
+            let x3 = self.delay_buffer[read_idx_x3];
             
-            let mut out = s1 + delay_frac * (s2 - s1);
+            let mut out = interpolate_hermite(x0, x1, x2, x3, delay_frac);
             prevent_denormal(&mut out);
             
             self.delay_write_idx = (self.delay_write_idx + 1) % DELAY_BUFFER_SIZE;
@@ -224,6 +249,9 @@ pub mod dsp_utils {
                 out = filter.process(out, fs);
             }
             
+            // Apply Air Absorption
+            out = self.air_absorption.process(out);
+
             // Apply DC Blocker
             out = self.dc_blocker.process(out, fs);
             
@@ -321,6 +349,7 @@ pub mod acoustic_physics {
         }
     }
 
+    #[derive(Clone)]
     pub struct AirAbsorptionFilter {
         lpf: SvfFilter,
         target_cutoff: f32,
@@ -349,7 +378,7 @@ pub mod acoustic_physics {
             // Just update filter coefficients immediately if they differ significantly
             if (self.current_cutoff - self.target_cutoff).abs() > 10.0 {
                 self.current_cutoff += 0.005 * (self.target_cutoff - self.current_cutoff);
-                self.lpf.set_coefficients(EqType::HighShelf, sample_rate, self.current_cutoff, 0.707, -normalized_dist * 24.0);
+                self.lpf.update_coefficients(&EqType::HighShelf, sample_rate, self.current_cutoff, 0.707, -normalized_dist * 24.0);
             }
         }
 

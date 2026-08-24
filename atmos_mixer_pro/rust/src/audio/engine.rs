@@ -295,7 +295,7 @@ impl AudioEngine {
                         ENGINE_INIT_SIGNAL.store(true, Ordering::Release);
                     }
                     // Update watchdog
-                    let now_ms = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis() as u64;
+                    let now_ms = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or(std::time::Duration::from_secs(0)).as_millis() as u64;
                     crate::core::state::GLOBAL_STATE.watchdog_last_callback.store(now_ms, Ordering::Relaxed);
 
                     Self::process_commands(&mut mixer, &mut cmd_receiver_f32);
@@ -313,7 +313,7 @@ impl AudioEngine {
                             ENGINE_INIT_SIGNAL.store(true, Ordering::Release);
                         }
                         // Update watchdog
-                        let now_ms = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis() as u64;
+                        let now_ms = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or(std::time::Duration::from_secs(0)).as_millis() as u64;
                         crate::core::state::GLOBAL_STATE.watchdog_last_callback.store(now_ms, Ordering::Relaxed);
 
                         Self::process_commands(&mut mixer, &mut cmd_receiver_f32);
@@ -339,7 +339,7 @@ impl AudioEngine {
                             ENGINE_INIT_SIGNAL.store(true, Ordering::Release);
                         }
                         // Update watchdog
-                        let now_ms = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis() as u64;
+                        let now_ms = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or(std::time::Duration::from_secs(0)).as_millis() as u64;
                         crate::core::state::GLOBAL_STATE.watchdog_last_callback.store(now_ms, Ordering::Relaxed);
 
                         Self::process_commands(&mut mixer, &mut cmd_receiver_f32);
@@ -365,7 +365,7 @@ impl AudioEngine {
                             ENGINE_INIT_SIGNAL.store(true, Ordering::Release);
                         }
                         // Update watchdog
-                        let now_ms = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis() as u64;
+                        let now_ms = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or(std::time::Duration::from_secs(0)).as_millis() as u64;
                         crate::core::state::GLOBAL_STATE.watchdog_last_callback.store(now_ms, Ordering::Relaxed);
 
                         Self::process_commands(&mut mixer, &mut cmd_receiver_f32);

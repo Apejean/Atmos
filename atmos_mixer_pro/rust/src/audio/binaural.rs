@@ -4,6 +4,8 @@ use rustfft::num_complex::Complex;
 pub struct BinauralChannel {
     ir_left_freq: Vec<Complex<f32>>,
     ir_right_freq: Vec<Complex<f32>>,
+    target_ir_left_freq: Vec<Complex<f32>>,
+    target_ir_right_freq: Vec<Complex<f32>>,
     fft_size: usize,
     input_buffer: Vec<f32>,
     overlap_add_left: Vec<f32>,
@@ -14,6 +16,10 @@ pub struct BinauralChannel {
     out_right_freq: Vec<Complex<f32>>,
     out_left_time: Vec<f32>,
     out_right_time: Vec<f32>,
+    out_left_time_target: Vec<f32>,
+    out_right_time_target: Vec<f32>,
+    crossfade_phase: f32,
+    is_switching: bool,
 }
 
 impl BinauralChannel {
@@ -34,15 +40,22 @@ impl BinauralChannel {
         let mut ir_right_freq = r2c.make_output_vec();
         r2c.process(&mut ir_right_padded, &mut ir_right_freq).unwrap();
 
+        let target_ir_left_freq = ir_left_freq.clone();
+        let target_ir_right_freq = ir_right_freq.clone();
+
         let input_freq = vec![Complex::new(0.0, 0.0); ir_left_freq.len()];
         let out_left_freq = vec![Complex::new(0.0, 0.0); ir_left_freq.len()];
         let out_right_freq = vec![Complex::new(0.0, 0.0); ir_left_freq.len()];
         let out_left_time = vec![0.0; fft_size];
         let out_right_time = vec![0.0; fft_size];
+        let out_left_time_target = vec![0.0; fft_size];
+        let out_right_time_target = vec![0.0; fft_size];
 
         Self {
             ir_left_freq,
             ir_right_freq,
+            target_ir_left_freq,
+            target_ir_right_freq,
             fft_size,
             input_buffer: vec![0.0; fft_size],
             overlap_add_left: vec![0.0; fft_size],
@@ -53,7 +66,26 @@ impl BinauralChannel {
             out_right_freq,
             out_left_time,
             out_right_time,
+            out_left_time_target,
+            out_right_time_target,
+            crossfade_phase: 1.0,
+            is_switching: false,
         }
+    }
+    
+    pub fn update_hrtf(&mut self, new_ir_left: &[f32], new_ir_right: &[f32]) {
+        let r2c = self.planner.plan_fft_forward(self.fft_size);
+        
+        let mut ir_left_padded = vec![0.0; self.fft_size];
+        ir_left_padded[..new_ir_left.len().min(self.fft_size)].copy_from_slice(&new_ir_left[..new_ir_left.len().min(self.fft_size)]);
+        r2c.process(&mut ir_left_padded, &mut self.target_ir_left_freq).unwrap();
+
+        let mut ir_right_padded = vec![0.0; self.fft_size];
+        ir_right_padded[..new_ir_right.len().min(self.fft_size)].copy_from_slice(&new_ir_right[..new_ir_right.len().min(self.fft_size)]);
+        r2c.process(&mut ir_right_padded, &mut self.target_ir_right_freq).unwrap();
+        
+        self.is_switching = true;
+        self.crossfade_phase = 0.0;
     }
 
     pub fn process_block(&mut self, input: &[f32], out_left: &mut [f32], out_right: &mut [f32]) {
@@ -66,15 +98,44 @@ impl BinauralChannel {
 
         r2c.process(&mut self.input_buffer, &mut self.input_freq).unwrap();
 
+        // Convolve with current IR
         for i in 0..self.input_freq.len() {
             self.out_left_freq[i] = self.input_freq[i] * self.ir_left_freq[i];
             self.out_right_freq[i] = self.input_freq[i] * self.ir_right_freq[i];
         }
-
         c2r.process(&mut self.out_left_freq, &mut self.out_left_time).unwrap();
         c2r.process(&mut self.out_right_freq, &mut self.out_right_time).unwrap();
 
         let scale = 1.0 / self.fft_size as f32;
+        
+        // If switching, convolve with target IR and crossfade
+        if self.is_switching {
+            for i in 0..self.input_freq.len() {
+                self.out_left_freq[i] = self.input_freq[i] * self.target_ir_left_freq[i];
+                self.out_right_freq[i] = self.input_freq[i] * self.target_ir_right_freq[i];
+            }
+            c2r.process(&mut self.out_left_freq, &mut self.out_left_time_target).unwrap();
+            c2r.process(&mut self.out_right_freq, &mut self.out_right_time_target).unwrap();
+            
+            let fade_step = 1.0 / block_size as f32;
+            
+            for i in 0..block_size {
+                self.crossfade_phase = (self.crossfade_phase + fade_step).min(1.0);
+                // Equal power crossfade
+                let p = self.crossfade_phase;
+                let c_cos = (p * std::f32::consts::FRAC_PI_2).cos();
+                let c_sin = (p * std::f32::consts::FRAC_PI_2).sin();
+                
+                self.out_left_time[i] = self.out_left_time[i] * c_cos + self.out_left_time_target[i] * c_sin;
+                self.out_right_time[i] = self.out_right_time[i] * c_cos + self.out_right_time_target[i] * c_sin;
+            }
+            
+            if self.crossfade_phase >= 1.0 {
+                self.is_switching = false;
+                self.ir_left_freq.copy_from_slice(&self.target_ir_left_freq);
+                self.ir_right_freq.copy_from_slice(&self.target_ir_right_freq);
+            }
+        }
         
         for i in 0..self.fft_size {
             self.overlap_add_left[i] += self.out_left_time[i] * scale;
@@ -100,6 +161,9 @@ pub struct VirtualMixRoomBinaural {
     temp_channel_buffers: Vec<Vec<f32>>,
     mix_left: Vec<f32>,
     mix_right: Vec<f32>,
+    current_yaw: f32,
+    current_pitch: f32,
+    current_roll: f32,
 }
 
 impl VirtualMixRoomBinaural {
@@ -121,11 +185,35 @@ impl VirtualMixRoomBinaural {
             temp_channel_buffers,
             mix_left: vec![0.0; block_size],
             mix_right: vec![0.0; block_size],
+            current_yaw: 0.0,
+            current_pitch: 0.0,
+            current_roll: 0.0,
         }
     }
 
     pub fn process_interleaved(&mut self, output: &mut [f32], out_channels: usize) {
         if !self.enabled || out_channels < 2 { return; }
+        
+        // Handle 3-DoF Head Tracking via GLOBAL_STATE
+        let yaw = f32::from_bits(crate::core::state::GLOBAL_STATE.hrtf_yaw.load(std::sync::atomic::Ordering::Relaxed));
+        let pitch = f32::from_bits(crate::core::state::GLOBAL_STATE.hrtf_pitch.load(std::sync::atomic::Ordering::Relaxed));
+        let roll = f32::from_bits(crate::core::state::GLOBAL_STATE.hrtf_roll.load(std::sync::atomic::Ordering::Relaxed));
+        
+        if (yaw - self.current_yaw).abs() > 0.01 || (pitch - self.current_pitch).abs() > 0.01 || (roll - self.current_roll).abs() > 0.01 {
+            self.current_yaw = yaw;
+            self.current_pitch = pitch;
+            self.current_roll = roll;
+            
+            // Generate synthetic HRTF shift based on yaw for demonstration
+            // In a real SOFA implementation, we would look up the closest IRs based on (yaw, pitch, roll)
+            let shift = yaw.sin() * 0.5; // -0.5 to 0.5
+            let dummy_ir_left = vec![(0.5 - shift).max(0.0), 0.0];
+            let dummy_ir_right = vec![(0.5 + shift).max(0.0), 1.0];
+            
+            for ch in &mut self.channels {
+                ch.update_hrtf(&dummy_ir_left, &dummy_ir_right);
+            }
+        }
         
         let frames = output.len() / out_channels;
         let num_ch = self.channels.len().min(out_channels);
@@ -133,7 +221,7 @@ impl VirtualMixRoomBinaural {
         // Ensure temp buffers are correct size
         for buf in &mut self.temp_channel_buffers {
             if buf.len() < frames {
-                buf.resize(frames, 0.0); // We shouldn't hit this if pre-allocated correctly, but safe to keep
+                buf.resize(frames, 0.0); 
             }
         }
         if self.mix_left.len() < frames {

@@ -194,7 +194,7 @@ impl AudioMixer {
             analysis_tx,
             temp_vals: vec![0.0; channels],
             temp_base_delays: vec![0.0; channels],
-            temp_base_eqs: vec![Vec::new(); channels],
+            temp_base_eqs: (0..channels).map(|_| Vec::with_capacity(32)).collect(),
             temp_channel_dists: vec![0.0; channels],
             master_clock: 0.0,
             spatializer: None,
@@ -265,7 +265,8 @@ impl AudioMixer {
                             inst.spatial_gains_target.resize(active_ch, 0.0);
                         }
                         
-                        let pos = inst.current_position.as_ref().unwrap();
+                        let default_pos = crate::common::config::Point3D::default();
+                        let pos = inst.current_position.as_ref().unwrap_or(&default_pos);
                         let mut sum_sq = 0.0;
                         let mut min_dist = f32::MAX;
                         let blur_radius = 2.0f32;
@@ -352,7 +353,7 @@ impl AudioMixer {
                         }
 
                         if in_target_room {
-                            let smoothed_pos = self.smoothed_trajectory_pos.as_ref().unwrap();
+                            let smoothed_pos = self.smoothed_trajectory_pos.as_ref().unwrap_or(&traj.current_position);
                             let dx = pos.x - smoothed_pos.x;
                             let dy = pos.y - smoothed_pos.y;
                             let dz = pos.z - smoothed_pos.z;
@@ -932,6 +933,7 @@ impl AudioMixer {
                         
                         let base_delay = base_delays[ch_idx];
                         self.channel_dsp[ch_idx].update_delay_target(base_delay + acoustic_delay_ms + zone_delay);
+                        self.channel_dsp[ch_idx].update_distance(dist);
 
                         // Phase 2: Dispersion Angle off-axis EQ roll-off
                         let mut dynamic_eq = None;
@@ -959,12 +961,12 @@ impl AudioMixer {
                         }
 
                         // Apply Base EQ, Boundary EQ, and Dynamic EQ
-                        let mut final_eqs = base_eqs[ch_idx].clone();
+                        let final_eqs = &mut base_eqs[ch_idx];
                         
                         if let Some(zone) = matched_zone {
                             for b_eq in &zone.boundary_eq_bands {
                                 let mut already_exists = false;
-                                for band in &mut final_eqs {
+                                for band in final_eqs.iter_mut() {
                                     if band.enabled && (band.freq - b_eq.freq).abs() < 1.0 && band.filter_type == b_eq.filter_type {
                                         already_exists = true;
                                         band.gain = b_eq.gain;
@@ -979,7 +981,7 @@ impl AudioMixer {
 
                         if let Some(dyn_eq) = dynamic_eq {
                             let mut already_exists = false;
-                            for band in &mut final_eqs {
+                            for band in final_eqs.iter_mut() {
                                 if band.enabled && (band.freq - dyn_eq.freq).abs() < 1.0 && band.filter_type == dyn_eq.filter_type {
                                     already_exists = true;
                                     band.gain = dyn_eq.gain;

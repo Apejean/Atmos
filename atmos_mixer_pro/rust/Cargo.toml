@@ -13,6 +13,7 @@ cpal = { version = "0.15.2", features = ["asio"] }
 crossbeam-channel = "0.5.15"
 ebur128 = "0.1.10"
 flutter_rust_bridge = "=2.12.0"
+hound = "3.5.1"
 lazy_static = "1.5.0"
 once_cell = "1.21.4"
 parking_lot = "0.12.3"
