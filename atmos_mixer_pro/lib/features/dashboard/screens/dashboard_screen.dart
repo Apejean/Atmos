@@ -16,6 +16,7 @@ import 'package:atmos_mixer_pro/features/dashboard/widgets/multitrack_timeline.d
 import 'package:atmos_mixer_pro/features/dashboard/widgets/orbit_3d_view_dialog.dart';
 import 'package:atmos_mixer_pro/features/dashboard/widgets/auto_calibration_modal.dart';
 import 'package:atmos_mixer_pro/features/dashboard/widgets/sunrise_sunset_schedule_dialog.dart';
+import 'package:atmos_mixer_pro/features/dashboard/widgets/advanced_physics_panel.dart';
 import 'package:atmos_mixer_pro/features/exhibition/screens/speaker_canvas_screen.dart'
     as atmos_exhibition;
 import 'package:atmos_mixer_pro/features/dashboard/widgets/safety_alert_border.dart';
@@ -970,6 +971,16 @@ oscWhitelist: config.oscWhitelist,
                   showDialog(
                     context: context,
                     builder: (context) => const SunriseSunsetScheduleDialog(),
+                  );
+                },
+              ),
+              IconButton(
+                icon: const Icon(Icons.science, color: Colors.greenAccent),
+                tooltip: 'Advanced Physical Acoustics Panel (Doppler, Air HF, Directivity)',
+                onPressed: () {
+                  showDialog(
+                    context: context,
+                    builder: (context) => const AdvancedPhysicsPanel(),
                   );
                 },
               ),

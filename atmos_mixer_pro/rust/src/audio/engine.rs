@@ -294,6 +294,10 @@ impl AudioEngine {
                     if !ENGINE_INIT_SIGNAL.load(Ordering::Acquire) {
                         ENGINE_INIT_SIGNAL.store(true, Ordering::Release);
                     }
+                    // Update watchdog
+                    let now_ms = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis() as u64;
+                    crate::core::state::GLOBAL_STATE.watchdog_last_callback.store(now_ms, Ordering::Relaxed);
+
                     Self::process_commands(&mut mixer, &mut cmd_receiver_f32);
                     mixer.process(data, config.channels as usize);
                 },
@@ -308,6 +312,10 @@ impl AudioEngine {
                         if !ENGINE_INIT_SIGNAL.load(Ordering::Acquire) {
                             ENGINE_INIT_SIGNAL.store(true, Ordering::Release);
                         }
+                        // Update watchdog
+                        let now_ms = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis() as u64;
+                        crate::core::state::GLOBAL_STATE.watchdog_last_callback.store(now_ms, Ordering::Relaxed);
+
                         Self::process_commands(&mut mixer, &mut cmd_receiver_f32);
                         if temp_buf.len() < data.len() {
                             temp_buf.resize(data.len(), 0.0);
@@ -330,6 +338,10 @@ impl AudioEngine {
                         if !ENGINE_INIT_SIGNAL.load(Ordering::Acquire) {
                             ENGINE_INIT_SIGNAL.store(true, Ordering::Release);
                         }
+                        // Update watchdog
+                        let now_ms = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis() as u64;
+                        crate::core::state::GLOBAL_STATE.watchdog_last_callback.store(now_ms, Ordering::Relaxed);
+
                         Self::process_commands(&mut mixer, &mut cmd_receiver_f32);
                         if temp_buf.len() < data.len() {
                             temp_buf.resize(data.len(), 0.0);
@@ -352,6 +364,10 @@ impl AudioEngine {
                         if !ENGINE_INIT_SIGNAL.load(Ordering::Acquire) {
                             ENGINE_INIT_SIGNAL.store(true, Ordering::Release);
                         }
+                        // Update watchdog
+                        let now_ms = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis() as u64;
+                        crate::core::state::GLOBAL_STATE.watchdog_last_callback.store(now_ms, Ordering::Relaxed);
+
                         Self::process_commands(&mut mixer, &mut cmd_receiver_f32);
                         if temp_buf.len() < data.len() {
                             temp_buf.resize(data.len(), 0.0);

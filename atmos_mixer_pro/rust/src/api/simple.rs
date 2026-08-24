@@ -711,6 +711,14 @@ pub fn api_init_audio_system(device_name: Option<String>) -> Result<(), AtmosErr
                         }
                     }
 
+                    // Watchdog: Check if callback hasn't fired in >1000ms
+                    let now_ms = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis() as u64;
+                    let last_cb = crate::core::state::GLOBAL_STATE.watchdog_last_callback.load(std::sync::atomic::Ordering::Relaxed);
+                    if last_cb > 0 && (now_ms > last_cb + 1000) {
+                        println!("🚨 [Watchdog] 오디오 스레드 콜백 응답 없음 (1000ms 초과)! 엔진 강제 재기동...");
+                        break;
+                    }
+
                     // Device Topology Monitoring (Every 3000ms = 30 * 100ms)
                     monitor_timer += 1;
                     if monitor_timer >= 30 {
@@ -834,6 +842,7 @@ pub struct EngineStateUpdate {
     pub playing_track_ids: Vec<String>,
     pub engine_error: Option<String>,
     pub output_channel_count: u32,
+    pub short_term_lufs: f32,
 }
 
 pub fn api_create_engine_state_stream(sink: StreamSink<EngineStateUpdate>) {
@@ -853,6 +862,7 @@ pub fn api_create_engine_state_stream(sink: StreamSink<EngineStateUpdate>) {
         playing_track_ids,
         engine_error: GLOBAL_STATE.engine_error.read().unwrap_or_else(|e| e.into_inner()).clone(),
         output_channel_count: GLOBAL_STATE.active_device_channels.load(std::sync::atomic::Ordering::Relaxed),
+        short_term_lufs: f32::from_bits(GLOBAL_STATE.current_master_lufs.load(std::sync::atomic::Ordering::Relaxed)),
     };
     let _ = sink.add(initial_state);
     *GLOBAL_STATE.state_sink.write().unwrap_or_else(|e| e.into_inner()) = Some(sink);

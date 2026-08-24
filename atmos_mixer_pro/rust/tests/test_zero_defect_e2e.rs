@@ -173,3 +173,14 @@ fn test_zero_defect_ffi_struct_alignment() {
         align
     );
 }
+
+#[test]
+fn test_zero_defect_e2e_watchdog_autoguard() {
+    let mut limiter = rust_lib_atmos_mixer_pro::audio::limiter::PeakLimiter::new(48000.0, 1.0, 500.0, 1.0);
+    let target = 10.0;
+    for _ in 0..(48000 * 3) {
+        limiter.process(target);
+    }
+    assert!(limiter.short_term_lufs > -14.0, "LUFS should be high");
+    assert!(limiter.autoguard_ducking < 1.0, "Ducking should be applied");
+}

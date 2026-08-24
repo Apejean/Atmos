@@ -2242,14 +2242,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   EngineStateUpdate dco_decode_engine_state_update(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 5)
-      throw Exception('unexpected arr length: expect 5 but see ${arr.length}');
+    if (arr.length != 6)
+      throw Exception('unexpected arr length: expect 6 but see ${arr.length}');
     return EngineStateUpdate(
       activeRoomId: dco_decode_opt_String(arr[0]),
       duckingActive: dco_decode_bool(arr[1]),
       playingTrackIds: dco_decode_list_String(arr[2]),
       engineError: dco_decode_opt_String(arr[3]),
       outputChannelCount: dco_decode_u_32(arr[4]),
+      shortTermLufs: dco_decode_f_32(arr[5]),
     );
   }
 
@@ -2748,12 +2749,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_playingTrackIds = sse_decode_list_String(deserializer);
     var var_engineError = sse_decode_opt_String(deserializer);
     var var_outputChannelCount = sse_decode_u_32(deserializer);
+    var var_shortTermLufs = sse_decode_f_32(deserializer);
     return EngineStateUpdate(
       activeRoomId: var_activeRoomId,
       duckingActive: var_duckingActive,
       playingTrackIds: var_playingTrackIds,
       engineError: var_engineError,
       outputChannelCount: var_outputChannelCount,
+      shortTermLufs: var_shortTermLufs,
     );
   }
 
@@ -3374,6 +3377,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_list_String(self.playingTrackIds, serializer);
     sse_encode_opt_String(self.engineError, serializer);
     sse_encode_u_32(self.outputChannelCount, serializer);
+    sse_encode_f_32(self.shortTermLufs, serializer);
   }
 
   @protected

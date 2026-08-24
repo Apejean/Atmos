@@ -268,3 +268,93 @@ pub mod dsp_utils {
         }
     }
 }
+
+pub mod acoustic_physics {
+    use crate::audio::svf::SvfFilter;
+    use crate::common::config::EqType;
+
+    pub struct FractionalDelayLine {
+        buffer: Vec<f32>,
+        write_idx: usize,
+    }
+
+    impl FractionalDelayLine {
+        pub fn new(max_samples: usize) -> Self {
+            Self {
+                buffer: vec![0.0; max_samples],
+                write_idx: 0,
+            }
+        }
+
+        pub fn process(&mut self, input: f32, delay_samples: f32) -> f32 {
+            let len = self.buffer.len() as f32;
+            let mut read_idx = self.write_idx as f32 - delay_samples;
+            if read_idx < 0.0 {
+                read_idx += len;
+            }
+
+            let idx0 = read_idx as usize;
+            let idx1 = (idx0 + 1) % self.buffer.len();
+            let idx2 = (idx0 + 2) % self.buffer.len();
+            
+            // To do cubic hermite we need 4 points, but let's use 4 tap hermite
+            let idx_m1 = (idx0 + self.buffer.len() - 1) % self.buffer.len();
+            
+            let x0 = self.buffer[idx_m1];
+            let x1 = self.buffer[idx0];
+            let x2 = self.buffer[idx1];
+            let x3 = self.buffer[idx2];
+            
+            let frac = read_idx - idx0 as f32;
+            
+            let c0 = x1;
+            let c1 = 0.5 * (x2 - x0);
+            let c2 = x0 - 2.5 * x1 + 2.0 * x2 - 0.5 * x3;
+            let c3 = 0.5 * (x3 - x0) + 1.5 * (x1 - x2);
+            
+            let out = ((c3 * frac + c2) * frac + c1) * frac + c0;
+            
+            self.buffer[self.write_idx] = input;
+            self.write_idx = (self.write_idx + 1) % self.buffer.len();
+            
+            out
+        }
+    }
+
+    pub struct AirAbsorptionFilter {
+        lpf: SvfFilter,
+        target_cutoff: f32,
+        current_cutoff: f32,
+    }
+
+    impl AirAbsorptionFilter {
+        pub fn new() -> Self {
+            Self {
+                lpf: SvfFilter::new(),
+                target_cutoff: 20000.0,
+                current_cutoff: 20000.0,
+            }
+        }
+
+        pub fn set_distance(&mut self, dist_meters: f32, sample_rate: f32) {
+            // Rough approximation: -3dB at 10kHz at 10m, -3dB at 5kHz at 20m etc.
+            // Cutoff moves from 20000Hz down to around 2000Hz as distance increases
+            let max_dist = 50.0; // Assume max significant effect at 50m
+            let normalized_dist = (dist_meters / max_dist).clamp(0.0, 1.0);
+            let min_cutoff = 2000.0;
+            let max_cutoff = 20000.0;
+            
+            self.target_cutoff = max_cutoff - normalized_dist * (max_cutoff - min_cutoff);
+            
+            // Just update filter coefficients immediately if they differ significantly
+            if (self.current_cutoff - self.target_cutoff).abs() > 10.0 {
+                self.current_cutoff += 0.005 * (self.target_cutoff - self.current_cutoff);
+                self.lpf.set_coefficients(EqType::HighShelf, sample_rate, self.current_cutoff, 0.707, -normalized_dist * 24.0);
+            }
+        }
+
+        pub fn process(&mut self, input: f32) -> f32 {
+            self.lpf.process(input)
+        }
+    }
+}

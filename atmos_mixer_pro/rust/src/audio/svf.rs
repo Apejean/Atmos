@@ -122,3 +122,30 @@ impl SvfFilter {
         }
     }
 }
+
+#[derive(Clone, Default)]
+pub struct LinkwitzRiley24 {
+    stage1: SvfFilter,
+    stage2: SvfFilter,
+}
+
+impl LinkwitzRiley24 {
+    pub fn new() -> Self {
+        Self {
+            stage1: SvfFilter::new(),
+            stage2: SvfFilter::new(),
+        }
+    }
+
+    pub fn set_coefficients(&mut self, filter_type: EqType, sample_rate: f32, freq: f32) {
+        // Linkwitz-Riley 24dB/oct is formed by two cascaded 12dB/oct Butterworth filters
+        // Q factor for Butterworth is 0.707 (1/sqrt(2))
+        self.stage1.set_coefficients(filter_type, sample_rate, freq, 0.707, 0.0);
+        self.stage2.set_coefficients(filter_type, sample_rate, freq, 0.707, 0.0);
+    }
+
+    pub fn process(&mut self, input: f32) -> f32 {
+        let y = self.stage1.process(input);
+        self.stage2.process(y)
+    }
+}
