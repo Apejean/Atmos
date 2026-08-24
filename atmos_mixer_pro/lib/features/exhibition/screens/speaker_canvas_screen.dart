@@ -2482,17 +2482,19 @@ class _GridPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    final double safeScale =
+        (scale > 0 && !scale.isNaN && !scale.isInfinite) ? scale : 40.0;
     final paint = Paint()
       ..color = Colors.white12
       ..strokeWidth = 1.0;
 
     final textPainter = TextPainter(textDirection: TextDirection.ltr);
 
-    for (double i = 0; i <= size.width; i += scale) {
+    for (double i = 0; i <= size.width; i += safeScale) {
       canvas.drawLine(Offset(i, 0), Offset(i, size.height), paint);
 
-      if (i > 0 && i % (scale * 5) == 0) {
-        final meters = (i / scale).toStringAsFixed(1);
+      if (i > 0 && i % (safeScale * 5) == 0) {
+        final meters = (i / safeScale).toStringAsFixed(1);
         textPainter.text = TextSpan(
           text: '${meters}m',
           style: const TextStyle(color: Colors.white38, fontSize: 10),
@@ -2501,11 +2503,11 @@ class _GridPainter extends CustomPainter {
         textPainter.paint(canvas, Offset(i + 2, 2));
       }
     }
-    for (double i = 0; i <= size.height; i += scale) {
+    for (double i = 0; i <= size.height; i += safeScale) {
       canvas.drawLine(Offset(0, i), Offset(size.width, i), paint);
 
-      if (i > 0 && i % (scale * 5) == 0) {
-        final meters = (i / scale).toStringAsFixed(1);
+      if (i > 0 && i % (safeScale * 5) == 0) {
+        final meters = (i / safeScale).toStringAsFixed(1);
         textPainter.text = TextSpan(
           text: '${meters}m',
           style: const TextStyle(color: Colors.white38, fontSize: 10),
@@ -2535,34 +2537,52 @@ class _HeatmapPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     for (var node in nodes) {
+      if (node.x.isNaN ||
+          node.y.isNaN ||
+          node.x.isInfinite ||
+          node.y.isInfinite) {
+        continue;
+      }
+
       // Offset matches the visual center of the speaker icon inside the 100x120 container
       final center = Offset(node.x + 50, node.y + 43);
+      final double clampedPitch = node.pitchTilt.clamp(-85.0, 85.0);
       final double rotRad =
           (node.rotation - 90.0) * math.pi / 180.0; // Front axis
 
       // 1. Octave-dependent directivity angle Q(f)
-      final double effectiveDispAngle = selectedOctave == 'All'
-          ? node.dispersionAngle
-          : node.getEffectiveDispersionAngle(selectedOctave);
+      final double effectiveDispAngle = (selectedOctave == 'All'
+              ? node.dispersionAngle
+              : node.getEffectiveDispersionAngle(selectedOctave))
+          .clamp(5.0, 180.0);
       final double dispRad = effectiveDispAngle * math.pi / 180.0;
 
       // 2. 3D Pitch Tilt Projection (Elliptical Footprint)
-      final double pitchRad = node.pitchTilt * math.pi / 180.0;
-      // Instead of shifting the start point, extend the distance based on Z and pitch
+      final double pitchRad = clampedPitch * math.pi / 180.0;
+      final double tanVal = math.tan(pitchRad);
+      if (tanVal.isNaN || tanVal.isInfinite) continue;
+
       final double lengthExtension =
-          node.heightZ *
-          math.tan(pitchRad) *
-          40.0; // Floor projection extension in px
+          (node.heightZ * tanVal * 40.0).clamp(-2000.0, 2000.0);
       final Offset projectedCenter = center; // Anchor at the speaker
-      final double dist = node.dispersionDistance + lengthExtension;
+      final double dist =
+          (node.dispersionDistance + lengthExtension).clamp(10.0, 3000.0);
 
       // 3. Outer Elliptical Dispersion Beam Contour (-6dB)
       canvas.save();
       canvas.translate(projectedCenter.dx, projectedCenter.dy);
       canvas.rotate(rotRad);
 
-      final double axisX = dist * math.cos(pitchRad); // Scaled by tilt
-      final double axisY = dist * math.sin(dispRad / 2);
+      final double axisX = (dist * math.cos(pitchRad)).clamp(5.0, 3000.0);
+      final double axisY = (dist * math.sin(dispRad / 2)).clamp(5.0, 3000.0);
+
+      if (axisX.isNaN ||
+          axisX.isInfinite ||
+          axisY.isNaN ||
+          axisY.isInfinite) {
+        canvas.restore();
+        continue;
+      }
 
       final Path ellipticalPath = Path()
         ..moveTo(0, 0)
