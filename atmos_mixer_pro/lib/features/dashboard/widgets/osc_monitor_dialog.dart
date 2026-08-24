@@ -13,6 +13,7 @@ class OscMonitorDialog extends StatefulWidget {
 class _OscMonitorDialogState extends State<OscMonitorDialog> {
   OscMetricsDto? _metrics;
   bool _isAutoRefresh = true;
+  double _smoothingMs = 50.0;
 
   @override
   void initState() {
@@ -167,6 +168,86 @@ class _OscMonitorDialogState extends State<OscMonitorDialog> {
                       fontWeight: FontWeight.bold,
                       fontSize: 14,
                     ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            // OSC Lerp / Smoothing Time Constant Slider
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFF12121D),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.cyanAccent.withValues(alpha: 0.3)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'OSC Lerp / Sensor Smoothing:',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Text(
+                        '${_smoothingMs.toInt()} ms',
+                        style: const TextStyle(
+                          color: Colors.cyanAccent,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  SliderTheme(
+                    data: SliderTheme.of(context).copyWith(
+                      activeTrackColor: Colors.cyanAccent,
+                      inactiveTrackColor: Colors.white12,
+                      thumbColor: Colors.cyanAccent,
+                      trackHeight: 3,
+                    ),
+                    child: Slider(
+                      value: _smoothingMs,
+                      min: 0,
+                      max: 200,
+                      divisions: 40,
+                      onChanged: (val) {
+                        setState(() => _smoothingMs = val);
+                      },
+                    ),
+                  ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        '0ms (Fastest)',
+                        style: TextStyle(
+                          color: _smoothingMs == 0 ? Colors.amberAccent : Colors.grey,
+                          fontSize: 10,
+                        ),
+                      ),
+                      Text(
+                        _smoothingMs < 50
+                            ? 'Low Smoothing'
+                            : (_smoothingMs < 120 ? 'Balanced Lerp' : 'Max Anti-Tick Protection'),
+                        style: const TextStyle(color: Colors.white54, fontSize: 10),
+                      ),
+                      Text(
+                        '200ms (Max Noise Filter)',
+                        style: TextStyle(
+                          color: _smoothingMs == 200 ? Colors.cyanAccent : Colors.grey,
+                          fontSize: 10,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),

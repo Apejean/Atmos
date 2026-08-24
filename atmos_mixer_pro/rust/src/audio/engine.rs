@@ -275,14 +275,14 @@ impl AudioEngine {
 
         let err_fn = |err: cpal::StreamError| {
             eprintln!("an error occurred on stream: {}", err);
-            let is_disconnect = matches!(err, cpal::StreamError::DeviceNotAvailable);
-            let msg = if is_disconnect {
-                "DeviceNotAvailable".to_string()
+            let err_str = err.to_string();
+            let is_disconnect = err_str.contains("DeviceNotAvailable") || err_str.contains("kAsioResetRequest");
+            if is_disconnect {
+                crate::core::state::GLOBAL_STATE.device_needs_reset.store(true, Ordering::Release);
             } else {
-                err.to_string()
-            };
-            *crate::core::state::GLOBAL_STATE.engine_error.write().unwrap_or_else(|e| e.into_inner()) = Some(msg);
-            crate::core::state::GLOBAL_STATE.broadcast_state();
+                *crate::core::state::GLOBAL_STATE.engine_error.write().unwrap_or_else(|e| e.into_inner()) = Some(err_str);
+                crate::core::state::GLOBAL_STATE.broadcast_state();
+            }
         };
 
         let mut cmd_receiver_f32 = cmd_receiver;

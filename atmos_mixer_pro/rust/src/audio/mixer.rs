@@ -67,7 +67,7 @@ pub struct AudioMixer {
 
 impl AudioMixer {
     pub fn new(sample_rate: u32, channels: usize, gc_sender: crossbeam_channel::Sender<SoundInstance>, analysis_tx: Option<rtrb::Producer<f32>>) -> Self {
-        let (buf_gc_tx, buf_gc_rx) = crossbeam_channel::bounded::<Vec<f32>>(8192);
+        let (buf_gc_tx, buf_gc_rx) = crossbeam_channel::bounded::<Vec<f32>>(65536);
         std::thread::spawn(move || {
             while let Ok(_buf) = buf_gc_rx.recv() {
                 // Buffer is dropped here in a background thread, preventing heap deallocation in the audio thread
@@ -161,7 +161,7 @@ impl AudioMixer {
             buf_gc_tx,
             spatial_gc_tx,
             room_volumes: vec![None; channels],
-            local_recycle: Vec::with_capacity(8192),
+            local_recycle: Vec::with_capacity(65536),
             startup_ramp: StartupMuteRamp::new(sample_rate as f32),
             master_mute: false,
             channel_dsp,
@@ -444,7 +444,8 @@ impl AudioMixer {
                                     if self.local_recycle.len() < self.local_recycle.capacity() {
                                         self.local_recycle.extend(std::iter::once(v));
                                     } else {
-                                        let _ = v;
+                                        crate::core::state::GLOBAL_STATE.log("Emergency buffer leak to prevent audio stall".to_string());
+                                        std::mem::forget(v);
                                     }
                                 }
                                 instance.cursor -= frames_in_chunk;

@@ -528,17 +528,27 @@ class _TrackCardState extends ConsumerState<TrackCard> {
                               enabledThumbRadius: 6.0,
                             ),
                           ),
-                          child: Slider(
-                            value: _localVolume ?? widget.track.volume,
-                            min: 0.0,
-                            max: 1.0,
-                            onChanged: (v) {
-                              setState(() => _localVolume = v);
-                              widget.onVolumeChanged?.call(v);
-                            },
-                            onChangeEnd: (v) {
-                              setState(() => _localVolume = null);
-                              widget.onVolumeChangeEnd?.call(v);
+                          child: TweenAnimationBuilder<double>(
+                            duration: const Duration(milliseconds: 100),
+                            curve: Curves.easeOut,
+                            tween: Tween<double>(
+                              begin: _localVolume ?? widget.track.volume,
+                              end: _localVolume ?? widget.track.volume,
+                            ),
+                            builder: (context, animVolume, child) {
+                              return Slider(
+                                value: animVolume.clamp(0.0, 1.0),
+                                min: 0.0,
+                                max: 1.0,
+                                onChanged: (v) {
+                                  setState(() => _localVolume = v);
+                                  widget.onVolumeChanged?.call(v);
+                                },
+                                onChangeEnd: (v) {
+                                  setState(() => _localVolume = null);
+                                  widget.onVolumeChangeEnd?.call(v);
+                                },
+                              );
                             },
                           ),
                         ),
