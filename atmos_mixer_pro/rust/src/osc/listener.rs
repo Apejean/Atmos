@@ -69,8 +69,18 @@ impl OscListener {
                     }
                     match socket.recv_from(&mut buf) {
                         Ok((size, _addr)) => {
-                            if let Ok((_, packet)) = rosc::decoder::decode_udp(&buf[..size]) {
-                                handle_packet(packet, &debouncer);
+                            match rosc::decoder::decode_udp(&buf[..size]) {
+                                Ok((_, packet)) => {
+                                    let addr = match &packet {
+                                        OscPacket::Message(m) => Some(m.addr.as_str()),
+                                        OscPacket::Bundle(_) => Some("#bundle"),
+                                    };
+                                    crate::osc::metrics::GLOBAL_OSC_METRICS.record_packet(size, true, addr);
+                                    handle_packet(packet, &debouncer);
+                                }
+                                Err(_) => {
+                                    crate::osc::metrics::GLOBAL_OSC_METRICS.record_packet(size, false, None);
+                                }
                             }
                         }
                         Err(_e) => {

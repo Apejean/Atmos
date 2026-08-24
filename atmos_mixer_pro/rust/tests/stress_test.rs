@@ -33,9 +33,9 @@ fn test_room_clear_spam_no_duplicate() {
                 .unwrap()
                 .as_nanos() as u64;
             GLOBAL_STATE.add_playing_track(instance_id, next_track_id.clone());
-            let mut sender = GLOBAL_STATE.command_sender.lock().unwrap();
-            let _ = sender
-                .push(AudioCommand::PlayTrack {
+            let _ = GLOBAL_STATE
+                .command_sender
+                .send(AudioCommand::PlayTrack {
                     instance_id,
                     room_id: rust_lib_atmos_mixer_pro::common::utils::hash_id("next_room"),
                     track_id: rust_lib_atmos_mixer_pro::common::utils::hash_id(&next_track_id),
@@ -83,9 +83,9 @@ fn test_system_reset_theme_start_glitch() {
             let _ = api_set_active_room(Some("room_1".to_string()));
             let instance_id = i as u64;
             GLOBAL_STATE.add_playing_track(instance_id, "theme_bgm".to_string());
-            let mut sender = GLOBAL_STATE.command_sender.lock().unwrap();
-            let _ = sender
-                .push(AudioCommand::PlayTrack {
+            let _ = GLOBAL_STATE
+                .command_sender
+                .send(AudioCommand::PlayTrack {
                     instance_id,
                     room_id: rust_lib_atmos_mixer_pro::common::utils::hash_id("room_1"),
                     track_id: rust_lib_atmos_mixer_pro::common::utils::hash_id("theme_bgm"),

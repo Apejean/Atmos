@@ -8,6 +8,7 @@ import 'package:atmos_mixer_pro/core/state/global_state.dart';
 import 'package:atmos_mixer_pro/features/dashboard/widgets/room_card.dart';
 import 'package:atmos_mixer_pro/features/settings/widgets/preferences_modal.dart';
 import 'package:atmos_mixer_pro/features/settings/widgets/tuning_modal.dart';
+import 'package:atmos_mixer_pro/features/dashboard/widgets/osc_monitor_dialog.dart';
 import 'package:atmos_mixer_pro/features/exhibition/screens/speaker_canvas_screen.dart'
     as atmos_exhibition;
 import 'package:atmos_mixer_pro/src/rust/api/simple.dart' as rust_api;
@@ -279,6 +280,17 @@ oscWhitelist: config.oscWhitelist,
               }
             },
           ),
+          PlatformMenuItem(
+            label: 'OSC Packet Monitor',
+            onSelected: () {
+              if (context.mounted) {
+                showDialog(
+                  context: context,
+                  builder: (context) => const OscMonitorDialog(),
+                );
+              }
+            },
+          ),
         ],
       ),
       PlatformMenu(
@@ -497,6 +509,17 @@ oscWhitelist: config.oscWhitelist,
                       }
                     },
                     child: const Text('Toggle Exhibition Mode'),
+                  ),
+                  MenuItemButton(
+                    onPressed: () {
+                      if (context.mounted) {
+                        showDialog(
+                          context: context,
+                          builder: (context) => const OscMonitorDialog(),
+                        );
+                      }
+                    },
+                    child: const Text('OSC Packet Monitor'),
                   ),
                 ],
                 child: const Text('View'),

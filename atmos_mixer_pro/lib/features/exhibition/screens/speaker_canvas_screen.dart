@@ -63,6 +63,10 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
 
   bool _isSidebarOpen = false;
 
+  bool _isBinauralEnabled = false;
+  double _reverbMix = 0.3;
+  double _reverbDecay = 1.5;
+
   @override
   void initState() {
     super.initState();
@@ -1340,6 +1344,120 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
     );
   }
 
+  void _showReverbSettingsDialog() {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              backgroundColor: AppColors.cardSurface,
+              title: const Row(
+                children: [
+                  Icon(Icons.surround_sound, color: AppColors.primaryNeon),
+                  SizedBox(width: 8),
+                  Text(
+                    'Virtual Reverb & Acoustics',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    '3D Virtual Space Acoustic Characteristics',
+                    style: TextStyle(color: Colors.white54, fontSize: 12),
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Reverb Mix (Dry / Wet)',
+                        style: TextStyle(color: Colors.white, fontSize: 13),
+                      ),
+                      Text(
+                        '${(_reverbMix * 100).toInt()}%',
+                        style: const TextStyle(
+                          color: AppColors.primaryNeon,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                  Slider(
+                    value: _reverbMix,
+                    min: 0.0,
+                    max: 1.0,
+                    divisions: 100,
+                    activeColor: AppColors.primaryNeon,
+                    inactiveColor: Colors.white24,
+                    onChanged: (val) {
+                      setDialogState(() => _reverbMix = val);
+                      setState(() => _reverbMix = val);
+                      rust_api.apiSetReverbParams(
+                        mix: _reverbMix,
+                        decay: _reverbDecay,
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Reverb Decay Time (RT60)',
+                        style: TextStyle(color: Colors.white, fontSize: 13),
+                      ),
+                      Text(
+                        '${_reverbDecay.toStringAsFixed(1)}s',
+                        style: const TextStyle(
+                          color: AppColors.primaryNeon,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                  Slider(
+                    value: _reverbDecay,
+                    min: 0.1,
+                    max: 10.0,
+                    divisions: 99,
+                    activeColor: AppColors.primaryNeon,
+                    inactiveColor: Colors.white24,
+                    onChanged: (val) {
+                      setDialogState(() => _reverbDecay = val);
+                      setState(() => _reverbDecay = val);
+                      rust_api.apiSetReverbParams(
+                        mix: _reverbMix,
+                        decay: _reverbDecay,
+                      );
+                    },
+                  ),
+                ],
+              ),
+              actions: [
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primaryNeon,
+                    foregroundColor: Colors.black,
+                  ),
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('닫기'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   void _handleCanvasTapForDrawing(Offset canvasPos, WidgetRef ref) {
     final activeId = ref.read(activeTrajectoryIdProvider);
     if (activeId == null) return;
@@ -1371,6 +1489,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
               waypoints: newWaypoints,
             ),
           );
+      _syncSpatialConfigRealtime();
     }
   }
 
@@ -1440,7 +1559,70 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                   );
                 },
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: 12),
+              // Binaural Mode Toggle
+              Container(
+                height: 34,
+                padding: const EdgeInsets.symmetric(horizontal: 6),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade900,
+                  borderRadius: BorderRadius.circular(17),
+                  border: Border.all(
+                    color: _isBinauralEnabled
+                        ? AppColors.primaryNeon
+                        : Colors.white24,
+                    width: 1.5,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      _isBinauralEnabled
+                          ? Icons.headphones
+                          : Icons.speaker_group,
+                      size: 16,
+                      color: _isBinauralEnabled
+                          ? AppColors.primaryNeon
+                          : Colors.white70,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      _isBinauralEnabled
+                          ? '🎧 Virtual (Binaural)'
+                          : '🔊 Physical (24ch)',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: _isBinauralEnabled
+                            ? AppColors.primaryNeon
+                            : Colors.white,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Switch(
+                      value: _isBinauralEnabled,
+                      activeThumbColor: AppColors.primaryNeon,
+                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      onChanged: (val) {
+                        setState(() => _isBinauralEnabled = val);
+                        rust_api.apiSetBinauralEnabled(enabled: val);
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              // Reverb Settings Button
+              IconButton(
+                tooltip: 'Virtual Reverb & Acoustic Settings',
+                icon: const Icon(
+                  Icons.surround_sound,
+                  color: AppColors.primaryNeon,
+                ),
+                onPressed: _showReverbSettingsDialog,
+              ),
+              const SizedBox(width: 12),
               IconButton(
                 tooltip: _isPlayingAutomation
                     ? 'Stop Automation'
