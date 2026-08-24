@@ -1644,45 +1644,51 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
             _viewportSize = Size(constraints.maxWidth, constraints.maxHeight);
             return Stack(
               children: [
-                GestureDetector(
-                  onTapUp: (details) {
-                    if (ref.read(isDrawingModeProvider)) {
-                      final invertedMatrix =
-                          _transformationController.value.clone()..invert();
-                      final canvasPos = MatrixUtils.transformPoint(
-                        invertedMatrix,
-                        details.localPosition,
-                      );
-                      _handleCanvasTapForDrawing(canvasPos, ref);
-                      return;
-                    }
-                    if (!_isMeasuringScale)
-                      setState(() => _selectedRoomId = null);
-                  },
-                  child: InteractiveViewer(
-                    transformationController: _transformationController,
-                    panEnabled: !_isMeasuringScale,
-                    scaleEnabled: !_isMeasuringScale,
-                    boundaryMargin: const EdgeInsets.all(double.infinity),
-                    minScale: 0.1,
-                    maxScale: 2.0,
-                    constrained: false,
-                    child: RepaintBoundary(
-                      child: SizedBox(
-                        width: _canvasWidth,
-                        height: _canvasHeight,
-                        child: Stack(
-                          clipBehavior: Clip.none,
-                          children: [
-                            Positioned.fill(
+                InteractiveViewer(
+                  transformationController: _transformationController,
+                  panEnabled: !_isMeasuringScale,
+                  scaleEnabled: !_isMeasuringScale,
+                  boundaryMargin: const EdgeInsets.all(double.infinity),
+                  minScale: 0.1,
+                  maxScale: 2.0,
+                  constrained: false,
+                  child: RepaintBoundary(
+                    child: SizedBox(
+                      width: _canvasWidth,
+                      height: _canvasHeight,
+                      child: Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          Positioned.fill(
+                            child: GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onTapUp: (details) {
+                                if (ref.read(isDrawingModeProvider)) {
+                                  final invertedMatrix =
+                                      _transformationController.value
+                                          .clone()
+                                        ..invert();
+                                  final canvasPos = MatrixUtils.transformPoint(
+                                    invertedMatrix,
+                                    details.localPosition,
+                                  );
+                                  _handleCanvasTapForDrawing(canvasPos, ref);
+                                  return;
+                                }
+                                if (!_isMeasuringScale) {
+                                  setState(() => _selectedRoomId = null);
+                                }
+                              },
                               child: RepaintBoundary(
                                 child: CustomPaint(
                                   painter: _GridPainter(blueprint.scale),
                                 ),
                               ),
                             ),
-                            if (blueprint.imagePath != null)
-                              Positioned.fill(
+                          ),
+                          if (blueprint.imagePath != null)
+                            Positioned.fill(
+                              child: IgnorePointer(
                                 child: Image.file(
                                   File(blueprint.imagePath!),
                                   fit: BoxFit.contain,
@@ -1692,73 +1698,40 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                                   colorBlendMode: BlendMode.modulate,
                                 ),
                               ),
-                            if (_showHeatmap)
-                              Consumer(
-                                builder: (context, ref, _) {
-                                  final nodes = ref.watch(
-                                    speakerLayoutProvider,
-                                  );
-                                  final rooms = ref.watch(roomZoneProvider);
-                                  return Positioned.fill(
+                            ),
+                          if (_showHeatmap)
+                            Consumer(
+                              builder: (context, ref, _) {
+                                final nodes = ref.watch(
+                                  speakerLayoutProvider,
+                                );
+                                final rooms = ref.watch(roomZoneProvider);
+                                return Positioned.fill(
+                                  child: IgnorePointer(
                                     child: RepaintBoundary(
                                       child: CustomPaint(
                                         painter: _HeatmapPainter(
                                           nodes: nodes,
                                           rooms: rooms,
-                                          selectedOctave: _selectedOctaveFilter,
+                                          selectedOctave:
+                                              _selectedOctaveFilter,
                                         ),
                                       ),
                                     ),
-                                  );
-                                },
-                              ),
-                            if (_showRooms)
-                              Consumer(
-                                builder: (context, ref, _) {
-                                  final rooms = ref.watch(roomZoneProvider);
-                                  final nodes = ref.watch(
-                                    speakerLayoutProvider,
-                                  );
-                                  return Positioned.fill(
-                                    child: Stack(
-                                      clipBehavior: Clip.none,
-                                      children: rooms.map((room) {
-                                        final containedSpeakers =
-                                            _getSpeakersInRoom(room, nodes);
-                                        return RoomZoneWidget(
-                                          key: ValueKey(room.id),
-                                          room: room,
-                                          containedSpeakers: containedSpeakers,
-                                          transformationController:
-                                              _transformationController,
-                                          isSelected:
-                                              _selectedRoomId == room.id,
-                                          onEdit: () => _editRoom(room),
-                                          onDragUpdate:
-                                              _syncSpatialConfigRealtime,
-                                          onInteractionStart: () =>
-                                              setState(() {
-                                                _isRoomInteracting = true;
-                                                _selectedRoomId = room.id;
-                                              }),
-                                          onInteractionEnd: () => setState(
-                                            () => _isRoomInteracting = false,
-                                          ),
-                                        );
-                                      }).toList(),
-                                    ),
-                                  );
-                                },
-                              ),
-                            if (_showTrajectories)
-                              Consumer(
-                                builder: (context, ref, _) {
-                                  final trajectories = ref.watch(
-                                    trajectoryProvider,
-                                  );
-                                  return Stack(
-                                    children: [
-                                      Positioned.fill(
+                                  ),
+                                );
+                              },
+                            ),
+                          if (_showTrajectories)
+                            Consumer(
+                              builder: (context, ref, _) {
+                                final trajectories = ref.watch(
+                                  trajectoryProvider,
+                                );
+                                return Stack(
+                                  children: [
+                                    Positioned.fill(
+                                      child: IgnorePointer(
                                         child: RepaintBoundary(
                                           child: CustomPaint(
                                             painter: TrajectoryLayerPainter(
@@ -1782,36 +1755,27 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                                           ),
                                         ),
                                       ),
-                                      ...trajectories.map(
-                                        (t) => _DraggableTrajectoryPathWidget(
-                                          key: ValueKey('path_${t.id}'),
-                                          trajectory: t,
-                                          transformationController:
-                                              _transformationController,
-                                          onDragUpdate:
-                                              _syncSpatialConfigRealtime,
-                                          onLongPress: () => _editTrajectory(t),
-                                        ),
+                                    ),
+                                    ...trajectories.map(
+                                      (t) => _DraggableTrajectoryPathWidget(
+                                        key: ValueKey('path_${t.id}'),
+                                        trajectory: t,
+                                        transformationController:
+                                            _transformationController,
+                                        onDragUpdate:
+                                            _syncSpatialConfigRealtime,
+                                        onLongPress: () => _editTrajectory(t),
                                       ),
-                                      ...trajectories.expand((t) {
-                                        return t.waypoints.asMap().entries.map((
-                                          entry,
-                                        ) {
-                                          final idx = entry.key;
-                                          final wp = entry.value;
-                                          return _DraggableWaypointWidget(
-                                            key: ValueKey('${t.id}_$idx'),
-                                            trajectory: t,
-                                            waypointIndex: idx,
-                                            waypoint: wp,
-                                            transformationController:
-                                                _transformationController,
-                                            onDragUpdate:
-                                                _syncSpatialConfigRealtime,
-                                          );
-                                        });
-                                      }),
-                                    ],
+                                    ),
+                                    ...trajectories.expand((t) {
+                                      return t.waypoints.asMap().entries.map((
+                                        entry,
+                                      ) {
+                                        final idx = entry.key;
+                                        final wp = entry.value;
+                                        return _DraggableWaypointWidget(
+                                          key: ValueKey('${t.id}_$idx'),
+                                          trajectory: t,
                                   );
                                 },
                               ),
