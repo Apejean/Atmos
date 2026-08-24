@@ -52,7 +52,7 @@ impl FractionalDelayLine {
         }
     }
 
-    pub fn push(&mut self, sample: f32) {
+    pub fn write_sample(&mut self, sample: f32) {
         self.buffer[self.write_idx] = sample;
         self.write_idx = (self.write_idx + 1) % self.buffer.len();
     }
@@ -86,6 +86,7 @@ pub struct Spatializer3D {
     pub delay_lines: Vec<FractionalDelayLine>,
     pub sample_rate: f32,
     pub speed_of_sound: f32, // m/s
+    temp_gains: Vec<f32>,
 }
 
 impl Spatializer3D {
@@ -99,6 +100,7 @@ impl Spatializer3D {
             .collect();
 
         Self {
+            temp_gains: vec![0.0; positions.len()],
             dbap: DbapMatrix::new(positions),
             delay_lines,
             sample_rate,
@@ -108,23 +110,27 @@ impl Spatializer3D {
 
     /// Process a single input sample and accumulate into the output slice.
     pub fn process_sample(&mut self, input: f32, source_pos: (f32, f32, f32), output: &mut [f32]) {
-        let mut gains = vec![0.0; self.dbap.positions.len()];
-        self.dbap.calculate_gains(source_pos.0, source_pos.1, source_pos.2, &mut gains);
+        self.dbap.calculate_gains(source_pos.0, source_pos.1, source_pos.2, &mut self.temp_gains);
 
         for (i, dl) in self.delay_lines.iter_mut().enumerate() {
-            dl.push(input);
+            dl.write_sample(input);
             
             let (spk_x, spk_y, spk_z) = self.dbap.positions[i];
             let dx = source_pos.0 - spk_x;
             let dy = source_pos.1 - spk_y;
             let dz = source_pos.2 - spk_z;
-            let dist = (dx * dx + dy * dy + dz * dz).sqrt();
+            let dist_sq = dx * dx + dy * dy + dz * dz;
+            let dist = dist_sq.sqrt();
             
+            // Delay in seconds
             let delay_sec = dist / self.speed_of_sound;
+            // Delay in samples
             let delay_samples = delay_sec * self.sample_rate;
             
+            let delayed_sample = dl.get_delayed(delay_samples);
+            
             if i < output.len() {
-                output[i] += dl.get_delayed(delay_samples) * gains[i];
+                output[i] += delayed_sample * self.temp_gains[i];
             }
         }
     }

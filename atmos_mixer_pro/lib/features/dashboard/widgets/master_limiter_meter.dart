@@ -107,7 +107,7 @@ class _MasterLimiterMeterWidgetState
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    'LIMITER',
+                    'TRUE-PEAK LIMITER',
                     style: TextStyle(
                       color: isCompressing ? Colors.amberAccent : Colors.white70,
                       fontSize: 10,
@@ -118,7 +118,7 @@ class _MasterLimiterMeterWidgetState
                   if (isCompressing) ...[
                     const SizedBox(width: 4),
                     Text(
-                      '${_currentGrDb.toStringAsFixed(1)} dB GR',
+                      'ISP -${_currentGrDb.abs().toStringAsFixed(1)} dB',
                       style: const TextStyle(
                         color: Colors.amberAccent,
                         fontSize: 9,

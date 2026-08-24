@@ -46,7 +46,7 @@ pub fn api_update_sound_source_position(sound_id: String, x: f32, y: f32, z: f32
 }
 
 pub fn api_get_config(path: String) -> AppConfig {
-    let config = AppConfig::load_from_file(path).unwrap_or_default();
+    let config = AppConfig::load_from_file(path, 48000).unwrap_or_default();
 
     for b in &GLOBAL_STATE.enabled_channels {
         b.store(false, std::sync::atomic::Ordering::Relaxed);
@@ -165,7 +165,8 @@ pub fn api_play_test_noise(channel: u32) -> Result<(), AtmosError> {
 
 pub fn api_preload_sound(file_path: String) -> Result<(), AtmosError> {
     let path = std::path::Path::new(&file_path);
-    match crate::audio::player::SoundData::load_from_file(path) {
+    let target_sr = GLOBAL_STATE.engine_sample_rate.load(std::sync::atomic::Ordering::Relaxed);
+    match crate::audio::player::SoundData::load_from_file(path, target_sr) {
         Ok(data) => {
             // 100MB limit check (samples * 4 bytes per f32)
             if data.samples.len() > 25_000_000 {
@@ -244,8 +245,9 @@ pub fn api_play_track(room_id: String, track_id: String) -> Result<(), AtmosErro
                         }
                     }
 
+                    let target_sr = GLOBAL_STATE.engine_sample_rate.load(std::sync::atomic::Ordering::Relaxed);
                     // Start DiskStreamer for BGM or streaming tracks
-                    match crate::audio::streaming::DiskStreamer::new(track.file_path.clone(), track.is_loop) {
+                    match crate::audio::streaming::DiskStreamer::new(track.file_path.clone(), track.is_loop, target_sr) {
                         Ok(mut streamer) => {
                             GLOBAL_STATE.add_playing_track(instance_id, track_id.clone());
                             GLOBAL_STATE
@@ -352,7 +354,8 @@ pub fn api_play_track(room_id: String, track_id: String) -> Result<(), AtmosErro
                                 });
                             }
                         }
-                        match crate::audio::player::SoundData::load_from_file(path) {
+                        let target_sr = GLOBAL_STATE.engine_sample_rate.load(std::sync::atomic::Ordering::Relaxed);
+                        match crate::audio::player::SoundData::load_from_file(path, target_sr) {
                             Ok(data) => {
                                 let arc_data = std::sync::Arc::new(data);
                                 {
@@ -883,7 +886,8 @@ pub fn api_preload_all_sounds(config: AppConfig) -> Result<(), AtmosError> {
         }
         
         // Load into RAM regardless of size (SFX only, loop=false)
-        match crate::audio::player::SoundData::load_from_file(path) {
+        let target_sr = GLOBAL_STATE.engine_sample_rate.load(std::sync::atomic::Ordering::Relaxed);
+        match crate::audio::player::SoundData::load_from_file(path, target_sr) {
             Ok(data) => {
                 GLOBAL_STATE.log(format!("Loaded sound file: {}", file));
                 newly_loaded.push((file, std::sync::Arc::new(data)));

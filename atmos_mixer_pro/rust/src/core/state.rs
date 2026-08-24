@@ -45,6 +45,7 @@ pub struct GlobalEngineState {
     pub state_sink: RwLock<Option<StreamSink<EngineStateUpdate>>>,
 
     pub active_device_channels: AtomicU32,
+    pub engine_sample_rate: AtomicU32,
     pub is_exhibition_mode: AtomicBool,
     pub engine_error: RwLock<Option<String>>,
     pub rta_magnitudes_ref: RwLock<Option<Arc<parking_lot::RwLock<Vec<f32>>>>>,
@@ -92,6 +93,7 @@ impl GlobalEngineState {
             broadcast_lock: std::sync::Mutex::new(()),
             state_sink: RwLock::new(None),
             active_device_channels: AtomicU32::new(0),
+            engine_sample_rate: AtomicU32::new(48000),
             is_exhibition_mode: AtomicBool::new(false),
             engine_error: RwLock::new(None),
             rta_magnitudes_ref: RwLock::new(None),

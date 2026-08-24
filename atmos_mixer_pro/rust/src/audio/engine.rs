@@ -252,6 +252,10 @@ impl AudioEngine {
         crate::core::state::GLOBAL_STATE
             .active_device_channels
             .store(config.channels as u32, std::sync::atomic::Ordering::SeqCst);
+            
+        crate::core::state::GLOBAL_STATE
+            .engine_sample_rate
+            .store(config.sample_rate.0, std::sync::atomic::Ordering::SeqCst);
         
         *crate::core::state::GLOBAL_STATE.engine_error.write().unwrap_or_else(|e| e.into_inner()) = None;
 

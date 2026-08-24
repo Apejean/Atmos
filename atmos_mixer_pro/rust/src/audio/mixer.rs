@@ -207,12 +207,6 @@ impl AudioMixer {
         
         self.master_clock += frames as f64;
 
-        if let Ok(config_guard) = GLOBAL_STATE.config.try_read() {
-            if let Some(config) = config_guard.as_ref() {
-                self.master_headroom_db = config.master_headroom_db;
-                self.peak_limiter_enabled = config.peak_limiter_enabled;
-            }
-        }
 
         // Check if any SFX is playing (not loop)
         let has_sfx = self.instances.iter().any(|inst| {
@@ -448,7 +442,7 @@ impl AudioMixer {
                                 if let Err(e) = self.buf_gc_tx.try_send(old_chunk) {
                                     let v = e.into_inner();
                                     if self.local_recycle.len() < self.local_recycle.capacity() {
-                                        self.local_recycle.push(v);
+                                        self.local_recycle.extend(std::iter::once(v));
                                     } else {
                                         let _ = v;
                                     }
@@ -714,7 +708,7 @@ impl AudioMixer {
         while !self.local_recycle.is_empty() {
             if let Some(chunk) = self.local_recycle.pop() {
                 if let Err(e) = self.buf_gc_tx.try_send(chunk) {
-                    self.local_recycle.push(e.into_inner());
+                    self.local_recycle.extend(std::iter::once(e.into_inner()));
                     break; // Channel is still full
                 }
             }

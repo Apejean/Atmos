@@ -10,6 +10,11 @@ pub struct BinauralChannel {
     overlap_add_left: Vec<f32>,
     overlap_add_right: Vec<f32>,
     planner: RealFftPlanner<f32>,
+    input_freq: Vec<Complex<f32>>,
+    out_left_freq: Vec<Complex<f32>>,
+    out_right_freq: Vec<Complex<f32>>,
+    out_left_time: Vec<f32>,
+    out_right_time: Vec<f32>,
 }
 
 impl BinauralChannel {
@@ -30,6 +35,12 @@ impl BinauralChannel {
         let mut ir_right_freq = r2c.make_output_vec();
         r2c.process(&mut ir_right_padded, &mut ir_right_freq).unwrap();
 
+        let input_freq = vec![Complex::new(0.0, 0.0); ir_left_freq.len()];
+        let out_left_freq = vec![Complex::new(0.0, 0.0); ir_left_freq.len()];
+        let out_right_freq = vec![Complex::new(0.0, 0.0); ir_left_freq.len()];
+        let out_left_time = vec![0.0; fft_size];
+        let out_right_time = vec![0.0; fft_size];
+
         Self {
             ir_left_freq,
             ir_right_freq,
@@ -38,6 +49,11 @@ impl BinauralChannel {
             overlap_add_left: vec![0.0; fft_size],
             overlap_add_right: vec![0.0; fft_size],
             planner,
+            input_freq,
+            out_left_freq,
+            out_right_freq,
+            out_left_time,
+            out_right_time,
         }
     }
 
@@ -49,28 +65,21 @@ impl BinauralChannel {
         let r2c = self.planner.plan_fft_forward(self.fft_size);
         let c2r = self.planner.plan_fft_inverse(self.fft_size);
 
-        let mut input_freq = r2c.make_output_vec();
-        r2c.process(&mut self.input_buffer, &mut input_freq).unwrap();
+        r2c.process(&mut self.input_buffer, &mut self.input_freq).unwrap();
 
-        let mut out_left_freq = vec![Complex::new(0.0, 0.0); input_freq.len()];
-        let mut out_right_freq = vec![Complex::new(0.0, 0.0); input_freq.len()];
-
-        for i in 0..input_freq.len() {
-            out_left_freq[i] = input_freq[i] * self.ir_left_freq[i];
-            out_right_freq[i] = input_freq[i] * self.ir_right_freq[i];
+        for i in 0..self.input_freq.len() {
+            self.out_left_freq[i] = self.input_freq[i] * self.ir_left_freq[i];
+            self.out_right_freq[i] = self.input_freq[i] * self.ir_right_freq[i];
         }
 
-        let mut out_left_time = vec![0.0; self.fft_size];
-        let mut out_right_time = vec![0.0; self.fft_size];
-
-        c2r.process(&mut out_left_freq, &mut out_left_time).unwrap();
-        c2r.process(&mut out_right_freq, &mut out_right_time).unwrap();
+        c2r.process(&mut self.out_left_freq, &mut self.out_left_time).unwrap();
+        c2r.process(&mut self.out_right_freq, &mut self.out_right_time).unwrap();
 
         let scale = 1.0 / self.fft_size as f32;
         
         for i in 0..self.fft_size {
-            self.overlap_add_left[i] += out_left_time[i] * scale;
-            self.overlap_add_right[i] += out_right_time[i] * scale;
+            self.overlap_add_left[i] += self.out_left_time[i] * scale;
+            self.overlap_add_right[i] += self.out_right_time[i] * scale;
         }
 
         for i in 0..block_size {
@@ -78,11 +87,11 @@ impl BinauralChannel {
             out_right[i] += self.overlap_add_right[i];
         }
 
-        self.overlap_add_left.drain(0..block_size);
-        self.overlap_add_left.resize(self.fft_size, 0.0);
+        self.overlap_add_left.copy_within(block_size.., 0);
+        self.overlap_add_left[self.fft_size - block_size..].fill(0.0);
         
-        self.overlap_add_right.drain(0..block_size);
-        self.overlap_add_right.resize(self.fft_size, 0.0);
+        self.overlap_add_right.copy_within(block_size.., 0);
+        self.overlap_add_right[self.fft_size - block_size..].fill(0.0);
     }
 }
 
@@ -90,6 +99,8 @@ pub struct VirtualMixRoomBinaural {
     channels: Vec<BinauralChannel>,
     pub enabled: bool,
     temp_channel_buffers: Vec<Vec<f32>>,
+    mix_left: Vec<f32>,
+    mix_right: Vec<f32>,
 }
 
 impl VirtualMixRoomBinaural {
@@ -109,6 +120,8 @@ impl VirtualMixRoomBinaural {
             channels,
             enabled: false,
             temp_channel_buffers,
+            mix_left: vec![0.0; block_size],
+            mix_right: vec![0.0; block_size],
         }
     }
 
@@ -121,8 +134,12 @@ impl VirtualMixRoomBinaural {
         // Ensure temp buffers are correct size
         for buf in &mut self.temp_channel_buffers {
             if buf.len() < frames {
-                buf.resize(frames, 0.0);
+                buf.resize(frames, 0.0); // We shouldn't hit this if pre-allocated correctly, but safe to keep
             }
+        }
+        if self.mix_left.len() < frames {
+            self.mix_left.resize(frames, 0.0);
+            self.mix_right.resize(frames, 0.0);
         }
         
         // De-interleave
@@ -132,21 +149,18 @@ impl VirtualMixRoomBinaural {
             }
         }
         
-        let mut mix_left = vec![0.0; frames];
-        let mut mix_right = vec![0.0; frames];
+        self.mix_left[..frames].fill(0.0);
+        self.mix_right[..frames].fill(0.0);
         
         // Process each channel
         for ch in 0..num_ch {
-            self.channels[ch].process_block(&self.temp_channel_buffers[ch][..frames], &mut mix_left, &mut mix_right);
+            self.channels[ch].process_block(&self.temp_channel_buffers[ch][..frames], &mut self.mix_left[..frames], &mut self.mix_right[..frames]);
         }
         
-        // Interleave back into output (overwrite Ch0 and Ch1, zero others)
+        // Re-interleave
         for frame in 0..frames {
-            output[frame * out_channels + 0] = mix_left[frame];
-            output[frame * out_channels + 1] = mix_right[frame];
-            for ch in 2..out_channels {
-                output[frame * out_channels + ch] = 0.0;
-            }
+            output[frame * out_channels] = self.mix_left[frame];
+            output[frame * out_channels + 1] = self.mix_right[frame];
         }
     }
 }

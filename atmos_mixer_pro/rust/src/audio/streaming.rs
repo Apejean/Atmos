@@ -1,6 +1,7 @@
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use rtrb::{Consumer, RingBuffer};
+use rubato::{Resampler, SincFixedIn, InterpolationType, InterpolationParameters, WindowFunction};
 
 #[repr(align(128))]
 pub struct CachePadded<T> {
@@ -12,6 +13,7 @@ pub struct DiskStreamer {
     pub is_running: Arc<CachePadded<AtomicBool>>,
     pub sample_rate: u32,
     pub channels: u16,
+    pub thread_handle: Option<std::thread::JoinHandle<()>>,
 }
 
 impl Default for DiskStreamer {
@@ -22,12 +24,22 @@ impl Default for DiskStreamer {
             is_running: Arc::new(CachePadded { value: AtomicBool::new(false) }),
             sample_rate: 48000,
             channels: 2,
+            thread_handle: None,
+        }
+    }
+}
+
+impl Drop for DiskStreamer {
+    fn drop(&mut self) {
+        self.is_running.value.store(false, Ordering::Relaxed);
+        if let Some(handle) = self.thread_handle.take() {
+            let _ = handle.join();
         }
     }
 }
 
 impl DiskStreamer {
-    pub fn new(file_path: String, is_loop: bool) -> anyhow::Result<Self> {
+    pub fn new(file_path: String, is_loop: bool, target_sample_rate: u32) -> anyhow::Result<Self> {
         let (mut tx, rx) = RingBuffer::new(128); // Buffer up to 128 chunks
         let is_running = Arc::new(CachePadded { value: AtomicBool::new(true) });
 
@@ -58,16 +70,19 @@ impl DiskStreamer {
             .format
             .default_track()
             .ok_or_else(|| anyhow::anyhow!("No default track"))?;
-        let sample_rate = track.codec_params.sample_rate.unwrap_or(48000);
+        let src_sample_rate = track.codec_params.sample_rate.unwrap_or(48000);
         let channels = track
             .codec_params
             .channels
             .map(|c| c.count() as u16)
             .unwrap_or(2);
-        let max_frames = track.codec_params.max_frames_per_packet.unwrap_or(4096);
+        let max_frames = track.codec_params.max_frames_per_packet.unwrap_or(4096) as usize;
         let track_id = track.id;
+        
+        let needs_resampling = src_sample_rate != target_sample_rate;
+        let output_sample_rate = target_sample_rate;
 
-        std::thread::spawn(move || {
+        let handle = std::thread::spawn(move || {
             let file = match std::fs::File::open(&path) {
                 Ok(f) => Box::new(f),
                 Err(e) => {
@@ -109,6 +124,27 @@ impl DiskStreamer {
                 };
 
             let mut sample_buf = None;
+            
+            let mut resampler = if needs_resampling {
+                let params = InterpolationParameters {
+                    sinc_len: 256,
+                    f_cutoff: 0.95,
+                    interpolation: InterpolationType::Linear,
+                    oversampling_factor: 256,
+                    window: WindowFunction::BlackmanHarris2,
+                };
+                Some(SincFixedIn::<f32>::new(
+                    target_sample_rate as f64 / src_sample_rate as f64,
+                    2.0,
+                    params,
+                    max_frames,
+                    channels as usize,
+                ).unwrap())
+            } else {
+                None
+            };
+            
+            let mut resampler_in_buf = vec![vec![0.0; max_frames]; channels as usize];
 
             while run_flag.value.load(Ordering::Relaxed) {
                 let packet = match format.next_packet() {
@@ -120,7 +156,6 @@ impl DiskStreamer {
                     Err(symphonia::core::errors::Error::IoError(err)) => {
                         if err.kind() == std::io::ErrorKind::UnexpectedEof {
                             if is_loop {
-                                // Re-open and reset for loop
                                 if let Ok(f) = std::fs::File::open(&path) {
                                     let mss_loop = symphonia::core::io::MediaSourceStream::new(
                                         Box::new(f),
@@ -138,14 +173,13 @@ impl DiskStreamer {
                                     }
                                 }
                             } else {
-                                break; // EOF reached, stop stream naturally for SFX
+                                break;
                             }
                         }
-                        break; // Stop on severe IO error
+                        break;
                     }
                     Err(e) => {
                         eprintln!("Packet error: {}", e);
-                        // For bad metadata/tags interpreted as packets, we should just continue instead of breaking
                         continue;
                     }
                 };
@@ -158,8 +192,7 @@ impl DiskStreamer {
                     Ok(audio_buf) => {
                         if sample_buf.is_none() {
                             let spec = *audio_buf.spec();
-                            // Update actual channels dynamically (note: consumer might need to adapt if it reads `channels` field before first chunk, but mixer relies on chunk size if possible)
-                            let duration = std::cmp::max(audio_buf.capacity() as u64, max_frames);
+                            let duration = std::cmp::max(audio_buf.capacity() as u64, max_frames as u64);
                             sample_buf = Some(symphonia::core::audio::SampleBuffer::<f32>::new(
                                 duration, spec,
                             ));
@@ -167,11 +200,42 @@ impl DiskStreamer {
 
                         if let Some(buf) = &mut sample_buf {
                             buf.copy_interleaved_ref(audio_buf);
-                            // Batch into chunks
-                            let mut chunk = Vec::with_capacity(buf.samples().len());
-                            chunk.extend_from_slice(buf.samples());
+                            
+                            let mut chunk = Vec::new();
+                            let frames = buf.samples().len() / channels as usize;
+                            
+                            if let Some(r) = &mut resampler {
+                                // De-interleave
+                                for ch in 0..channels as usize {
+                                    resampler_in_buf[ch].clear();
+                                }
+                                for frame in 0..frames {
+                                    for ch in 0..channels as usize {
+                                        resampler_in_buf[ch].push(buf.samples()[frame * channels as usize + ch]);
+                                    }
+                                }
+                                
+                                // Resample
+                                match r.process(&resampler_in_buf, None) {
+                                    Ok(resampled) => {
+                                        let out_frames = resampled[0].len();
+                                        chunk.reserve(out_frames * channels as usize);
+                                        // Interleave
+                                        for frame in 0..out_frames {
+                                            for ch in 0..channels as usize {
+                                                chunk.push(resampled[ch][frame]);
+                                            }
+                                        }
+                                    }
+                                    Err(e) => {
+                                        eprintln!("Resampling error: {}", e);
+                                        continue;
+                                    }
+                                }
+                            } else {
+                                chunk.extend_from_slice(buf.samples());
+                            }
 
-                            // Send chunk to audio thread
                             let mut item = chunk;
                             loop {
                                 if !run_flag.value.load(Ordering::Relaxed) {
@@ -201,8 +265,9 @@ impl DiskStreamer {
         Ok(Self {
             chunk_receiver: Some(rx),
             is_running,
-            sample_rate,
+            sample_rate: output_sample_rate,
             channels,
+            thread_handle: Some(handle),
         })
     }
 }

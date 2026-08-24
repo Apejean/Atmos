@@ -7,6 +7,7 @@ use symphonia::core::formats::FormatOptions;
 use symphonia::core::io::MediaSourceStream;
 use symphonia::core::meta::MetadataOptions;
 use symphonia::core::probe::Hint;
+use rubato::{Resampler, SincFixedIn, InterpolationType, InterpolationParameters, WindowFunction};
 
 pub struct SoundData {
     pub samples: Vec<f32>,
@@ -59,7 +60,7 @@ impl SoundData {
         2
     }
 
-    pub fn load_from_file(path: &std::path::Path) -> anyhow::Result<Self> {
+    pub fn load_from_file(path: &std::path::Path, target_sample_rate: u32) -> anyhow::Result<Self> {
         let file = Box::new(File::open(path)?);
         let mss = MediaSourceStream::new(file, Default::default());
 
@@ -82,13 +83,12 @@ impl SoundData {
             symphonia::default::get_codecs().make(&track.codec_params, &decoder_opts)?;
 
         let track_id = track.id;
-        let sample_rate = track.codec_params.sample_rate.unwrap_or(48000);
+        let src_sample_rate = track.codec_params.sample_rate.unwrap_or(48000);
         let channels = track
             .codec_params
             .channels
             .map(|c| c.count() as u16)
             .unwrap_or(2);
-        let max_frames = track.codec_params.max_frames_per_packet.unwrap_or(4096);
 
         let mut sample_buf = None;
         let mut all_samples = Vec::new();
@@ -105,7 +105,7 @@ impl SoundData {
                     if err.kind() == std::io::ErrorKind::UnexpectedEof {
                         break;
                     }
-                    break; // Just break on any IO error (like EOF)
+                    break;
                 }
                 Err(_) => break,
             };
@@ -118,27 +118,62 @@ impl SoundData {
                 Ok(audio_buf) => {
                     if sample_buf.is_none() {
                         let spec = *audio_buf.spec();
-                        actual_channels = spec.channels.count() as u16;
-                        let duration = std::cmp::max(audio_buf.capacity() as u64, max_frames);
+                        let duration = audio_buf.capacity() as u64;
                         sample_buf = Some(SampleBuffer::<f32>::new(duration, spec));
                     }
-
                     if let Some(buf) = &mut sample_buf {
                         buf.copy_interleaved_ref(audio_buf);
                         all_samples.extend_from_slice(buf.samples());
                     }
                 }
-                Err(symphonia::core::errors::Error::DecodeError(_)) => (),
+                Err(symphonia::core::errors::Error::DecodeError(_)) => {}
                 Err(_) => break,
             }
         }
 
-        let (final_samples, final_sample_rate) = downsample_hi_res_if_needed(sample_rate, all_samples, actual_channels as usize);
+        let needs_resampling = src_sample_rate != target_sample_rate && target_sample_rate > 0;
+        
+        if needs_resampling && all_samples.len() > 0 {
+            let frames = all_samples.len() / channels as usize;
+            let mut deinterleaved = vec![vec![0.0; frames]; channels as usize];
+            for frame in 0..frames {
+                for ch in 0..channels as usize {
+                    deinterleaved[ch][frame] = all_samples[frame * channels as usize + ch];
+                }
+            }
+            
+            let params = InterpolationParameters {
+                sinc_len: 256,
+                f_cutoff: 0.95,
+                interpolation: InterpolationType::Linear,
+                oversampling_factor: 256,
+                window: WindowFunction::BlackmanHarris2,
+            };
+            
+            let mut resampler = SincFixedIn::<f32>::new(
+                target_sample_rate as f64 / src_sample_rate as f64,
+                2.0,
+                params,
+                frames,
+                channels as usize,
+            ).unwrap();
+            
+            if let Ok(resampled) = resampler.process(&deinterleaved, None) {
+                let out_frames = resampled[0].len();
+                let mut interleaved = Vec::with_capacity(out_frames * channels as usize);
+                for frame in 0..out_frames {
+                    for ch in 0..channels as usize {
+                        interleaved.push(resampled[ch][frame]);
+                    }
+                }
+                all_samples = interleaved;
+            }
+        }
 
         Ok(Self {
-            samples: final_samples,
+            samples: all_samples,
             channels: actual_channels,
-            sample_rate: final_sample_rate,
+            sample_rate: if needs_resampling && target_sample_rate > 0 { target_sample_rate } else { src_sample_rate },
         })
     }
 }
@@ -186,7 +221,9 @@ impl SoundInstance {
         output_stereo: bool,
         current_position: Option<crate::common::config::Point3D>,
     ) -> Self {
-        let channels_usize = stream_channels as usize;
+        let mut smoother = crate::audio::dsp::dsp_utils::GainSmoother::new(1.0, 0.01);
+        smoother.set_target(volume);
+
         Self {
             instance_id,
             id,
@@ -204,13 +241,13 @@ impl SoundInstance {
             is_stopping: false,
             output_channel,
             output_stereo,
-            fade_weight: 0.0, // starts from 0 for fade in
-            volume_smoother: crate::audio::dsp::dsp_utils::GainSmoother::new(volume, 0.005),
-            last_samples: vec![0.0; channels_usize.max(1)],
+            fade_weight: 0.0,
+            volume_smoother: smoother,
+            last_samples: vec![0.0; stream_channels as usize],
             anti_click_multiplier: 1.0,
             current_position,
-            spatial_gains: Vec::new(),
-            spatial_gains_target: Vec::new(),
+            spatial_gains: vec![0.0; 24],
+            spatial_gains_target: vec![0.0; 24],
         }
     }
 }

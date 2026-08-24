@@ -89,7 +89,7 @@ class _ResamplerStatusBadgeWidgetState
             const SizedBox(width: 6),
             Text(
               _isResampling
-                  ? 'RESAMPLING: $fileRateStr ➔ $deviceRateStr'
+                  ? 'HQ Sinc Resampling: $fileRateStr ➔ $deviceRateStr'
                   : 'DIRECT: $deviceRateStr',
               style: TextStyle(
                 color: _isResampling ? Colors.cyanAccent : Colors.white70,
