@@ -1773,12 +1773,59 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                                       ) {
                                         final idx = entry.key;
                                         final wp = entry.value;
-                                        return _DraggableWaypointWidget(
-                                          key: ValueKey('${t.id}_$idx'),
-                                          trajectory: t,
-                                  );
-                                },
-                              ),
+                                         return _DraggableWaypointWidget(
+                                           key: ValueKey('${t.id}_$idx'),
+                                           trajectory: t,
+                                           waypointIndex: idx,
+                                           waypoint: wp,
+                                           transformationController:
+                                               _transformationController,
+                                           onDragUpdate:
+                                               _syncSpatialConfigRealtime,
+                                         );
+                                       });
+                                     }),
+                                   ],
+                                 );
+                               },
+                             ),
+                           if (_showRooms)
+                             Consumer(
+                               builder: (context, ref, _) {
+                                 final rooms = ref.watch(roomZoneProvider);
+                                 final nodes = ref.watch(
+                                   speakerLayoutProvider,
+                                 );
+                                 return Positioned.fill(
+                                   child: Stack(
+                                     clipBehavior: Clip.none,
+                                     children: rooms.map((room) {
+                                       final containedSpeakers =
+                                           _getSpeakersInRoom(room, nodes);
+                                       return RoomZoneWidget(
+                                         key: ValueKey(room.id),
+                                         room: room,
+                                         containedSpeakers: containedSpeakers,
+                                         transformationController:
+                                             _transformationController,
+                                         isSelected:
+                                             _selectedRoomId == room.id,
+                                         onEdit: () => _editRoom(room),
+                                         onDragUpdate:
+                                             _syncSpatialConfigRealtime,
+                                         onInteractionStart: () => setState(() {
+                                           _isRoomInteracting = true;
+                                           _selectedRoomId = room.id;
+                                         }),
+                                         onInteractionEnd: () => setState(
+                                           () => _isRoomInteracting = false,
+                                         ),
+                                       );
+                                     }).toList(),
+                                   ),
+                                 );
+                               },
+                             ),
                             if (_showSpeakers)
                               Consumer(
                                 builder: (context, ref, _) {
@@ -1881,7 +1928,6 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                       ),
                     ),
                   ),
-                ),
                 if (_isSidebarOpen)
                   Positioned.fill(
                     child: TrajectorySidebarWidget(
