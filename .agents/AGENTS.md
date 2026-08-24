@@ -27,3 +27,10 @@ When a task requires delegation or QA, use `send_message` to send instructions t
 **CRITICAL RULE:** Before pushing code to GitHub, creating a release tag, or running a build, the `@Main` operator MUST command `@check` and `@sub` to perform a final, comprehensive deep-debugging sweep. 
 - You MUST ensure there are absolutely no remaining bugs, memory leaks, or unhandled edge cases.
 - GitHub upload and building are strictly blocked until `@check` officially reports a 100% flawlessness rate.
+
+## Pro Audio DSP Rules
+All agents must read and strictly follow the 3 Immutable Laws of Pro Audio Engineering outlined in  when writing or reviewing audio backend code. No heap allocations or locks in the DSP thread.
+
+
+## Pro Audio DSP Rules
+All agents must read and strictly follow the 3 Immutable Laws of Pro Audio Engineering outlined in `.agents/DSP_RULES.md` when writing or reviewing audio backend code. No heap allocations or locks in the DSP thread.
