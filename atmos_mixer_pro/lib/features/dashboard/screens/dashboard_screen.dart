@@ -18,6 +18,7 @@ import 'package:atmos_mixer_pro/features/dashboard/widgets/auto_calibration_moda
 import 'package:atmos_mixer_pro/features/dashboard/widgets/sunrise_sunset_schedule_dialog.dart';
 import 'package:atmos_mixer_pro/features/exhibition/screens/speaker_canvas_screen.dart'
     as atmos_exhibition;
+import 'package:atmos_mixer_pro/features/dashboard/widgets/safety_alert_border.dart';
 import 'package:atmos_mixer_pro/src/rust/api/simple.dart' as rust_api;
 import 'package:atmos_mixer_pro/src/rust/common/config.dart';
 import 'package:file_picker/file_picker.dart';
@@ -31,6 +32,8 @@ class DashboardScreen extends ConsumerStatefulWidget {
 
 class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   bool _isRecovering = false;
+  bool _isWatchdogActive = false;
+  bool _isAutoGuardActive = false;
   final ScrollController _scrollController = ScrollController();
   StreamSubscription<String>? _statusSub;
 
@@ -50,6 +53,16 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             duration: Duration(seconds: 10),
           ),
         );
+      } else if (status == 'WatchdogActive') {
+        setState(() => _isWatchdogActive = true);
+        Future.delayed(const Duration(seconds: 4), () {
+          if (mounted) setState(() => _isWatchdogActive = false);
+        });
+      } else if (status == 'AutoGuardActive') {
+        setState(() => _isAutoGuardActive = true);
+        Future.delayed(const Duration(seconds: 4), () {
+          if (mounted) setState(() => _isAutoGuardActive = false);
+        });
       } else if (status == 'HotReloading') {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -74,18 +87,22 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final bodyContent = Stack(
-      children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            if (!Platform.isMacOS) _buildMaterialMenuBar(context),
-            _buildHeader(context),
-            Expanded(child: _buildRoomPanels(context)),
-          ],
-        ),
-        _buildErrorModal(),
-      ],
+    final bodyContent = SafetyAlertBorderWidget(
+      isWatchdogActive: _isWatchdogActive,
+      isAutoGuardActive: _isAutoGuardActive,
+      child: Stack(
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (!Platform.isMacOS) _buildMaterialMenuBar(context),
+              _buildHeader(context),
+              Expanded(child: _buildRoomPanels(context)),
+            ],
+          ),
+          _buildErrorModal(),
+        ],
+      ),
     );
 
     return Scaffold(

@@ -14,6 +14,13 @@ pub struct PeakLimiter {
     delay_index: usize,
     
     prev_sample: f32,
+
+    // R128 Autoguard
+    pub short_term_lufs: f32,
+    pub autoguard_ducking: f32,
+    lufs_integration_buffer: Vec<f32>,
+    lufs_index: usize,
+    sum_sq: f32,
 }
 
 impl PeakLimiter {
@@ -57,6 +64,12 @@ impl PeakLimiter {
             delay_index: 0,
             
             prev_sample: 0.0,
+
+            short_term_lufs: -70.0,
+            autoguard_ducking: 1.0,
+            lufs_integration_buffer: vec![0.0; (sample_rate * 3.0) as usize], // 3 seconds integration window
+            lufs_index: 0,
+            sum_sq: 0.0,
         }
     }
 
@@ -118,12 +131,45 @@ impl PeakLimiter {
         let out = delayed_sample * gain;
         
         // Hard clip safeguard just in case
-        if out > 0.985 {
+        let final_out = if out > 0.985 {
             0.985
         } else if out < -0.985 {
             -0.985
         } else {
             out
+        };
+
+        // R128 Autoguard Calculation
+        let sq = final_out * final_out;
+        let old_sq = self.lufs_integration_buffer[self.lufs_index];
+        self.sum_sq = self.sum_sq + sq - old_sq;
+        // Avoid floating point drift
+        if self.sum_sq < 0.0 { self.sum_sq = 0.0; }
+        
+        self.lufs_integration_buffer[self.lufs_index] = sq;
+        self.lufs_index += 1;
+        if self.lufs_index >= self.lufs_integration_buffer.len() {
+            self.lufs_index = 0;
         }
+
+        let mean_sq = self.sum_sq / self.lufs_integration_buffer.len() as f32;
+        self.short_term_lufs = if mean_sq > 1e-10 {
+            -0.691 + 10.0 * mean_sq.log10() // simplified LUFS approx
+        } else {
+            -70.0
+        };
+
+        // Autoguard threshold (e.g. -14 LUFS)
+        let autoguard_threshold = -14.0;
+        let mut target_ducking = 1.0;
+        if self.short_term_lufs > autoguard_threshold {
+            let over = self.short_term_lufs - autoguard_threshold;
+            target_ducking = 10.0_f32.powf(-over / 20.0);
+        }
+
+        // Smooth ducking change
+        self.autoguard_ducking += 0.001 * (target_ducking - self.autoguard_ducking);
+
+        final_out * self.autoguard_ducking
     }
 }
