@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:atmos_mixer_pro/core/theme/colors.dart';
+import 'package:atmos_mixer_pro/core/state/global_state.dart';
 
 /// Master Limiter Gain Reduction (GR) & LED Status Meter Widget
 class MasterLimiterMeterWidget extends ConsumerStatefulWidget {
@@ -62,6 +63,19 @@ class _MasterLimiterMeterWidgetState
 
   @override
   Widget build(BuildContext context) {
+    // Read the actual shortTermLufs from the backend engine state
+    final double engineLufs = ref.watch(engineStateProvider.select((s) => s.shortTermLufs));
+    
+    // Convert LUFS to an approximate Gain Reduction for display if we are not simulating
+    // (Assuming true peak limiter kicks in when LUFS is very high, e.g. > -12 LUFS)
+    if (!_isSimulating) {
+      if (engineLufs > -12.0) {
+        _currentGrDb = -((engineLufs + 12.0) * 1.5).clamp(0.0, 12.0); // Rough approximation
+      } else {
+         _currentGrDb = 0.0;
+      }
+    }
+
     final bool isCompressing = _currentGrDb.abs() > 0.1;
     final double grRatio = (_currentGrDb.abs() / 12.0).clamp(0.0, 1.0);
 

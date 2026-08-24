@@ -123,6 +123,7 @@ impl GlobalEngineState {
             playing_track_ids,
             engine_error: self.engine_error.read().unwrap_or_else(|e| e.into_inner()).clone(),
             output_channel_count: self.active_device_channels.load(Ordering::Relaxed),
+            short_term_lufs: f32::from_bits(self.current_master_lufs.load(Ordering::Relaxed)),
         };
 
         if let Some(sink) = self.state_sink.read().unwrap_or_else(|e| e.into_inner()).as_ref() {

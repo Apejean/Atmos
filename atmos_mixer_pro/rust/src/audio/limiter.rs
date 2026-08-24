@@ -13,14 +13,16 @@ pub struct PeakLimiter {
     delay_buffer: Vec<f32>,
     delay_index: usize,
     
-    prev_sample: f32,
+    history: [f32; 3],
 
     // R128 Autoguard
     pub short_term_lufs: f32,
     pub autoguard_ducking: f32,
+    target_ducking: f32,
     lufs_integration_buffer: Vec<f32>,
     lufs_index: usize,
     sum_sq: f32,
+    lufs_decimation_counter: usize,
 }
 
 impl PeakLimiter {
@@ -63,13 +65,15 @@ impl PeakLimiter {
             delay_buffer,
             delay_index: 0,
             
-            prev_sample: 0.0,
+            history: [0.0; 3],
 
             short_term_lufs: -70.0,
             autoguard_ducking: 1.0,
+            target_ducking: 1.0,
             lufs_integration_buffer: vec![0.0; (sample_rate * 3.0) as usize], // 3 seconds integration window
             lufs_index: 0,
             sum_sq: 0.0,
+            lufs_decimation_counter: 0,
         }
     }
 
@@ -77,10 +81,20 @@ impl PeakLimiter {
         // 4x Oversampling interpolation for True Peak detection (ISP)
         let mut max_abs = 0.0_f32;
         
-        // Simple linear interpolation for 4x oversampling points
+        let x0 = self.history[0];
+        let x1 = self.history[1];
+        let x2 = self.history[2];
+        let x3 = sample;
+        
+        // 4-tap Hermite interpolation
+        let c0 = x1;
+        let c1 = 0.5 * (x2 - x0);
+        let c2 = x0 - 2.5 * x1 + 2.0 * x2 - 0.5 * x3;
+        let c3 = 0.5 * (x3 - x0) + 1.5 * (x1 - x2);
+
         for i in 1..=4 {
-            let frac = i as f32 / 4.0;
-            let interp = self.prev_sample + (sample - self.prev_sample) * frac;
+            let t = i as f32 / 4.0;
+            let interp = ((c3 * t + c2) * t + c1) * t + c0;
             let abs_val = interp.abs();
             if abs_val > max_abs {
                 max_abs = abs_val;
@@ -100,7 +114,9 @@ impl PeakLimiter {
             }
         }
         
-        self.prev_sample = sample;
+        self.history[0] = self.history[1];
+        self.history[1] = self.history[2];
+        self.history[2] = sample;
         
         // Absolute safety clamp to current max if envelopes are too slow
         let envelope = self.fast_envelope.max(self.slow_envelope).max(max_abs);
@@ -152,23 +168,28 @@ impl PeakLimiter {
             self.lufs_index = 0;
         }
 
-        let mean_sq = self.sum_sq / self.lufs_integration_buffer.len() as f32;
-        self.short_term_lufs = if mean_sq > 1e-10 {
-            -0.691 + 10.0 * mean_sq.log10() // simplified LUFS approx
-        } else {
-            -70.0
-        };
+        if self.lufs_decimation_counter == 0 {
+            let mean_sq = self.sum_sq / self.lufs_integration_buffer.len() as f32;
+            self.short_term_lufs = if mean_sq > 1e-10 {
+                -0.691 + 10.0 * mean_sq.log10() // simplified LUFS approx
+            } else {
+                -70.0
+            };
 
-        // Autoguard threshold (e.g. -14 LUFS)
-        let autoguard_threshold = -14.0;
-        let mut target_ducking = 1.0;
-        if self.short_term_lufs > autoguard_threshold {
-            let over = self.short_term_lufs - autoguard_threshold;
-            target_ducking = 10.0_f32.powf(-over / 20.0);
+            // Autoguard threshold (e.g. -14 LUFS)
+            let autoguard_threshold = -14.0;
+            self.target_ducking = 1.0;
+            if self.short_term_lufs > autoguard_threshold {
+                let over = self.short_term_lufs - autoguard_threshold;
+                self.target_ducking = 10.0_f32.powf(-over / 20.0);
+            }
+            self.lufs_decimation_counter = 127;
+        } else {
+            self.lufs_decimation_counter -= 1;
         }
 
         // Smooth ducking change
-        self.autoguard_ducking += 0.001 * (target_ducking - self.autoguard_ducking);
+        self.autoguard_ducking += 0.001 * (self.target_ducking - self.autoguard_ducking);
 
         final_out * self.autoguard_ducking
     }

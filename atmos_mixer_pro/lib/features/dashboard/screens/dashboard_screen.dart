@@ -729,7 +729,7 @@ oscWhitelist: config.oscWhitelist,
                   color: Colors.orange.shade800,
                   borderRadius: BorderRadius.circular(4),
                 ),
-                child: const Row(
+                child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(
@@ -737,7 +737,7 @@ oscWhitelist: config.oscWhitelist,
                       color: Colors.white,
                       size: 20,
                     ),
-                    SizedBox(width: 8),
+                    const SizedBox(width: 8),
                     Text(
                       'MASTER MUTE ACTIVE',
                       style: TextStyle(
@@ -751,17 +751,17 @@ oscWhitelist: config.oscWhitelist,
               );
             },
           ),
-          const Row(
+          Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              ResamplerStatusBadgeWidget(
+              const ResamplerStatusBadgeWidget(
                 fileSampleRate: 44100,
                 deviceSampleRate: 48000,
                 forceActive: true,
               ),
-              SizedBox(width: 8),
+              const SizedBox(width: 8),
               MasterLimiterMeterWidget(
-                initialGainReductionDb: 0.0,
+                initialGainReductionDb: ref.watch(engineStateProvider).shortTermLufs,
                 enableSimulationToggle: true,
               ),
             ],

@@ -204,6 +204,7 @@ class EngineState {
   final List<String> playingTrackIds;
   final bool masterMuteActive;
   final int outputChannelCount;
+  final double shortTermLufs;
 
   EngineState({
     this.activeRoomId,
@@ -213,6 +214,7 @@ class EngineState {
     this.playingTrackIds = const [],
     this.masterMuteActive = false,
     this.outputChannelCount = 2,
+    this.shortTermLufs = -70.0,
   });
 
   EngineState copyWith({
@@ -224,6 +226,7 @@ class EngineState {
     List<String>? playingTrackIds,
     bool? masterMuteActive,
     int? outputChannelCount,
+    double? shortTermLufs,
   }) {
     return EngineState(
       activeRoomId: forceNullActiveRoom
@@ -235,6 +238,7 @@ class EngineState {
       playingTrackIds: playingTrackIds ?? this.playingTrackIds,
       masterMuteActive: masterMuteActive ?? this.masterMuteActive,
       outputChannelCount: outputChannelCount ?? this.outputChannelCount,
+      shortTermLufs: shortTermLufs ?? this.shortTermLufs,
     );
   }
 }
@@ -251,6 +255,7 @@ class EngineStateNotifier extends Notifier<EngineState> {
         duckingActive: update.duckingActive,
         playingTrackIds: update.playingTrackIds,
         outputChannelCount: update.outputChannelCount,
+        shortTermLufs: update.shortTermLufs,
       );
     });
     ref.onDispose(() => sub.cancel());

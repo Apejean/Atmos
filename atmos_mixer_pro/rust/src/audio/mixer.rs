@@ -63,6 +63,12 @@ pub struct AudioMixer {
     pub temp_spatial_weights: Vec<f32>,
     pub analysis_tx: Option<rtrb::Producer<f32>>,
     pub temp_vals: Vec<f32>,
+    
+    // Pre-allocated buffers for spatial dsp recalculation
+    pub temp_base_delays: Vec<f32>,
+    pub temp_base_eqs: Vec<Vec<crate::common::config::EqBand>>,
+    pub temp_channel_dists: Vec<f32>,
+
     pub master_clock: f64,
     pub spatializer: Option<crate::audio::spatial::Spatializer3D>,
     pub reverb: crate::audio::reverb::VirtualRoomReverb,
@@ -187,6 +193,9 @@ impl AudioMixer {
             temp_spatial_weights: vec![0.0; channels],
             analysis_tx,
             temp_vals: vec![0.0; channels],
+            temp_base_delays: vec![0.0; channels],
+            temp_base_eqs: vec![Vec::new(); channels],
+            temp_channel_dists: vec![0.0; channels],
             master_clock: 0.0,
             spatializer: None,
             reverb: crate::audio::reverb::VirtualRoomReverb::new(sample_rate as f32),
@@ -741,6 +750,12 @@ impl AudioMixer {
 
             GLOBAL_STATE.vu_levels[ch].store(peak.to_bits(), Ordering::Relaxed);
         }
+
+        // Store first two channels LUFS to global state (assume stereo master)
+        if out_channels > 0 && !self.limiters.is_empty() {
+            let lufs = self.limiters[0].short_term_lufs;
+            GLOBAL_STATE.current_master_lufs.store(lufs.to_bits(), Ordering::Relaxed);
+        }
         
         // Send to Analysis Thread (Lock-free)
         if let Some(tx) = &mut self.analysis_tx {
@@ -783,18 +798,35 @@ impl AudioMixer {
     pub fn recalculate_spatial_dsp(&mut self) {
         if let Ok(config_guard) = crate::core::state::GLOBAL_STATE.config.try_read() {
             if let Some(config) = config_guard.as_ref() {
+                let max_ch = self.channel_dsp.len();
+                let max_pos = self.channel_positions.len();
+
                 // 1. Collect base delay and EQs from config
-                let mut base_delays = vec![0.0_f32; self.channel_dsp.len()];
-                let mut base_eqs = vec![Vec::new(); self.channel_dsp.len()];
+                let mut base_delays = std::mem::take(&mut self.temp_base_delays);
+                let mut base_eqs = std::mem::take(&mut self.temp_base_eqs);
+                let mut channel_dists = std::mem::take(&mut self.temp_channel_dists);
+                
+                // Ensure capacities match
+                if base_delays.len() < max_ch { base_delays.resize(max_ch, 0.0); }
+                if base_eqs.len() < max_ch { base_eqs.resize(max_ch, Vec::new()); }
+                if channel_dists.len() < max_pos { channel_dists.resize(max_pos, 0.0); }
+                
+                for i in 0..max_ch {
+                    base_delays[i] = 0.0;
+                    base_eqs[i].clear();
+                }
+                for i in 0..max_pos {
+                    channel_dists[i] = 0.0;
+                }
                 
                 let mut apply_config = |ch_key: u32, setting: &crate::common::config::ChannelSetting, ch_offset: usize, count: usize| {
                     if ch_key > 0 {
                         let ch_idx_base = (ch_key - 1) as usize + ch_offset;
                         for i in 0..count {
                             let ch_idx = ch_idx_base + i;
-                            if ch_idx < self.channel_dsp.len() {
+                            if ch_idx < max_ch {
                                 base_delays[ch_idx] = setting.delay_ms;
-                                base_eqs[ch_idx] = setting.eq_bands.clone();
+                                base_eqs[ch_idx].clone_from(&setting.eq_bands);
                             }
                         }
                     }
@@ -813,7 +845,6 @@ impl AudioMixer {
 
                 // 3. Pre-calculate max_dist for time alignment
                 let mut max_dist = 0.0_f32;
-                let mut channel_dists = vec![0.0_f32; self.channel_positions.len()];
                 
                 let target_room_id = if let Some(traj) = &self.trajectory {
                     traj.target_room_zone_id.as_ref().map(|s| s.parse::<u32>().unwrap_or_else(|_| crate::common::utils::hash_id(s)))
@@ -969,6 +1000,10 @@ impl AudioMixer {
                         self.channel_dsp[ch_idx].update_eq_targets(&final_eqs, sr);
                     }
                 }
+                
+                self.temp_base_delays = base_delays;
+                self.temp_base_eqs = base_eqs;
+                self.temp_channel_dists = channel_dists;
             }
         }
     }
