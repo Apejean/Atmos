@@ -128,13 +128,8 @@ pub fn get_channel_names_mac(device_name_target: &str, num_channels: u32) -> Vec
 }
 
 #[cfg(target_os = "windows")]
-pub fn get_channel_names_win(device_name_target: &str, num_channels: u32) -> Vec<String> {
-    use windows::core::{Interface, PCWSTR};
-    use windows::Win32::Devices::Properties::*;
-    use windows::Win32::Media::Audio::*;
-    use windows::Win32::System::Com::*;
-
-    let mut fallback = (1..=num_channels)
+pub fn get_channel_names_win(_device_name_target: &str, num_channels: u32) -> Vec<String> {
+    let fallback = (1..=num_channels)
         .map(|i| format!("Channel {}", i))
         .collect::<Vec<_>>();
 

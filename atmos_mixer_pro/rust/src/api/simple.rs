@@ -1141,7 +1141,7 @@ pub fn api_get_output_devices() -> Result<Vec<OutputDeviceInfo>, AtmosError> {
                                     #[cfg(target_os = "windows")]
                                     let channel_names = crate::audio::channel_names::get_channel_names_win(&actual_name, max_channels);
                                     #[cfg(not(target_os = "windows"))]
-                                    let channel_names = vec![];
+                                    let channel_names = { let _ = actual_name; vec![] };
 
                                     device_info_list.push(OutputDeviceInfo {
                                         name: saved_name.clone(),
