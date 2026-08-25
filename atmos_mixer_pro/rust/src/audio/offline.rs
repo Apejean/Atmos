@@ -35,13 +35,18 @@ impl OfflineRenderer {
                 sample_format: hound::SampleFormat::Float,
             };
             
-            if let Ok(mut writer) = hound::WavWriter::create(&out_path_owned, spec) {
-                while let Ok(buffer) = rx.recv() {
-                    for &sample in &buffer {
-                        let _ = writer.write_sample(sample);
+            match hound::WavWriter::create(&out_path_owned, spec) {
+                Ok(mut writer) => {
+                    while let Ok(buffer) = rx.recv() {
+                        for &sample in &buffer {
+                            let _ = writer.write_sample(sample);
+                        }
                     }
+                    let _ = writer.finalize();
                 }
-                let _ = writer.finalize();
+                Err(e) => {
+                    eprintln!("Failed to create WavWriter at {}: {:?}", out_path_owned, e);
+                }
             }
         });
         
