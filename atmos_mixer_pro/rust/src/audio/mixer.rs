@@ -263,10 +263,10 @@ impl AudioMixer {
                     
                     if inst.output_channel == usize::MAX && inst.current_position.is_some() {
                         let active_ch = out_channels.min(self.channel_positions.len());
-                        if inst.spatial_gains.len() != active_ch {
-                            inst.spatial_gains.resize(active_ch, 0.0);
-                            inst.spatial_gains_target.resize(active_ch, 0.0);
-                        }
+                        // if inst.spatial_gains.len() != active_ch {
+                            // inst.spatial_gains.resize(active_ch, 0.0);
+                            // inst.spatial_gains_target.resize(active_ch, 0.0);
+                        // }
                         
                         let default_pos = crate::common::config::Point3D::default();
                         let pos = inst.current_position.as_ref().unwrap_or(&default_pos);

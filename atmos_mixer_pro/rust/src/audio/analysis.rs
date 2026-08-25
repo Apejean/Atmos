@@ -7,7 +7,7 @@ pub fn start_analysis_thread(mut rx: Consumer<f32>, sample_rate: u32, channels: 
     std::thread::spawn(move || {
         let mut rta_analyzer = RtaAnalyzer::new();
         {
-            let mut lock = GLOBAL_STATE.rta_magnitudes_ref.write().unwrap();
+            let mut lock = GLOBAL_STATE.rta_magnitudes_ref.write().unwrap_or_else(|e| e.into_inner());
             *lock = Some(rta_analyzer.get_magnitudes_arc());
         }
 

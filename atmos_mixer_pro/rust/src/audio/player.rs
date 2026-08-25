@@ -156,10 +156,13 @@ impl SoundData {
                 params,
                 1024,
                 channels as usize,
-            ).unwrap();
+            ).expect("Failed to create resampler");
             
             let mut resampled_samples = Vec::new();
             let mut input_idx = 0;
+            
+            // Pre-allocate buffer outside the loop to avoid allocations
+            let mut process_buf = vec![vec![0.0; 2048]; channels as usize];
             
             while input_idx < frames {
                 let required = resampler.input_frames_next();
@@ -167,12 +170,19 @@ impl SoundData {
                     break;
                 }
                 
-                let mut process_buf = vec![vec![0.0; required]; channels as usize];
-                for ch in 0..channels as usize {
-                    process_buf[ch].copy_from_slice(&deinterleaved[ch][input_idx..input_idx + required]);
+                if required > process_buf[0].len() {
+                    for ch in 0..channels as usize {
+                        process_buf[ch].resize(required, 0.0);
+                    }
                 }
                 
-                if let Ok(resampled) = resampler.process(&process_buf, None) {
+                for ch in 0..channels as usize {
+                    process_buf[ch][..required].copy_from_slice(&deinterleaved[ch][input_idx..input_idx + required]);
+                }
+                
+                // Create a slice view of the exact required length
+                let process_slice: Vec<&[f32]> = process_buf.iter().map(|v| &v[..required]).collect();
+                if let Ok(resampled) = resampler.process(&process_slice, None) {
                     let out_frames = resampled[0].len();
                     for frame in 0..out_frames {
                         for ch in 0..channels as usize {
@@ -247,7 +257,7 @@ impl SoundInstance {
             track_id_str,
             data,
             stream_receiver,
-            stream_buffer: Vec::new(),
+            stream_buffer: Vec::with_capacity(131072),
             stream_sample_rate,
             stream_channels,
             cursor: 0.0,

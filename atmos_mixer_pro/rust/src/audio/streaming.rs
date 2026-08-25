@@ -118,7 +118,7 @@ impl DiskStreamer {
                     params,
                     1024,
                     channels as usize,
-                ).unwrap())
+                ).expect("Failed to create resampler"))
             } else {
                 None
             };

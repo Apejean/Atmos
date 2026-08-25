@@ -225,7 +225,7 @@ impl AudioEngine {
         if let Some(app_config) = crate::core::state::GLOBAL_STATE
             .config
             .read()
-            .unwrap()
+            .unwrap_or_else(|e| e.into_inner())
             .as_ref()
         {
             if app_config.buffer_size > 0 {
