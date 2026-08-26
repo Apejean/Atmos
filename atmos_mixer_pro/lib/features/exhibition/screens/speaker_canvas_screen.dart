@@ -77,6 +77,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
   bool _isSidebarOpen = false;
 
   bool _isBinauralEnabled = false;
+  bool _isRoomSetupOpen = false;
   double _reverbMix = 0.3;
   double _reverbDecay = 1.5;
 
@@ -1549,6 +1550,8 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
             children: [
               const Text('Exhibition Canvas'),
               const Spacer(),
+              // Wrapped in SingleChildScrollView to prevent overflow
+              Expanded(flex: 3, child: SingleChildScrollView(scrollDirection: Axis.horizontal, child: Row(mainAxisSize: MainAxisSize.min, children: [
               Consumer(
                 builder: (context, ref, child) {
                   final isMasterMuted = ref.watch(
@@ -1676,12 +1679,26 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                 onPressed: _toggleAutomation,
               ),
               const SizedBox(width: 8),
+              const SizedBox(width: 8),
+              OutlinedButton.icon(
+                icon: const Icon(Icons.picture_in_picture_alt_outlined, size: 16),
+                label: const Text('ROOM SETUP'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: _isRoomSetupOpen ? Colors.white : Colors.lightBlueAccent,
+                  backgroundColor: _isRoomSetupOpen ? Colors.lightBlueAccent.withValues(alpha: 0.2) : Colors.transparent,
+                  side: BorderSide(color: Colors.lightBlueAccent.withValues(alpha: _isRoomSetupOpen ? 0.8 : 0.4)),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+                ),
+                onPressed: () => setState(() => _isRoomSetupOpen = !_isRoomSetupOpen),
+              ),
+              const SizedBox(width: 8),
               IconButton(
                 tooltip: 'Set Blueprint',
                 icon: const Icon(Icons.image, color: Colors.white70),
                 onPressed: _pickBlueprint,
               ),
               const SizedBox(width: 8),
+            ],))),
               IconButton(
                 tooltip: 'Set Scale',
                 icon: const Icon(Icons.aspect_ratio, color: Colors.white70),
