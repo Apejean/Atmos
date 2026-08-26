@@ -13,7 +13,6 @@ import 'package:atmos_mixer_pro/features/dashboard/widgets/master_limiter_meter.
 import 'package:atmos_mixer_pro/features/dashboard/widgets/resampler_status_badge.dart';
 import 'package:atmos_mixer_pro/features/dashboard/widgets/rta_spectrum_overlay.dart';
 import 'package:atmos_mixer_pro/features/dashboard/widgets/multitrack_timeline.dart';
-import 'package:atmos_mixer_pro/features/dashboard/widgets/orbit_3d_view_dialog.dart';
 import 'package:atmos_mixer_pro/features/dashboard/widgets/advanced_physics_panel.dart';
 import 'package:atmos_mixer_pro/features/exhibition/screens/speaker_canvas_screen.dart'
     as atmos_exhibition;
@@ -904,16 +903,6 @@ oscWhitelist: config.oscWhitelist,
                   '시스템 리셋',
                   style: TextStyle(color: Colors.white),
                 ),
-              ),
-              IconButton(
-                icon: const Icon(Icons.view_in_ar, color: AppColors.primaryNeon),
-                tooltip: '3D Orbit Perspective View',
-                onPressed: () {
-                  showDialog(
-                    context: context,
-                    builder: (context) => const Orbit3DViewDialog(),
-                  );
-                },
               ),
               IconButton(
                 icon: const Icon(Icons.graphic_eq, color: AppColors.primaryNeon),
