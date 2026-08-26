@@ -100,36 +100,36 @@ class _RoomSetupWindowState extends State<RoomSetupWindow> {
             padding: const EdgeInsets.all(16.0),
             child: Column(
               children: [
-                _buildInputRow(
+                _StepperInputRow(
                   icon: Icons.swap_horiz,
                   label: 'Width:',
                   value: width,
-                  onUp: () => setState(() => width += 0.5),
-                  onDown: () => setState(() => width -= 0.5),
+                  onChanged: (val) => setState(() => width = val),
+                  step: 0.5,
                 ),
                 const SizedBox(height: 12),
-                _buildInputRow(
-                  icon: Icons.view_in_ar, // Approximation for the perspective icon
+                _StepperInputRow(
+                  icon: Icons.view_in_ar,
                   label: 'Depth:',
                   value: depth,
-                  onUp: () => setState(() => depth += 0.5),
-                  onDown: () => setState(() => depth -= 0.5),
+                  onChanged: (val) => setState(() => depth = val),
+                  step: 0.5,
                 ),
                 const SizedBox(height: 12),
-                _buildInputRow(
+                _StepperInputRow(
                   icon: Icons.height,
                   label: 'Ceiling Height:',
                   value: ceilingHeight,
-                  onUp: () => setState(() => ceilingHeight += 0.1),
-                  onDown: () => setState(() => ceilingHeight -= 0.1),
+                  onChanged: (val) => setState(() => ceilingHeight = val),
+                  step: 0.1,
                 ),
                 const SizedBox(height: 12),
-                _buildInputRow(
+                _StepperInputRow(
                   icon: Icons.headphones_outlined,
                   label: 'Ear Level:',
                   value: earLevel,
-                  onUp: () => setState(() => earLevel += 0.1),
-                  onDown: () => setState(() => earLevel -= 0.1),
+                  onChanged: (val) => setState(() => earLevel = val),
+                  step: 0.1,
                 ),
               ],
             ),
@@ -170,79 +170,6 @@ class _RoomSetupWindowState extends State<RoomSetupWindow> {
     );
   }
 
-  Widget _buildInputRow({
-    required IconData icon,
-    required String label,
-    required double value,
-    required VoidCallback onUp,
-    required VoidCallback onDown,
-  }) {
-    const iconColor = Colors.lightBlueAccent;
-    const labelColor = Color(0xFFE2E8F0);
-    const boxBorderColor = Colors.lightBlueAccent;
-
-    return Row(
-      children: [
-        Icon(icon, color: iconColor, size: 20),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Text(
-            label,
-            style: const TextStyle(color: labelColor, fontSize: 13),
-          ),
-        ),
-        // Custom Stepper Input Box
-        Container(
-          width: 90,
-          height: 32,
-          decoration: BoxDecoration(
-            color: Colors.transparent,
-            borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: boxBorderColor.withValues(alpha: 0.7), width: 1.2),
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.only(left: 8.0, right: 4.0),
-                  child: Text(
-                    '${value.toStringAsFixed(1)} m',
-                    textAlign: TextAlign.right,
-                    style: const TextStyle(
-                      color: Colors.lightBlueAccent,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-              ),
-              // Stepper Arrows
-              Container(
-                width: 24,
-                decoration: BoxDecoration(
-                  border: Border(left: BorderSide(color: boxBorderColor.withValues(alpha: 0.3))),
-                ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    InkWell(
-                      onTap: onUp,
-                      child: const Icon(Icons.arrow_drop_up, color: Colors.lightBlueAccent, size: 12),
-                    ),
-                    InkWell(
-                      onTap: onDown,
-                      child: const Icon(Icons.arrow_drop_down, color: Colors.lightBlueAccent, size: 12),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
   Widget _buildButton({required String label, required bool isPrimary, required VoidCallback onPressed}) {
     final primaryColor = Colors.lightBlue.shade700;
     
@@ -264,6 +191,161 @@ class _RoomSetupWindowState extends State<RoomSetupWindow> {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _StepperInputRow extends StatefulWidget {
+  final IconData icon;
+  final String label;
+  final double value;
+  final Function(double) onChanged;
+  final double step;
+
+  const _StepperInputRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.onChanged,
+    required this.step,
+  });
+
+  @override
+  State<_StepperInputRow> createState() => _StepperInputRowState();
+}
+
+class _StepperInputRowState extends State<_StepperInputRow> {
+  bool _isEditing = false;
+  late TextEditingController _controller;
+  late FocusNode _focusNode;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.value.toStringAsFixed(1));
+    _focusNode = FocusNode();
+    _focusNode.addListener(() {
+      if (!_focusNode.hasFocus && _isEditing) {
+        _submit();
+      }
+    });
+  }
+
+  @override
+  void didUpdateWidget(_StepperInputRow oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.value != widget.value && !_isEditing) {
+      _controller.text = widget.value.toStringAsFixed(1);
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final val = double.tryParse(_controller.text);
+    if (val != null) {
+      widget.onChanged(val);
+    } else {
+      _controller.text = widget.value.toStringAsFixed(1);
+    }
+    setState(() {
+      _isEditing = false;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const iconColor = Colors.lightBlueAccent;
+    const labelColor = Color(0xFFE2E8F0);
+    const boxBorderColor = Colors.lightBlueAccent;
+
+    return Row(
+      children: [
+        Icon(widget.icon, color: iconColor, size: 20),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            widget.label,
+            style: const TextStyle(color: labelColor, fontSize: 13),
+          ),
+        ),
+        Container(
+          width: 90,
+          height: 32,
+          decoration: BoxDecoration(
+            color: Colors.transparent,
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: boxBorderColor.withValues(alpha: 0.7), width: 1.2),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.only(left: 8.0, right: 4.0),
+                  child: GestureDetector(
+                    onDoubleTap: () {
+                      setState(() {
+                        _isEditing = true;
+                      });
+                      _focusNode.requestFocus();
+                    },
+                    child: _isEditing
+                        ? TextField(
+                            controller: _controller,
+                            focusNode: _focusNode,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                            ),
+                            decoration: const InputDecoration(
+                              isDense: true,
+                              contentPadding: EdgeInsets.zero,
+                              border: InputBorder.none,
+                            ),
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            onSubmitted: (_) => _submit(),
+                          )
+                        : Text(
+                            '${widget.value.toStringAsFixed(1)} m',
+                            textAlign: TextAlign.right,
+                            style: const TextStyle(
+                              color: Colors.lightBlueAccent,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                  ),
+                ),
+              ),
+              Container(
+                width: 24,
+                decoration: BoxDecoration(
+                  border: Border(left: BorderSide(color: boxBorderColor.withValues(alpha: 0.3))),
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    InkWell(
+                      onTap: () => widget.onChanged(widget.value + widget.step),
+                      child: const Icon(Icons.arrow_drop_up, color: Colors.lightBlueAccent, size: 12),
+                    ),
+                    InkWell(
+                      onTap: () => widget.onChanged(widget.value - widget.step),
+                      child: const Icon(Icons.arrow_drop_down, color: Colors.lightBlueAccent, size: 12),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
