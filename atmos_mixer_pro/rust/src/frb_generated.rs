@@ -38,7 +38,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueMoi,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.12.0";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = 120032357;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = 617636573;
 
 // Section: executor
 
@@ -153,6 +153,51 @@ fn wire__crate__api__simple__api_apply_global_tuning_impl(
                     Ok(output_ok)
                 })())
             }
+        },
+    )
+}
+fn wire__crate__api__simple__api_calculate_3d_calibration_impl(
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) -> flutter_rust_bridge::for_generated::WireSyncRust2DartSse {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_sync::<flutter_rust_bridge::for_generated::SseCodec, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "api_calculate_3d_calibration",
+            port: None,
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Sync,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_room_width = <f32>::sse_decode(&mut deserializer);
+            let api_room_depth = <f32>::sse_decode(&mut deserializer);
+            let api_ear_level = <f32>::sse_decode(&mut deserializer);
+            let api_speaker_channels = <Vec<usize>>::sse_decode(&mut deserializer);
+            let api_speaker_x = <Vec<f32>>::sse_decode(&mut deserializer);
+            let api_speaker_y = <Vec<f32>>::sse_decode(&mut deserializer);
+            let api_speaker_z = <Vec<f32>>::sse_decode(&mut deserializer);
+            deserializer.end();
+            transform_result_sse::<_, ()>((move || {
+                let output_ok =
+                    Result::<_, ()>::Ok(crate::api::simple::api_calculate_3d_calibration(
+                        api_room_width,
+                        api_room_depth,
+                        api_ear_level,
+                        api_speaker_channels,
+                        api_speaker_x,
+                        api_speaker_y,
+                        api_speaker_z,
+                    ))?;
+                Ok(output_ok)
+            })())
         },
     )
 }
@@ -2076,6 +2121,82 @@ fn wire__crate__api__simple__broadcast_stream_status_impl(
         },
     )
 }
+fn wire__crate__api__calibration__calculate_3d_calibration_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "calculate_3d_calibration",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_room_width = <f32>::sse_decode(&mut deserializer);
+            let api_room_depth = <f32>::sse_decode(&mut deserializer);
+            let api_ear_level = <f32>::sse_decode(&mut deserializer);
+            let api_speakers =
+                <Vec<(usize, crate::common::config::Point3D)>>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, ()>((move || {
+                    let output_ok =
+                        Result::<_, ()>::Ok(crate::api::calibration::calculate_3d_calibration(
+                            api_room_width,
+                            api_room_depth,
+                            api_ear_level,
+                            api_speakers,
+                        ))?;
+                    Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
+fn wire__crate__api__calibration__calibration_result_default_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "calibration_result_default",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, ()>((move || {
+                    let output_ok =
+                        Result::<_, ()>::Ok(crate::api::calibration::CalibrationResult::default())?;
+                    Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
 fn wire__crate__api__simple__spatial_config_payload_default_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
@@ -2241,6 +2362,20 @@ impl SseDecode for bool {
     }
 }
 
+impl SseDecode for crate::api::calibration::CalibrationResult {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_channel = <usize>::sse_decode(deserializer);
+        let mut var_delayMs = <f32>::sse_decode(deserializer);
+        let mut var_gainDb = <f32>::sse_decode(deserializer);
+        return crate::api::calibration::CalibrationResult {
+            channel: var_channel,
+            delay_ms: var_delayMs,
+            gain_db: var_gainDb,
+        };
+    }
+}
+
 impl SseDecode for crate::common::config::ChannelSetting {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -2249,14 +2384,16 @@ impl SseDecode for crate::common::config::ChannelSetting {
         let mut var_delayMs = <f32>::sse_decode(deserializer);
         let mut var_eqBands = <Vec<crate::common::config::EqBand>>::sse_decode(deserializer);
         let mut var_position = <Option<crate::common::config::Point3D>>::sse_decode(deserializer);
+        let mut var_phaseInvert = <bool>::sse_decode(deserializer);
+        let mut var_gainDb = <f32>::sse_decode(deserializer);
         return crate::common::config::ChannelSetting {
             enabled: var_enabled,
             custom_name: var_customName,
             delay_ms: var_delayMs,
             eq_bands: var_eqBands,
             position: var_position,
-            phase_invert: false,
-            gain_db: 0.0,
+            phase_invert: var_phaseInvert,
+            gain_db: var_gainDb,
         };
     }
 }
@@ -2355,6 +2492,20 @@ impl SseDecode for Vec<String> {
     }
 }
 
+impl SseDecode for Vec<crate::api::calibration::CalibrationResult> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = Vec::with_capacity(len_ as usize);
+        for idx_ in 0..len_ {
+            ans_.push(<crate::api::calibration::CalibrationResult>::sse_decode(
+                deserializer,
+            ));
+        }
+        return ans_;
+    }
+}
+
 impl SseDecode for Vec<crate::api::simple::ChannelTuningParams> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -2445,6 +2596,18 @@ impl SseDecode for Vec<u8> {
     }
 }
 
+impl SseDecode for Vec<usize> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = Vec::with_capacity(len_ as usize);
+        for idx_ in 0..len_ {
+            ans_.push(<usize>::sse_decode(deserializer));
+        }
+        return ans_;
+    }
+}
+
 impl SseDecode for Vec<(String, crate::common::config::Point3D)> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -2466,6 +2629,20 @@ impl SseDecode for Vec<(u32, crate::common::config::ChannelSetting)> {
         let mut ans_ = Vec::with_capacity(len_ as usize);
         for idx_ in 0..len_ {
             ans_.push(<(u32, crate::common::config::ChannelSetting)>::sse_decode(
+                deserializer,
+            ));
+        }
+        return ans_;
+    }
+}
+
+impl SseDecode for Vec<(usize, crate::common::config::Point3D)> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = Vec::with_capacity(len_ as usize);
+        for idx_ in 0..len_ {
+            ans_.push(<(usize, crate::common::config::Point3D)>::sse_decode(
                 deserializer,
             ));
         }
@@ -2620,6 +2797,15 @@ impl SseDecode for (u32, crate::common::config::ChannelSetting) {
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
         let mut var_field0 = <u32>::sse_decode(deserializer);
         let mut var_field1 = <crate::common::config::ChannelSetting>::sse_decode(deserializer);
+        return (var_field0, var_field1);
+    }
+}
+
+impl SseDecode for (usize, crate::common::config::Point3D) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_field0 = <usize>::sse_decode(deserializer);
+        let mut var_field1 = <crate::common::config::Point3D>::sse_decode(deserializer);
         return (var_field0, var_field1);
     }
 }
@@ -2795,175 +2981,187 @@ fn pde_ffi_dispatcher_primary_impl(
             rust_vec_len,
             data_len,
         ),
-        4 => wire__crate__api__simple__api_calculate_bezier_point_impl(
+        5 => wire__crate__api__simple__api_calculate_bezier_point_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        5 => wire__crate__api__simple__api_calculate_dbap_heatmap_impl(
+        6 => wire__crate__api__simple__api_calculate_dbap_heatmap_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        6 => wire__crate__api__simple__api_calculate_eq_response_impl(
+        7 => wire__crate__api__simple__api_calculate_eq_response_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        8 => wire__crate__api__simple__api_clear_preloaded_sounds_impl(
+        9 => wire__crate__api__simple__api_clear_preloaded_sounds_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        9 => wire__crate__api__simple__api_clear_room_impl(port, ptr, rust_vec_len, data_len),
-        10 => wire__crate__api__simple__api_create_device_event_stream_impl(
+        10 => wire__crate__api__simple__api_clear_room_impl(port, ptr, rust_vec_len, data_len),
+        11 => wire__crate__api__simple__api_create_device_event_stream_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        11 => wire__crate__api__simple__api_create_engine_state_stream_impl(
+        12 => wire__crate__api__simple__api_create_engine_state_stream_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        12 => wire__crate__api__simple__api_create_stream_status_stream_impl(
+        13 => wire__crate__api__simple__api_create_stream_status_stream_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        13 => {
+        14 => {
             wire__crate__api__simple__api_create_vu_stream_impl(port, ptr, rust_vec_len, data_len)
         }
-        14 => wire__crate__api__simple__api_export_logs_impl(port, ptr, rust_vec_len, data_len),
-        15 => wire__crate__api__simple__api_force_restart_engine_impl(
+        15 => wire__crate__api__simple__api_export_logs_impl(port, ptr, rust_vec_len, data_len),
+        16 => wire__crate__api__simple__api_force_restart_engine_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        16 => wire__crate__api__simple__api_get_active_output_channels_impl(
+        17 => wire__crate__api__simple__api_get_active_output_channels_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        17 => wire__crate__api__simple__api_get_asio_panel_impl(port, ptr, rust_vec_len, data_len),
-        18 => wire__crate__api__simple__api_get_audio_file_channels_impl(
+        18 => wire__crate__api__simple__api_get_asio_panel_impl(port, ptr, rust_vec_len, data_len),
+        19 => wire__crate__api__simple__api_get_audio_file_channels_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        19 => wire__crate__api__simple__api_get_config_impl(port, ptr, rust_vec_len, data_len),
-        20 => wire__crate__api__simple__api_get_device_channel_count_impl(
+        20 => wire__crate__api__simple__api_get_config_impl(port, ptr, rust_vec_len, data_len),
+        21 => wire__crate__api__simple__api_get_device_channel_count_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        21 => wire__crate__api__simple__api_get_device_channel_names_impl(
+        22 => wire__crate__api__simple__api_get_device_channel_names_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        22 => wire__crate__api__simple__api_get_osc_metrics_impl(port, ptr, rust_vec_len, data_len),
-        23 => {
+        23 => wire__crate__api__simple__api_get_osc_metrics_impl(port, ptr, rust_vec_len, data_len),
+        24 => {
             wire__crate__api__simple__api_get_output_devices_impl(port, ptr, rust_vec_len, data_len)
         }
-        24 => {
+        25 => {
             wire__crate__api__simple__api_get_rta_magnitudes_impl(port, ptr, rust_vec_len, data_len)
         }
-        25 => {
+        26 => {
             wire__crate__api__simple__api_get_spatial_gains_impl(port, ptr, rust_vec_len, data_len)
         }
-        26 => wire__crate__api__simple__api_init_app_impl(port, ptr, rust_vec_len, data_len),
-        27 => {
+        27 => wire__crate__api__simple__api_init_app_impl(port, ptr, rust_vec_len, data_len),
+        28 => {
             wire__crate__api__simple__api_init_audio_system_impl(port, ptr, rust_vec_len, data_len)
         }
-        28 => wire__crate__api__simple__api_is_engine_ready_impl(port, ptr, rust_vec_len, data_len),
-        29 => wire__crate__api__simple__api_load_preset_impl(port, ptr, rust_vec_len, data_len),
-        30 => wire__crate__api__simple__api_open_asio_panel_impl(port, ptr, rust_vec_len, data_len),
-        31 => wire__crate__api__simple__api_play_all_loop_tracks_impl(
+        29 => wire__crate__api__simple__api_is_engine_ready_impl(port, ptr, rust_vec_len, data_len),
+        30 => wire__crate__api__simple__api_load_preset_impl(port, ptr, rust_vec_len, data_len),
+        31 => wire__crate__api__simple__api_open_asio_panel_impl(port, ptr, rust_vec_len, data_len),
+        32 => wire__crate__api__simple__api_play_all_loop_tracks_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        32 => wire__crate__api__simple__api_play_test_noise_impl(port, ptr, rust_vec_len, data_len),
-        33 => wire__crate__api__simple__api_play_track_impl(port, ptr, rust_vec_len, data_len),
-        34 => {
+        33 => wire__crate__api__simple__api_play_test_noise_impl(port, ptr, rust_vec_len, data_len),
+        34 => wire__crate__api__simple__api_play_track_impl(port, ptr, rust_vec_len, data_len),
+        35 => {
             wire__crate__api__simple__api_preload_all_sounds_impl(port, ptr, rust_vec_len, data_len)
         }
-        35 => wire__crate__api__simple__api_preload_sound_impl(port, ptr, rust_vec_len, data_len),
-        36 => {
+        36 => wire__crate__api__simple__api_preload_sound_impl(port, ptr, rust_vec_len, data_len),
+        37 => {
             wire__crate__api__simple__api_reset_osc_metrics_impl(port, ptr, rust_vec_len, data_len)
         }
-        37 => wire__crate__api__simple__api_save_config_impl(port, ptr, rust_vec_len, data_len),
-        38 => wire__crate__api__simple__api_set_active_room_impl(port, ptr, rust_vec_len, data_len),
-        40 => {
+        38 => wire__crate__api__simple__api_save_config_impl(port, ptr, rust_vec_len, data_len),
+        39 => wire__crate__api__simple__api_set_active_room_impl(port, ptr, rust_vec_len, data_len),
+        41 => {
             wire__crate__api__simple__api_set_channel_delay_impl(port, ptr, rust_vec_len, data_len)
         }
-        41 => wire__crate__api__simple__api_set_channel_eq_impl(port, ptr, rust_vec_len, data_len),
-        42 => wire__crate__api__simple__api_set_master_mute_impl(port, ptr, rust_vec_len, data_len),
-        43 => {
+        42 => wire__crate__api__simple__api_set_channel_eq_impl(port, ptr, rust_vec_len, data_len),
+        43 => wire__crate__api__simple__api_set_master_mute_impl(port, ptr, rust_vec_len, data_len),
+        44 => {
             wire__crate__api__simple__api_set_master_volume_impl(port, ptr, rust_vec_len, data_len)
         }
-        45 => {
+        46 => {
             wire__crate__api__simple__api_set_track_output_impl(port, ptr, rust_vec_len, data_len)
         }
-        47 => {
+        48 => {
             wire__crate__api__simple__api_start_audio_engine_impl(port, ptr, rust_vec_len, data_len)
         }
-        48 => {
+        49 => {
             wire__crate__api__simple__api_start_osc_listener_impl(port, ptr, rust_vec_len, data_len)
         }
-        49 => wire__crate__api__simple__api_stop_all_impl(port, ptr, rust_vec_len, data_len),
-        50 => {
+        50 => wire__crate__api__simple__api_stop_all_impl(port, ptr, rust_vec_len, data_len),
+        51 => {
             wire__crate__api__simple__api_stop_audio_engine_impl(port, ptr, rust_vec_len, data_len)
         }
-        51 => wire__crate__api__simple__api_stop_track_impl(port, ptr, rust_vec_len, data_len),
-        52 => {
+        52 => wire__crate__api__simple__api_stop_track_impl(port, ptr, rust_vec_len, data_len),
+        53 => {
             wire__crate__api__simple__api_trigger_test_error_impl(port, ptr, rust_vec_len, data_len)
         }
-        54 => wire__crate__api__simple__api_update_output_routing_impl(
+        55 => wire__crate__api__simple__api_update_output_routing_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        55 => wire__crate__api__simple__api_update_single_band_eq_impl(
+        56 => wire__crate__api__simple__api_update_single_band_eq_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        56 => wire__crate__api__simple__api_update_sound_source_position_impl(
+        57 => wire__crate__api__simple__api_update_sound_source_position_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        57 => wire__crate__api__simple__api_update_spatial_config_json_impl(
+        58 => wire__crate__api__simple__api_update_spatial_config_json_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        58 => wire__crate__api__simple__broadcast_stream_status_impl(
+        59 => wire__crate__api__simple__broadcast_stream_status_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        59 => wire__crate__api__simple__spatial_config_payload_default_impl(
+        60 => wire__crate__api__calibration__calculate_3d_calibration_impl(
+            port,
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
+        61 => wire__crate__api__calibration__calibration_result_default_impl(
+            port,
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
+        62 => wire__crate__api__simple__spatial_config_payload_default_impl(
             port,
             ptr,
             rust_vec_len,
@@ -2981,15 +3179,18 @@ fn pde_ffi_dispatcher_sync_impl(
 ) -> flutter_rust_bridge::for_generated::WireSyncRust2DartSse {
     // Codec=Pde (Serialization + dispatch), see doc to use other codecs
     match func_id {
-        7 => wire__crate__api__simple__api_calculate_eq_response_curve_impl(
+        4 => {
+            wire__crate__api__simple__api_calculate_3d_calibration_impl(ptr, rust_vec_len, data_len)
+        }
+        8 => wire__crate__api__simple__api_calculate_eq_response_curve_impl(
             ptr,
             rust_vec_len,
             data_len,
         ),
-        39 => wire__crate__api__simple__api_set_binaural_enabled_impl(ptr, rust_vec_len, data_len),
-        44 => wire__crate__api__simple__api_set_reverb_params_impl(ptr, rust_vec_len, data_len),
-        46 => wire__crate__api__simple__api_set_track_volume_impl(ptr, rust_vec_len, data_len),
-        53 => wire__crate__api__simple__api_update_output_config_impl(ptr, rust_vec_len, data_len),
+        40 => wire__crate__api__simple__api_set_binaural_enabled_impl(ptr, rust_vec_len, data_len),
+        45 => wire__crate__api__simple__api_set_reverb_params_impl(ptr, rust_vec_len, data_len),
+        47 => wire__crate__api__simple__api_set_track_volume_impl(ptr, rust_vec_len, data_len),
+        54 => wire__crate__api__simple__api_update_output_config_impl(ptr, rust_vec_len, data_len),
         _ => unreachable!(),
     }
 }
@@ -3042,6 +3243,28 @@ impl flutter_rust_bridge::IntoIntoDart<crate::api::error::AtmosError>
     for crate::api::error::AtmosError
 {
     fn into_into_dart(self) -> crate::api::error::AtmosError {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::api::calibration::CalibrationResult {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.channel.into_into_dart().into_dart(),
+            self.delay_ms.into_into_dart().into_dart(),
+            self.gain_db.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::api::calibration::CalibrationResult
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::api::calibration::CalibrationResult>
+    for crate::api::calibration::CalibrationResult
+{
+    fn into_into_dart(self) -> crate::api::calibration::CalibrationResult {
         self
     }
 }
@@ -3465,6 +3688,15 @@ impl SseEncode for bool {
     }
 }
 
+impl SseEncode for crate::api::calibration::CalibrationResult {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <usize>::sse_encode(self.channel, serializer);
+        <f32>::sse_encode(self.delay_ms, serializer);
+        <f32>::sse_encode(self.gain_db, serializer);
+    }
+}
+
 impl SseEncode for crate::common::config::ChannelSetting {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -3554,6 +3786,16 @@ impl SseEncode for Vec<String> {
     }
 }
 
+impl SseEncode for Vec<crate::api::calibration::CalibrationResult> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <crate::api::calibration::CalibrationResult>::sse_encode(item, serializer);
+        }
+    }
+}
+
 impl SseEncode for Vec<crate::api::simple::ChannelTuningParams> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -3624,6 +3866,16 @@ impl SseEncode for Vec<u8> {
     }
 }
 
+impl SseEncode for Vec<usize> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <usize>::sse_encode(item, serializer);
+        }
+    }
+}
+
 impl SseEncode for Vec<(String, crate::common::config::Point3D)> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -3640,6 +3892,16 @@ impl SseEncode for Vec<(u32, crate::common::config::ChannelSetting)> {
         <i32>::sse_encode(self.len() as _, serializer);
         for item in self {
             <(u32, crate::common::config::ChannelSetting)>::sse_encode(item, serializer);
+        }
+    }
+}
+
+impl SseEncode for Vec<(usize, crate::common::config::Point3D)> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <(usize, crate::common::config::Point3D)>::sse_encode(item, serializer);
         }
     }
 }
@@ -3752,6 +4014,14 @@ impl SseEncode for (u32, crate::common::config::ChannelSetting) {
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
         <u32>::sse_encode(self.0, serializer);
         <crate::common::config::ChannelSetting>::sse_encode(self.1, serializer);
+    }
+}
+
+impl SseEncode for (usize, crate::common::config::Point3D) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <usize>::sse_encode(self.0, serializer);
+        <crate::common::config::Point3D>::sse_encode(self.1, serializer);
     }
 }
 

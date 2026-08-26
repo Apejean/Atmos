@@ -522,7 +522,7 @@ impl AudioEngine {
                     if channel < mixer.channel_dsp.len() {
                         mixer.channel_dsp[channel].update_delay_target(delay_ms);
                         mixer.channel_dsp[channel].update_eq_targets(&eq_bands, mixer.sample_rate as f32);
-                    }
+                                            }
                     let _ = mixer.spatial_gc_tx.try_send(crate::audio::mixer::SpatialGarbage::EqBands(eq_bands));
                 }
                 AudioCommand::UpdateOutputRouting { payload } => {
@@ -621,7 +621,7 @@ impl AudioEngine {
                         if channel < mixer.channel_dsp.len() {
                             mixer.channel_dsp[channel].update_delay_target(delay_ms);
                             mixer.channel_dsp[channel].update_eq_targets(&eq_bands, mixer.sample_rate as f32);
-                        }
+                                                    }
                     }
                 }
                 _ => {}

@@ -6,6 +6,7 @@
 import '../common/config.dart';
 import '../frb_generated.dart';
 import '../osc/metrics.dart';
+import 'calibration.dart';
 import 'error.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
@@ -309,6 +310,24 @@ void apiUpdateOutputConfig({
   invertPhase: invertPhase,
   gainDb: gainDb,
   delayMs: delayMs,
+);
+
+List<CalibrationResult> apiCalculate3DCalibration({
+  required double roomWidth,
+  required double roomDepth,
+  required double earLevel,
+  required Uint64List speakerChannels,
+  required List<double> speakerX,
+  required List<double> speakerY,
+  required List<double> speakerZ,
+}) => RustLib.instance.api.crateApiSimpleApiCalculate3DCalibration(
+  roomWidth: roomWidth,
+  roomDepth: roomDepth,
+  earLevel: earLevel,
+  speakerChannels: speakerChannels,
+  speakerX: speakerX,
+  speakerY: speakerY,
+  speakerZ: speakerZ,
 );
 
 class ChannelTuningParams {

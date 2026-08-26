@@ -27,6 +27,8 @@ class RoomZone {
   final int color;
   final double physicalWidth;
   final double physicalHeight;
+  final double ceilingHeight;
+  final double earLevel;
   final bool hasDoor;
   final int doorWall;
   final double doorOffset;
@@ -46,6 +48,8 @@ class RoomZone {
     required this.color,
     this.physicalWidth = 5.0,
     this.physicalHeight = 5.0,
+    this.ceilingHeight = 3.0,
+    this.earLevel = 1.6,
     this.hasDoor = false,
     this.doorWall = 0,
     this.doorOffset = 0.5,
@@ -59,7 +63,7 @@ class RoomZone {
   /// Eyring + Sabine Hybrid Reverberation Engine
   /// Switched to Eyring when average alpha >= 0.2 for dead/absorptive rooms (ISO 3382-1)
   double get estimatedRt60 {
-    final heightM = 3.0; // Standard room height assumption (3m)
+    final heightM = ceilingHeight;
     final volume = physicalWidth * physicalHeight * heightM;
     final surfaceArea = 2 * (physicalWidth * physicalHeight + physicalWidth * heightM + physicalHeight * heightM);
     final avgAlpha = absorptionCoeff.clamp(0.01, 0.99);
@@ -116,6 +120,8 @@ class RoomZone {
     int? color,
     double? physicalWidth,
     double? physicalHeight,
+    double? ceilingHeight,
+    double? earLevel,
     bool? hasDoor,
     int? doorWall,
     double? doorOffset,
@@ -135,6 +141,8 @@ class RoomZone {
       color: color ?? this.color,
       physicalWidth: physicalWidth ?? this.physicalWidth,
       physicalHeight: physicalHeight ?? this.physicalHeight,
+      ceilingHeight: ceilingHeight ?? this.ceilingHeight,
+      earLevel: earLevel ?? this.earLevel,
       hasDoor: hasDoor ?? this.hasDoor,
       doorWall: doorWall ?? this.doorWall,
       doorOffset: doorOffset ?? this.doorOffset,
@@ -157,6 +165,8 @@ class RoomZone {
       'color': color,
       'physicalWidth': physicalWidth,
       'physicalHeight': physicalHeight,
+      'ceilingHeight': ceilingHeight,
+      'earLevel': earLevel,
       'has_door': hasDoor,
       'door_wall': doorWall,
       'door_offset': doorOffset,
@@ -179,6 +189,8 @@ class RoomZone {
       color: json['color'] as int,
       physicalWidth: (json['physical_width'] as num?)?.toDouble() ?? 5.0,
       physicalHeight: (json['physical_height'] as num?)?.toDouble() ?? 5.0,
+      ceilingHeight: (json['ceiling_height'] as num?)?.toDouble() ?? 3.0,
+      earLevel: (json['ear_level'] as num?)?.toDouble() ?? 1.6,
       hasDoor: json['has_door'] as bool? ?? false,
       doorWall: json['door_wall'] as int? ?? 0,
       doorOffset: (json['door_offset'] as num?)?.toDouble() ?? 0.5,

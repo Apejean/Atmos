@@ -3,87 +3,83 @@ import re
 with open('lib/features/exhibition/state/blueprint_state.dart', 'r') as f:
     content = f.read()
 
-old_data = """class BlueprintData {
-  final String? imagePath;
-  final double opacity;
-  final double scale; // Pixels per meter
-
-  const BlueprintData({this.imagePath, this.opacity = 0.5, this.scale = 50.0});
-
-  BlueprintData copyWith({String? imagePath, double? opacity, double? scale}) {
-    return BlueprintData(
-      imagePath: imagePath ?? this.imagePath,
-      opacity: opacity ?? this.opacity,
-      scale: scale ?? this.scale,
-    );
-  }
-}"""
-
-new_data = """class BlueprintData {
-  final String? imagePath;
-  final double opacity;
-  final double scale; // Pixels per meter
-  final double canvasWidthMeters;
+content = content.replace(
+"""  final double canvasWidthMeters;
+  final double canvasHeightMeters;""",
+"""  final double canvasWidthMeters;
   final double canvasHeightMeters;
+  final double roomHeightMeters;
+  final double listeningHeightMeters;"""
+)
 
-  const BlueprintData({
-    this.imagePath,
-    this.opacity = 0.5,
-    this.scale = 50.0,
-    this.canvasWidthMeters = 40.0,
+content = content.replace(
+"""    this.canvasWidthMeters = 40.0,
     this.canvasHeightMeters = 40.0,
-  });
+  });""",
+"""    this.canvasWidthMeters = 40.0,
+    this.canvasHeightMeters = 40.0,
+    this.roomHeightMeters = 5.0,
+    this.listeningHeightMeters = 1.2,
+  });"""
+)
 
-  BlueprintData copyWith({
-    String? imagePath,
-    double? opacity,
-    double? scale,
-    double? canvasWidthMeters,
+content = content.replace(
+"""    double? canvasWidthMeters,
+    double? canvasHeightMeters,""",
+"""    double? canvasWidthMeters,
     double? canvasHeightMeters,
-  }) {
-    return BlueprintData(
-      imagePath: imagePath ?? this.imagePath,
-      opacity: opacity ?? this.opacity,
-      scale: scale ?? this.scale,
-      canvasWidthMeters: canvasWidthMeters ?? this.canvasWidthMeters,
+    double? roomHeightMeters,
+    double? listeningHeightMeters,"""
+)
+
+content = content.replace(
+"""      canvasWidthMeters: canvasWidthMeters ?? this.canvasWidthMeters,
+      canvasHeightMeters: canvasHeightMeters ?? this.canvasHeightMeters,""",
+"""      canvasWidthMeters: canvasWidthMeters ?? this.canvasWidthMeters,
       canvasHeightMeters: canvasHeightMeters ?? this.canvasHeightMeters,
-    );
-  }
-}"""
+      roomHeightMeters: roomHeightMeters ?? this.roomHeightMeters,
+      listeningHeightMeters: listeningHeightMeters ?? this.listeningHeightMeters,"""
+)
 
-old_state = """  Future<void> _loadFromPrefs() async {
-    final prefs = await SharedPreferences.getInstance();
-    final path = prefs.getString(_kImagePathKey);
-    final opacity = prefs.getDouble(_kOpacityKey) ?? 0.5;
-    final scale = prefs.getDouble(_kScaleKey) ?? 50.0;
-    state = BlueprintData(imagePath: path, opacity: opacity, scale: scale);
-  }"""
-
-new_state = """  Future<void> _loadFromPrefs() async {
-    final prefs = await SharedPreferences.getInstance();
-    final path = prefs.getString(_kImagePathKey);
-    final opacity = prefs.getDouble(_kOpacityKey) ?? 0.5;
-    final scale = prefs.getDouble(_kScaleKey) ?? 50.0;
-    final widthM = prefs.getDouble('blueprint_width_m') ?? 40.0;
+content = content.replace(
+"""    final widthM = prefs.getDouble('blueprint_width_m') ?? 40.0;
+    final heightM = prefs.getDouble('blueprint_height_m') ?? 40.0;""",
+"""    final widthM = prefs.getDouble('blueprint_width_m') ?? 40.0;
     final heightM = prefs.getDouble('blueprint_height_m') ?? 40.0;
-    state = BlueprintData(
-      imagePath: path,
-      opacity: opacity,
-      scale: scale,
-      canvasWidthMeters: widthM,
-      canvasHeightMeters: heightM,
-    );
-  }
+    final roomHM = prefs.getDouble('blueprint_room_h_m') ?? 5.0;
+    final listenHM = prefs.getDouble('blueprint_listen_h_m') ?? 1.2;"""
+)
 
-  Future<void> setCanvasDimensions(double widthM, double heightM) async {
+content = content.replace(
+"""      canvasWidthMeters: widthM,
+      canvasHeightMeters: heightM,""",
+"""      canvasWidthMeters: widthM,
+      canvasHeightMeters: heightM,
+      roomHeightMeters: roomHM,
+      listeningHeightMeters: listenHM,"""
+)
+
+content = content.replace(
+"""  Future<void> setCanvasDimensions(double widthM, double heightM) async {
     state = state.copyWith(canvasWidthMeters: widthM, canvasHeightMeters: heightM);
     final prefs = await SharedPreferences.getInstance();
     await prefs.setDouble('blueprint_width_m', widthM);
     await prefs.setDouble('blueprint_height_m', heightM);
+  }""",
+"""  Future<void> setCanvasDimensions(double widthM, double heightM, {double? roomHM, double? listenHM}) async {
+    state = state.copyWith(
+      canvasWidthMeters: widthM, 
+      canvasHeightMeters: heightM,
+      roomHeightMeters: roomHM ?? state.roomHeightMeters,
+      listeningHeightMeters: listenHM ?? state.listeningHeightMeters,
+    );
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble('blueprint_width_m', widthM);
+    await prefs.setDouble('blueprint_height_m', heightM);
+    if (roomHM != null) await prefs.setDouble('blueprint_room_h_m', roomHM);
+    if (listenHM != null) await prefs.setDouble('blueprint_listen_h_m', listenHM);
   }"""
-
-content = content.replace(old_data, new_data)
-content = content.replace(old_state, new_state)
+)
 
 with open('lib/features/exhibition/state/blueprint_state.dart', 'w') as f:
     f.write(content)

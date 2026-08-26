@@ -91,6 +91,8 @@ class ChannelSetting {
   final double delayMs;
   final List<EqBand> eqBands;
   final Point3D? position;
+  final bool phaseInvert;
+  final double gainDb;
 
   const ChannelSetting({
     required this.enabled,
@@ -98,6 +100,8 @@ class ChannelSetting {
     required this.delayMs,
     required this.eqBands,
     this.position,
+    required this.phaseInvert,
+    required this.gainDb,
   });
 
   @override
@@ -106,7 +110,9 @@ class ChannelSetting {
       customName.hashCode ^
       delayMs.hashCode ^
       eqBands.hashCode ^
-      position.hashCode;
+      position.hashCode ^
+      phaseInvert.hashCode ^
+      gainDb.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -117,7 +123,9 @@ class ChannelSetting {
           customName == other.customName &&
           delayMs == other.delayMs &&
           eqBands == other.eqBands &&
-          position == other.position;
+          position == other.position &&
+          phaseInvert == other.phaseInvert &&
+          gainDb == other.gainDb;
 }
 
 class EqBand {

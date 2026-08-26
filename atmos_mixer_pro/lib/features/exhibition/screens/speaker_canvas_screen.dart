@@ -49,11 +49,13 @@ double _getCanvasHeight(WidgetRef ref) {
   return bp.canvasHeightMeters * bp.scale;
 }
 
-class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
+class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> with SingleTickerProviderStateMixin {
   final TransformationController _transformationController =
       TransformationController();
   final FocusNode _canvasFocusNode = FocusNode();
   Size _viewportSize = const Size(800, 600);
+  late TabController _tabController;
+  String? _inspectorSpeakerId;
 
   static int _roomColorIndex = 0;
 
@@ -79,6 +81,10 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
 
   @override
   void initState() {
+    _tabController = TabController(length: 3, vsync: this);
+    _tabController.addListener(() {
+      setState(() { _inspectorSpeakerId = null; });
+    });
     super.initState();
     _transformationController.value = Matrix4.identity()
       ..setTranslationRaw(
@@ -858,17 +864,57 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
     int channel = node.channel;
     String selectedPreset = 'Custom';
 
+    final TextEditingController heightCtrl = TextEditingController(text: heightZ.toStringAsFixed(2));
+    final TextEditingController tiltCtrl = TextEditingController(text: pitchTilt.toStringAsFixed(2));
+    final TextEditingController panCtrl = TextEditingController(text: rotation.toStringAsFixed(2));
+
     await showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) {
+          void updateHeight(String val) {
+            final p = double.tryParse(val);
+            if (p != null) {
+              setDialogState(() {
+                heightZ = p.clamp(0.0, 50.0);
+                heightCtrl.text = heightZ.toStringAsFixed(2);
+                selectedPreset = 'Custom';
+              });
+            } else {
+              heightCtrl.text = heightZ.toStringAsFixed(2);
+            }
+          }
+          void updateTilt(String val) {
+            final p = double.tryParse(val);
+            if (p != null) {
+              setDialogState(() {
+                pitchTilt = p.clamp(-90.0, 90.0);
+                tiltCtrl.text = pitchTilt.toStringAsFixed(2);
+                selectedPreset = 'Custom';
+              });
+            } else {
+              tiltCtrl.text = pitchTilt.toStringAsFixed(2);
+            }
+          }
+          void updatePan(String val) {
+            final p = double.tryParse(val);
+            if (p != null) {
+              setDialogState(() {
+                rotation = p.clamp(-180.0, 180.0);
+                panCtrl.text = rotation.toStringAsFixed(2);
+              });
+            } else {
+              panCtrl.text = rotation.toStringAsFixed(2);
+            }
+          }
+
           return AlertDialog(
             backgroundColor: AppColors.cardSurface,
             title: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  '스피커 설정 [Ch ${channel + 1}]',
+                  '3D 정밀 인스펙터 [Ch ${channel + 1}]',
                   style: const TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
@@ -899,7 +945,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                     isExpanded: true,
                     style: const TextStyle(color: Colors.white),
                     items: List.generate(
-                      64,
+                      128,
                       (index) => DropdownMenuItem(
                         value: index,
                         child: Text('Ch ${index + 1}'),
@@ -977,99 +1023,113 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                             heightZ = 4.0;
                             pitchTilt = 30.0;
                           }
+                          heightCtrl.text = heightZ.toStringAsFixed(2);
+                          tiltCtrl.text = pitchTilt.toStringAsFixed(2);
                         });
                       }
                     },
                   ),
                   const SizedBox(height: 16),
                   const Divider(color: Colors.white24),
-                  const SizedBox(height: 8),
-                  Text(
-                    '소리 지향 각도: ${dispAngle.toInt()}°',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w600,
-                    ),
+                  
+                  // Height
+                  Row(
+                    children: [
+                      const SizedBox(width: 60, child: Text('Height (m)', style: TextStyle(color: Colors.white, fontSize: 12))),
+                      Expanded(
+                        child: Slider(
+                          value: heightZ,
+                          min: 0.0,
+                          max: 20.0,
+                          activeColor: AppColors.primaryNeon,
+                          onChanged: (val) {
+                            setDialogState(() {
+                              heightZ = val;
+                              heightCtrl.text = val.toStringAsFixed(2);
+                              selectedPreset = 'Custom';
+                            });
+                          },
+                        ),
+                      ),
+                      SizedBox(
+                        width: 60,
+                        child: TextField(
+                          controller: heightCtrl,
+                          style: const TextStyle(color: Colors.white, fontSize: 12),
+                          decoration: const InputDecoration(isDense: true, contentPadding: EdgeInsets.all(8)),
+                          keyboardType: TextInputType.number,
+                          onSubmitted: updateHeight,
+                          onTapOutside: (_) => updateHeight(heightCtrl.text),
+                        ),
+                      ),
+                    ],
                   ),
-                  Slider(
-                    value: dispAngle,
-                    min: 30.0,
-                    max: 180.0,
-                    activeColor: AppColors.primaryNeon,
-                    onChanged: (val) => setDialogState(() {
-                      dispAngle = val;
-                      selectedPreset = 'Custom';
-                    }),
+                  
+                  // Tilt
+                  Row(
+                    children: [
+                      const SizedBox(width: 60, child: Text('Tilt (deg)', style: TextStyle(color: Colors.white, fontSize: 12))),
+                      Expanded(
+                        child: Slider(
+                          value: pitchTilt,
+                          min: -90.0,
+                          max: 90.0,
+                          activeColor: AppColors.primaryNeon,
+                          onChanged: (val) {
+                            setDialogState(() {
+                              pitchTilt = val;
+                              tiltCtrl.text = val.toStringAsFixed(2);
+                              selectedPreset = 'Custom';
+                            });
+                          },
+                        ),
+                      ),
+                      SizedBox(
+                        width: 60,
+                        child: TextField(
+                          controller: tiltCtrl,
+                          style: const TextStyle(color: Colors.white, fontSize: 12),
+                          decoration: const InputDecoration(isDense: true, contentPadding: EdgeInsets.all(8)),
+                          keyboardType: TextInputType.number,
+                          onSubmitted: updateTilt,
+                          onTapOutside: (_) => updateTilt(tiltCtrl.text),
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 12),
-                  Text(
-                    '최대 음향 도달 거리: ${dispDist.toInt()}px',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w600,
-                    ),
+                  
+                  // Pan
+                  Row(
+                    children: [
+                      const SizedBox(width: 60, child: Text('Pan (deg)', style: TextStyle(color: Colors.white, fontSize: 12))),
+                      Expanded(
+                        child: Slider(
+                          value: rotation,
+                          min: -180.0,
+                          max: 180.0,
+                          activeColor: AppColors.primaryNeon,
+                          onChanged: (val) {
+                            setDialogState(() {
+                              rotation = val;
+                              panCtrl.text = val.toStringAsFixed(2);
+                            });
+                          },
+                        ),
+                      ),
+                      SizedBox(
+                        width: 60,
+                        child: TextField(
+                          controller: panCtrl,
+                          style: const TextStyle(color: Colors.white, fontSize: 12),
+                          decoration: const InputDecoration(isDense: true, contentPadding: EdgeInsets.all(8)),
+                          keyboardType: TextInputType.number,
+                          onSubmitted: updatePan,
+                          onTapOutside: (_) => updatePan(panCtrl.text),
+                        ),
+                      ),
+                    ],
                   ),
-                  Slider(
-                    value: dispDist,
-                    min: 50.0,
-                    max: 800.0,
-                    activeColor: AppColors.primaryNeon,
-                    onChanged: (val) => setDialogState(() {
-                      dispDist = val;
-                      selectedPreset = 'Custom';
-                    }),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    '설치 높이 (Z축): ${heightZ.toStringAsFixed(1)}m',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  Slider(
-                    value: heightZ,
-                    min: 0.5,
-                    max: 15.0,
-                    activeColor: AppColors.primaryNeon,
-                    onChanged: (val) => setDialogState(() {
-                      heightZ = val;
-                      selectedPreset = 'Custom';
-                    }),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    '하향 경사각 (Pitch): ${pitchTilt.toInt()}°',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  Slider(
-                    value: pitchTilt,
-                    min: 0.0,
-                    max: 60.0,
-                    activeColor: AppColors.primaryNeon,
-                    onChanged: (val) => setDialogState(() {
-                      pitchTilt = val;
-                      selectedPreset = 'Custom';
-                    }),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    '회전 지향각 (Yaw): ${rotation.toInt()}°',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  Slider(
-                    value: rotation,
-                    min: 0.0,
-                    max: 360.0,
-                    activeColor: AppColors.primaryNeon,
-                    onChanged: (val) => setDialogState(() => rotation = val),
-                  ),
+                  
                 ],
               ),
             ),
@@ -1130,6 +1190,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
       ),
     );
   }
+
 
   Future<void> _editTrajectory(TrajectoryModel trajectory) async {
     String? currentAudioPath = trajectory.audioFilePath;
@@ -1530,7 +1591,79 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
     }
   }
 
-  @override
+  Future<void> _showRoomSetupDialog() async {
+    final bp = ref.read(blueprintProvider);
+    double widthM = bp.canvasWidthMeters;
+    double lengthM = bp.canvasHeightMeters;
+    double heightM = bp.roomHeightMeters;
+    double listenM = bp.listeningHeightMeters;
+    
+    await showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: AppColors.cardSurface,
+          title: const Text('📏 Room Setup', style: TextStyle(color: Colors.white)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                initialValue: widthM.toStringAsFixed(1),
+                style: const TextStyle(color: Colors.white),
+                decoration: const InputDecoration(labelText: '방 가로 너비 (Width, m)', labelStyle: TextStyle(color: Colors.white70)),
+                keyboardType: TextInputType.number,
+                onChanged: (val) => widthM = double.tryParse(val) ?? widthM,
+              ),
+              const SizedBox(height: 8),
+              TextFormField(
+                initialValue: lengthM.toStringAsFixed(1),
+                style: const TextStyle(color: Colors.white),
+                decoration: const InputDecoration(labelText: '방 세로 길이 (Length, m)', labelStyle: TextStyle(color: Colors.white70)),
+                keyboardType: TextInputType.number,
+                onChanged: (val) => lengthM = double.tryParse(val) ?? lengthM,
+              ),
+              const SizedBox(height: 8),
+              TextFormField(
+                initialValue: heightM.toStringAsFixed(1),
+                style: const TextStyle(color: Colors.white),
+                decoration: const InputDecoration(labelText: '천장 높이 (Height, m)', labelStyle: TextStyle(color: Colors.white70)),
+                keyboardType: TextInputType.number,
+                onChanged: (val) => heightM = double.tryParse(val) ?? heightM,
+              ),
+              const SizedBox(height: 8),
+              TextFormField(
+                initialValue: listenM.toStringAsFixed(1),
+                style: const TextStyle(color: Colors.white),
+                decoration: const InputDecoration(labelText: '관객 귀 높이 (Listening Height, m)', labelStyle: TextStyle(color: Colors.white70)),
+                keyboardType: TextInputType.number,
+                onChanged: (val) => listenM = double.tryParse(val) ?? listenM,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('취소', style: TextStyle(color: Colors.white70)),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: AppColors.primaryNeon, foregroundColor: Colors.black),
+              onPressed: () {
+                ref.read(blueprintProvider.notifier).setCanvasDimensions(
+                  widthM.clamp(1.0, 1000.0), 
+                  lengthM.clamp(1.0, 1000.0),
+                  roomHM: heightM.clamp(1.0, 100.0),
+                  listenHM: listenM.clamp(0.0, 20.0),
+                );
+                Navigator.pop(context);
+              },
+              child: const Text('저장'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   Widget build(BuildContext context) {
     final blueprint = ref.watch(blueprintProvider);
 
@@ -1542,9 +1675,45 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
       child: Scaffold(
         backgroundColor: AppColors.background,
         appBar: AppBar(
+          bottom: TabBar(
+            controller: _tabController,
+            indicatorColor: AppColors.primaryNeon,
+            labelColor: AppColors.primaryNeon,
+            unselectedLabelColor: Colors.white54,
+            tabs: const [
+              Tab(text: 'Room A: Main Hall'),
+              Tab(text: 'Room B: Lobby'),
+              Tab(text: 'Room C: Atmos Studio'),
+            ],
+          ),
           title: Row(
             children: [
               const Text('Exhibition Canvas'),
+              
+              const Spacer(),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('SPL HEATMAP', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white70)),
+                  const SizedBox(width: 8),
+                  Switch(
+                    value: false,
+                    onChanged: (val) {},
+                    activeColor: AppColors.primaryNeon,
+                  ),
+                  const SizedBox(width: 16),
+                  ElevatedButton.icon(
+                    onPressed: () {},
+                    icon: const Icon(Icons.picture_as_pdf, size: 16),
+                    label: const Text('EXPORT PDF REPORT'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.surfaceLighter,
+                      foregroundColor: AppColors.primaryNeon,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                ],
+              ),
               const Spacer(),
               Consumer(
                 builder: (context, ref, child) {
@@ -1658,6 +1827,63 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                   color: AppColors.primaryNeon,
                 ),
                 onPressed: _showReverbSettingsDialog,
+              ),
+              const SizedBox(width: 12),
+              // Phase 1: SPL Heatmap Mock Toggle
+              Container(
+                height: 34,
+                padding: const EdgeInsets.symmetric(horizontal: 6),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade900,
+                  borderRadius: BorderRadius.circular(17),
+                  border: Border.all(
+                    color: _showHeatmap ? AppColors.primaryNeon : Colors.white24,
+                    width: 1.5,
+                  ),
+                ),
+                child: InkWell(
+                  onTap: () {
+                    setState(() {
+                      _showHeatmap = !_showHeatmap;
+                    });
+                  },
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.thermostat,
+                        size: 16,
+                        color: _showHeatmap ? AppColors.primaryNeon : Colors.white70,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        '🌡️ SPL Heatmap',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: _showHeatmap ? AppColors.primaryNeon : Colors.white70,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              // Phase 1: Export Rigging Report Mock Button
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.white10,
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size(0, 34),
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                ),
+                icon: const Icon(Icons.description, size: 16),
+                label: const Text('📄 Export Rigging Report', style: TextStyle(fontSize: 12)),
+                onPressed: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Export Rigging Report functionality coming soon.')),
+                  );
+                },
               ),
               const SizedBox(width: 12),
               IconButton(
@@ -2144,12 +2370,69 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                       },
                     ),
                   ),
-                const Positioned.fill(child: TrajectoryEditorToolbar()),
+                  // Right Sidebar Inspector
+                  AnimatedPositioned(
+                    duration: const Duration(milliseconds: 300),
+                    curve: Curves.easeOutCubic,
+                    right: _inspectorSpeakerId != null ? 0 : -320,
+                    top: 0,
+                    bottom: 0,
+                    width: 320,
+                    child: _inspectorSpeakerId != null 
+                      ? Consumer(builder: (context, ref, _) {
+                          final node = ref.watch(speakerLayoutProvider).where((n) => n.id == _inspectorSpeakerId).firstOrNull;
+                          if (node == null) return const SizedBox.shrink();
+                          return SpeakerInspectorPanel(
+                            node: node,
+                            onClose: () => setState(() => _inspectorSpeakerId = null),
+                            onSync: _syncSpatialConfigRealtime,
+                          );
+                        })
+                      : const SizedBox.shrink(),
+                  ),
+                  // Add Speaker Button in Canvas
+                  Positioned(
+                    bottom: 16,
+                    left: 16,
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primaryNeon,
+                        foregroundColor: Colors.black,
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                      ),
+                      icon: const Icon(Icons.add_circle_outline),
+                      label: const Text('Add Speaker', style: TextStyle(fontWeight: FontWeight.bold)),
+                      onPressed: () {
+                        _addSpeaker();
+                        // Get the newly added speaker ID to open inspector
+                        final nodes = ref.read(speakerLayoutProvider);
+                        if (nodes.isNotEmpty) {
+                          setState(() {
+                            _inspectorSpeakerId = nodes.last.id;
+                          });
+                        }
+                      },
+                    ),
+                  ),
+                  const Positioned.fill(child: TrajectoryEditorToolbar()),
               ],
             );
           },
         ),
-        floatingActionButton: PopupMenuButton<String>(
+        floatingActionButton: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            FloatingActionButton.extended(
+              heroTag: 'room_setup_fab',
+              onPressed: _showRoomSetupDialog,
+              backgroundColor: Colors.white10,
+              foregroundColor: Colors.white,
+              icon: const Icon(Icons.square_foot),
+              label: const Text('📏 Room Setup'),
+            ),
+            const SizedBox(height: 16),
+            PopupMenuButton<String>(
           onSelected: (value) {
             if (value == 'speaker') {
               _addSpeaker();
@@ -2176,10 +2459,13 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
             const PopupMenuItem(value: 'measure', child: Text('도면 스케일 측정')),
           ],
           child: FloatingActionButton(
+            heroTag: 'add_menu_fab',
             onPressed: null,
             backgroundColor: AppColors.primaryNeon,
             child: const Icon(Icons.add, color: Colors.black),
           ),
+        ),
+          ],
         ),
         bottomNavigationBar: Container(
           height: 120,
@@ -2925,5 +3211,227 @@ class _MeasurementPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _MeasurementPainter oldDelegate) {
     return oldDelegate.start != start || oldDelegate.end != end;
+  }
+}
+
+class SpeakerInspectorPanel extends ConsumerStatefulWidget {
+  final SpeakerNode node;
+  final VoidCallback onClose;
+  final VoidCallback onSync;
+
+  const SpeakerInspectorPanel({
+    super.key,
+    required this.node,
+    required this.onClose,
+    required this.onSync,
+  });
+
+  @override
+  ConsumerState<SpeakerInspectorPanel> createState() => _SpeakerInspectorPanelState();
+}
+
+class _SpeakerInspectorPanelState extends ConsumerState<SpeakerInspectorPanel> {
+  late double heightZ;
+  late double pitchTilt;
+  late double rotation;
+  late TextEditingController heightCtrl;
+  late TextEditingController tiltCtrl;
+  late TextEditingController panCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _initVals();
+  }
+
+  @override
+  void didUpdateWidget(SpeakerInspectorPanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.node.id != widget.node.id) {
+      _initVals();
+    }
+  }
+
+  void _initVals() {
+    heightZ = widget.node.heightZ;
+    pitchTilt = widget.node.pitchTilt;
+    rotation = widget.node.rotation;
+    heightCtrl = TextEditingController(text: heightZ.toStringAsFixed(2));
+    tiltCtrl = TextEditingController(text: pitchTilt.toStringAsFixed(2));
+    panCtrl = TextEditingController(text: rotation.toStringAsFixed(2));
+  }
+
+  @override
+  void dispose() {
+    heightCtrl.dispose();
+    tiltCtrl.dispose();
+    panCtrl.dispose();
+    super.dispose();
+  }
+
+  void _updateNode() {
+    ref.read(speakerLayoutProvider.notifier).updateSpeaker(
+      widget.node.copyWith(
+        heightZ: heightZ,
+        pitchTilt: pitchTilt,
+        rotation: rotation,
+      ),
+      immediate: true,
+    );
+    widget.onSync();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 320,
+      decoration: BoxDecoration(
+        color: AppColors.cardSurface,
+        border: Border(left: BorderSide(color: Colors.white24, width: 1)),
+        boxShadow: const [BoxShadow(color: Colors.black54, blurRadius: 10, spreadRadius: 2)],
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                '🔊 Speaker Inspector',
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+              ),
+              IconButton(icon: const Icon(Icons.close, color: Colors.white54), onPressed: widget.onClose),
+            ],
+          ),
+          const Divider(color: Colors.white24),
+          const SizedBox(height: 16),
+          // Height
+          const Text('Height (Z축 높이, m)', style: TextStyle(color: Colors.white70, fontSize: 12)),
+          Row(
+            children: [
+              Expanded(
+                child: Slider(
+                  value: heightZ,
+                  min: 0.0,
+                  max: 20.0,
+                  activeColor: AppColors.primaryNeon,
+                  onChanged: (val) {
+                    setState(() {
+                      heightZ = val;
+                      heightCtrl.text = val.toStringAsFixed(2);
+                    });
+                    _updateNode();
+                  },
+                ),
+              ),
+              SizedBox(
+                width: 60,
+                child: TextField(
+                  controller: heightCtrl,
+                  style: const TextStyle(color: Colors.white, fontSize: 12),
+                  keyboardType: TextInputType.number,
+                  onSubmitted: (val) {
+                    final p = double.tryParse(val);
+                    if (p != null) {
+                      setState(() => heightZ = p.clamp(0.0, 50.0));
+                      _updateNode();
+                    }
+                  },
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          // Tilt
+          const Text('Tilt (상하 기울기, °)', style: TextStyle(color: Colors.white70, fontSize: 12)),
+          Row(
+            children: [
+              Expanded(
+                child: Slider(
+                  value: pitchTilt,
+                  min: -90.0,
+                  max: 90.0,
+                  activeColor: AppColors.primaryNeon,
+                  onChanged: (val) {
+                    setState(() {
+                      pitchTilt = val;
+                      tiltCtrl.text = val.toStringAsFixed(2);
+                    });
+                    _updateNode();
+                  },
+                ),
+              ),
+              SizedBox(
+                width: 60,
+                child: TextField(
+                  controller: tiltCtrl,
+                  style: const TextStyle(color: Colors.white, fontSize: 12),
+                  keyboardType: TextInputType.number,
+                  onSubmitted: (val) {
+                    final p = double.tryParse(val);
+                    if (p != null) {
+                      setState(() => pitchTilt = p.clamp(-90.0, 90.0));
+                      _updateNode();
+                    }
+                  },
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          // Pan
+          const Text('Pan (좌우 회전, °)', style: TextStyle(color: Colors.white70, fontSize: 12)),
+          Row(
+            children: [
+              Expanded(
+                child: Slider(
+                  value: rotation,
+                  min: -180.0,
+                  max: 180.0,
+                  activeColor: AppColors.primaryNeon,
+                  onChanged: (val) {
+                    setState(() {
+                      rotation = val;
+                      panCtrl.text = val.toStringAsFixed(2);
+                    });
+                    _updateNode();
+                  },
+                ),
+              ),
+              SizedBox(
+                width: 60,
+                child: TextField(
+                  controller: panCtrl,
+                  style: const TextStyle(color: Colors.white, fontSize: 12),
+                  keyboardType: TextInputType.number,
+                  onSubmitted: (val) {
+                    final p = double.tryParse(val);
+                    if (p != null) {
+                      setState(() => rotation = p.clamp(-180.0, 180.0));
+                      _updateNode();
+                    }
+                  },
+                ),
+              ),
+            ],
+          ),
+          const Spacer(),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red.shade900,
+              foregroundColor: Colors.white,
+              minimumSize: const Size(double.infinity, 44),
+            ),
+            icon: const Icon(Icons.delete),
+            label: const Text('Remove Speaker'),
+            onPressed: () {
+              ref.read(speakerLayoutProvider.notifier).removeSpeaker(widget.node.id);
+              widget.onClose();
+            },
+          ),
+        ],
+      ),
+    );
   }
 }

@@ -7,6 +7,8 @@ class BlueprintData {
   final double scale; // Pixels per meter
   final double canvasWidthMeters;
   final double canvasHeightMeters;
+  final double roomHeightMeters;
+  final double listeningHeightMeters;
 
   const BlueprintData({
     this.imagePath,
@@ -14,6 +16,8 @@ class BlueprintData {
     this.scale = 50.0,
     this.canvasWidthMeters = 40.0,
     this.canvasHeightMeters = 40.0,
+    this.roomHeightMeters = 5.0,
+    this.listeningHeightMeters = 1.2,
   });
 
   BlueprintData copyWith({
@@ -22,6 +26,8 @@ class BlueprintData {
     double? scale,
     double? canvasWidthMeters,
     double? canvasHeightMeters,
+    double? roomHeightMeters,
+    double? listeningHeightMeters,
   }) {
     return BlueprintData(
       imagePath: imagePath ?? this.imagePath,
@@ -29,6 +35,8 @@ class BlueprintData {
       scale: scale ?? this.scale,
       canvasWidthMeters: canvasWidthMeters ?? this.canvasWidthMeters,
       canvasHeightMeters: canvasHeightMeters ?? this.canvasHeightMeters,
+      roomHeightMeters: roomHeightMeters ?? this.roomHeightMeters,
+      listeningHeightMeters: listeningHeightMeters ?? this.listeningHeightMeters,
     );
   }
 }
@@ -51,20 +59,31 @@ class BlueprintState extends Notifier<BlueprintData> {
     final scale = prefs.getDouble(_kScaleKey) ?? 50.0;
     final widthM = prefs.getDouble('blueprint_width_m') ?? 40.0;
     final heightM = prefs.getDouble('blueprint_height_m') ?? 40.0;
+    final roomHM = prefs.getDouble('blueprint_room_h_m') ?? 5.0;
+    final listenHM = prefs.getDouble('blueprint_listen_h_m') ?? 1.2;
     state = BlueprintData(
       imagePath: path,
       opacity: opacity,
       scale: scale,
       canvasWidthMeters: widthM,
       canvasHeightMeters: heightM,
+      roomHeightMeters: roomHM,
+      listeningHeightMeters: listenHM,
     );
   }
 
-  Future<void> setCanvasDimensions(double widthM, double heightM) async {
-    state = state.copyWith(canvasWidthMeters: widthM, canvasHeightMeters: heightM);
+  Future<void> setCanvasDimensions(double widthM, double heightM, {double? roomHM, double? listenHM}) async {
+    state = state.copyWith(
+      canvasWidthMeters: widthM, 
+      canvasHeightMeters: heightM,
+      roomHeightMeters: roomHM ?? state.roomHeightMeters,
+      listeningHeightMeters: listenHM ?? state.listeningHeightMeters,
+    );
     final prefs = await SharedPreferences.getInstance();
     await prefs.setDouble('blueprint_width_m', widthM);
     await prefs.setDouble('blueprint_height_m', heightM);
+    if (roomHM != null) await prefs.setDouble('blueprint_room_h_m', roomHM);
+    if (listenHM != null) await prefs.setDouble('blueprint_listen_h_m', listenHM);
   }
 
   Future<void> setBlueprint(String path) async {

@@ -3,6 +3,7 @@
 
 // ignore_for_file: unused_import, unused_element, unnecessary_import, duplicate_ignore, invalid_use_of_internal_member, annotate_overrides, non_constant_identifier_names, curly_braces_in_flow_control_structures, prefer_const_literals_to_create_immutables, unused_field
 
+import 'api/calibration.dart';
 import 'api/error.dart';
 import 'api/simple.dart';
 import 'common/config.dart';
@@ -66,6 +67,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   Trajectory dco_decode_box_autoadd_trajectory(dynamic raw);
 
   @protected
+  CalibrationResult dco_decode_calibration_result(dynamic raw);
+
+  @protected
   ChannelSetting dco_decode_channel_setting(dynamic raw);
 
   @protected
@@ -90,6 +94,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<String> dco_decode_list_String(dynamic raw);
 
   @protected
+  List<CalibrationResult> dco_decode_list_calibration_result(dynamic raw);
+
+  @protected
   List<ChannelTuningParams> dco_decode_list_channel_tuning_params(dynamic raw);
 
   @protected
@@ -105,10 +112,16 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<Point3D> dco_decode_list_point_3_d(dynamic raw);
 
   @protected
+  List<double> dco_decode_list_prim_f_32_loose(dynamic raw);
+
+  @protected
   Float32List dco_decode_list_prim_f_32_strict(dynamic raw);
 
   @protected
   Uint8List dco_decode_list_prim_u_8_strict(dynamic raw);
+
+  @protected
+  Uint64List dco_decode_list_prim_usize_strict(dynamic raw);
 
   @protected
   List<(String, Point3D)> dco_decode_list_record_string_point_3_d(dynamic raw);
@@ -117,6 +130,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<(int, ChannelSetting)> dco_decode_list_record_u_32_channel_setting(
     dynamic raw,
   );
+
+  @protected
+  List<(BigInt, Point3D)> dco_decode_list_record_usize_point_3_d(dynamic raw);
 
   @protected
   List<RoomConfig> dco_decode_list_room_config(dynamic raw);
@@ -150,6 +166,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   (int, ChannelSetting) dco_decode_record_u_32_channel_setting(dynamic raw);
+
+  @protected
+  (BigInt, Point3D) dco_decode_record_usize_point_3_d(dynamic raw);
 
   @protected
   RoomConfig dco_decode_room_config(dynamic raw);
@@ -233,6 +252,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   Trajectory sse_decode_box_autoadd_trajectory(SseDeserializer deserializer);
 
   @protected
+  CalibrationResult sse_decode_calibration_result(SseDeserializer deserializer);
+
+  @protected
   ChannelSetting sse_decode_channel_setting(SseDeserializer deserializer);
 
   @protected
@@ -261,6 +283,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<String> sse_decode_list_String(SseDeserializer deserializer);
 
   @protected
+  List<CalibrationResult> sse_decode_list_calibration_result(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   List<ChannelTuningParams> sse_decode_list_channel_tuning_params(
     SseDeserializer deserializer,
   );
@@ -282,10 +309,16 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<Point3D> sse_decode_list_point_3_d(SseDeserializer deserializer);
 
   @protected
+  List<double> sse_decode_list_prim_f_32_loose(SseDeserializer deserializer);
+
+  @protected
   Float32List sse_decode_list_prim_f_32_strict(SseDeserializer deserializer);
 
   @protected
   Uint8List sse_decode_list_prim_u_8_strict(SseDeserializer deserializer);
+
+  @protected
+  Uint64List sse_decode_list_prim_usize_strict(SseDeserializer deserializer);
 
   @protected
   List<(String, Point3D)> sse_decode_list_record_string_point_3_d(
@@ -294,6 +327,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<(int, ChannelSetting)> sse_decode_list_record_u_32_channel_setting(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<(BigInt, Point3D)> sse_decode_list_record_usize_point_3_d(
     SseDeserializer deserializer,
   );
 
@@ -333,6 +371,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   (int, ChannelSetting) sse_decode_record_u_32_channel_setting(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  (BigInt, Point3D) sse_decode_record_usize_point_3_d(
     SseDeserializer deserializer,
   );
 
@@ -435,6 +478,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_calibration_result(
+    CalibrationResult self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_channel_setting(
     ChannelSetting self,
     SseSerializer serializer,
@@ -468,6 +517,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_list_String(List<String> self, SseSerializer serializer);
 
   @protected
+  void sse_encode_list_calibration_result(
+    List<CalibrationResult> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_list_channel_tuning_params(
     List<ChannelTuningParams> self,
     SseSerializer serializer,
@@ -492,6 +547,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_list_point_3_d(List<Point3D> self, SseSerializer serializer);
 
   @protected
+  void sse_encode_list_prim_f_32_loose(
+    List<double> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_list_prim_f_32_strict(
     Float32List self,
     SseSerializer serializer,
@@ -504,6 +565,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_list_prim_usize_strict(
+    Uint64List self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_list_record_string_point_3_d(
     List<(String, Point3D)> self,
     SseSerializer serializer,
@@ -512,6 +579,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_list_record_u_32_channel_setting(
     List<(int, ChannelSetting)> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_record_usize_point_3_d(
+    List<(BigInt, Point3D)> self,
     SseSerializer serializer,
   );
 
@@ -566,6 +639,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_record_u_32_channel_setting(
     (int, ChannelSetting) self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_record_usize_point_3_d(
+    (BigInt, Point3D) self,
     SseSerializer serializer,
   );
 
