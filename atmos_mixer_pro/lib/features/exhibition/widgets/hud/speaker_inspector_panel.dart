@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:atmos_mixer_pro/features/exhibition/models/speaker_node.dart';
 import 'package:atmos_mixer_pro/features/exhibition/state/blueprint_state.dart';
+import 'package:atmos_mixer_pro/features/exhibition/state/speaker_layout_state.dart';
 
 class SpeakerInspectorPanel extends ConsumerStatefulWidget {
   final String speakerId;
@@ -20,10 +21,10 @@ class SpeakerInspectorPanel extends ConsumerStatefulWidget {
 class _SpeakerInspectorPanelState extends ConsumerState<SpeakerInspectorPanel> {
   @override
   Widget build(BuildContext context) {
-    final blueprint = ref.watch(blueprintProvider);
+    final layout = ref.watch(speakerLayoutProvider);
     SpeakerNode? speaker;
     try {
-      speaker = blueprint.speakers.firstWhere((s) => s.id == widget.speakerId);
+      speaker = layout.nodes.firstWhere((s) => s.id == widget.speakerId);
     } catch (e) {
       speaker = null;
     }
@@ -91,7 +92,7 @@ class _SpeakerInspectorPanelState extends ConsumerState<SpeakerInspectorPanel> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _buildSectionTitle('1. IDENTITY'),
-                  _buildRow('Channel:', 'Ch ${speaker.channelIndex + 1} (${speaker.label})'),
+                  _buildRow('Channel:', 'Ch ${speaker.channel + 1} (${speaker.channel.toString()})'),
                   const SizedBox(height: 16),
                   
                   _buildSectionTitle('2. POSITION & ORIENTATION'),
@@ -191,6 +192,6 @@ class _SpeakerInspectorPanelState extends ConsumerState<SpeakerInspectorPanel> {
       x: x ?? speaker.x,
       y: y ?? speaker.y,
     );
-    ref.read(blueprintProvider.notifier).updateSpeaker(updated);
+    ref.read(speakerLayoutProvider.notifier).updateNode(updated);
   }
 }

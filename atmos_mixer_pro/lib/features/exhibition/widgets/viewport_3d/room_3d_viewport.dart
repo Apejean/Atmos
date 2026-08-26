@@ -2,6 +2,8 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:atmos_mixer_pro/features/exhibition/state/blueprint_state.dart';
+import 'package:atmos_mixer_pro/features/exhibition/state/speaker_layout_state.dart';
+import 'package:atmos_mixer_pro/features/exhibition/state/room_zone_state.dart';
 import 'package:atmos_mixer_pro/features/exhibition/models/room_zone.dart';
 import 'package:atmos_mixer_pro/features/exhibition/models/speaker_node.dart';
 
@@ -18,7 +20,7 @@ class _Room3DViewportState extends ConsumerState<Room3DViewport> {
 
   @override
   Widget build(BuildContext context) {
-    final blueprint = ref.watch(blueprintProvider);
+    final layout = ref.watch(speakerLayoutProvider);
     final rooms = ref.watch(roomZoneProvider);
     
     final room = rooms.isNotEmpty ? rooms.first : null;
@@ -43,7 +45,7 @@ class _Room3DViewportState extends ConsumerState<Room3DViewport> {
                 size: const Size(600, 400),
                 painter: _IsometricRoomPainter(
                   room: room,
-                  speakers: blueprint.speakers,
+                  speakers: layout.nodes,
                   rotationX: _rotationX,
                   rotationY: _rotationY,
                 ),
@@ -200,7 +202,7 @@ class _IsometricRoomPainter extends CustomPainter {
       // Label
       final textPainter = TextPainter(
         text: TextSpan(
-          text: 'Ch ${spk.channelIndex + 1}',
+          text: 'Ch ${spk.channel + 1}',
           style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
         ),
         textDirection: TextDirection.ltr,
