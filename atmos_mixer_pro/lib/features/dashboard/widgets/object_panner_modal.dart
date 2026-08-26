@@ -81,13 +81,15 @@ class _ObjectPannerModalState extends ConsumerState<ObjectPannerModal> with Sing
   }
 
   String _formatVal(double val) {
-    // 0.0 to 1.0 -> -1.0 to +1.0 for display
     final mapped = (val - 0.5) * 2.0;
+    if (mapped == 0) return '0.000';
     return mapped > 0 ? '+${mapped.toStringAsFixed(3)}' : mapped.toStringAsFixed(3);
   }
 
   String _formatZ(double val) {
-    return '+${val.toStringAsFixed(3)}';
+    final mapped = (val - 0.5) * 2.0;
+    if (mapped == 0) return '0.000';
+    return mapped > 0 ? '+${mapped.toStringAsFixed(3)}' : mapped.toStringAsFixed(3);
   }
 
   Widget _buildReadout(String label, String value) {
@@ -162,9 +164,10 @@ class _ObjectPannerModalState extends ConsumerState<ObjectPannerModal> with Sing
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
                   _buildReadout('Left/Right', _formatVal(_x)),
-                  _buildReadout('Back/Front', _formatVal(1.0 - _y)), // Inverse Y for Back/Front (0 is front, 1 is back)
+                  _buildReadout('Back/Front', _formatVal(1.0 - _y)),
                   _buildReadout('Elevation', _formatZ(_z)),
-                  _buildReadout('Size', _size.toStringAsFixed(3)),
+                  _buildReadout('Size', (_size * 100).toInt().toString()),
+                  _buildReadout('Spread', '+90°'),
                 ],
               ),
             ),
@@ -203,6 +206,13 @@ class _ObjectPannerModalState extends ConsumerState<ObjectPannerModal> with Sing
                                     setState(() {
                                       _x = (details.localPosition.dx / constraints.maxWidth).clamp(0.0, 1.0);
                                       _y = (details.localPosition.dy / constraints.maxHeight).clamp(0.0, 1.0);
+                                    });
+                                    _updateBackend();
+                                  },
+                                  onDoubleTap: () {
+                                    setState(() {
+                                      _x = 0.5;
+                                      _y = 0.0;
                                     });
                                     _updateBackend();
                                   },
@@ -268,6 +278,12 @@ class _ObjectPannerModalState extends ConsumerState<ObjectPannerModal> with Sing
                               onPanDown: (details) {
                                 setState(() {
                                   _z = (1.0 - details.localPosition.dy / constraints.maxHeight).clamp(0.0, 1.0);
+                                });
+                                _updateBackend();
+                              },
+                              onDoubleTap: () {
+                                setState(() {
+                                  _z = 0.0; // 0.0 is Ear Level in our mapping
                                 });
                                 _updateBackend();
                               },
