@@ -2,6 +2,7 @@ import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart' as f
 import 'dart:io';
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -22,6 +23,7 @@ import 'package:atmos_mixer_pro/features/dashboard/widgets/safety_alert_border.d
 import 'package:atmos_mixer_pro/src/rust/api/simple.dart' as rust_api;
 import 'package:atmos_mixer_pro/src/rust/common/config.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:window_manager/window_manager.dart';
 import 'package:atmos_mixer_pro/features/dashboard/widgets/output_calibration_modal.dart';
 import 'package:atmos_mixer_pro/features/dashboard/state/output_routing_state.dart';
 import 'package:atmos_mixer_pro/features/exhibition/state/blueprint_state.dart';
@@ -237,6 +239,17 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           ),
           PlatformMenuItemGroup(
             members: [
+              PlatformMenuItemGroup(
+                members: [
+                  PlatformMenuItem(
+                    label: 'Quit Atmos Mixer Pro',
+                    shortcut: const SingleActivator(LogicalKeyboardKey.keyQ, meta: true),
+                    onSelected: () {
+                      windowManager.close();
+                    },
+                  ),
+                ],
+              ),
               PlatformMenuItem(
                 label: 'Export Log',
                 onSelected: () async {
@@ -708,10 +721,13 @@ oscWhitelist: config.oscWhitelist,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
+          Row(
+            children: [
+              Expanded(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
                 const Text(
                   'Atmos Mixer Pro',
                   style: TextStyle(
@@ -760,8 +776,19 @@ oscWhitelist: config.oscWhitelist,
                     enableSimulationToggle: true,
                   );
                 }),
-              ],
-            ),
+                    ],
+                  ),
+                ),
+              ),
+              // App Quit Button
+              IconButton(
+                onPressed: () {
+                  windowManager.close();
+                },
+                icon: const Icon(Icons.close, color: Colors.redAccent),
+                tooltip: 'Quit Application',
+              ),
+            ],
           ),
           const SizedBox(height: 16),
           SingleChildScrollView(
