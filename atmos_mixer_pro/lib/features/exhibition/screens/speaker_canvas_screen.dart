@@ -19,9 +19,6 @@ import 'package:atmos_mixer_pro/features/exhibition/state/room_zone_state.dart';
 import 'package:atmos_mixer_pro/features/exhibition/models/trajectory.dart';
 import 'package:atmos_mixer_pro/features/exhibition/state/trajectory_state.dart';
 import 'package:atmos_mixer_pro/features/exhibition/state/blueprint_state.dart';
-import 'package:atmos_mixer_pro/features/exhibition/widgets/trajectory_layer_painter.dart';
-import 'package:atmos_mixer_pro/features/exhibition/widgets/trajectory_sidebar_widget.dart';
-import 'package:atmos_mixer_pro/features/exhibition/widgets/trajectory_editor_toolbar.dart';
 import 'package:atmos_mixer_pro/core/theme/colors.dart';
 import 'package:atmos_mixer_pro/core/state/global_state.dart';
 import 'package:atmos_mixer_pro/src/rust/api/simple.dart' as rust_api;
@@ -2136,8 +2133,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
               _addSpeaker();
             } else if (value == 'room') {
               _addRoom();
-            } else if (value == 'trajectory') {
-              _addTrajectory();
+
             } else if (value == 'measure') {
               setState(() {
                 _isMeasuringScale = true;
@@ -2152,7 +2148,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
           itemBuilder: (BuildContext context) => [
             const PopupMenuItem(value: 'speaker', child: Text('스피커 추가')),
             const PopupMenuItem(value: 'room', child: Text('룸 구역 추가')),
-            const PopupMenuItem(value: 'trajectory', child: Text('오디오 궤도 추가')),
+            
             const PopupMenuItem(value: 'measure', child: Text('도면 스케일 측정')),
           ],
           child: FloatingActionButton(
