@@ -104,6 +104,7 @@ class TrajectoryState extends Notifier<List<TrajectoryModel>> {
                 'y': trajectories.first.getCurrentPositionMeter().dy,
                 'z': trajectories.first.getCurrentHeightZ(),
               },
+              'size': trajectories.first.size,
               'audio_file_path': trajectories.first.audioFilePath,
             }
           : null,

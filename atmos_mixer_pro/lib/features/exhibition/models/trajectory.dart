@@ -36,6 +36,7 @@ class TrajectoryModel extends ChangeNotifier {
   String? audioTrackId;
   String? stemGroupId;
   String? targetRoomZoneId;
+  double size;
 
   double progress = 0.0;
   double direction = 1.0;
@@ -52,6 +53,7 @@ class TrajectoryModel extends ChangeNotifier {
     this.audioTrackId,
     this.stemGroupId,
     this.targetRoomZoneId,
+    this.size = 0.2,
   });
 
   Map<String, dynamic> toJson() {
@@ -67,6 +69,7 @@ class TrajectoryModel extends ChangeNotifier {
       'audioTrackId': audioTrackId,
       'stemGroupId': stemGroupId,
       'targetRoomZoneId': targetRoomZoneId,
+      'size': size,
     };
   }
 
@@ -85,6 +88,7 @@ class TrajectoryModel extends ChangeNotifier {
       audioTrackId: json['audioTrackId'] as String?,
       stemGroupId: json['stemGroupId'] as String?,
       targetRoomZoneId: json['targetRoomZoneId'] as String?,
+      size: (json['size'] as num?)?.toDouble() ?? 0.2,
     );
   }
 
@@ -188,6 +192,7 @@ class TrajectoryModel extends ChangeNotifier {
     String? audioTrackId,
     String? stemGroupId,
     String? targetRoomZoneId,
+    double? size,
   }) {
     return TrajectoryModel(
       id: id ?? this.id,
@@ -201,6 +206,7 @@ class TrajectoryModel extends ChangeNotifier {
       audioTrackId: audioTrackId ?? this.audioTrackId,
       stemGroupId: stemGroupId ?? this.stemGroupId,
       targetRoomZoneId: targetRoomZoneId ?? this.targetRoomZoneId,
+      size: size ?? this.size,
     );
   }
 }

@@ -342,7 +342,7 @@ class _TrackCardState extends ConsumerState<TrackCard> {
                           onPressed: () {
                             showDialog(
                               context: context,
-                              builder: (context) => const TrajectorySettingsModal(),
+                              builder: (context) => TrajectorySettingsModal(trackId: widget.track.id),
                             );
                           },
                           child: const Text('3D Trajectory', style: TextStyle(color: Colors.black, fontSize: 10)),

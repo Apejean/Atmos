@@ -1,4 +1,6 @@
-import 'package:flutter/material.dart';
+import re
+
+content = """import 'package:flutter/material.dart';
 import 'package:atmos_mixer_pro/core/theme/colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:atmos_mixer_pro/features/exhibition/state/trajectory_state.dart';
@@ -107,3 +109,7 @@ class _TrajectorySettingsModalState extends ConsumerState<TrajectorySettingsModa
     );
   }
 }
+"""
+
+with open('lib/features/dashboard/widgets/trajectory_settings_modal.dart', 'w') as f:
+    f.write(content)
