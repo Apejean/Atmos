@@ -41,7 +41,7 @@ class _TrajectorySettingsModalState extends State<TrajectorySettingsModal> {
             ),
             const SizedBox(height: 16),
             const Text('Flight Speed', style: TextStyle(color: Colors.white70)),
-            Slider(value: _speed, min: 0.1, max: 5.0, activeColor: AppColors.primaryNeon, onChanged: (v) => setState(() => _speed = v)),
+            Slider(value: _speed, min: 0.1, max: 5.0, activeThumbColor: AppColors.primaryNeon, onChanged: (v) => setState(() => _speed = v)),
             const Text('Ceiling Elevation', style: TextStyle(color: Colors.white70)),
             Slider(value: _elevation, min: 0.0, max: 1.0, activeColor: Colors.cyanAccent, onChanged: (v) => setState(() => _elevation = v)),
             const Text('Sound Spread (Size)', style: TextStyle(color: Colors.white70)),
@@ -50,7 +50,7 @@ class _TrajectorySettingsModalState extends State<TrajectorySettingsModal> {
             SwitchListTile(
               title: const Text('OSC Automation', style: TextStyle(color: Colors.white)),
               value: _oscEnabled,
-              activeColor: AppColors.primaryNeon,
+              activeThumbColor: AppColors.primaryNeon,
               onChanged: (v) => setState(() => _oscEnabled = v),
             ),
           ],

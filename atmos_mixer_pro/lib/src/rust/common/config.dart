@@ -164,6 +164,7 @@ class Point3D {
   final double yawRotation;
   final double pitchTilt;
   final double dispersionAngle;
+  final double size;
 
   const Point3D({
     required this.x,
@@ -172,6 +173,7 @@ class Point3D {
     required this.yawRotation,
     required this.pitchTilt,
     required this.dispersionAngle,
+    required this.size,
   });
 
   @override
@@ -181,7 +183,8 @@ class Point3D {
       z.hashCode ^
       yawRotation.hashCode ^
       pitchTilt.hashCode ^
-      dispersionAngle.hashCode;
+      dispersionAngle.hashCode ^
+      size.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -193,7 +196,8 @@ class Point3D {
           z == other.z &&
           yawRotation == other.yawRotation &&
           pitchTilt == other.pitchTilt &&
-          dispersionAngle == other.dispersionAngle;
+          dispersionAngle == other.dispersionAngle &&
+          size == other.size;
 }
 
 class RoomConfig {

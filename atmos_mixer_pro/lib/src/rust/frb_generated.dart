@@ -2436,6 +2436,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       yawRotation: dco_decode_f_32(arr[3]),
       pitchTilt: dco_decode_f_32(arr[4]),
       dispersionAngle: dco_decode_f_32(arr[5]),
+      size: 0.0,
     );
   }
 
@@ -3030,6 +3031,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_yawRotation = sse_decode_f_32(deserializer);
     var var_pitchTilt = sse_decode_f_32(deserializer);
     var var_dispersionAngle = sse_decode_f_32(deserializer);
+    var var_size = sse_decode_f_32(deserializer);
     return Point3D(
       x: var_x,
       y: var_y,
@@ -3037,6 +3039,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       yawRotation: var_yawRotation,
       pitchTilt: var_pitchTilt,
       dispersionAngle: var_dispersionAngle,
+      size: var_size,
     );
   }
 
@@ -3622,6 +3625,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_f_32(self.yawRotation, serializer);
     sse_encode_f_32(self.pitchTilt, serializer);
     sse_encode_f_32(self.dispersionAngle, serializer);
+    sse_encode_f_32(self.size, serializer);
   }
 
   @protected

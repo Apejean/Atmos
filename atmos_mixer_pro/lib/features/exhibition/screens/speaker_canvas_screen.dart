@@ -407,33 +407,6 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
     );
     ref.read(roomZoneProvider.notifier).addRoomZone(newRoom);
   }
-
-  void _addTrajectory() {
-    final canvasCenter = _getCanvasCenter();
-    double cx = canvasCenter.dx.clamp(100.0, _getCanvasWidth(ref) - 100.0);
-    double cy = canvasCenter.dy.clamp(100.0, _getCanvasHeight(ref) - 100.0);
-
-    final t = TrajectoryModel(
-      id: const Uuid().v4(),
-      waypoints: [
-        Waypoint(
-          position: Offset(
-            (cx - 100) / ref.read(blueprintProvider).scale,
-            cy / ref.read(blueprintProvider).scale,
-          ),
-        ),
-        Waypoint(
-          position: Offset(
-            (cx + 100) / ref.read(blueprintProvider).scale,
-            cy / ref.read(blueprintProvider).scale,
-          ),
-        ),
-      ],
-      color: AppColors.primaryNeon,
-    );
-    ref.read(trajectoryProvider.notifier).addTrajectory(t);
-  }
-
   void _clearTrajectories() {
     ref.read(trajectoryProvider.notifier).clearAll();
     setState(() {
