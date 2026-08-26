@@ -24,7 +24,7 @@ class _SpeakerInspectorPanelState extends ConsumerState<SpeakerInspectorPanel> {
     final layout = ref.watch(speakerLayoutProvider);
     SpeakerNode? speaker;
     try {
-      speaker = layout.nodes.firstWhere((s) => s.id == widget.speakerId);
+      speaker = layout.firstWhere((s) => s.id == widget.speakerId);
     } catch (e) {
       speaker = null;
     }
@@ -192,6 +192,6 @@ class _SpeakerInspectorPanelState extends ConsumerState<SpeakerInspectorPanel> {
       x: x ?? speaker.x,
       y: y ?? speaker.y,
     );
-    ref.read(speakerLayoutProvider.notifier).updateNode(updated);
+    ref.read(speakerLayoutProvider.notifier).updateSpeaker(updated);
   }
 }

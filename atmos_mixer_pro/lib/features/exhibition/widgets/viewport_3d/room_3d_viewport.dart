@@ -45,7 +45,7 @@ class _Room3DViewportState extends ConsumerState<Room3DViewport> {
                 size: const Size(600, 400),
                 painter: _IsometricRoomPainter(
                   room: room,
-                  speakers: layout.nodes,
+                  speakers: layout,
                   rotationX: _rotationX,
                   rotationY: _rotationY,
                 ),
