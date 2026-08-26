@@ -27,7 +27,7 @@ fn test_audio_precision_sine_wave() {
     let mut out_buffer = vec![0.0_f32; 2];
     
     // Process sine wave at center (0, 0, 0)
-    spatializer.process_sample(sine_wave[100], (0.0, 0.0, 0.0), &mut out_buffer);
+    spatializer.process_sample(sine_wave[100], (0.0, 0.0, 0.0), 0.0, &mut out_buffer);
     
     // Distance to both speakers is 1.0. Gain should be equal.
     let diff = (out_buffer[0].abs() - out_buffer[1].abs()).abs();

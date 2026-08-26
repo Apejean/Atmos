@@ -20,7 +20,7 @@ fn test_zero_defect_dbap_panning_power_normalization() {
     let mut gains = vec![0.0f32; 4];
 
     // Source at center (0, 0, 0)
-    dbap.calculate_gains(0.0, 0.0, 0.0, &mut gains);
+    dbap.calculate_gains(0.0, 0.0, 0.0, 0.0, &mut gains);
 
     let power_sum: f32 = gains.iter().map(|&g| g * g).sum();
     println!("DBAP Center Power Sum: {:.6}", power_sum);

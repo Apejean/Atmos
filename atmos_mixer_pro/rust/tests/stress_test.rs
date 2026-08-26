@@ -41,7 +41,6 @@ fn test_room_clear_spam_no_duplicate() {
                     track_id: rust_lib_atmos_mixer_pro::common::utils::hash_id(&next_track_id),
                     track_id_str: next_track_id,
                     data: None,
-                    stream_receiver: None,
                     stream_sample_rate: 44100,
                     stream_channels: 2,
                     is_loop: true,
@@ -49,6 +48,8 @@ fn test_room_clear_spam_no_duplicate() {
                     output_channel: 0,
                     output_stereo: true,
                     current_position: None,
+                    streamer: None,
+                    room_volume: 1.0,
                 });
         }
     }
@@ -91,7 +92,6 @@ fn test_system_reset_theme_start_glitch() {
                     track_id: rust_lib_atmos_mixer_pro::common::utils::hash_id("theme_bgm"),
                     track_id_str: "theme_bgm".to_string(),
                     data: None,
-                    stream_receiver: None,
                     stream_sample_rate: 44100,
                     stream_channels: 2,
                     is_loop: true,
@@ -99,6 +99,8 @@ fn test_system_reset_theme_start_glitch() {
                     output_channel: 0,
                     output_stereo: true,
                     current_position: None,
+                    streamer: None,
+                    room_volume: 1.0,
                 });
         }
     });
