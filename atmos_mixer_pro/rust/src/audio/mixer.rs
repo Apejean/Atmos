@@ -63,7 +63,7 @@ pub struct AudioMixer {
     pub channel_spatial_gains_target: Vec<f32>,
     pub channel_spatial_gains_start: Vec<f32>,
     pub channel_spatial_gains_phase: Vec<f32>,
-    pub soloed_channels: Vec<usize>,
+    pub any_soloed: bool,
     pub temp_spatial_weights: Vec<f32>,
     pub analysis_tx: Option<rtrb::Producer<f32>>,
     pub temp_vals: Vec<f32>,
@@ -202,7 +202,7 @@ impl AudioMixer {
             channel_spatial_gains_target: vec![1.0; channels],
             channel_spatial_gains_start: vec![1.0; channels],
             channel_spatial_gains_phase: vec![1.0; channels],
-            soloed_channels: Vec::new(),
+            any_soloed: false,
             temp_spatial_weights: vec![0.0; channels],
             analysis_tx,
             temp_vals: vec![0.0; channels],
@@ -701,6 +701,14 @@ impl AudioMixer {
             for frame in 0..frames {
                 let sample_idx = frame * out_channels + ch;
                 if sample_idx < output.len() {
+                    let mut ch_is_muted = self.channel_dsp[ch].is_muted;
+                    if self.any_soloed && !self.channel_dsp[ch].is_soloed {
+                        ch_is_muted = true;
+                    }
+                    if ch_is_muted {
+                        output[sample_idx] = 0.0;
+                        continue;
+                    }
                     let mut val = output[sample_idx];
                     val = self.channel_dsp[ch].process(val, fs);
                     output[sample_idx] = val;

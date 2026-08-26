@@ -641,6 +641,67 @@ class RoomZoneWidgetState extends ConsumerState<RoomZoneWidget> {
                   ),
                 ),
               ),
+              // Listener Center Icon (Sci-Fi HUD)
+              Positioned(
+                left: 40.0,
+                top: 40.0,
+                right: 40.0,
+                bottom: 40.0,
+                child: Center(
+                  child: Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: Colors.cyanAccent.withValues(alpha: 0.6),
+                        width: 1.5,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.cyanAccent.withValues(alpha: 0.2),
+                          blurRadius: 10,
+                          spreadRadius: 2,
+                        ),
+                      ],
+                    ),
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        // Crosshairs
+                        Container(
+                          width: double.infinity,
+                          height: 1,
+                          color: Colors.cyanAccent.withValues(alpha: 0.3),
+                        ),
+                        Container(
+                          width: 1,
+                          height: double.infinity,
+                          color: Colors.cyanAccent.withValues(alpha: 0.3),
+                        ),
+                        // Inner circle
+                        Container(
+                          width: 32,
+                          height: 32,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: Colors.cyanAccent.withValues(alpha: 0.8),
+                              width: 1,
+                            ),
+                            color: Colors.cyanAccent.withValues(alpha: 0.1),
+                          ),
+                          child: const Icon(
+                            Icons.person,
+                            color: Colors.cyanAccent,
+                            size: 20,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
               if (widget.room.hasDoor) _buildDoorHandle(),
               _buildRotateHandle(),
               Positioned(
