@@ -51,7 +51,7 @@ double _getCanvasHeight(WidgetRef ref) {
 }
 
 class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
-  bool _isRoomSetupOpen = true;
+  
   final TransformationController _transformationController =
       TransformationController();
   final FocusNode _canvasFocusNode = FocusNode();
