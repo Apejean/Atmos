@@ -1,20 +1,47 @@
 import 'package:flutter/material.dart';
 
+import 'package:atmos_mixer_pro/features/exhibition/models/room_zone.dart';
+
 class RoomSetupWindow extends StatefulWidget {
+  final RoomZone? room;
+  final Function(RoomZone)? onApply;
   final VoidCallback? onClose;
 
-  const RoomSetupWindow({super.key, this.onClose});
+  const RoomSetupWindow({super.key, this.room, this.onApply, this.onClose});
 
   @override
   State<RoomSetupWindow> createState() => _RoomSetupWindowState();
 }
 
 class _RoomSetupWindowState extends State<RoomSetupWindow> {
-  // Mock Data
   double width = 6.0;
   double depth = 4.5;
   double ceilingHeight = 3.0;
   double earLevel = 1.2;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.room != null) {
+      width = widget.room!.physicalWidth;
+      depth = widget.room!.physicalHeight;
+      ceilingHeight = widget.room!.ceilingHeight;
+      earLevel = widget.room!.earLevel;
+    }
+  }
+
+  @override
+  void didUpdateWidget(RoomSetupWindow oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.room != oldWidget.room && widget.room != null) {
+      setState(() {
+        width = widget.room!.physicalWidth;
+        depth = widget.room!.physicalHeight;
+        ceilingHeight = widget.room!.ceilingHeight;
+        earLevel = widget.room!.earLevel;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -117,7 +144,17 @@ class _RoomSetupWindowState extends State<RoomSetupWindow> {
                 _buildButton(
                   label: 'Apply',
                   isPrimary: true,
-                  onPressed: () {},
+                  onPressed: () {
+                    if (widget.room != null && widget.onApply != null) {
+                      final updated = widget.room!.copyWith(
+                        physicalWidth: width,
+                        physicalHeight: depth,
+                        ceilingHeight: ceilingHeight,
+                        earLevel: earLevel,
+                      );
+                      widget.onApply!(updated);
+                    }
+                  },
                 ),
                 const SizedBox(width: 8),
                 _buildButton(
