@@ -534,6 +534,7 @@ impl AudioEngine {
                             mixer.channel_dsp[i].is_phase_inverted = config.is_phase_inverted;
                             mixer.channel_dsp[i].update_delay_target(config.delay_ms);
                             mixer.channel_dsp[i].target_gain_db = config.gain_db;
+                            mixer.channel_dsp[i].update_eq_targets(&config.eq_bands, mixer.sample_rate as f32);
                             if config.is_soloed {
                                 any_soloed = true;
                             }
