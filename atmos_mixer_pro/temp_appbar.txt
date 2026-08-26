@@ -1,0 +1,323 @@
+        backgroundColor: AppColors.background,
+        appBar: AppBar(
+          title: Row(
+            children: [
+              const Text('Exhibition Canvas'),
+              const SizedBox(width: 8),
+              Expanded(child: SingleChildScrollView(scrollDirection: Axis.horizontal, child: Row(mainAxisSize: MainAxisSize.max, mainAxisAlignment: MainAxisAlignment.end, children: [
+              Consumer(
+                builder: (context, ref, child) {
+                  final isMasterMuted = ref.watch(
+                    engineStateProvider.select(
+                      (state) => state.masterMuteActive,
+                    ),
+                  );
+                  if (!isMasterMuted) return const SizedBox.shrink();
+                  return RepaintBoundary(
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: BackdropFilter(
+                        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.orange.shade800.withValues(
+                              alpha: 0.8,
+                            ),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.warning_amber_rounded,
+                                color: Colors.white,
+                                size: 16,
+                              ),
+                              SizedBox(width: 8),
+                              Text(
+                                'MASTER MUTE ACTIVE',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12,
+                                  letterSpacing: 1.0,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(width: 12),
+              // Binaural Mode Toggle
+              Container(
+                height: 34,
+                padding: const EdgeInsets.symmetric(horizontal: 6),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade900,
+                  borderRadius: BorderRadius.circular(17),
+                  border: Border.all(
+                    color: _isBinauralEnabled
+                        ? AppColors.primaryNeon
+                        : Colors.white24,
+                    width: 1.5,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      _isBinauralEnabled
+                          ? Icons.headphones
+                          : Icons.speaker_group,
+                      size: 16,
+                      color: _isBinauralEnabled
+                          ? AppColors.primaryNeon
+                          : Colors.white70,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      _isBinauralEnabled
+                          ? '🎧 Virtual (Binaural)'
+                          : '🔊 Physical (Direct Out)',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: _isBinauralEnabled
+                            ? AppColors.primaryNeon
+                            : Colors.white,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Switch(
+                      value: _isBinauralEnabled,
+                      activeThumbColor: AppColors.primaryNeon,
+                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      onChanged: (val) {
+                        setState(() => _isBinauralEnabled = val);
+                        rust_api.apiSetBinauralEnabled(enabled: val);
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              // Reverb Settings Button
+              IconButton(
+                tooltip: 'Virtual Reverb & Acoustic Settings',
+                icon: const Icon(
+                  Icons.surround_sound,
+                  color: AppColors.primaryNeon,
+                ),
+                onPressed: _showReverbSettingsDialog,
+              ),
+              const SizedBox(width: 12),
+              IconButton(
+                tooltip: _isPlayingAutomation
+                    ? 'Stop Preview'
+                    : 'Preview Trajectories',
+                icon: Icon(
+                  _isPlayingAutomation ? Icons.stop : Icons.play_arrow,
+                  color: _isPlayingAutomation
+                      ? Colors.redAccent
+                      : AppColors.primaryNeon,
+                ),
+                onPressed: _toggleAutomation,
+              ),
+              const SizedBox(width: 8),
+
+              IconButton(
+                tooltip: 'Set Blueprint',
+                icon: const Icon(Icons.image, color: Colors.white70),
+                onPressed: _pickBlueprint,
+              ),
+              const SizedBox(width: 8),
+            ],))),
+              IconButton(
+                tooltip: 'Set Scale',
+                icon: const Icon(Icons.aspect_ratio, color: Colors.white70),
+                onPressed: () {
+                  showDialog(
+                    context: context,
+                    builder: (context) {
+                      double currentScale = blueprint.scale;
+                      return AlertDialog(
+                        backgroundColor: Colors.grey.shade900,
+                        title: const Text(
+                          'Set Physical Scale',
+                          style: TextStyle(color: Colors.white),
+                        ),
+                        content: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Text(
+                              'Pixels per Meter',
+                              style: TextStyle(color: Colors.white70),
+                            ),
+                            const SizedBox(height: 16),
+                            StatefulBuilder(
+                              builder: (context, setDialogState) {
+                                return Row(
+                                  children: [
+                                    Text(
+                                      '${currentScale.toInt()} px/m',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                    Expanded(
+                                      child: Slider(
+                                        value: currentScale,
+                                        min: 10.0,
+                                        max: 200.0,
+                                        activeColor: AppColors.primaryNeon,
+                                        onChanged: (val) {
+                                          setDialogState(() {
+                                            currentScale = val;
+                                          });
+                                          ref
+                                              .read(blueprintProvider.notifier)
+                                              .setScale(val);
+                                        },
+                                      ),
+                                    ),
+                                  ],
+                                );
+                              },
+                            ),
+                          ],
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context),
+                            child: const Text(
+                              'Close',
+                              style: TextStyle(color: AppColors.primaryNeon),
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  );
+                },
+              ),
+              const SizedBox(width: 8),
+              Container(height: 24, width: 1, color: Colors.white24),
+              const SizedBox(width: 8),
+              Wrap(
+                spacing: 8,
+                children: [
+                  _buildLayerToggle(
+                    'Speaker Layer',
+                    Icons.speaker,
+                    _showSpeakers,
+                    () {
+                      setState(() => _showSpeakers = !_showSpeakers);
+                    },
+                  ),
+                  _buildLayerToggle(
+                    'Room Layer',
+                    Icons.meeting_room,
+                    _showRooms,
+                    () {
+                      setState(() => _showRooms = !_showRooms);
+                    },
+                  ),
+                  _buildLayerToggle(
+                    'Trajectory Layer',
+                    Icons.route,
+                    _showTrajectories,
+                    () {
+                      setState(() {
+                        _showTrajectories = !_showTrajectories;
+                        if (!_showTrajectories && _isPlayingAutomation) {
+                          _toggleAutomation(); // Pauses if playing
+                        }
+                      });
+                    },
+                  ),
+                  _buildLayerToggle(
+                    'Heatmap Layer',
+                    Icons.wb_sunny,
+                    _showHeatmap,
+                    () {
+                      setState(() => _showHeatmap = !_showHeatmap);
+                    },
+                  ),
+                ],
+              ),
+              const SizedBox(width: 8),
+              Container(height: 24, width: 1, color: Colors.white24),
+              const SizedBox(width: 8),
+              Row(
+                children: ['All', '125Hz', '500Hz', '1kHz', '4kHz'].map((oct) {
+                  final isSelected = _selectedOctaveFilter == oct;
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 4.0),
+                    child: FilterChip(
+                      label: Text(
+                        oct,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: isSelected ? Colors.black : Colors.white70,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      selected: isSelected,
+                      selectedColor: AppColors.primaryNeon,
+                      backgroundColor: Colors.black45,
+                      checkmarkColor: Colors.black,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 4,
+                        vertical: 0,
+                      ),
+                      onSelected: (val) {
+                        if (val) {
+                          setState(() => _selectedOctaveFilter = oct);
+                        }
+                      },
+                    ),
+                  );
+                }).toList(),
+              ),
+              const SizedBox(width: 8),
+              Container(height: 24, width: 1, color: Colors.white24),
+              const SizedBox(width: 8),
+              IconButton(
+                icon: const Icon(
+                  Icons.settings_input_component,
+                  color: Colors.cyanAccent,
+                ),
+                onPressed: () {
+                  setState(() {
+                    _isSidebarOpen = !_isSidebarOpen;
+                  });
+                },
+                tooltip: 'Routing & Trajectories',
+              ),
+              IconButton(
+                icon: const Icon(
+                  Icons.route_outlined,
+                  color: Colors.orangeAccent,
+                ),
+                onPressed: _clearTrajectories,
+                tooltip: 'Clear Trajectories',
+              ),
+              IconButton(
+                icon: const Icon(Icons.delete_sweep, color: Colors.redAccent),
+                onPressed: _clearCanvas,
+                tooltip: 'Clear Canvas',
+              ),
+            ],
+          ),
+          backgroundColor: Colors.black,
+        ),
+        body: Stack(
+          children: [

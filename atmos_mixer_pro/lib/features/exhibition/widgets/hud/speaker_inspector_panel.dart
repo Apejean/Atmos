@@ -110,6 +110,24 @@ class _SpeakerInspectorPanelState extends ConsumerState<SpeakerInspectorPanel> {
                   const SizedBox(height: 16),
                   _buildSectionTitle('4. DSP MATRIX'),
                   _buildSliderRow('Gain', 0.0, -24.0, 12.0, (val) {}),
+                  
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        ref.read(speakerLayoutProvider.notifier).removeSpeaker(speaker!.id);
+                        widget.onClose();
+                      },
+                      icon: const Icon(Icons.delete, color: Colors.redAccent, size: 16),
+                      label: const Text('Remove Speaker', style: TextStyle(color: Colors.redAccent)),
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: Colors.redAccent),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
