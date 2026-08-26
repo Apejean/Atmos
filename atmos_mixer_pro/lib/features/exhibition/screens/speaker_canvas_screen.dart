@@ -1546,7 +1546,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
       child: Scaffold(
         backgroundColor: AppColors.background,
         appBar: AppBar(
-          title: Row(
+          title: SingleChildScrollView(scrollDirection: Axis.horizontal, child: Row(
             children: [
               const Text('Exhibition Canvas'),
               const SizedBox(width: 8),
@@ -1862,7 +1862,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                 tooltip: 'Clear Canvas',
               ),
             ],
-          ),
+          )),
           backgroundColor: Colors.black,
         ),
         body: Stack(
@@ -2177,21 +2177,8 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
               Positioned(
                 left: 16,
                 bottom: 16,
-                child: Consumer(
-                  builder: (context, ref, child) {
-                    final rooms = ref.watch(roomZoneProvider);
-                    if (rooms.isEmpty) return const SizedBox.shrink();
-                    final room = _selectedRoomId != null 
-                        ? rooms.firstWhere((r) => r.id == _selectedRoomId, orElse: () => rooms.first)
-                        : rooms.first;
-                    return RoomSetupWindow(
-                      room: room,
-                      onApply: (updatedRoom) {
-                        ref.read(roomZoneProvider.notifier).updateRoomZone(updatedRoom);
-                      },
-                      onClose: () => setState(() => _isRoomSetupOpen = false),
-                    );
-                  }
+                child: RoomSetupWindow(
+                  onClose: () => setState(() => _isRoomSetupOpen = false),
                 ),
               ),
             if (!_isRoomSetupOpen)
