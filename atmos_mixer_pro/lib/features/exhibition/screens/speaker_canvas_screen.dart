@@ -2283,6 +2283,7 @@ class _DraggableSpeakerWidget extends ConsumerStatefulWidget {
   final bool isDuplicate;
   final TransformationController transformationController;
   final VoidCallback? onEdit;
+  final Function(String)? onSpeakerSelected;
 
   const _DraggableSpeakerWidget({
     super.key,
@@ -2291,6 +2292,7 @@ class _DraggableSpeakerWidget extends ConsumerStatefulWidget {
     required this.isDuplicate,
     required this.transformationController,
     this.onEdit,
+    this.onSpeakerSelected,
   });
 
   @override
