@@ -6,8 +6,7 @@ import 'dart:convert';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:atmos_mixer_pro/features/exhibition/widgets/hud/room_setup_window.dart';
-import 'package:atmos_mixer_pro/features/exhibition/widgets/hud/speaker_inspector_panel.dart';
-import 'package:atmos_mixer_pro/features/exhibition/widgets/viewport_3d/room_3d_viewport.dart';
+
 
 import 'package:atmos_mixer_pro/features/exhibition/widgets/trajectory_layer_painter.dart';
 import 'package:atmos_mixer_pro/features/exhibition/widgets/trajectory_sidebar_widget.dart';
@@ -70,7 +69,6 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
   bool _showHeatmap = true;
   String _selectedOctaveFilter = 'All';
   String? _selectedRoomId;
-  String? _selectedSpeakerId;
   bool _isRoomInteracting = false;
 
   bool _isMeasuringScale = false;
@@ -1868,12 +1866,8 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
           ),
           backgroundColor: Colors.black,
         ),
-        body: Column(
+        body: Stack(
           children: [
-            Expanded(
-              flex: 3,
-              child: Stack(
-                children: [
             Positioned.fill(
               child: LayoutBuilder(
           builder: (context, constraints) {
@@ -2205,26 +2199,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                 ),
               ),
 
-
-            if (_selectedSpeakerId != null)
-              Positioned(
-                top: 0,
-                bottom: 0,
-                right: 0,
-                child: SpeakerInspectorPanel(
-                  speakerId: _selectedSpeakerId!,
-                  onClose: () => setState(() => _selectedSpeakerId = null),
-                ),
-              ),
           ],
-        ),
-        ),
-        Container(height: 2, color: const Color(0xFF3F556D)),
-        const Expanded(
-          flex: 2,
-          child: Room3DViewport(),
-        ),
-        ],
         ),
         floatingActionButton: PopupMenuButton<String>(
           onSelected: (value) {
@@ -2309,7 +2284,6 @@ class _DraggableSpeakerWidget extends ConsumerStatefulWidget {
   final bool isDuplicate;
   final TransformationController transformationController;
   final VoidCallback? onEdit;
-  final Function(String)? onSpeakerSelected;
 
   const _DraggableSpeakerWidget({
     super.key,
@@ -2318,7 +2292,6 @@ class _DraggableSpeakerWidget extends ConsumerStatefulWidget {
     required this.isDuplicate,
     required this.transformationController,
     this.onEdit,
-    this.onSpeakerSelected,
   });
 
   @override
