@@ -3027,157 +3027,54 @@ class _GridPainter extends CustomPainter {
 }
 
 class _HeatmapPainter extends CustomPainter {
-  final List<SpeakerNode> nodes;
-  final List<RoomZone> rooms;
-  final String selectedOctave;
+  final List<SpeakerNode> speakers;
+  final double scale;
 
-  _HeatmapPainter({
-    required this.nodes,
-    required this.rooms,
-    this.selectedOctave = 'All',
-  });
+  _HeatmapPainter({required this.speakers, required this.scale});
 
   @override
   void paint(Canvas canvas, Size size) {
-    for (var node in nodes) {
-      if (node.x.isNaN ||
-          node.y.isNaN ||
-          node.x.isInfinite ||
-          node.y.isInfinite) {
-        continue;
-      }
+    if (speakers.isEmpty) return;
 
-      // Offset matches the visual center of the speaker icon inside the 100x120 container
-      final center = Offset(node.x + 50, node.y + 43);
-      final double clampedPitch = node.pitchTilt.clamp(-85.0, 85.0);
-      final double rotRad =
-          (node.rotation - 90.0) * math.pi / 180.0; // Front axis
+    for (var spk in speakers) {
+      final center = Offset(spk.positionX * scale, spk.positionY * scale);
+      
+      // Calculate radius based on Z-height and tilt.
+      // A higher speaker or tilted up speaker throws sound further.
+      final baseRadius = 300.0;
+      final zFactor = 1.0 + (spk.heightZ / 10.0);
+      final tiltFactor = 1.0 - (spk.pitchTilt / 90.0).clamp(-0.5, 0.5);
+      final radius = baseRadius * zFactor * tiltFactor;
 
-      // 1. Octave-dependent directivity angle Q(f)
-      final double effectiveDispAngle = (selectedOctave == 'All'
-              ? node.dispersionAngle
-              : node.getEffectiveDispersionAngle(selectedOctave))
-          .clamp(5.0, 180.0);
-      final double dispRad = effectiveDispAngle * math.pi / 180.0;
-
-      // 2. 3D Pitch Tilt Projection (Elliptical Footprint)
-      final double pitchRad = clampedPitch * math.pi / 180.0;
-      final double tanVal = math.tan(pitchRad);
-      if (tanVal.isNaN || tanVal.isInfinite) continue;
-
-      final double lengthExtension =
-          (node.heightZ * tanVal * 40.0).clamp(-2000.0, 2000.0);
-      final Offset projectedCenter = center; // Anchor at the speaker
-      final double dist =
-          (node.dispersionDistance + lengthExtension).clamp(10.0, 3000.0);
-
-      // 3. Outer Elliptical Dispersion Beam Contour (-6dB)
-      canvas.save();
-      canvas.translate(projectedCenter.dx, projectedCenter.dy);
-      canvas.rotate(rotRad);
-
-      final double axisX = (dist * math.cos(pitchRad)).clamp(5.0, 3000.0);
-      final double axisY = (dist * math.sin(dispRad / 2)).clamp(5.0, 3000.0);
-
-      if (axisX.isNaN ||
-          axisX.isInfinite ||
-          axisY.isNaN ||
-          axisY.isInfinite) {
-        canvas.restore();
-        continue;
-      }
-
-      final Path ellipticalPath = Path()
-        ..moveTo(0, 0)
-        ..lineTo(axisX, -axisY)
-        ..arcToPoint(
-          Offset(axisX, axisY),
-          radius: Radius.elliptical(axisX, axisY),
-          clockwise: true,
-        )
-        ..close();
-
-      final outerGradient = RadialGradient(
+      final rect = Rect.fromCircle(center: center, radius: radius);
+      
+      // L-Acoustics style Real Heatmap: Red(hot/close) -> Yellow -> Green -> Blue(cold/far)
+      final gradient = RadialGradient(
         colors: [
-          AppColors.primaryNeon.withValues(alpha: 0.45),
-          Colors.orangeAccent.withValues(alpha: 0.25),
-          Colors.redAccent.withValues(alpha: 0.08),
+          Colors.red.withOpacity(0.8),
+          Colors.yellow.withOpacity(0.6),
+          Colors.green.withOpacity(0.4),
+          Colors.blue.withOpacity(0.2),
           Colors.transparent,
         ],
-        stops: const [0.0, 0.4, 0.75, 1.0],
+        stops: const [0.0, 0.2, 0.5, 0.8, 1.0],
       );
 
-      final Paint conePaint = Paint()
-        ..shader = outerGradient.createShader(
-          Rect.fromLTWH(0, -axisY, axisX, axisY * 2),
-        )
-        ..style = PaintingStyle.fill;
+      final paint = Paint()
+        ..shader = gradient.createShader(rect)
+        ..blendMode = BlendMode.screen;
 
-      canvas.drawPath(ellipticalPath, conePaint);
-
-      // On-Axis Inner High-SPL Core Beam (-3dB)
-      final Path innerCorePath = Path()
-        ..moveTo(0, 0)
-        ..lineTo(axisX * 0.6, -axisY * 0.5)
-        ..arcToPoint(
-          Offset(axisX * 0.6, axisY * 0.5),
-          radius: Radius.elliptical(axisX * 0.6, axisY * 0.5),
-          clockwise: true,
-        )
-        ..close();
-
-      final Paint innerCorePaint = Paint()
-        ..color = AppColors.primaryNeon.withValues(alpha: 0.35)
-        ..style = PaintingStyle.fill;
-
-      canvas.drawPath(innerCorePath, innerCorePaint);
-
-      // Iso-SPL Elliptical Contours (-3dB, -6dB, -12dB)
-      final arcStrokePaint = Paint()
-        ..color = AppColors.primaryNeon.withValues(alpha: 0.6)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.5;
-
-      for (var ratio in [0.33, 0.66, 1.0]) {
-        canvas.drawArc(
-          Rect.fromCenter(
-            center: Offset(axisX * ratio / 2, 0),
-            width: axisX * ratio,
-            height: axisY * 2 * ratio,
-          ),
-          -dispRad / 2,
-          dispRad,
-          false,
-          arcStrokePaint,
-        );
-      }
-
-      // Aiming axis line
-      final axisPaint = Paint()
-        ..color = Colors.white.withValues(alpha: 0.8)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.2;
-      canvas.drawLine(Offset.zero, Offset(axisX, 0), axisPaint);
-
+      // Apply rotation (Pan) to make it directional (like a real speaker coverage)
+      canvas.save();
+      canvas.translate(center.dx, center.dy);
+      canvas.rotate(spk.rotation * math.pi / 180.0);
+      canvas.translate(-center.dx, -center.dy);
+      
+      // Draw an oval to simulate the dispersion pattern (usually wider than deep depending on the horn)
+      final dispersionRect = Rect.fromCenter(center: center, width: radius * 1.5, height: radius * 2.0);
+      canvas.drawOval(dispersionRect, paint);
+      
       canvas.restore();
-
-      // 4. Wall Transmission Loss (TL) Cross-talk Leakage Visualization
-      for (var room in rooms) {
-        if (room.containsPoint(projectedCenter.dx, projectedCenter.dy)) {
-          // Inside a room, draw subtle attenuation glow for wall leakage
-          final tlFactor = math
-              .pow(10, -room.wallTransmissionLoss / 20.0)
-              .toDouble(); // TL attenuation
-          final Paint leakagePaint = Paint()
-            ..color = Colors.purpleAccent.withValues(alpha: 0.15 * tlFactor)
-            ..style = PaintingStyle.stroke
-            ..strokeWidth = 4.0;
-          canvas.drawRect(
-            Rect.fromLTWH(room.x, room.y, room.width, room.height),
-            leakagePaint,
-          );
-        }
-      }
     }
   }
 
