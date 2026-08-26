@@ -1859,7 +1859,6 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                 tooltip: 'Clear Canvas',
               ),
             ],
-          ),
           backgroundColor: Colors.black,
         ),
         body: Stack(
