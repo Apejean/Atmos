@@ -525,6 +525,22 @@ impl AudioEngine {
                     }
                     let _ = mixer.spatial_gc_tx.try_send(crate::audio::mixer::SpatialGarbage::EqBands(eq_bands));
                 }
+                AudioCommand::UpdateOutputRouting { payload } => {
+                    let mut new_solos = Vec::new();
+                    for (i, config) in payload.channels.iter().enumerate() {
+                        if i < mixer.channel_dsp.len() {
+                            mixer.channel_dsp[i].is_muted = config.is_muted;
+                            mixer.channel_dsp[i].is_soloed = config.is_soloed;
+                            mixer.channel_dsp[i].is_phase_inverted = config.is_phase_inverted;
+                            mixer.channel_dsp[i].update_delay_target(config.delay_ms);
+                            mixer.channel_dsp[i].target_gain_db = config.gain_db;
+                            if config.is_soloed {
+                                new_solos.push(i);
+                            }
+                        }
+                    }
+                    mixer.soloed_channels = new_solos;
+                }
                 AudioCommand::UpdateSpatialConfig { channel_positions, room_zones, trajectory, track_positions } => {
                     let old_positions = std::mem::replace(&mut mixer.channel_positions, channel_positions);
                     let old_zones = std::mem::replace(&mut mixer.room_zones, room_zones);

@@ -1611,6 +1611,16 @@ pub fn api_update_spatial_config_json(json_payload: String) -> Result<(), AtmosE
 }
 
 use crate::common::config::Point3D;
+use crate::common::config_routing::OutputRoutingPayload;
+pub fn api_update_output_routing(json_payload: String) -> Result<(), AtmosError> {
+    let payload: OutputRoutingPayload = serde_json::from_str(&json_payload).map_err(|e| AtmosError {
+        message: format!("Failed to parse output routing JSON: {}", e),
+    })?;
+    crate::core::state::GLOBAL_STATE.command_sender.send(crate::common::commands::AudioCommand::UpdateOutputRouting { payload }).map_err(|e| AtmosError {
+        message: format!("Failed to send UpdateOutputRouting: {}", e),
+    })?;
+    Ok(())
+}
 
 pub fn api_calculate_bezier_point(t: f32, p0: Point3D, p1: Point3D, p2: Point3D, p3: Point3D) -> Point3D {
     let u = 1.0 - t;
@@ -1802,4 +1812,19 @@ pub fn api_set_reverb_params(mix: f32, decay: f32) {
     let _ = crate::core::state::GLOBAL_STATE
         .command_sender
         .send(crate::common::commands::AudioCommand::SetReverbParams { mix, decay });
+}
+
+#[flutter_rust_bridge::frb(sync)]
+pub fn api_update_output_config(channel: usize, mute: bool, solo: bool, invert_phase: bool, gain_db: f32, delay_ms: f32) -> Result<(), String> {
+    crate::core::state::GLOBAL_STATE
+        .command_sender
+        .send(crate::common::commands::AudioCommand::UpdateOutputConfig {
+            channel,
+            mute,
+            solo,
+            invert_phase,
+            gain_db,
+            delay_ms,
+        })
+        .map_err(|e| format!("Failed to send UpdateOutputConfig command: {}", e))
 }

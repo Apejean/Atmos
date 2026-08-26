@@ -135,6 +135,11 @@ pub mod dsp_utils {
     pub struct ChannelDspState {
         pub delay_buffer: Vec<f32>,
         pub delay_write_idx: usize,
+        pub is_muted: bool,
+        pub is_soloed: bool,
+        pub is_phase_inverted: bool,
+        pub target_gain_db: f32,
+        pub current_gain_db: f32,
         pub target_delay_ms: f32,
         pub current_delay_ms: f32,
         
@@ -162,6 +167,11 @@ pub mod dsp_utils {
             }
             Self {
                 delay_buffer: vec![0.0; DELAY_BUFFER_SIZE],
+                is_muted: false,
+                is_soloed: false,
+                is_phase_inverted: false,
+                target_gain_db: 0.0,
+                current_gain_db: 0.0,
                 delay_write_idx: 0,
                 target_delay_ms: 0.0,
                 current_delay_ms: 0.0,

@@ -2,6 +2,9 @@ use crate::audio::player::SoundData;
 use std::sync::Arc;
 
 pub enum AudioCommand {
+    UpdateOutputRouting {
+        payload: crate::common::config_routing::OutputRoutingPayload,
+    },
     PlayTrack {
         instance_id: u64,
         room_id: u32,
@@ -78,6 +81,15 @@ pub enum AudioCommand {
     },
     UpdateTrajectoryPosition {
         position: crate::common::config::Point3D,
+    },
+    
+    UpdateOutputConfig {
+        channel: usize,
+        mute: bool,
+        solo: bool,
+        invert_phase: bool,
+        gain_db: f32,
+        delay_ms: f32,
     },
     UpdateSingleBandEq {
         channel: usize,
