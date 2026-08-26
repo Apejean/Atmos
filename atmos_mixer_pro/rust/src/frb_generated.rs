@@ -2255,6 +2255,8 @@ impl SseDecode for crate::common::config::ChannelSetting {
             delay_ms: var_delayMs,
             eq_bands: var_eqBands,
             position: var_position,
+            phase_invert: false,
+            gain_db: 0.0,
         };
     }
 }
@@ -3052,6 +3054,8 @@ impl flutter_rust_bridge::IntoDart for crate::common::config::ChannelSetting {
             self.delay_ms.into_into_dart().into_dart(),
             self.eq_bands.into_into_dart().into_dart(),
             self.position.into_into_dart().into_dart(),
+            self.phase_invert.into_into_dart().into_dart(),
+            self.gain_db.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
@@ -3469,6 +3473,8 @@ impl SseEncode for crate::common::config::ChannelSetting {
         <f32>::sse_encode(self.delay_ms, serializer);
         <Vec<crate::common::config::EqBand>>::sse_encode(self.eq_bands, serializer);
         <Option<crate::common::config::Point3D>>::sse_encode(self.position, serializer);
+        <bool>::sse_encode(self.phase_invert, serializer);
+        <f32>::sse_encode(self.gain_db, serializer);
     }
 }
 
