@@ -71,6 +71,12 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
   bool _isMeasuringScale = false;
   Offset? _measureStart;
   Offset? _measureEnd;
+  bool _isSidebarOpen = false;
+
+
+  bool _isMeasuringScale = false;
+  Offset? _measureStart;
+  Offset? _measureEnd;
 
   bool _isSidebarOpen = false;
 
@@ -1768,19 +1774,6 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                     _showRooms,
                     () {
                       setState(() => _showRooms = !_showRooms);
-                    },
-                  ),
-                  _buildLayerToggle(
-                    'Trajectory Layer',
-                    Icons.route,
-                    _showTrajectories,
-                    () {
-                      setState(() {
-                        _showTrajectories = !_showTrajectories;
-                        if (!_showTrajectories && _isPlayingAutomation) {
-                          _toggleAutomation(); // Pauses if playing
-                        }
-                      });
                     },
                   ),
                   _buildLayerToggle(
