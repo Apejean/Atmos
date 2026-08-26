@@ -705,12 +705,14 @@ oscWhitelist: config.oscWhitelist,
     return Container(
       color: AppColors.headerBackground,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Wrap(
-        alignment: WrapAlignment.spaceBetween,
-        crossAxisAlignment: WrapCrossAlignment.center,
-        spacing: 16,
-        runSpacing: 12,
-        children: [
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Wrap(
+          alignment: WrapAlignment.spaceBetween,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: 16,
+          runSpacing: 12,
+          children: [
           const Text(
             '🎛 Atmos Mixer Pro',
             style: TextStyle(
@@ -1190,6 +1192,7 @@ oscWhitelist: config.oscWhitelist,
             },
           ),
         ],
+        ),
       ),
     );
   }
