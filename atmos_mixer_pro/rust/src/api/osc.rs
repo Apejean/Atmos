@@ -5,7 +5,7 @@ use std::sync::Arc;
 #[flutter_rust_bridge::frb(ignore)]
 pub fn validate_osc_packet(sender_addr: &std::net::SocketAddr, whitelist: &[std::net::IpAddr], raw_bytes: &[u8]) -> bool {
     if !whitelist.is_empty() && !whitelist.contains(&sender_addr.ip()) {
-        println!("⚠️ 허용되지 않은 IP 패킷 차단: {}", sender_addr.ip());
+        crate::log_print!("⚠️ 허용되지 않은 IP 패킷 차단: {}", sender_addr.ip());
         return false;
     }
     if raw_bytes.is_empty() || raw_bytes[0] != b'/' {
@@ -32,7 +32,7 @@ pub async fn start_osc_server() {
     let std_socket = match create_high_capacity_osc_socket(port) {
         Ok(s) => s,
         Err(e) => {
-            eprintln!("Failed to create high capacity OSC socket on port {}: {}", port, e);
+            crate::log_print!("Failed to create high capacity OSC socket on port {}: {}", port, e);
             return;
         }
     };
@@ -40,11 +40,11 @@ pub async fn start_osc_server() {
     let socket = match UdpSocket::from_std(std_socket) {
         Ok(s) => Arc::new(s),
         Err(e) => {
-            eprintln!("Failed to convert std socket to tokio socket: {}", e);
+            crate::log_print!("Failed to convert std socket to tokio socket: {}", e);
             return;
         }
     };
-    println!("OSC server listening on 0.0.0.0:{} with 2MB buffer", port);
+    crate::log_print!("OSC server listening on 0.0.0.0:{} with 2MB buffer", port);
 
     // Spawn a feedback task for OSC
     let tx_socket = socket.clone();
@@ -87,7 +87,7 @@ pub async fn start_osc_server() {
                 }
             }
             Err(e) => {
-                eprintln!("OSC recv error: {}", e);
+                crate::log_print!("OSC recv error: {}", e);
             }
         }
     }
@@ -96,7 +96,7 @@ pub async fn start_osc_server() {
 fn handle_osc_packet(packet: OscPacket) {
     match packet {
         OscPacket::Message(msg) => {
-            // println!("OSC message received: {} {:?}", msg.addr, msg.args);
+            // crate::log_print!("OSC message received: {} {:?}", msg.addr, msg.args);
             
             // Handle Head Tracking for HRTF
             if msg.addr == "/hrtf/tracking" && msg.args.len() == 3 {

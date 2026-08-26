@@ -170,7 +170,7 @@ pub fn api_preload_sound(file_path: String) -> Result<(), AtmosError> {
         Ok(data) => {
             // 100MB limit check (samples * 4 bytes per f32)
             if data.samples.len() > 25_000_000 {
-                println!("[TELEMETRY] OOM Protection triggered: File {} exceeds 100MB limit.", file_path);
+                crate::log_print!("[TELEMETRY] OOM Protection triggered: File {} exceeds 100MB limit.", file_path);
                 return Err(AtmosError {
                     message: "File is too large for preload (exceeds 100MB).".to_string(),
                 });
@@ -705,14 +705,14 @@ pub fn api_init_audio_system(device_name: Option<String>) -> Result<(), AtmosErr
                     }
 
                     if crate::core::state::GLOBAL_STATE.device_needs_reset.load(std::sync::atomic::Ordering::Acquire) {
-                        println!("⚠️ [디버깅] ASIO 장치 핫리로드 요청 수신 (kAsioResetRequest)");
+                        crate::log_print!("⚠️ [디버깅] ASIO 장치 핫리로드 요청 수신 (kAsioResetRequest)");
                         crate::core::state::GLOBAL_STATE.device_needs_reset.store(false, std::sync::atomic::Ordering::Release);
                         break;
                     }
 
                     if let Some(err) = crate::core::state::GLOBAL_STATE.engine_error.read().unwrap_or_else(|e| e.into_inner()).as_ref() {
                         if err == "DeviceNotAvailable" {
-                            println!("⚠️ [디버깅] 오디오 장치 유실 감지! (rtrb SPSC 환경, 큐 대기 상태)");
+                            crate::log_print!("⚠️ [디버깅] 오디오 장치 유실 감지! (rtrb SPSC 환경, 큐 대기 상태)");
                             break;
                         }
                     }
@@ -721,7 +721,7 @@ pub fn api_init_audio_system(device_name: Option<String>) -> Result<(), AtmosErr
                     let now_ms = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or(std::time::Duration::from_secs(0)).as_millis() as u64;
                     let last_cb = crate::core::state::GLOBAL_STATE.watchdog_last_callback.load(std::sync::atomic::Ordering::Relaxed);
                     if last_cb > 0 && (now_ms > last_cb + 1000) {
-                        println!("🚨 [Watchdog] 오디오 스레드 콜백 응답 없음 (1000ms 초과)! 엔진 강제 재기동...");
+                        crate::log_print!("🚨 [Watchdog] 오디오 스레드 콜백 응답 없음 (1000ms 초과)! 엔진 강제 재기동...");
                         break;
                     }
 
@@ -734,7 +734,7 @@ pub fn api_init_audio_system(device_name: Option<String>) -> Result<(), AtmosErr
                                 let current_names: Vec<String> = devices.into_iter().map(|d| d.name).collect();
                                 if let Some(last_count) = last_device_count {
                                     if last_count != current_names.len() || last_device_names != current_names {
-                                        println!("🔄 [Device Monitor] Detected devicelist change! (Topology changed)");
+                                        crate::log_print!("🔄 [Device Monitor] Detected devicelist change! (Topology changed)");
                                         let mut err_guard = crate::core::state::GLOBAL_STATE.engine_error.write().unwrap_or_else(|e| e.into_inner());
                                         *err_guard = Some("DeviceListChanged".to_string());
                                         // Trigger auto-recovery by breaking the loop (similar to Ableton's behavior)
@@ -758,11 +758,11 @@ pub fn api_init_audio_system(device_name: Option<String>) -> Result<(), AtmosErr
                 if ENGINE_GENERATION.load(std::sync::atomic::Ordering::SeqCst) == gen {
                     std::thread::sleep(std::time::Duration::from_millis(100)); // Fast auto hot-reload
                     if ENGINE_GENERATION.load(std::sync::atomic::Ordering::SeqCst) == gen {
-                        println!("🔄 [디버깅] 자동 재연결(Hot-Reload) 수행!");
+                        crate::log_print!("🔄 [디버깅] 자동 재연결(Hot-Reload) 수행!");
                         broadcast_stream_status("HotReloading".to_string());
                         if let Err(_e) = api_init_audio_system(device_name.clone()) {
                             // Emergency Failover
-                            println!("🚨 [Failover] 장치 재연결 실패. WASAPI 기본 장치로 강제 비상 전환!");
+                            crate::log_print!("🚨 [Failover] 장치 재연결 실패. WASAPI 기본 장치로 강제 비상 전환!");
                             crate::core::state::GLOBAL_STATE.is_failover_mode.store(true, std::sync::atomic::Ordering::Relaxed);
                             let _ = api_init_audio_system(None); // None forces default OS device
                         }
@@ -800,7 +800,7 @@ pub fn api_is_engine_ready() -> bool {
 
 pub fn api_stop_audio_engine() {
     let _ = ENGINE_GENERATION.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-    println!("✅ [디버깅] 백엔드 오디오 엔진 명시적 종료 지시 완료. (비동기 종료 진행)");
+    crate::log_print!("✅ [디버깅] 백엔드 오디오 엔진 명시적 종료 지시 완료. (비동기 종료 진행)");
     broadcast_stream_status("Stopped".to_string());
 }
 
@@ -830,7 +830,7 @@ pub fn api_create_device_event_stream(sink: StreamSink<String>) {
 }
 
 pub fn api_force_restart_engine(device_name: Option<String>) {
-    println!("🔄 [디버깅] 백엔드 오디오 엔진 강제 재시작 요청됨.");
+    crate::log_print!("🔄 [디버깅] 백엔드 오디오 엔진 강제 재시작 요청됨.");
     api_stop_audio_engine();
 
     let _ = api_init_audio_system(device_name);
@@ -1130,7 +1130,7 @@ pub fn api_get_output_devices() -> Result<Vec<OutputDeviceInfo>, AtmosError> {
             let devices = match devices_result {
                 Ok(d) => d,
                 Err(e) => {
-                    eprintln!(
+                    crate::log_print!(
                         "Failed to get output devices for host {}: {:?}",
                         host.id().name(),
                         e
@@ -1526,7 +1526,7 @@ pub fn api_apply_all_channel_tunings(tunings: Vec<ChannelTuningParams>) -> Resul
 }
 
 pub fn api_apply_channel_tuning(channel: u32, delay_ms: f32, eq_bands: Vec<EqBand>) -> Result<(), AtmosError> {
-    println!("🔥 [디버깅] api_apply_channel_tuning 호출됨. 채널: {}, 딜레이: {}ms", channel, delay_ms);
+    crate::log_print!("🔥 [디버깅] api_apply_channel_tuning 호출됨. 채널: {}, 딜레이: {}ms", channel, delay_ms);
     GLOBAL_STATE
         .command_sender
         .send(AudioCommand::ApplyChannelTuning {

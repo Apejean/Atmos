@@ -153,7 +153,7 @@ impl GlobalEngineState {
     }
 
     pub fn log(&self, msg: String) {
-        println!("{}", msg);
+        // removed print
 
         // Write to log file
         let mut dir = std::env::temp_dir();

@@ -679,31 +679,49 @@ class _SpeakerInspectorPanelState extends ConsumerState<_SpeakerInspectorPanel> 
 class _HeatmapPainter extends CustomPainter {
   final List<SpeakerNode> speakers;
   final double scale;
+  final double earLevelZ = 1.2;
 
   _HeatmapPainter({required this.speakers, required this.scale});
 
   @override
   void paint(Canvas canvas, Size size) {
     if (speakers.isEmpty) return;
+
     for (var spk in speakers) {
-      final center = Offset(spk.x * scale, spk.y * scale);
-      final radius = 200.0;
-      final rect = Rect.fromCircle(center: center, radius: radius);
-      
-      final gradient = RadialGradient(
+      final double H = math.max(0.1, spk.heightZ - earLevelZ);
+      final double tiltRad = spk.pitchTilt.clamp(1.0, 90.0) * math.pi / 180.0;
+      final double halfDispersionRad = (spk.dispersionAngle / 2.0) * math.pi / 180.0;
+      final double projectionOffset = (H / math.tan(tiltRad)) * scale;
+      final double widthX = (H * math.tan(halfDispersionRad)) * scale;
+      final double lengthY = (widthX / math.sin(tiltRad)); 
+
+      final Gradient thermalGradient = RadialGradient(
         colors: [
-          Colors.blue.withValues(alpha: 0.8),
-          Colors.cyan.withValues(alpha: 0.4),
-          Colors.transparent,
+          const Color(0xFFFF0000).withValues(alpha: 0.8), // Red (Core)
+          const Color(0xFFFFFF00).withValues(alpha: 0.6), // Yellow
+          const Color(0xFF00FF00).withValues(alpha: 0.4), // Green
+          const Color(0xFF00FFFF).withValues(alpha: 0.2), // Cyan
+          const Color(0x00000000),                        // Transparent
         ],
-        stops: const [0.0, 0.4, 1.0],
+        stops: const [0.0, 0.2, 0.45, 0.75, 1.0],
       );
 
-      final paint = Paint()
-        ..shader = gradient.createShader(rect)
+      final Paint heatPaint = Paint()
         ..blendMode = BlendMode.screen;
 
-      canvas.drawCircle(center, radius, paint);
+      final center = Offset(spk.x * scale, spk.y * scale);
+      
+      canvas.save();
+      canvas.translate(center.dx, center.dy);
+      canvas.rotate(spk.rotation * math.pi / 180.0);
+      canvas.translate(0, -projectionOffset);
+      canvas.scale(widthX / 100.0, lengthY / 100.0);
+
+      final Rect rect = Rect.fromCircle(center: Offset.zero, radius: 100.0);
+      heatPaint.shader = thermalGradient.createShader(rect);
+      
+      canvas.drawCircle(Offset.zero, 100.0, heatPaint);
+      canvas.restore();
     }
   }
 

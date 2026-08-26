@@ -45,7 +45,7 @@ impl OfflineRenderer {
                     let _ = writer.finalize();
                 }
                 Err(e) => {
-                    eprintln!("Failed to create WavWriter at {}: {:?}", out_path_owned, e);
+                    crate::log_print!("Failed to create WavWriter at {}: {:?}", out_path_owned, e);
                 }
             }
         });
@@ -72,7 +72,7 @@ impl OfflineRenderer {
         }
         
         let elapsed = start_time.elapsed();
-        println!("Offline render complete. Took {:?}", elapsed);
+        crate::log_print!("Offline render complete. Took {:?}", elapsed);
         
         Ok(())
     }

@@ -73,7 +73,7 @@ impl DiskStreamer {
             let file = match std::fs::File::open(&path) {
                 Ok(f) => Box::new(f),
                 Err(e) => {
-                    eprintln!("DiskStreamer failed to open file: {}", e);
+                    crate::log_print!("DiskStreamer failed to open file: {}", e);
                     return;
                 }
             };
@@ -82,7 +82,7 @@ impl DiskStreamer {
             let probed = match symphonia::default::get_probe().format(&hint, mss, &format_opts, &metadata_opts) {
                 Ok(p) => p,
                 Err(e) => {
-                    eprintln!("DiskStreamer probe error: {}", e);
+                    crate::log_print!("DiskStreamer probe error: {}", e);
                     return;
                 }
             };
@@ -96,7 +96,7 @@ impl DiskStreamer {
             let mut decoder = match symphonia::default::get_codecs().make(&track.codec_params, &decoder_opts) {
                 Ok(d) => d,
                 Err(e) => {
-                    eprintln!("DiskStreamer decoder error: {}", e);
+                    crate::log_print!("DiskStreamer decoder error: {}", e);
                     return;
                 }
             };

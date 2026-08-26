@@ -22,10 +22,10 @@ impl Default for AudioEngine {
 impl Drop for AudioEngine {
     fn drop(&mut self) {
         if let Some(stream) = self.stream.take() {
-            println!("🔥 [디버깅] 오디오 스트림 명시적 Pause 및 Drop 수행...");
+            crate::log_print!("🔥 [디버깅] 오디오 스트림 명시적 Pause 및 Drop 수행...");
             let _ = stream.pause();
             drop(stream);
-            println!("✅ [디버깅] 오디오 스트림 Drop 완료!");
+            crate::log_print!("✅ [디버깅] 오디오 스트림 Drop 완료!");
         }
     }
 }
@@ -46,7 +46,7 @@ pub fn get_hosts(target_prefix: Option<&str>) -> Result<Vec<cpal::Host>, String>
     if req_asio {
         match cpal::host_from_id(cpal::HostId::Asio) {
             Ok(host) => hosts.push(host),
-            Err(e) => eprintln!("ASIO Load Error: {:?}", e),
+            Err(e) => crate::log_print!("ASIO Load Error: {:?}", e),
         }
     }
 
@@ -72,7 +72,7 @@ pub fn apply_windows_admin_optimizations() {
     
     unsafe {
         if IsUserAnAdmin().as_bool() {
-            println!("🔥 [디버깅] 관리자 권한 확인됨. MMCSS 스레드 승격 & RAM 고정 시도.");
+            crate::log_print!("🔥 [디버깅] 관리자 권한 확인됨. MMCSS 스레드 승격 & RAM 고정 시도.");
             // 1. MMCSS (Pro Audio) 승격
             let mut task_index = 0;
             let class_name: Vec<u16> = "Pro Audio\0".encode_utf16().collect();
@@ -94,7 +94,7 @@ pub fn apply_windows_admin_optimizations() {
             );
         } else {
             // 일반 계정인 경우: 튕김(크래시) 없이 표준 프로세스로 Graceful Fallback
-            println!("⚠️ 일반 사용자 계정으로 로그인되었습니다. 표준 스케줄링 모드로 구동합니다.");
+            crate::log_print!("⚠️ 일반 사용자 계정으로 로그인되었습니다. 표준 스케줄링 모드로 구동합니다.");
         }
     }
 }
@@ -134,8 +134,8 @@ impl AudioEngine {
                 .replace("[CoreAudio] ", "");
             let target_name = target_name.replace('\0', "").trim().to_string();
 
-            println!("🔥 [디버깅] 플러터 원본 요청: '{}'", name);
-            println!("🔥 [디버깅] 공백 제거 후 타겟: '{}'", target_name);
+            crate::log_print!("🔥 [디버깅] 플러터 원본 요청: '{}'", name);
+            crate::log_print!("🔥 [디버깅] 공백 제거 후 타겟: '{}'", target_name);
 
             let start_time = std::time::Instant::now();
             let timeout_secs = 30;
@@ -158,14 +158,14 @@ impl AudioEngine {
                 }
 
                 if found_device.is_some() {
-                    println!("✅ [디버깅] ASIO 오디오 인터페이스 인식 성공: {}", target_name);
+                    crate::log_print!("✅ [디버깅] ASIO 오디오 인터페이스 인식 성공: {}", target_name);
                     break;
                 }
 
                 if start_time.elapsed().as_secs() >= timeout_secs {
                     break;
                 }
-                println!("⚠️ 장치를 찾는 중... ({} / 30초)", start_time.elapsed().as_secs());
+                crate::log_print!("⚠️ 장치를 찾는 중... ({} / 30초)", start_time.elapsed().as_secs());
                 std::thread::sleep(std::time::Duration::from_millis(500));
             }
 
@@ -173,7 +173,7 @@ impl AudioEngine {
                 d
             } else {
                 let error_msg = format!("Requested device '{}' not found after 30s. Available devices were not matched.", name);
-                eprintln!("{}", error_msg);
+                crate::log_print!("{}", error_msg);
                 return Err(error_msg);
             }
         } else {
@@ -182,7 +182,7 @@ impl AudioEngine {
                 .ok_or("No default output device".to_string())?
         };
 
-        println!("Using output device: {}", device.name().unwrap_or_default());
+        crate::log_print!("Using output device: {}", device.name().unwrap_or_default());
 
         let default_config_result = device.default_output_config().ok();
         let mut best_config = default_config_result.clone();
@@ -197,7 +197,7 @@ impl AudioEngine {
             if supported_configs_result.is_ok() {
                 break;
             }
-            println!("⏳ [ASIO Lock Retry] COM object might be busy. Waiting 500ms...");
+            crate::log_print!("⏳ [ASIO Lock Retry] COM object might be busy. Waiting 500ms...");
             std::thread::sleep(std::time::Duration::from_millis(500));
             supported_configs_result = device.supported_output_configs();
         }
@@ -237,17 +237,17 @@ impl AudioEngine {
             cpal::SupportedBufferSize::Range { min, max } => {
                 let clamped = target_buffer_size.clamp(*min, *max);
                 config.buffer_size = cpal::BufferSize::Fixed(clamped);
-                println!("🔥 [디버깅] Buffer size clamped to {} (Range: {} - {})", clamped, min, max);
+                crate::log_print!("🔥 [디버깅] Buffer size clamped to {} (Range: {} - {})", clamped, min, max);
             }
             cpal::SupportedBufferSize::Unknown => {
                 config.buffer_size = cpal::BufferSize::Default;
-                println!("⚠️ [디버깅] SupportedBufferSize::Unknown -> Using Default");
+                crate::log_print!("⚠️ [디버깅] SupportedBufferSize::Unknown -> Using Default");
             }
         }
 
         config.sample_rate = supported_config.sample_rate();
 
-        println!("Stream config: {:?}", config);
+        crate::log_print!("Stream config: {:?}", config);
 
         crate::core::state::GLOBAL_STATE
             .active_device_channels
@@ -274,7 +274,7 @@ impl AudioEngine {
         let mut mixer = AudioMixer::new(config.sample_rate.0, config.channels as usize, gc_tx, Some(analysis_tx));
 
         let err_fn = |err: cpal::StreamError| {
-            eprintln!("an error occurred on stream: {}", err);
+            crate::log_print!("an error occurred on stream: {}", err);
             let err_str = err.to_string();
             let is_disconnect = err_str.contains("DeviceNotAvailable") || err_str.contains("kAsioResetRequest");
             if is_disconnect {
@@ -380,7 +380,7 @@ impl AudioEngine {
             Ok(s) => s,
             Err(e) => {
                 // Task 3: 버퍼 사이즈 및 최대 채널 초과 시 폴백 처리
-                eprintln!("Failed to build stream with config {:?}: {}", config, e);
+                crate::log_print!("Failed to build stream with config {:?}: {}", config, e);
                 return Err(format!("Failed to build stream: {}", e));
             }
         };

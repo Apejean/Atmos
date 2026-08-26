@@ -3,7 +3,7 @@ use std::fs;
 use std::path::Path;
 
 pub fn save_scene(scene_id: &str, name: &str) -> Result<(), AtmosError> {
-    println!("✅ [디버깅] 씬 저장 실제 로직 수행: {} ({})", scene_id, name);
+    crate::log_print!("✅ [디버깅] 씬 저장 실제 로직 수행: {} ({})", scene_id, name);
     
     let scenes_dir = Path::new("scenes");
     if !scenes_dir.exists() {
@@ -24,12 +24,12 @@ pub fn save_scene(scene_id: &str, name: &str) -> Result<(), AtmosError> {
     fs::write(&file_path, json_data)
         .map_err(|e| AtmosError::IoError(e.to_string()))?;
         
-    println!("✅ [디버깅] 씬 저장 완료: {:?}", file_path);
+    crate::log_print!("✅ [디버깅] 씬 저장 완료: {:?}", file_path);
     Ok(())
 }
 
 pub fn load_scene(scene_id: &str) -> Result<(), AtmosError> {
-    println!("✅ [디버깅] 씬 불러오기: {}", scene_id);
+    crate::log_print!("✅ [디버깅] 씬 불러오기: {}", scene_id);
     
     let file_path = Path::new("scenes").join(format!("{}.json", scene_id));
     if !file_path.exists() {
@@ -58,7 +58,7 @@ pub fn load_scene(scene_id: &str) -> Result<(), AtmosError> {
 }
 
 pub fn clear_room() -> Result<(), AtmosError> {
-    println!("✅ [디버깅] 룸 정보 초기화 (Clear Room)");
+    crate::log_print!("✅ [디버깅] 룸 정보 초기화 (Clear Room)");
     
     {
         let mut state = crate::core::state::GLOBAL_STATE.config.write().unwrap();

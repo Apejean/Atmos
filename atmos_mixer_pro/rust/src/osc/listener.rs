@@ -51,13 +51,13 @@ impl OscListener {
                     Ok(s) => s,
                     Err(e) => {
                         let err_msg = format!("Failed to bind OSC port {}: {}", p, e);
-                        println!("{}", err_msg);
+                        crate::log_print!("{}", err_msg);
                         crate::core::state::GLOBAL_STATE.log(err_msg);
                         return;
                     }
                 };
                 if let Err(e) = socket.set_read_timeout(Some(std::time::Duration::from_millis(500))) {
-                    println!("Warning: Failed to set read timeout on OSC socket: {}", e);
+                    crate::log_print!("Warning: Failed to set read timeout on OSC socket: {}", e);
                 }
                 crate::core::state::GLOBAL_STATE.log(format!("OSC Listener started on {}", addr));
 
