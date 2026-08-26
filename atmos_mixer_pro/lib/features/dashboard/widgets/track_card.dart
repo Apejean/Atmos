@@ -106,6 +106,8 @@ class _TrackCardState extends ConsumerState<TrackCard> {
 
   @override
   Widget build(BuildContext context) {
+    final bool isObjectMode = widget.track.outputChannel == 4294967295;
+
     final engineState = ref.watch(engineStateProvider);
     final isPlaying = engineState.playingTrackIds.contains(widget.track.id);
 
@@ -246,7 +248,7 @@ class _TrackCardState extends ConsumerState<TrackCard> {
     bool valueExists = outputItems.any((item) => item.value == currentValue);
 
     if (!valueExists && config != null) {
-      if (currentKey >= maxChannels && outputItems.isNotEmpty) {
+      if (currentKey >= maxChannels && outputItems.isNotEmpty && currentKey != 4294967295) {
         final firstVal = outputItems.first.value;
         if (firstVal != null) {
           currentValue = firstVal;

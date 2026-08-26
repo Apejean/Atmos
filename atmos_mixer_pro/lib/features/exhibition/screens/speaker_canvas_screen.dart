@@ -298,12 +298,17 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
 
     cx = cx.clamp(0.0, _canvasWidth - _speakerSize);
     cy = cy.clamp(0.0, _canvasHeight - _speakerSize);
+    final nodes = ref.read(speakerLayoutProvider);
+    int nextChannel = 0; // 0-indexed internally
+    while (nodes.any((n) => n.channel == nextChannel)) {
+      nextChannel++;
+    }
 
     final newNode = SpeakerNode(
       id: const Uuid().v4(),
       x: cx,
       y: cy,
-      channel: 0,
+      channel: nextChannel,
     );
     ref.read(speakerLayoutProvider.notifier).addSpeaker(newNode);
   }
