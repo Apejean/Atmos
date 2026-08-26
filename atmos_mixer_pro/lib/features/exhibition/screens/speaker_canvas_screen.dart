@@ -1686,11 +1686,12 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> with 
               Tab(text: 'Room C: Atmos Studio'),
             ],
           ),
-          title: Row(
-            children: [
-              const Text('Exhibition Canvas'),
-              
-              const Spacer(),
+          title: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                const Text('Exhibition Canvas'),
+                const SizedBox(width: 24),
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -1714,7 +1715,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> with 
                   const SizedBox(width: 16),
                 ],
               ),
-              const Spacer(),
+              const SizedBox(width: 24),
               Consumer(
                 builder: (context, ref, child) {
                   final isMasterMuted = ref.watch(
@@ -2068,6 +2069,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> with 
                 tooltip: 'Clear Canvas',
               ),
             ],
+          ),
           ),
           backgroundColor: Colors.black,
         ),
