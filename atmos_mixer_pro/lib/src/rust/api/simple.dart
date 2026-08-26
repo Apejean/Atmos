@@ -239,6 +239,11 @@ Future<void> apiUpdateSpatialConfigJson({required String jsonPayload}) =>
       jsonPayload: jsonPayload,
     );
 
+Future<void> apiUpdateOutputRouting({required String jsonPayload}) => RustLib
+    .instance
+    .api
+    .crateApiSimpleApiUpdateOutputRouting(jsonPayload: jsonPayload);
+
 Future<Point3D> apiCalculateBezierPoint({
   required double t,
   required Point3D p0,
@@ -289,6 +294,22 @@ void apiSetReverbParams({required double mix, required double decay}) => RustLib
     .instance
     .api
     .crateApiSimpleApiSetReverbParams(mix: mix, decay: decay);
+
+void apiUpdateOutputConfig({
+  required BigInt channel,
+  required bool mute,
+  required bool solo,
+  required bool invertPhase,
+  required double gainDb,
+  required double delayMs,
+}) => RustLib.instance.api.crateApiSimpleApiUpdateOutputConfig(
+  channel: channel,
+  mute: mute,
+  solo: solo,
+  invertPhase: invertPhase,
+  gainDb: gainDb,
+  delayMs: delayMs,
+);
 
 class ChannelTuningParams {
   final int channel;

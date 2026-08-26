@@ -69,7 +69,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.12.0';
 
   @override
-  int get rustContentHash => 80889381;
+  int get rustContentHash => 120032357;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -242,6 +242,19 @@ abstract class RustLibApi extends BaseApi {
   });
 
   Future<void> crateApiSimpleApiTriggerTestError({required String message});
+
+  void crateApiSimpleApiUpdateOutputConfig({
+    required BigInt channel,
+    required bool mute,
+    required bool solo,
+    required bool invertPhase,
+    required double gainDb,
+    required double delayMs,
+  });
+
+  Future<void> crateApiSimpleApiUpdateOutputRouting({
+    required String jsonPayload,
+  });
 
   Future<void> crateApiSimpleApiUpdateSingleBandEq({
     required BigInt channelIndex,
@@ -1907,6 +1920,84 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
+  void crateApiSimpleApiUpdateOutputConfig({
+    required BigInt channel,
+    required bool mute,
+    required bool solo,
+    required bool invertPhase,
+    required double gainDb,
+    required double delayMs,
+  }) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_usize(channel, serializer);
+          sse_encode_bool(mute, serializer);
+          sse_encode_bool(solo, serializer);
+          sse_encode_bool(invertPhase, serializer);
+          sse_encode_f_32(gainDb, serializer);
+          sse_encode_f_32(delayMs, serializer);
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 53)!;
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiSimpleApiUpdateOutputConfigConstMeta,
+        argValues: [channel, mute, solo, invertPhase, gainDb, delayMs],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiSimpleApiUpdateOutputConfigConstMeta =>
+      const TaskConstMeta(
+        debugName: "api_update_output_config",
+        argNames: [
+          "channel",
+          "mute",
+          "solo",
+          "invertPhase",
+          "gainDb",
+          "delayMs",
+        ],
+      );
+
+  @override
+  Future<void> crateApiSimpleApiUpdateOutputRouting({
+    required String jsonPayload,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_String(jsonPayload, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 54,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: sse_decode_atmos_error,
+        ),
+        constMeta: kCrateApiSimpleApiUpdateOutputRoutingConstMeta,
+        argValues: [jsonPayload],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiSimpleApiUpdateOutputRoutingConstMeta =>
+      const TaskConstMeta(
+        debugName: "api_update_output_routing",
+        argNames: ["jsonPayload"],
+      );
+
+  @override
   Future<void> crateApiSimpleApiUpdateSingleBandEq({
     required BigInt channelIndex,
     required BigInt bandIndex,
@@ -1928,7 +2019,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 53,
+            funcId: 55,
             port: port_,
           );
         },
@@ -1981,7 +2072,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 54,
+            funcId: 56,
             port: port_,
           );
         },
@@ -2014,7 +2105,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 55,
+            funcId: 57,
             port: port_,
           );
         },
@@ -2045,7 +2136,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 56,
+            funcId: 58,
             port: port_,
           );
         },
@@ -2075,7 +2166,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 57,
+            funcId: 59,
             port: port_,
           );
         },
@@ -2427,8 +2518,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   Point3D dco_decode_point_3_d(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 6)
-      throw Exception('unexpected arr length: expect 6 but see ${arr.length}');
+    if (arr.length != 7)
+      throw Exception('unexpected arr length: expect 7 but see ${arr.length}');
     return Point3D(
       x: dco_decode_f_32(arr[0]),
       y: dco_decode_f_32(arr[1]),
@@ -2436,7 +2527,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       yawRotation: dco_decode_f_32(arr[3]),
       pitchTilt: dco_decode_f_32(arr[4]),
       dispersionAngle: dco_decode_f_32(arr[5]),
-      size: 0.0,
+      size: dco_decode_f_32(arr[6]),
     );
   }
 

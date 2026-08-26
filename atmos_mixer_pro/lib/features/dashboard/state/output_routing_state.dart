@@ -1,4 +1,7 @@
+import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:atmos_mixer_pro/src/rust/api/simple.dart' as rust_api;
 
 class OutputChannelModel {
   final int id; // 1 to 128
@@ -18,6 +21,18 @@ class OutputChannelModel {
     this.delayMs = 0.0,
     this.gainDb = 0.0,
   });
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'isMuted': isMuted,
+      'isSoloed': isSoloed,
+      'isPhaseInverted': isPhaseInverted,
+      'delayMs': delayMs,
+      'gainDb': gainDb,
+    };
+  }
 
   OutputChannelModel copyWith({
     int? id,
@@ -53,6 +68,17 @@ class OutputRoutingNotifier extends Notifier<List<OutputChannelModel>> {
 
   void updateChannel(OutputChannelModel updated) {
     state = state.map((ch) => ch.id == updated.id ? updated : ch).toList();
+    _syncToBackend();
+  }
+
+  void _syncToBackend() {
+    final payload = {
+      'channels': state.map((e) => e.toJson()).toList(),
+    };
+    final jsonString = jsonEncode(payload);
+    rust_api.apiUpdateOutputRouting(jsonPayload: jsonString).catchError((e) {
+      debugPrint('Failed to sync output routing: $e');
+    });
   }
 }
 
