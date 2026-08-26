@@ -230,7 +230,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> with 
       context: context,
       builder: (context) {
         return AlertDialog(
-          backgroundColor: AppColors.cardSurface,
+          backgroundColor: Color(0xFF1E2128),
           title: const Text('실제 거리 입력', style: TextStyle(color: Colors.white)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
@@ -249,7 +249,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> with 
                   labelText: '실제 거리 (미터)',
                   labelStyle: TextStyle(color: Colors.white54),
                   enabledBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: Colors.white24),
+                    borderSide: BorderSide(color: Color(0xFF32363E)),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderSide: BorderSide(color: AppColors.primaryNeon),
@@ -426,7 +426,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> with 
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: AppColors.cardSurface,
+        backgroundColor: Color(0xFF1E2128),
         title: const Text('캔버스 전체 초기화', style: TextStyle(color: Colors.white)),
         content: const Text(
           '모든 스피커와 구역, 궤도를 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.',
@@ -487,7 +487,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> with 
           final estimatedRt60 = tempRoom.estimatedRt60;
 
           return AlertDialog(
-            backgroundColor: AppColors.cardSurface,
+            backgroundColor: Color(0xFF1E2128),
             title: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -523,7 +523,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> with 
                         fontWeight: FontWeight.bold,
                       ),
                       enabledBorder: UnderlineInputBorder(
-                        borderSide: BorderSide(color: Colors.white24),
+                        borderSide: BorderSide(color: Color(0xFF32363E)),
                       ),
                       focusedBorder: UnderlineInputBorder(
                         borderSide: BorderSide(color: AppColors.primaryNeon),
@@ -544,7 +544,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> with 
                             labelText: '너비 (m)',
                             labelStyle: TextStyle(color: Colors.white70),
                             enabledBorder: UnderlineInputBorder(
-                              borderSide: BorderSide(color: Colors.white24),
+                              borderSide: BorderSide(color: Color(0xFF32363E)),
                             ),
                             focusedBorder: UnderlineInputBorder(
                               borderSide: BorderSide(
@@ -567,7 +567,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> with 
                             labelText: '높이 (m)',
                             labelStyle: TextStyle(color: Colors.white70),
                             enabledBorder: UnderlineInputBorder(
-                              borderSide: BorderSide(color: Colors.white24),
+                              borderSide: BorderSide(color: Color(0xFF32363E)),
                             ),
                             focusedBorder: UnderlineInputBorder(
                               borderSide: BorderSide(
@@ -690,7 +690,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> with 
                     }).toList(),
                   ),
                   const SizedBox(height: 20),
-                  const Divider(color: Colors.white24),
+                  const Divider(color: Color(0xFF32363E)),
                   const SizedBox(height: 8),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -712,7 +712,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> with 
                     onChanged: (val) => setDialogState(() => rotation = val),
                   ),
                   const SizedBox(height: 20),
-                  const Divider(color: Colors.white24),
+                  const Divider(color: Color(0xFF32363E)),
                   const SizedBox(height: 8),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -909,7 +909,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> with 
           }
 
           return AlertDialog(
-            backgroundColor: AppColors.cardSurface,
+            backgroundColor: Color(0xFF1E2128),
             title: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -958,7 +958,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> with 
                     },
                   ),
                   const SizedBox(height: 16),
-                  const Divider(color: Colors.white24),
+                  const Divider(color: Color(0xFF32363E)),
                   const SizedBox(height: 8),
                   const Text(
                     '스피커 음향 프리셋',
@@ -1030,7 +1030,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> with 
                     },
                   ),
                   const SizedBox(height: 16),
-                  const Divider(color: Colors.white24),
+                  const Divider(color: Color(0xFF32363E)),
                   
                   // Height
                   Row(
@@ -1201,7 +1201,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> with 
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) {
           return AlertDialog(
-            backgroundColor: AppColors.cardSurface,
+            backgroundColor: Color(0xFF1E2128),
             title: const Text(
               '궤도 설정',
               style: TextStyle(
@@ -1449,7 +1449,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> with 
         return StatefulBuilder(
           builder: (context, setDialogState) {
             return AlertDialog(
-              backgroundColor: AppColors.cardSurface,
+              backgroundColor: Color(0xFF1E2128),
               title: const Row(
                 children: [
                   Icon(Icons.surround_sound, color: AppColors.primaryNeon),
@@ -1602,7 +1602,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> with 
       context: context,
       builder: (context) {
         return AlertDialog(
-          backgroundColor: AppColors.cardSurface,
+          backgroundColor: Color(0xFF1E2128),
           title: const Text('📏 Room Setup', style: TextStyle(color: Colors.white)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
@@ -1707,7 +1707,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> with 
                     icon: const Icon(Icons.picture_as_pdf, size: 16),
                     label: const Text('EXPORT PDF REPORT'),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.surface,
+                      backgroundColor: Color(0xFF23252A),
                       foregroundColor: AppColors.primaryNeon,
                     ),
                   ),
@@ -1974,7 +1974,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> with 
                 },
               ),
               const SizedBox(width: 8),
-              Container(height: 24, width: 1, color: Colors.white24),
+              Container(height: 24, width: 1, color: Color(0xFF32363E)),
               const SizedBox(width: 8),
               Wrap(
                 spacing: 8,
@@ -2006,7 +2006,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> with 
                 ],
               ),
               const SizedBox(width: 8),
-              Container(height: 24, width: 1, color: Colors.white24),
+              Container(height: 24, width: 1, color: Color(0xFF32363E)),
               const SizedBox(width: 8),
               Row(
                 children: ['All', '125Hz', '500Hz', '1kHz', '4kHz'].map((oct) {
@@ -2040,7 +2040,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> with 
                 }).toList(),
               ),
               const SizedBox(width: 8),
-              Container(height: 24, width: 1, color: Colors.white24),
+              Container(height: 24, width: 1, color: Color(0xFF32363E)),
               const SizedBox(width: 8),
               IconButton(
                 icon: const Icon(
@@ -2470,8 +2470,8 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> with 
         bottomNavigationBar: Container(
           height: 120,
           decoration: const BoxDecoration(
-            color: AppColors.cardSurface,
-            border: Border(top: BorderSide(color: Colors.white24)),
+            color: Color(0xFF1E2128),
+            border: Border(top: BorderSide(color: Color(0xFF32363E))),
           ),
           child: Row(
             children: [
@@ -3286,8 +3286,8 @@ class _SpeakerInspectorPanelState extends ConsumerState<SpeakerInspectorPanel> {
     return Container(
       width: 320,
       decoration: BoxDecoration(
-        color: AppColors.cardSurface,
-        border: Border(left: BorderSide(color: Colors.white24, width: 1)),
+        color: Color(0xFF1E2128),
+        border: Border(left: BorderSide(color: Color(0xFF32363E), width: 1)),
         boxShadow: const [BoxShadow(color: Colors.black54, blurRadius: 10, spreadRadius: 2)],
       ),
       padding: const EdgeInsets.all(16),
@@ -3304,7 +3304,7 @@ class _SpeakerInspectorPanelState extends ConsumerState<SpeakerInspectorPanel> {
               IconButton(icon: const Icon(Icons.close, color: Colors.white54), onPressed: widget.onClose),
             ],
           ),
-          const Divider(color: Colors.white24),
+          const Divider(color: Color(0xFF32363E)),
           const SizedBox(height: 16),
           // Height
           const Text('Height (Z축 높이, m)', style: TextStyle(color: Colors.white70, fontSize: 12)),
