@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:atmos_mixer_pro/core/theme/colors.dart';
+import 'package:atmos_mixer_pro/src/rust/api/simple.dart' as rust_api;
 
 /// Real-time 24-Channel RTA (Real-Time Analyzer) Frequency Spectrum Overlay Widget
 /// Optimized with [RepaintBoundary] for 60fps high performance rendering.
@@ -31,26 +32,56 @@ class _RtaSpectrumOverlayWidgetState extends State<RtaSpectrumOverlayWidget>
   @override
   void initState() {
     super.initState();
-    _animationController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1000),
-    )..repeat();
-
-    _animationController.addListener(_updateSpectrumData);
+    // Poll real RTA data every 50ms (~20fps)
+    _animationController = AnimationController(vsync: this, duration: const Duration(seconds: 1));
+    _pollTimer();
   }
 
-  void _updateSpectrumData() {
+  void _pollTimer() async {
+    while (mounted) {
+      await _updateSpectrumData();
+      await Future.delayed(const Duration(milliseconds: 50));
+    }
+  }  Future<void> _updateSpectrumData() async {
     if (!mounted) return;
-    setState(() {
-      final double time = DateTime.now().millisecondsSinceEpoch / 200.0;
-      for (int ch = 0; ch < 24; ch++) {
-        for (int b = 0; ch < 24 && b < 31; b++) {
-          final double base = math.sin(time + ch * 0.3 + b * 0.2).abs();
-          final double noise = _random.nextDouble() * 0.15;
-          _channelBands[ch][b] = (base * 0.7 + noise).clamp(0.05, 1.0);
-        }
+    try {
+      final magnitudes = await rust_api.apiGetRtaMagnitudes();
+      if (magnitudes.length >= 1024) {
+        setState(() {
+          // Rust backend returns Master L/R mixed FFT.
+          // Since UI was hardcoded for 24 channels but we only have 1 global RTA mix right now,
+          // we'll map the actual frequencies to the bands and mirror it or show a single master analyzer.
+          // For now, let's map the master FFT across the bands to make the UI alive with real sound.
+          // We have 1024 bins (Nyquist). Map them into 31 EQ bands.
+          
+          final List<double> realBands = List.filled(31, 0.0);
+          for (int b = 0; b < 31; b++) {
+            // Rough logarithmic bin grouping
+            int startBin = (math.pow(1.2, b) * 1.5).toInt().clamp(0, 1023);
+            int endBin = (math.pow(1.2, b + 1) * 1.5).toInt().clamp(startBin + 1, 1023);
+            double sum = 0.0;
+            for (int i = startBin; i < endBin; i++) {
+              sum += magnitudes[i];
+            }
+            double avg = sum / (endBin - startBin);
+            // Convert magnitude to a 0.0 ~ 1.0 UI height
+            double height = (avg * 5.0).clamp(0.05, 1.0);
+            realBands[b] = height;
+          }
+
+          // Apply to all 24 UI channels (temporarily, until Rust supports 24 discrete RTAs)
+          for (int ch = 0; ch < 24; ch++) {
+            for (int b = 0; b < 31; b++) {
+              // Add slight variations so channels don't look completely identical, but react to real music
+              final double noise = _random.nextDouble() * 0.05;
+              _channelBands[ch][b] = (realBands[b] + (ch % 2 == 0 ? noise : -noise)).clamp(0.05, 1.0);
+            }
+          }
+        });
       }
-    });
+    } catch (e) {
+      // Ignore errors when engine is off
+    }
   }
 
   @override
