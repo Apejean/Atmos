@@ -111,6 +111,12 @@ class _SpeakerInspectorPanelState extends ConsumerState<SpeakerInspectorPanel> {
                   _buildSectionTitle('4. DSP MATRIX'),
                   _buildSliderRow('Gain', 0.0, -24.0, 12.0, (val) {}),
                   
+                  const SizedBox(height: 16),
+                  _buildSectionTitle('5. REVERB & ACOUSTICS'),
+                  _buildSliderRow('Reverb Send', 0.5, 0.0, 1.0, (val) {}),
+                  _buildSliderRow('Early Ref Mix', 0.2, 0.0, 1.0, (val) {}),
+                  _buildSliderRow('Room Size', 1.0, 0.1, 3.0, (val) {}),
+                  
                   const SizedBox(height: 24),
                   SizedBox(
                     width: double.infinity,

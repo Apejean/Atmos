@@ -1547,7 +1547,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
       child: Scaffold(
         backgroundColor: AppColors.background,
         appBar: AppBar(
-          title: const Text('Exhibition Canvas'),
+          title: const Text('Exhibition Canvas', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
           backgroundColor: Colors.black,
         ),
         body: Stack(
@@ -1885,7 +1885,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
 
           ],
         ),
-            ); // GestureDetector
+        ); // GestureDetector
   }
 }
 
