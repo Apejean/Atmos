@@ -16,14 +16,13 @@ class ObjectPannerModal extends ConsumerStatefulWidget {
 class _ObjectPannerModalState extends ConsumerState<ObjectPannerModal> with SingleTickerProviderStateMixin {
   TrajectoryModel? _activeTrajectory;
 
-  // Local state for instant UI updates before syncing to backend
-  double _x = 0.5; // Normalized 0.0 to 1.0
-  double _y = 0.5; // Normalized 0.0 to 1.0
-  double _z = 0.5; // Elevation 0.0 to 1.0
-  double _size = 0.2; // Spread 0.0 to 1.0
+  // Values normalized 0.0 to 1.0
+  double _x = 0.5; 
+  double _y = 0.5; 
+  double _z = 0.5; 
+  double _size = 0.2; 
   
   String _preset = 'None';
-
   late AnimationController _pulseController;
 
   @override
@@ -81,34 +80,25 @@ class _ObjectPannerModalState extends ConsumerState<ObjectPannerModal> with Sing
     }
   }
 
-  Widget _buildPresetButton(String label, IconData icon, String value) {
-    final isSelected = _preset == value;
-    return InkWell(
-      onTap: () {
-        setState(() => _preset = value);
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: isSelected ? AppColors.primaryNeon.withValues(alpha: 0.2) : Colors.white10,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: isSelected ? AppColors.primaryNeon : Colors.transparent,
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 16, color: isSelected ? AppColors.primaryNeon : Colors.white54),
-            const SizedBox(width: 6),
-            Text(label, style: TextStyle(
-              fontSize: 12,
-              color: isSelected ? AppColors.primaryNeon : Colors.white54,
-              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-            )),
-          ],
-        ),
-      ),
+  String _formatVal(double val) {
+    // 0.0 to 1.0 -> -1.0 to +1.0 for display
+    final mapped = (val - 0.5) * 2.0;
+    return mapped > 0 ? '+${mapped.toStringAsFixed(3)}' : mapped.toStringAsFixed(3);
+  }
+
+  String _formatZ(double val) {
+    return '+${val.toStringAsFixed(3)}';
+  }
+
+  Widget _buildReadout(String label, String value) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Text(label, style: const TextStyle(color: Colors.white54, fontSize: 10)),
+        const SizedBox(height: 2),
+        Text(value, style: const TextStyle(color: Colors.white, fontSize: 13, fontFamily: 'Monospace')),
+      ],
     );
   }
 
@@ -117,10 +107,10 @@ class _ObjectPannerModalState extends ConsumerState<ObjectPannerModal> with Sing
     return Dialog(
       backgroundColor: Colors.transparent,
       child: Container(
-        width: 500,
+        width: 450,
         decoration: BoxDecoration(
-          color: AppColors.background,
-          borderRadius: BorderRadius.circular(16),
+          color: const Color(0xFF1E1E1E), // Dark charcoal
+          borderRadius: BorderRadius.circular(12),
           border: Border.all(color: Colors.white12),
           boxShadow: [
             BoxShadow(color: Colors.black.withValues(alpha: 0.5), blurRadius: 20, spreadRadius: 5),
@@ -131,38 +121,72 @@ class _ObjectPannerModalState extends ConsumerState<ObjectPannerModal> with Sing
           children: [
             // Header
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: const BoxDecoration(
-                border: Border(bottom: BorderSide(color: Colors.white12)),
+                border: Border(bottom: BorderSide(color: Colors.white10)),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text('3D Object Panner', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-                  InkWell(
-                    onTap: () => Navigator.of(context).pop(),
-                    child: const Icon(Icons.close, color: Colors.white54, size: 20),
+                  const Text('3D Object Panner', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      DropdownButton<String>(
+                        value: _preset,
+                        isDense: true,
+                        dropdownColor: const Color(0xFF2C2C2C),
+                        underline: const SizedBox(),
+                        icon: const Icon(Icons.arrow_drop_down, color: Colors.white54, size: 16),
+                        style: const TextStyle(color: Colors.white70, fontSize: 12),
+                        items: ['None', 'Circle', 'Figure-8'].map((p) => DropdownMenuItem(value: p, child: Text(p))).toList(),
+                        onChanged: (v) {
+                          if (v != null) setState(() => _preset = v);
+                        },
+                      ),
+                      const SizedBox(width: 16),
+                      InkWell(
+                        onTap: () => Navigator.of(context).pop(),
+                        child: const Icon(Icons.close, color: Colors.white54, size: 18),
+                      ),
+                    ],
                   ),
                 ],
               ),
             ),
             
-            // Body
+            // Numeric Readouts
             Padding(
-              padding: const EdgeInsets.all(24.0),
+              padding: const EdgeInsets.symmetric(vertical: 12.0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  _buildReadout('Left/Right', _formatVal(_x)),
+                  _buildReadout('Back/Front', _formatVal(1.0 - _y)), // Inverse Y for Back/Front (0 is front, 1 is back)
+                  _buildReadout('Elevation', _formatZ(_z)),
+                  _buildReadout('Size', _size.toStringAsFixed(3)),
+                ],
+              ),
+            ),
+
+            // Top-down Minimap
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 32.0),
               child: Column(
                 children: [
+                  const Text('Front', style: TextStyle(color: Colors.white54, fontSize: 10)),
+                  const SizedBox(height: 4),
                   Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Minimap
+                      const Text('Left', style: TextStyle(color: Colors.white54, fontSize: 10)),
+                      const SizedBox(width: 8),
                       Expanded(
                         child: AspectRatio(
                           aspectRatio: 1.0,
                           child: Container(
                             decoration: BoxDecoration(
                               color: const Color(0xFF111111),
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: BorderRadius.circular(4),
                               border: Border.all(color: Colors.white24),
                             ),
                             child: LayoutBuilder(
@@ -183,48 +207,18 @@ class _ObjectPannerModalState extends ConsumerState<ObjectPannerModal> with Sing
                                     _updateBackend();
                                   },
                                   child: CustomPaint(
-                                    painter: _PannerGridPainter(),
+                                    painter: _GridPainter(divisions: 4),
                                     child: Stack(
                                       children: [
-                                        // Center crosshair
+                                        // Center Head Icon
                                         const Center(
-                                          child: Icon(Icons.add, color: Colors.white12, size: 32),
+                                          child: Icon(Icons.person, color: Colors.white24, size: 24),
                                         ),
-                                        // The Puck
+                                        // Puck
                                         Positioned(
-                                          left: _x * constraints.maxWidth - 20,
-                                          top: _y * constraints.maxHeight - 20,
-                                          child: AnimatedBuilder(
-                                            animation: _pulseController,
-                                            builder: (context, child) {
-                                              return Container(
-                                                width: 40,
-                                                height: 40,
-                                                decoration: BoxDecoration(
-                                                  shape: BoxShape.circle,
-                                                  color: AppColors.primaryNeon.withValues(alpha: 0.2 + _pulseController.value * 0.2),
-                                                  boxShadow: [
-                                                    BoxShadow(
-                                                      color: AppColors.primaryNeon.withValues(alpha: 0.5 * _size),
-                                                      blurRadius: 10 + 40 * _size,
-                                                      spreadRadius: 5 + 20 * _size,
-                                                    ),
-                                                  ],
-                                                ),
-                                                child: Center(
-                                                  child: Container(
-                                                    width: 12,
-                                                    height: 12,
-                                                    decoration: BoxDecoration(
-                                                      color: AppColors.primaryNeon,
-                                                      shape: BoxShape.circle,
-                                                      border: Border.all(color: Colors.white, width: 1.5),
-                                                    ),
-                                                  ),
-                                                ),
-                                              );
-                                            },
-                                          ),
+                                          left: _x * constraints.maxWidth - 12,
+                                          top: _y * constraints.maxHeight - 12,
+                                          child: _Puck(size: _size, pulse: _pulseController.value),
                                         ),
                                       ],
                                     ),
@@ -235,82 +229,119 @@ class _ObjectPannerModalState extends ConsumerState<ObjectPannerModal> with Sing
                           ),
                         ),
                       ),
-                      const SizedBox(width: 24),
-                      
-                      // Elevation Z-axis slider
-                      Column(
-                        children: [
-                          const Text('Z', style: TextStyle(color: Colors.white54, fontWeight: FontWeight.bold)),
-                          const SizedBox(height: 8),
-                          SizedBox(
-                            height: 250, // Matches minimap roughly
-                            child: RotatedBox(
-                              quarterTurns: 3,
-                              child: Slider(
-                                value: _z,
-                                min: 0.0,
-                                max: 1.0,
-                                activeColor: Colors.cyanAccent,
-                                inactiveColor: Colors.white12,
-                                onChanged: (v) {
-                                  setState(() => _z = v);
-                                },
-                                onChangeEnd: (_) => _updateBackend(),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text('${(_z * 100).toInt()}', style: const TextStyle(color: Colors.cyanAccent, fontSize: 12)),
-                        ],
-                      ),
+                      const SizedBox(width: 8),
+                      const Text('Right', style: TextStyle(color: Colors.white54, fontSize: 10)),
                     ],
                   ),
-                  
-                  const SizedBox(height: 24),
-                  
-                  // Bottom controls (Size and Presets)
-                  Row(
-                    children: [
-                      // Size control
-                      Expanded(
-                        flex: 2,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text('Size (Spread)', style: TextStyle(color: Colors.white70, fontSize: 12)),
-                            Slider(
-                              value: _size,
-                              min: 0.0,
-                              max: 1.0,
-                              activeColor: Colors.amberAccent,
-                              inactiveColor: Colors.white12,
-                              onChanged: (v) {
-                                setState(() => _size = v);
+                  const SizedBox(height: 4),
+                  const Text('Back', style: TextStyle(color: Colors.white54, fontSize: 10)),
+                ],
+              ),
+            ),
+            
+            const SizedBox(height: 24),
+
+            // Side-view Elevation Minimap
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 56.0),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: SizedBox(
+                      height: 100, // Wide rectangular aspect
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF111111),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: Colors.white24),
+                        ),
+                        child: LayoutBuilder(
+                          builder: (context, constraints) {
+                            return GestureDetector(
+                              onPanUpdate: (details) {
+                                setState(() {
+                                  // Z is inverted in UI (0 at bottom, 1 at top)
+                                  _z = (_z - details.delta.dy / constraints.maxHeight).clamp(0.0, 1.0);
+                                });
+                                _updateBackend();
                               },
-                              onChangeEnd: (_) => _updateBackend(),
-                            ),
-                          ],
+                              onPanDown: (details) {
+                                setState(() {
+                                  _z = (1.0 - details.localPosition.dy / constraints.maxHeight).clamp(0.0, 1.0);
+                                });
+                                _updateBackend();
+                              },
+                              child: CustomPaint(
+                                painter: _GridPainter(divisions: 2, isHorizontal: true),
+                                child: Stack(
+                                  children: [
+                                    // Bottom center Head Icon
+                                    const Align(
+                                      alignment: Alignment.bottomCenter,
+                                      child: Icon(Icons.person, color: Colors.white24, size: 24),
+                                    ),
+                                    // Puck (Fixed X in center for this view, only Z moves)
+                                    Positioned(
+                                      left: constraints.maxWidth / 2 - 12,
+                                      top: (1.0 - _z) * constraints.maxHeight - 12,
+                                      child: _Puck(size: _size, pulse: _pulseController.value),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
                         ),
                       ),
-                      const SizedBox(width: 16),
-                      // Presets
-                      Expanded(
-                        flex: 3,
-                        child: Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: [
-                            _buildPresetButton('Static', Icons.pan_tool_alt, 'None'),
-                            _buildPresetButton('Circle', Icons.change_history, 'Circle'),
-                            _buildPresetButton('Figure-8', Icons.all_inclusive, 'Figure-8'),
-                          ],
-                        ),
-                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  const Column(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Top', style: TextStyle(color: Colors.white54, fontSize: 10)),
+                      SizedBox(height: 60),
+                      Text('Ear Level', style: TextStyle(color: Colors.white54, fontSize: 10)),
                     ],
                   ),
                 ],
               ),
             ),
+            
+            const SizedBox(height: 24),
+            
+            // Minimal Size Slider at bottom
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 56.0, vertical: 12.0),
+              child: Row(
+                children: [
+                  const Text('Size', style: TextStyle(color: Colors.white54, fontSize: 12)),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: SliderTheme(
+                      data: SliderThemeData(
+                        trackHeight: 2,
+                        thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+                        overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
+                      ),
+                      child: Slider(
+                        value: _size,
+                        min: 0.0,
+                        max: 1.0,
+                        activeColor: AppColors.primaryNeon,
+                        inactiveColor: Colors.white24,
+                        onChanged: (v) {
+                          setState(() => _size = v);
+                          _updateBackend();
+                        },
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
           ],
         ),
       ),
@@ -318,24 +349,78 @@ class _ObjectPannerModalState extends ConsumerState<ObjectPannerModal> with Sing
   }
 }
 
-class _PannerGridPainter extends CustomPainter {
+class _GridPainter extends CustomPainter {
+  final int divisions;
+  final bool isHorizontal;
+
+  _GridPainter({required this.divisions, this.isHorizontal = false});
+
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = Colors.white10
+      ..color = Colors.white.withValues(alpha: 0.1)
       ..strokeWidth = 1.0;
     
-    // Draw grid lines
-    const int lines = 4;
-    final double stepX = size.width / lines;
-    final double stepY = size.height / lines;
+    if (!isHorizontal) {
+      final double stepX = size.width / divisions;
+      for (int i = 1; i < divisions; i++) {
+        canvas.drawLine(Offset(i * stepX, 0), Offset(i * stepX, size.height), paint);
+      }
+    }
     
-    for (int i = 1; i < lines; i++) {
-      canvas.drawLine(Offset(i * stepX, 0), Offset(i * stepX, size.height), paint);
+    final int rows = isHorizontal ? 2 : divisions;
+    final double stepY = size.height / rows;
+    for (int i = 1; i < rows; i++) {
       canvas.drawLine(Offset(0, i * stepY), Offset(size.width, i * stepY), paint);
+    }
+    
+    // Draw crosshairs if square map
+    if (!isHorizontal) {
+      final centerPaint = Paint()
+        ..color = Colors.white.withValues(alpha: 0.2)
+        ..strokeWidth = 1.5;
+      canvas.drawLine(Offset(size.width / 2, 0), Offset(size.width / 2, size.height), centerPaint);
+      canvas.drawLine(Offset(0, size.height / 2), Offset(size.width, size.height / 2), centerPaint);
     }
   }
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+class _Puck extends StatelessWidget {
+  final double size;
+  final double pulse;
+
+  const _Puck({required this.size, required this.pulse});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 24,
+      height: 24,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: AppColors.primaryNeon.withValues(alpha: 0.2 + pulse * 0.2),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primaryNeon.withValues(alpha: 0.5 * size),
+            blurRadius: 5 + 20 * size,
+            spreadRadius: 2 + 10 * size,
+          ),
+        ],
+      ),
+      child: Center(
+        child: Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(
+            color: AppColors.primaryNeon,
+            shape: BoxShape.circle,
+            border: Border.all(color: Colors.white, width: 1.0),
+          ),
+        ),
+      ),
+    );
+  }
 }
