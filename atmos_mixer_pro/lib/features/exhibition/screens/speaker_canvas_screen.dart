@@ -5,6 +5,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:atmos_mixer_pro/features/exhibition/widgets/hud/room_setup_window.dart';
 
 import 'package:atmos_mixer_pro/features/exhibition/widgets/trajectory_layer_painter.dart';
 import 'package:atmos_mixer_pro/features/exhibition/widgets/trajectory_sidebar_widget.dart';
@@ -50,6 +51,7 @@ double _getCanvasHeight(WidgetRef ref) {
 }
 
 class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
+  bool _isRoomSetupOpen = true;
   final TransformationController _transformationController =
       TransformationController();
   final FocusNode _canvasFocusNode = FocusNode();
@@ -1859,7 +1861,10 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
           ),
           backgroundColor: Colors.black,
         ),
-        body: LayoutBuilder(
+        body: Stack(
+          children: [
+            Positioned.fill(
+              child: LayoutBuilder(
           builder: (context, constraints) {
             _viewportSize = Size(constraints.maxWidth, constraints.maxHeight);
             return Stack(
@@ -2162,6 +2167,17 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
               ],
             );
           },
+        ),
+        ),
+            if (_isRoomSetupOpen)
+              Positioned(
+                left: 16,
+                bottom: 16,
+                child: RoomSetupWindow(
+                  onClose: () => setState(() => _isRoomSetupOpen = false),
+                ),
+              ),
+          ],
         ),
         floatingActionButton: PopupMenuButton<String>(
           onSelected: (value) {
