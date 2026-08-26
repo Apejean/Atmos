@@ -2187,7 +2187,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                     return RoomSetupWindow(
                       room: room,
                       onApply: (updatedRoom) {
-                        ref.read(roomZoneProvider.notifier).updateZone(updatedRoom);
+                        ref.read(roomZoneProvider.notifier).updateRoomZone(updatedRoom);
                       },
                       onClose: () => setState(() => _isRoomSetupOpen = false),
                     );
