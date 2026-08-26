@@ -1,3 +1,4 @@
+import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart' as frb;
 import 'dart:io';
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -25,7 +26,6 @@ import 'package:atmos_mixer_pro/features/dashboard/widgets/output_calibration_mo
 import 'package:atmos_mixer_pro/features/dashboard/state/output_routing_state.dart';
 import 'package:atmos_mixer_pro/features/exhibition/state/blueprint_state.dart';
 import 'package:atmos_mixer_pro/features/exhibition/state/speaker_layout_state.dart';
-import 'dart:math' as math;
 
 
 class DashboardScreen extends ConsumerStatefulWidget {
@@ -705,79 +705,70 @@ oscWhitelist: config.oscWhitelist,
     return Container(
       color: AppColors.headerBackground,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Wrap(
-          alignment: WrapAlignment.spaceBetween,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          spacing: 16,
-          runSpacing: 12,
-          children: [
-          const Text(
-            '🎛 Atmos Mixer Pro',
-            style: TextStyle(
-              color: AppColors.textPrimary,
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                const Text(
+                  'Atmos Mixer Pro',
+                  style: TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Consumer(
+                  builder: (context, ref, child) {
+                    final isMasterMuted = ref.watch(
+                      engineStateProvider.select((state) => state.masterMuteActive),
+                    );
+                    if (!isMasterMuted) return const SizedBox.shrink();
+                    return Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.shade800,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.warning_amber_rounded, color: Colors.white, size: 20),
+                          const SizedBox(width: 8),
+                          Text(
+                            'MASTER MUTE ACTIVE',
+                            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, letterSpacing: 1.2),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(width: 16),
+                const ResamplerStatusBadgeWidget(
+                  fileSampleRate: 44100,
+                  deviceSampleRate: 48000,
+                  forceActive: true,
+                ),
+                const SizedBox(width: 8),
+                Consumer(builder: (context, ref, _) {
+                  return MasterLimiterMeterWidget(
+                    initialGainReductionDb: ref.watch(engineStateProvider).shortTermLufs,
+                    enableSimulationToggle: true,
+                  );
+                }),
+              ],
             ),
           ),
-          Consumer(
-            builder: (context, ref, child) {
-              final isMasterMuted = ref.watch(
-                engineStateProvider.select((state) => state.masterMuteActive),
-              );
-              if (!isMasterMuted) return const SizedBox.shrink();
-              return Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.orange.shade800,
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.warning_amber_rounded,
-                      color: Colors.white,
-                      size: 20,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      'MASTER MUTE ACTIVE',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1.2,
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const ResamplerStatusBadgeWidget(
-                fileSampleRate: 44100,
-                deviceSampleRate: 48000,
-                forceActive: true,
-              ),
-              const SizedBox(width: 8),
-              MasterLimiterMeterWidget(
-                initialGainReductionDb: ref.watch(engineStateProvider).shortTermLufs,
-                enableSimulationToggle: true,
-              ),
-            ],
-          ),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            alignment: WrapAlignment.center,
-            children: [
+          const SizedBox(height: 16),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
 
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
@@ -1010,7 +1001,7 @@ oscWhitelist: config.oscWhitelist,
                   }
                 },
                 child: const Text(
-                  '➕ 룸 추가',
+                  'Add Room',
                   style: TextStyle(color: Colors.white),
                 ),
               ),
@@ -1031,7 +1022,7 @@ oscWhitelist: config.oscWhitelist,
                   }
                 },
                 child: const Text(
-                  '⚙️ Mixer',
+                  'Mixer',
                   style: TextStyle(color: Colors.white),
                 ),
               ),
@@ -1046,51 +1037,56 @@ oscWhitelist: config.oscWhitelist,
                   final bp = ref.read(blueprintProvider);
                   if (nodes.isEmpty) return;
                   
-                  final listenerX = (bp.canvasWidthMeters * bp.scale) / 2;
-                  final listenerY = (bp.canvasHeightMeters * bp.scale) / 2;
-                  final listenerZ = bp.listeningHeightMeters;
-
-                  final distances = <String, double>{};
-                  double maxDist = 0.0;
-
-                  for (final node in nodes) {
-                    final dx = (node.x - listenerX) / bp.scale;
-                    final dy = (node.y - listenerY) / bp.scale;
-                    final dz = node.heightZ - listenerZ;
-                    final dist = math.sqrt(dx*dx + dy*dy + dz*dz);
-                    distances[node.id] = dist;
-                    if (dist > maxDist) maxDist = dist;
+                  final roomWidth = bp.canvasWidthMeters;
+                  final roomDepth = bp.canvasHeightMeters;
+                  final earLevel = bp.listeningHeightMeters;
+                  
+                  final speakerChannels = frb.Uint64List(nodes.length);
+                  final speakerX = List<double>.filled(nodes.length, 0.0);
+                  final speakerY = List<double>.filled(nodes.length, 0.0);
+                  final speakerZ = List<double>.filled(nodes.length, 0.0);
+                  
+                  for (var i = 0; i < nodes.length; i++) {
+                    final node = nodes[i];
+                    speakerChannels[i] = BigInt.from(node.channel);
+                    speakerX[i] = node.x / bp.scale;
+                    speakerY[i] = node.y / bp.scale;
+                    speakerZ[i] = node.heightZ;
                   }
-
+                  
+                  final results = rust_api.apiCalculate3DCalibration(
+                    roomWidth: roomWidth,
+                    roomDepth: roomDepth,
+                    earLevel: earLevel,
+                    speakerChannels: speakerChannels,
+                    speakerX: speakerX,
+                    speakerY: speakerY,
+                    speakerZ: speakerZ,
+                  );
+                  
                   final routingNotifier = ref.read(outputRoutingProvider.notifier);
                   final currentRouting = ref.read(outputRoutingProvider);
-
-                  for (final node in nodes) {
-                    final dist = distances[node.id]!;
-                    final delayMs = ((maxDist - dist) / 343.0) * 1000.0;
-                    double gainDb = 0.0;
-                    if (dist > 0.1) {
-                      gainDb = 20.0 * (math.log(dist / maxDist) / math.ln10);
-                    }
-
-                    final idx = currentRouting.indexWhere((ch) => ch.id == (node.channel + 1));
-                    final chModel = idx != -1 ? currentRouting[idx] : OutputChannelModel(id: node.channel + 1, name: 'Speaker ${node.channel + 1}');
-
+                  
+                  for (final res in results) {
+                    final chId = res.channel.toInt() + 1;
+                    final idx = currentRouting.indexWhere((ch) => ch.id == chId);
+                    final chModel = idx != -1 ? currentRouting[idx] : OutputChannelModel(id: chId, name: 'Speaker $chId');
+                    
                     routingNotifier.updateChannel(
                       chModel.copyWith(
-                        delayMs: delayMs.clamp(0.0, 100.0),
-                        gainDb: gainDb.clamp(-60.0, 12.0),
+                        delayMs: res.delayMs.clamp(0.0, 500.0),
+                        gainDb: res.gainDb.clamp(-60.0, 12.0),
                       )
                     );
                   }
                   
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('✅ 3D Calibration 적용 완료! Output Routing에서 결과를 확인하세요.')),
+                      const SnackBar(content: Text('3D Calibration 적용 완료! Output Routing에서 결과를 확인하세요.')),
                     );
                   }
                 },
-                child: const Text('🎯 Apply 3D Calibration'),
+                child: const Text('Apply 3D Calibration'),
               ),
               const SizedBox(width: 8),
               ElevatedButton(
@@ -1109,7 +1105,7 @@ oscWhitelist: config.oscWhitelist,
                     );
                   }
                 },
-                child: const Text('🎛 Output Routing', style: TextStyle(color: Colors.white)),
+                child: const Text('Output Routing', style: TextStyle(color: Colors.white)),
               ),
               const SizedBox(width: 8),
               IconButton(
@@ -1124,17 +1120,15 @@ oscWhitelist: config.oscWhitelist,
                   );
                 },
               ),
-            ],
-          ),
-          Consumer(
-            builder: (context, ref, child) {
-              final config = ref.watch(configProvider);
-              final engineState = ref.watch(engineStateProvider);
+              const SizedBox(width: 8),
+              Consumer(
+                builder: (context, ref, child) {
+                  final config = ref.watch(configProvider);
+                  final engineState = ref.watch(engineStateProvider);
 
-              return Wrap(
-                crossAxisAlignment: WrapCrossAlignment.center,
-                spacing: 8,
-                children: [
+                  return Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
                   if (engineState.duckingActive)
                     Container(
                       margin: const EdgeInsets.only(right: 4),
@@ -1148,7 +1142,7 @@ oscWhitelist: config.oscWhitelist,
                         border: Border.all(color: AppColors.accentOrange),
                       ),
                       child: const Text(
-                        '🦆 스마트 더킹 작동중',
+                        '스마트 더킹 작동중',
                         style: TextStyle(
                           color: AppColors.accentOrange,
                           fontSize: 12,
@@ -1192,9 +1186,11 @@ oscWhitelist: config.oscWhitelist,
             },
           ),
         ],
-        ),
-      ),
-    );
+      ), // Row
+      ), // SingleChildScrollView
+      ], // Column children
+      ), // Column
+    ); // Container
   }
 
   Widget _buildRoomPanels(BuildContext context) {
