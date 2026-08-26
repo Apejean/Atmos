@@ -3037,7 +3037,7 @@ class _HeatmapPainter extends CustomPainter {
     if (speakers.isEmpty) return;
 
     for (var spk in speakers) {
-      final center = Offset(spk.positionX * scale, spk.positionY * scale);
+      final center = Offset(spk.x * scale, spk.y * scale);
       
       // Calculate radius based on Z-height and tilt.
       // A higher speaker or tilted up speaker throws sound further.
