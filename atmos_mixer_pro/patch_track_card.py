@@ -1,112 +1,13 @@
-import 'dart:async';
-import 'dart:math' as math;
-import 'package:flutter/material.dart';
-import 'package:atmos_mixer_pro/core/theme/colors.dart';
-import 'package:atmos_mixer_pro/src/rust/common/config.dart';
+import re
 
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:atmos_mixer_pro/core/state/global_state.dart';
-import 'package:atmos_mixer_pro/src/rust/api/simple.dart' as rust_api;
-import 'package:atmos_mixer_pro/core/utils/channel_dropdown_helper.dart';
-import 'package:atmos_mixer_pro/features/dashboard/widgets/trajectory_settings_modal.dart';
+with open('lib/features/dashboard/widgets/track_card.dart', 'r') as f:
+    content = f.read()
 
-class TrackCard extends ConsumerStatefulWidget {
-  final TrackConfig track;
-  final Color accentColor;
-  final VoidChannel? onPlay;
-  final VoidChannel? onStop;
-  final VoidChannel? onDelete;
-  final ValueChanged<double>? onVolumeChanged;
-  final ValueChanged<double>? onVolumeChangeEnd;
-  final ValueChanged<bool>? onLoopChanged;
-  final ValueChanged<bool>? onStreamChanged;
-  final ValueChanged<String>? onNameChanged;
-  final void Function(int channel, bool isStereo)? onOutputChanged;
+# We want to replace the `build` method
+start_idx = content.find('  Widget build(BuildContext context) {')
+end_idx = content.find('typedef VoidChannel = void Function();')
 
-  const TrackCard({
-    super.key,
-    required this.track,
-    required this.accentColor,
-    this.onPlay,
-    this.onStop,
-    this.onDelete,
-    this.onVolumeChanged,
-    this.onVolumeChangeEnd,
-    this.onLoopChanged,
-    this.onStreamChanged,
-    this.onNameChanged,
-    this.onOutputChanged,
-  });
-
-  @override
-  ConsumerState<TrackCard> createState() => _TrackCardState();
-}
-
-class _TrackCardState extends ConsumerState<TrackCard> {
-  late TextEditingController _nameController;
-  late FocusNode _nameFocusNode;
-  double? _localVolume;
-  Timer? _debounce;
-  int? _fileChannels;
-
-  @override
-  void initState() {
-    super.initState();
-    _nameController = TextEditingController(text: widget.track.name);
-    _nameFocusNode = FocusNode();
-    _nameFocusNode.addListener(() {
-      if (!_nameFocusNode.hasFocus &&
-          _nameController.text != widget.track.name) {
-        widget.onNameChanged?.call(_nameController.text);
-      }
-    });
-    _loadFileChannels(widget.track.filePath);
-  }
-
-  Future<void> _loadFileChannels(String filePath) async {
-    try {
-      final ch = await rust_api.apiGetAudioFileChannels(filePath: filePath);
-      if (mounted) {
-        setState(() {
-          _fileChannels = ch;
-        });
-      }
-    } catch (e) {
-      // Ignore
-    }
-  }
-
-  void _onNameChanged(String value) {
-    if (_debounce?.isActive ?? false) _debounce!.cancel();
-    _debounce = Timer(const Duration(milliseconds: 500), () {
-      if (_nameController.text != widget.track.name) {
-        widget.onNameChanged?.call(_nameController.text);
-      }
-    });
-  }
-
-  @override
-  void didUpdateWidget(TrackCard oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.track.name != widget.track.name &&
-        _nameController.text != widget.track.name) {
-      _nameController.text = widget.track.name;
-    }
-    if (oldWidget.track.filePath != widget.track.filePath) {
-      _loadFileChannels(widget.track.filePath);
-    }
-  }
-
-  @override
-  void dispose() {
-    _debounce?.cancel();
-    _nameFocusNode.dispose();
-    _nameController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
+new_build = """  Widget build(BuildContext context) {
     final bool isObjectMode = widget.track.outputChannel == 4294967295;
 
     final engineState = ref.watch(engineStateProvider);
@@ -341,10 +242,8 @@ class _TrackCardState extends ConsumerState<TrackCard> {
                         ElevatedButton(
                           style: ElevatedButton.styleFrom(backgroundColor: widget.accentColor, padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0)),
                           onPressed: () {
-                            showDialog(
-                              context: context,
-                              builder: (context) => const TrajectorySettingsModal(),
-                            );
+                            // Show TrajectorySettingsModal
+                            import_trajectory_modal(context);
                           },
                           child: const Text('3D Trajectory', style: TextStyle(color: Colors.black, fontSize: 10)),
                         )
@@ -410,6 +309,9 @@ class _TrackCardState extends ConsumerState<TrackCard> {
       ),
     );
   }
-}
+"""
 
-typedef VoidChannel = void Function();
+new_content = content[:start_idx] + new_build + "\n" + content[end_idx:]
+
+with open('lib/features/dashboard/widgets/track_card.dart', 'w') as f:
+    f.write(new_content)

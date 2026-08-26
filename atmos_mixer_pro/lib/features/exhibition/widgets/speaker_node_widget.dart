@@ -214,18 +214,19 @@ class _SpeakerNodeWidgetState extends ConsumerState<SpeakerNodeWidget> {
                         items: List.generate(
                           maxChannels > 0 ? maxChannels : 2,
                           (index) {
-                            String channelName = 'Ch ${index + 1}';
+                            String hwName = 'Out ${index + 1}';
                             if (hwChannelsAsync.value != null && index < hwChannelsAsync.value!.length) {
-                              channelName = hwChannelsAsync.value![index].toString(); // Assuming it might be a String or can be cast to string
+                              hwName = hwChannelsAsync.value![index].toString();
                             } else if (config != null && config.deviceName != null && GlobalDeviceCache.channels.containsKey(config.deviceName)) {
                               if (index < GlobalDeviceCache.channels[config.deviceName]!.length) {
-                                channelName = GlobalDeviceCache.channels[config.deviceName]![index];
+                                hwName = GlobalDeviceCache.channels[config.deviceName]![index];
                               }
                             }
                             
+                            String channelName = 'Ch ${index + 1} ($hwName)';
                             // Truncate if too long to prevent UI breaking
-                            if (channelName.length > 20) {
-                              channelName = '${channelName.substring(0, 17)}...';
+                            if (channelName.length > 25) {
+                              channelName = '${channelName.substring(0, 22)}...';
                             }
 
                             return DropdownMenuItem<int>(

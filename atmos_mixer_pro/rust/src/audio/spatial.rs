@@ -9,19 +9,22 @@ impl DbapMatrix {
 
     /// Calculate gain for each speaker given a source position (x, y, z).
     /// Returns a vector of gains (0.0 to 1.0) matching the number of positions.
-    pub fn calculate_gains(&self, source_x: f32, source_y: f32, source_z: f32, output_gains: &mut [f32]) {
+    pub fn calculate_gains(&self, source_x: f32, source_y: f32, source_z: f32, size: f32, output_gains: &mut [f32]) {
         let mut sum_w_sq = 0.0;
 
         let len = self.positions.len().min(output_gains.len());
+        
+        let r_blur = 0.1;
 
-        // Inverse square law: W_i = 1 / (d_i^2 + 0.0001)
+        // Inverse square law: W_i = 1 / (d_i^2 + (r_blur * (1.0 + size * 3.0))^2)
         for (i, gain) in output_gains.iter_mut().enumerate().take(len) {
             let (spk_x, spk_y, spk_z) = self.positions[i];
             let dx = source_x - spk_x;
             let dy = source_y - spk_y;
             let dz = source_z - spk_z;
             let dist_sq = dx * dx + dy * dy + dz * dz;
-            let w = 1.0 / (dist_sq + 0.0001);
+            let effective_blur = r_blur * (1.0 + size * 3.0);
+            let w = 1.0 / (dist_sq + effective_blur * effective_blur);
             *gain = w;
             sum_w_sq += w * w;
         }
@@ -109,8 +112,8 @@ impl Spatializer3D {
     }
 
     /// Process a single input sample and accumulate into the output slice.
-    pub fn process_sample(&mut self, input: f32, source_pos: (f32, f32, f32), output: &mut [f32]) {
-        self.dbap.calculate_gains(source_pos.0, source_pos.1, source_pos.2, &mut self.temp_gains);
+    pub fn process_sample(&mut self, input: f32, source_pos: (f32, f32, f32), size: f32, output: &mut [f32]) {
+        self.dbap.calculate_gains(source_pos.0, source_pos.1, source_pos.2, size, &mut self.temp_gains);
 
         for (i, dl) in self.delay_lines.iter_mut().enumerate() {
             dl.write_sample(input);

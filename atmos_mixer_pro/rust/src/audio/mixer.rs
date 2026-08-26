@@ -272,7 +272,7 @@ impl AudioMixer {
                         let pos = inst.current_position.as_ref().unwrap_or(&default_pos);
                         let mut sum_sq = 0.0;
                         let mut min_dist = f32::MAX;
-                        let blur_radius = 2.0f32;
+                        let r_blur = 2.0f32;
                         
                         for ch in 0..active_ch {
                             if let Some(c_pos) = &self.channel_positions[ch] {
@@ -281,7 +281,8 @@ impl AudioMixer {
                                 let dz = c_pos.z - pos.z;
                                 let dist = (dx*dx + dy*dy + dz*dz).sqrt();
                                 if dist < min_dist { min_dist = dist; }
-                                let weight = 1.0 / (dist.powi(2) + blur_radius.powi(2));
+                                let effective_blur = r_blur * (1.0 + pos.size * 3.0);
+                                let weight = 1.0 / (dist.powi(2) + effective_blur.powi(2));
                                 inst.spatial_gains_target[ch] = weight;
                                 sum_sq += weight * weight;
                             } else {
@@ -366,7 +367,8 @@ impl AudioMixer {
                                 min_dist = dist;
                             }
                             
-                            let weight = 1.0 / (dist.powi(2) + blur_radius.powi(2));
+                            let effective_blur = blur_radius * (1.0 + traj.current_position.size * 3.0);
+                            let weight = 1.0 / (dist.powi(2) + effective_blur.powi(2));
                             self.temp_spatial_weights[ch] = weight;
                             sum_sq += weight * weight;
                         } else {

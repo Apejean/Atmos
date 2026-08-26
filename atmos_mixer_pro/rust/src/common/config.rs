@@ -14,6 +14,8 @@ pub struct Point3D {
     pub pitch_tilt: f32,
     #[serde(default)]
     pub dispersion_angle: f32,
+    #[serde(default)]
+    pub size: f32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]

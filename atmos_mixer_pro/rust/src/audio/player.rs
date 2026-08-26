@@ -276,8 +276,8 @@ impl SoundInstance {
             last_samples: vec![0.0; stream_channels as usize],
             anti_click_multiplier: 1.0,
             current_position,
-            spatial_gains: vec![0.0; 24],
-            spatial_gains_target: vec![0.0; 24],
+            spatial_gains: vec![0.0; 128],
+            spatial_gains_target: vec![0.0; 128],
         }
     }
 }

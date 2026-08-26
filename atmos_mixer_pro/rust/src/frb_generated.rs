@@ -2515,6 +2515,7 @@ impl SseDecode for crate::common::config::Point3D {
         let mut var_yawRotation = <f32>::sse_decode(deserializer);
         let mut var_pitchTilt = <f32>::sse_decode(deserializer);
         let mut var_dispersionAngle = <f32>::sse_decode(deserializer);
+        let mut var_size = <f32>::sse_decode(deserializer);
         return crate::common::config::Point3D {
             x: var_x,
             y: var_y,
@@ -2522,6 +2523,7 @@ impl SseDecode for crate::common::config::Point3D {
             yaw_rotation: var_yawRotation,
             pitch_tilt: var_pitchTilt,
             dispersion_angle: var_dispersionAngle,
+            size: var_size,
         };
     }
 }
@@ -3643,6 +3645,7 @@ impl SseEncode for crate::common::config::Point3D {
         <f32>::sse_encode(self.yaw_rotation, serializer);
         <f32>::sse_encode(self.pitch_tilt, serializer);
         <f32>::sse_encode(self.dispersion_angle, serializer);
+        <f32>::sse_encode(self.size, serializer);
     }
 }
 

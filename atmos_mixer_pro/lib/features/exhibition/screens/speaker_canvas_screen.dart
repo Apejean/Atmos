@@ -5,6 +5,11 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+
+import 'package:atmos_mixer_pro/features/exhibition/widgets/trajectory_layer_painter.dart';
+import 'package:atmos_mixer_pro/features/exhibition/widgets/trajectory_sidebar_widget.dart';
+import 'package:atmos_mixer_pro/features/exhibition/widgets/trajectory_editor_toolbar.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
 
@@ -23,8 +28,6 @@ import 'package:atmos_mixer_pro/core/theme/colors.dart';
 import 'package:atmos_mixer_pro/core/state/global_state.dart';
 import 'package:atmos_mixer_pro/src/rust/api/simple.dart' as rust_api;
 
-const double _canvasWidth = 2000.0;
-const double _canvasHeight = 2000.0;
 const double _speakerSize = 60.0;
 
 class SpeakerCanvasScreen extends ConsumerStatefulWidget {
@@ -33,6 +36,17 @@ class SpeakerCanvasScreen extends ConsumerStatefulWidget {
   @override
   ConsumerState<SpeakerCanvasScreen> createState() =>
       _SpeakerCanvasScreenState();
+}
+
+
+double _getCanvasWidth(WidgetRef ref) {
+  final bp = ref.read(blueprintProvider);
+  return bp.canvasWidthMeters * bp.scale;
+}
+
+double _getCanvasHeight(WidgetRef ref) {
+  final bp = ref.read(blueprintProvider);
+  return bp.canvasHeightMeters * bp.scale;
 }
 
 class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
@@ -69,8 +83,8 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
     super.initState();
     _transformationController.value = Matrix4.identity()
       ..setTranslationRaw(
-        -_canvasWidth / 2 + 400,
-        -_canvasHeight / 2 + 300,
+        -_getCanvasWidth(ref) / 2 + 400,
+        -_getCanvasHeight(ref) / 2 + 300,
         0.0,
       );
   }
@@ -293,8 +307,8 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
     cx -= (_speakerSize / 2) / effectiveScale;
     cy -= (_speakerSize / 2) / effectiveScale;
 
-    cx = cx.clamp(0.0, _canvasWidth - _speakerSize);
-    cy = cy.clamp(0.0, _canvasHeight - _speakerSize);
+    cx = cx.clamp(0.0, _getCanvasWidth(ref) - _speakerSize);
+    cy = cy.clamp(0.0, _getCanvasHeight(ref) - _speakerSize);
     final nodes = ref.read(speakerLayoutProvider);
     int nextChannel = 0; // 0-indexed internally
     while (nodes.any((n) => n.channel == nextChannel)) {
@@ -308,6 +322,55 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
       channel: nextChannel,
     );
     ref.read(speakerLayoutProvider.notifier).addSpeaker(newNode);
+  }
+
+  
+  void _showWorkspaceSettingsDialog() {
+    final bp = ref.read(blueprintProvider);
+    final wController = TextEditingController(text: bp.canvasWidthMeters.toString());
+    final hController = TextEditingController(text: bp.canvasHeightMeters.toString());
+    
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: AppColors.background,
+          title: const Text('Workspace Dimensions (meters)', style: TextStyle(color: Colors.white)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: wController,
+                style: const TextStyle(color: Colors.white),
+                decoration: const InputDecoration(labelText: 'Width (m)', labelStyle: TextStyle(color: Colors.white70)),
+                keyboardType: TextInputType.number,
+              ),
+              TextField(
+                controller: hController,
+                style: const TextStyle(color: Colors.white),
+                decoration: const InputDecoration(labelText: 'Depth (m)', labelStyle: TextStyle(color: Colors.white70)),
+                keyboardType: TextInputType.number,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel', style: TextStyle(color: Colors.white54)),
+            ),
+            TextButton(
+              onPressed: () {
+                final w = double.tryParse(wController.text) ?? 40.0;
+                final h = double.tryParse(hController.text) ?? 40.0;
+                ref.read(blueprintProvider.notifier).setCanvasDimensions(w, h);
+                Navigator.of(context).pop();
+              },
+              child: const Text('Apply', style: TextStyle(color: AppColors.primaryNeon)),
+            ),
+          ],
+        );
+      }
+    );
   }
 
   void _addRoom() {
@@ -326,8 +389,8 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
     cx -= (300.0 / 2) / effectiveScale;
     cy -= (200.0 / 2) / effectiveScale;
 
-    cx = cx.clamp(0.0, _canvasWidth - 300.0);
-    cy = cy.clamp(0.0, _canvasHeight - 200.0);
+    cx = cx.clamp(0.0, _getCanvasWidth(ref) - 300.0);
+    cy = cy.clamp(0.0, _getCanvasHeight(ref) - 200.0);
 
     final colorValue = AppColors
         .roomAccents[_roomColorIndex % AppColors.roomAccents.length]
@@ -347,8 +410,8 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
 
   void _addTrajectory() {
     final canvasCenter = _getCanvasCenter();
-    double cx = canvasCenter.dx.clamp(100.0, _canvasWidth - 100.0);
-    double cy = canvasCenter.dy.clamp(100.0, _canvasHeight - 100.0);
+    double cx = canvasCenter.dx.clamp(100.0, _getCanvasWidth(ref) - 100.0);
+    double cy = canvasCenter.dy.clamp(100.0, _getCanvasHeight(ref) - 100.0);
 
     final t = TrajectoryModel(
       id: const Uuid().v4(),
@@ -1838,8 +1901,8 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                   constrained: false,
                   child: RepaintBoundary(
                     child: SizedBox(
-                      width: _canvasWidth,
-                      height: _canvasHeight,
+                      width: _getCanvasWidth(ref),
+                      height: _getCanvasHeight(ref),
                       child: Stack(
                         clipBehavior: Clip.none,
                         children: [
@@ -2134,6 +2197,8 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
             } else if (value == 'room') {
               _addRoom();
 
+            } else if (value == 'workspace') {
+              _showWorkspaceSettingsDialog();
             } else if (value == 'measure') {
               setState(() {
                 _isMeasuringScale = true;
@@ -2286,11 +2351,11 @@ class _DraggableSpeakerWidgetState
                     setState(() {
                       _localX = (_localX + globalDx).clamp(
                         0.0,
-                        _canvasWidth - _speakerSize,
+                        _getCanvasWidth(ref) - _speakerSize,
                       );
                       _localY = (_localY + globalDy).clamp(
                         0.0,
-                        _canvasHeight - _speakerSize,
+                        _getCanvasHeight(ref) - _speakerSize,
                       );
                     });
                     ref
@@ -2308,8 +2373,8 @@ class _DraggableSpeakerWidgetState
                         (_localY / ref.read(blueprintProvider).scale).round() *
                         ref.read(blueprintProvider).scale;
                     final updated = widget.node.copyWith(
-                      x: snappedX.clamp(0.0, _canvasWidth - _speakerSize),
-                      y: snappedY.clamp(0.0, _canvasHeight - _speakerSize),
+                      x: snappedX.clamp(0.0, _getCanvasWidth(ref) - _speakerSize),
+                      y: snappedY.clamp(0.0, _getCanvasHeight(ref) - _speakerSize),
                     );
                     setState(() {
                       _localX = updated.x;
@@ -2462,11 +2527,11 @@ class _DraggableWaypointWidgetState
           setState(() {
             _localX = (_localX + details.delta.dx / currentScale).clamp(
               0.0,
-              _canvasWidth,
+              _getCanvasWidth(ref),
             );
             _localY = (_localY + details.delta.dy / currentScale).clamp(
               0.0,
-              _canvasHeight,
+              _getCanvasHeight(ref),
             );
           });
 
@@ -2587,10 +2652,10 @@ class _DraggableTrajectoryPathWidgetState
     }
 
     const padding = 16.0;
-    minX = (minX - padding).clamp(0.0, _canvasWidth);
-    minY = (minY - padding).clamp(0.0, _canvasHeight);
-    maxX = (maxX + padding).clamp(minX + 32, _canvasWidth);
-    maxY = (maxY + padding).clamp(minY + 32, _canvasHeight);
+    minX = (minX - padding).clamp(0.0, _getCanvasWidth(ref));
+    minY = (minY - padding).clamp(0.0, _getCanvasHeight(ref));
+    maxX = (maxX + padding).clamp(minX + 32, _getCanvasWidth(ref));
+    maxY = (maxY + padding).clamp(minY + 32, _getCanvasHeight(ref));
 
     final width = maxX - minX;
     final height = maxY - minY;
@@ -2620,11 +2685,11 @@ class _DraggableTrajectoryPathWidgetState
             final updatedWaypoints = widget.trajectory.waypoints.map((wp) {
               final newX = (wp.position.dx + dxMeter).clamp(
                 0.0,
-                _canvasWidth / ref.read(blueprintProvider).scale,
+                _getCanvasWidth(ref) / ref.read(blueprintProvider).scale,
               );
               final newY = (wp.position.dy + dyMeter).clamp(
                 0.0,
-                _canvasHeight / ref.read(blueprintProvider).scale,
+                _getCanvasHeight(ref) / ref.read(blueprintProvider).scale,
               );
               return Waypoint(position: Offset(newX, newY));
             }).toList();
