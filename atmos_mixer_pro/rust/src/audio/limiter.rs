@@ -13,6 +13,9 @@ pub struct PeakLimiter {
     delay_buffer: Vec<f32>,
     delay_index: usize,
     
+    hold_counter: usize,
+    hold_samples: usize,
+    
     history: [f32; 3],
 
     // R128 Autoguard
@@ -40,7 +43,7 @@ impl PeakLimiter {
         
         // Attack should be very fast for limiter to catch peaks (e.g. 0.001ms)
         let fast_attack_sec = 0.0001; // 0.1ms for immediate clamping
-        let fast_release_sec = 0.015; // 15ms
+        let fast_release_sec = 0.050; // 50ms for low frequency stability
         let slow_attack_sec = attack_ms / 1000.0;
         let slow_release_sec = release_ms / 1000.0; // typically 300~500ms
         
@@ -64,6 +67,9 @@ impl PeakLimiter {
             
             delay_buffer,
             delay_index: 0,
+            
+            hold_counter: 0,
+            hold_samples: delay_samples * 4,
             
             history: [0.0; 3],
 
@@ -103,8 +109,13 @@ impl PeakLimiter {
             // Run envelope follower at 4x rate
             if abs_val > self.fast_envelope {
                 self.fast_envelope = self.fast_attack_coef * (self.fast_envelope - abs_val) + abs_val;
+                self.hold_counter = self.hold_samples;
             } else {
-                self.fast_envelope = self.fast_release_coef * (self.fast_envelope - abs_val) + abs_val;
+                if self.hold_counter > 0 {
+                    self.hold_counter -= 1;
+                } else {
+                    self.fast_envelope = self.fast_release_coef * (self.fast_envelope - abs_val) + abs_val;
+                }
             }
             
             if abs_val > self.slow_envelope {
@@ -118,8 +129,9 @@ impl PeakLimiter {
         self.history[1] = self.history[2];
         self.history[2] = sample;
         
-        // Absolute safety clamp to current max if envelopes are too slow
-        let envelope = self.fast_envelope.max(self.slow_envelope).max(max_abs);
+        // Remove .max(max_abs) to prevent instantaneous waveform tracing which causes LF distortion!
+        // The hold_counter ensures that peaks are caught and held for exactly the duration of the delay line.
+        let envelope = self.fast_envelope.max(self.slow_envelope);
         
         let mut gain = 1.0;
         let knee_lower = self.threshold - self.knee_width / 2.0;
