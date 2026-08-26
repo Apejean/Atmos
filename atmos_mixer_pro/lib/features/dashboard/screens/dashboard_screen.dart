@@ -14,8 +14,6 @@ import 'package:atmos_mixer_pro/features/dashboard/widgets/resampler_status_badg
 import 'package:atmos_mixer_pro/features/dashboard/widgets/rta_spectrum_overlay.dart';
 import 'package:atmos_mixer_pro/features/dashboard/widgets/multitrack_timeline.dart';
 import 'package:atmos_mixer_pro/features/dashboard/widgets/orbit_3d_view_dialog.dart';
-import 'package:atmos_mixer_pro/features/dashboard/widgets/auto_calibration_modal.dart';
-import 'package:atmos_mixer_pro/features/dashboard/widgets/sunrise_sunset_schedule_dialog.dart';
 import 'package:atmos_mixer_pro/features/dashboard/widgets/advanced_physics_panel.dart';
 import 'package:atmos_mixer_pro/features/exhibition/screens/speaker_canvas_screen.dart'
     as atmos_exhibition;
@@ -961,16 +959,6 @@ oscWhitelist: config.oscWhitelist,
                   showDialog(
                     context: context,
                     builder: (context) => const AutoCalibrationModal(),
-                  );
-                },
-              ),
-              IconButton(
-                icon: const Icon(Icons.wb_sunny_outlined, color: Colors.amberAccent),
-                tooltip: 'Sunrise / Sunset Exhibition Scheduler',
-                onPressed: () {
-                  showDialog(
-                    context: context,
-                    builder: (context) => const SunriseSunsetScheduleDialog(),
                   );
                 },
               ),
