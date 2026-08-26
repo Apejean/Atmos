@@ -1628,7 +1628,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                     Text(
                       _isBinauralEnabled
                           ? '🎧 Virtual (Binaural)'
-                          : '🔊 Physical (24ch)',
+                          : '🔊 Physical (Direct Out)',
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
@@ -1663,8 +1663,8 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
               const SizedBox(width: 12),
               IconButton(
                 tooltip: _isPlayingAutomation
-                    ? 'Stop Automation'
-                    : 'Play Automation',
+                    ? 'Stop Preview'
+                    : 'Preview Trajectories',
                 icon: Icon(
                   _isPlayingAutomation ? Icons.stop : Icons.play_arrow,
                   color: _isPlayingAutomation
