@@ -1865,8 +1865,12 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
           ),
           backgroundColor: Colors.black,
         ),
-        body: Stack(
+        body: Column(
           children: [
+            Expanded(
+              flex: 3,
+              child: Stack(
+                children: [
             Positioned.fill(
               child: LayoutBuilder(
           builder: (context, constraints) {
