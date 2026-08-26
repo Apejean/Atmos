@@ -1,7 +1,6 @@
 import 'dart:io';
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:atmos_mixer_pro/features/dashboard/widgets/room_calibration_wizard_modal.dart';
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -771,21 +770,7 @@ oscWhitelist: config.oscWhitelist,
             runSpacing: 8,
             alignment: WrapAlignment.center,
             children: [
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primaryNeon,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                ),
-                onPressed: () {
-                  showDialog(
-                    context: context,
-                    builder: (context) => const RoomCalibrationWizardModal(),
-                  );
-                },
-                child: const Text('Room Calibration', style: TextStyle(color: Colors.black)),
-              ),
+
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primaryBlue,
