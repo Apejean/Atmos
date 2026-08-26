@@ -214,8 +214,17 @@ pub mod dsp_utils {
             self.air_absorption.set_distance(self.current_distance_meters, fs);
 
             let diff = self.target_delay_ms - self.current_delay_ms;
+            
+            // Physical limit for doppler shift: Max object speed ~34.3m/s (Mach 0.1)
+            // 34.3m/s / 343m/s = 0.1 ratio
+            // Max delay change per sample (in ms): 0.1 * 1000ms / fs
+            let max_delta_ms_per_sample = 100.0 / fs;
+
             if diff.abs() > 0.001 {
-                self.current_delay_ms += diff * 0.005; // Smoothing factor
+                let mut delta = diff * 0.005; // Base smoothing factor
+                // Clamp delta to physically plausible speeds to prevent extreme pitch bending
+                delta = delta.clamp(-max_delta_ms_per_sample, max_delta_ms_per_sample);
+                self.current_delay_ms += delta;
             } else {
                 self.current_delay_ms = self.target_delay_ms;
             }
