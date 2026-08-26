@@ -54,7 +54,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> with 
       TransformationController();
   final FocusNode _canvasFocusNode = FocusNode();
   Size _viewportSize = const Size(800, 600);
-  late TabController _tabController;
+  
   String? _inspectorSpeakerId;
 
   static int _roomColorIndex = 0;
@@ -81,10 +81,6 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> with 
 
   @override
   void initState() {
-    _tabController = TabController(length: 3, vsync: this);
-    _tabController.addListener(() {
-      setState(() { _inspectorSpeakerId = null; });
-    });
     super.initState();
     _transformationController.value = Matrix4.identity()
       ..setTranslationRaw(
@@ -1603,7 +1599,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> with 
       builder: (context) {
         return AlertDialog(
           backgroundColor: Color(0xFF1E2128),
-          title: const Text('📏 Room Setup', style: TextStyle(color: Colors.white)),
+          title: const Text('ROOM SETUP', style: TextStyle(color: Colors.white)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -1666,8 +1662,11 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> with 
 
   Widget build(BuildContext context) {
     final blueprint = ref.watch(blueprintProvider);
+    final roomCount = ref.watch(configProvider)?.rooms.length ?? 1;
 
-    return GestureDetector(
+    return DefaultTabController(
+      length: roomCount == 0 ? 1 : roomCount,
+      child: GestureDetector(
       onTap: () {
         _canvasFocusNode.requestFocus();
         if (!_isMeasuringScale) setState(() => _selectedRoomId = null);
@@ -1676,15 +1675,13 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> with 
         backgroundColor: AppColors.background,
         appBar: AppBar(
           bottom: TabBar(
-            controller: _tabController,
+            
             indicatorColor: AppColors.primaryNeon,
             labelColor: AppColors.primaryNeon,
             unselectedLabelColor: Colors.white54,
-            tabs: const [
-              Tab(text: 'Room A: Main Hall'),
-              Tab(text: 'Room B: Lobby'),
-              Tab(text: 'Room C: Atmos Studio'),
-            ],
+            tabs: ref.watch(configProvider)?.rooms.isEmpty ?? true
+              ? [const Tab(text: 'Default Room')]
+              : ref.watch(configProvider)!.rooms.map((r) => Tab(text: r.name)).toList(),
           ),
           title: SingleChildScrollView(
             scrollDirection: Axis.horizontal,
@@ -1796,8 +1793,8 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> with 
                     const SizedBox(width: 6),
                     Text(
                       _isBinauralEnabled
-                          ? '🎧 Virtual (Binaural)'
-                          : '🔊 Physical (Direct Out)',
+                          ? 'Virtual (Binaural)'
+                          : 'Physical (Direct Out)',
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
@@ -1858,7 +1855,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> with 
                       ),
                       const SizedBox(width: 6),
                       Text(
-                        '🌡️ SPL Heatmap',
+                        'SPL HEATMAP',
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.bold,
@@ -1879,7 +1876,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> with 
                   padding: const EdgeInsets.symmetric(horizontal: 12),
                 ),
                 icon: const Icon(Icons.description, size: 16),
-                label: const Text('📄 Export Rigging Report', style: TextStyle(fontSize: 12)),
+                label: const Text('EXPORT RIGGING REPORT', style: TextStyle(fontSize: 12)),
                 onPressed: () {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('Export Rigging Report functionality coming soon.')),
@@ -2431,7 +2428,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> with 
               backgroundColor: Colors.white10,
               foregroundColor: Colors.white,
               icon: const Icon(Icons.square_foot),
-              label: const Text('📏 Room Setup'),
+              label: const Text('ROOM SETUP'),
             ),
             const SizedBox(height: 16),
             PopupMenuButton<String>(
@@ -2510,6 +2507,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> with 
           ), // Row
         ), // Container
       ), // Scaffold
+      ), // DefaultTabController
     ); // GestureDetector
   }
 }
@@ -3300,7 +3298,7 @@ class _SpeakerInspectorPanelState extends ConsumerState<SpeakerInspectorPanel> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                '🔊 Speaker Inspector',
+                'SPEAKER INSPECTOR',
                 style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
               ),
               IconButton(icon: const Icon(Icons.close, color: Colors.white54), onPressed: widget.onClose),
