@@ -1546,7 +1546,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
       child: Scaffold(
         backgroundColor: AppColors.background,
         appBar: AppBar(
-          title: SingleChildScrollView(scrollDirection: Axis.horizontal, child: Row(
+          title: Row(
             children: [
               const Text('Exhibition Canvas'),
               const SizedBox(width: 8),
@@ -1862,7 +1862,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                 tooltip: 'Clear Canvas',
               ),
             ],
-          )),
+          ),
           backgroundColor: Colors.black,
         ),
         body: Stack(
