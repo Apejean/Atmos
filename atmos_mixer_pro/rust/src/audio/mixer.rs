@@ -261,7 +261,7 @@ impl AudioMixer {
                         }
                     }
                     
-                    if inst.output_channel == usize::MAX && inst.current_position.is_some() {
+                    if inst.output_channel == usize::MAX {
                         let active_ch = out_channels.min(self.channel_positions.len());
                         // if inst.spatial_gains.len() != active_ch {
                             // inst.spatial_gains.resize(active_ch, 0.0);
@@ -595,7 +595,7 @@ impl AudioMixer {
                 }
 
                 if has_sample {
-                    if instance.output_channel == usize::MAX && instance.current_position.is_some() {
+                    if instance.output_channel == usize::MAX {
                         // Object Mode
                         let mut sum = 0.0;
                         for val in vals.iter().take(ch_limit) {
