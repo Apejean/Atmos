@@ -121,6 +121,8 @@ impl AudioMixer {
                         let ch_idx = (ch_key - 1) as usize;
                         if ch_idx < channel_dsp.len() {
                             channel_dsp[ch_idx].update_delay_target(setting.delay_ms);
+                            channel_dsp[ch_idx].is_phase_inverted = setting.phase_invert;
+                            channel_dsp[ch_idx].target_gain_db = setting.gain_db;
                             channel_dsp[ch_idx].update_eq_targets(&setting.eq_bands.clone(), sample_rate as f32);
                             channel_positions[ch_idx] = setting.position.clone();
                         }
@@ -132,11 +134,15 @@ impl AudioMixer {
                         let ch_idx2 = ch_idx1 + 1;
                         if ch_idx1 < channel_dsp.len() {
                             channel_dsp[ch_idx1].update_delay_target(setting.delay_ms);
+                            channel_dsp[ch_idx1].is_phase_inverted = setting.phase_invert;
+                            channel_dsp[ch_idx1].target_gain_db = setting.gain_db;
                             channel_dsp[ch_idx1].update_eq_targets(&setting.eq_bands.clone(), sample_rate as f32);
                             channel_positions[ch_idx1] = setting.position.clone();
                         }
                         if ch_idx2 < channel_dsp.len() {
                             channel_dsp[ch_idx2].update_delay_target(setting.delay_ms);
+                            channel_dsp[ch_idx2].is_phase_inverted = setting.phase_invert;
+                            channel_dsp[ch_idx2].target_gain_db = setting.gain_db;
                             channel_dsp[ch_idx2].update_eq_targets(&setting.eq_bands.clone(), sample_rate as f32);
                             channel_positions[ch_idx2] = setting.position.clone();
                         }
@@ -149,6 +155,8 @@ impl AudioMixer {
                             let ch_idx = ch_idx_base + i;
                             if ch_idx < channel_dsp.len() {
                                 channel_dsp[ch_idx].update_delay_target(setting.delay_ms);
+                                channel_dsp[ch_idx].is_phase_inverted = setting.phase_invert;
+                                channel_dsp[ch_idx].target_gain_db = setting.gain_db;
                                 channel_dsp[ch_idx].update_eq_targets(&setting.eq_bands.clone(), sample_rate as f32);
                                 channel_positions[ch_idx] = setting.position.clone();
                             }
@@ -834,6 +842,8 @@ impl AudioMixer {
                             let ch_idx = ch_idx_base + i;
                             if ch_idx < max_ch {
                                 base_delays[ch_idx] = setting.delay_ms;
+                                self.channel_dsp[ch_idx].is_phase_inverted = setting.phase_invert;
+                                self.channel_dsp[ch_idx].target_gain_db = setting.gain_db;
                                 base_eqs[ch_idx].clone_from(&setting.eq_bands);
                             }
                         }

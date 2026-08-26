@@ -10,6 +10,8 @@ pub struct ChannelRoutingConfig {
     pub is_phase_inverted: bool,
     pub delay_ms: f32,
     pub gain_db: f32,
+    #[serde(default)]
+    pub eq_bands: Vec<crate::common::config::EqBand>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]

@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:atmos_mixer_pro/src/rust/api/simple.dart' as rust_api;
+import 'package:atmos_mixer_pro/src/rust/common/config.dart' as rust_config;
 
 class OutputChannelModel {
   final int id; // 1 to 128
@@ -11,6 +12,7 @@ class OutputChannelModel {
   final bool isPhaseInverted;
   final double delayMs;
   final double gainDb;
+  final List<rust_config.EqBand> eqBands;
 
   OutputChannelModel({
     required this.id,
@@ -20,6 +22,7 @@ class OutputChannelModel {
     this.isPhaseInverted = false,
     this.delayMs = 0.0,
     this.gainDb = 0.0,
+    this.eqBands = const [],
   });
 
   Map<String, dynamic> toJson() {
@@ -31,6 +34,13 @@ class OutputChannelModel {
       'isPhaseInverted': isPhaseInverted,
       'delayMs': delayMs,
       'gainDb': gainDb,
+      'eqBands': eqBands.map((e) => {
+        'enabled': e.enabled,
+        'freq': e.freq,
+        'gain': e.gain,
+        'qFactor': e.qFactor,
+        'filterType': e.filterType.name,
+      }).toList(),
     };
   }
 
@@ -42,6 +52,7 @@ class OutputChannelModel {
     bool? isPhaseInverted,
     double? delayMs,
     double? gainDb,
+    List<rust_config.EqBand>? eqBands,
   }) {
     return OutputChannelModel(
       id: id ?? this.id,
@@ -51,6 +62,7 @@ class OutputChannelModel {
       isPhaseInverted: isPhaseInverted ?? this.isPhaseInverted,
       delayMs: delayMs ?? this.delayMs,
       gainDb: gainDb ?? this.gainDb,
+      eqBands: eqBands ?? this.eqBands,
     );
   }
 }
@@ -62,12 +74,24 @@ class OutputRoutingNotifier extends Notifier<List<OutputChannelModel>> {
       return OutputChannelModel(
         id: index + 1,
         name: 'Speaker ${index + 1}',
+        eqBands: List.generate(8, (i) => rust_config.EqBand(
+          enabled: false,
+          freq: 1000.0,
+          gain: 0.0,
+          qFactor: 0.707,
+          filterType: rust_config.EqType.bell,
+        )),
       );
     });
   }
 
   void updateChannel(OutputChannelModel updated) {
     state = state.map((ch) => ch.id == updated.id ? updated : ch).toList();
+    _syncToBackend();
+  }
+  
+  void importCalibration(List<OutputChannelModel> imported) {
+    state = imported;
     _syncToBackend();
   }
 
