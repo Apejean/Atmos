@@ -73,13 +73,6 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
   Offset? _measureEnd;
   bool _isSidebarOpen = false;
 
-
-  bool _isMeasuringScale = false;
-  Offset? _measureStart;
-  Offset? _measureEnd;
-
-  bool _isSidebarOpen = false;
-
   bool _isBinauralEnabled = false;
   double _reverbMix = 0.3;
   double _reverbDecay = 1.5;
