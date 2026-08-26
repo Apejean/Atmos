@@ -1885,7 +1885,8 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
 
           ],
         ),
-        ); // GestureDetector
+      ),
+    );
   }
 }
 
