@@ -235,7 +235,17 @@ class _RoomCalibrationWizardModalState extends ConsumerState<RoomCalibrationWiza
 
     return AlertDialog(
       backgroundColor: AppColors.background,
-      title: const Text('Room Auto Calibration', style: TextStyle(color: Colors.white)),
+      title: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          const Text('Room Auto Calibration', style: TextStyle(color: Colors.white)),
+          IconButton(
+            icon: const Icon(Icons.close, color: Colors.white54),
+            onPressed: () => Navigator.of(context).pop(),
+            splashRadius: 20,
+          ),
+        ],
+      ),
       content: SizedBox(
         width: 600,
         height: 400,
