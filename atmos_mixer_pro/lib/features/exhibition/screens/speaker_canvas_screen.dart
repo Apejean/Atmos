@@ -1546,8 +1546,11 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
       child: Scaffold(
         backgroundColor: AppColors.background,
         appBar: AppBar(
-          title: const Text('Exhibition Canvas'),
-          actions: [
+          title: Row(
+            children: [
+              const Text('Exhibition Canvas'),
+              const SizedBox(width: 8),
+              Expanded(child: SingleChildScrollView(scrollDirection: Axis.horizontal, child: Row(mainAxisSize: MainAxisSize.max, mainAxisAlignment: MainAxisAlignment.end, children: [
               Consumer(
                 builder: (context, ref, child) {
                   final isMasterMuted = ref.watch(
@@ -1681,8 +1684,8 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                 icon: const Icon(Icons.image, color: Colors.white70),
                 onPressed: _pickBlueprint,
               ),
-              const SizedBox(width: 16),
-          ],
+              const SizedBox(width: 8),
+            ],))),
               IconButton(
                 tooltip: 'Set Scale',
                 icon: const Icon(Icons.aspect_ratio, color: Colors.white70),
@@ -1859,6 +1862,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                 tooltip: 'Clear Canvas',
               ),
             ],
+          ),
           backgroundColor: Colors.black,
         ),
         body: Stack(
