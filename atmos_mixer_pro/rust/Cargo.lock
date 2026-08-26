@@ -1346,7 +1346,7 @@ dependencies = [
 
 [[package]]
 name = "rust_lib_atmos_mixer_pro"
-version = "1.0.93"
+version = "1.1.1"
 dependencies = [
  "anyhow",
  "chrono",

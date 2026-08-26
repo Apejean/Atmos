@@ -211,6 +211,7 @@ pub struct SoundInstance {
     pub track_id_str: String,
     pub data: Option<Arc<SoundData>>,
     pub stream_receiver: Option<rtrb::Consumer<Vec<f32>>>,
+    pub streamer: Option<crate::audio::streaming::DiskStreamer>,
     pub stream_buffer: Vec<f32>,
     pub stream_sample_rate: u32,
     pub stream_channels: u16,
@@ -238,7 +239,7 @@ impl SoundInstance {
         room_id: u32,
         track_id_str: String,
         data: Option<Arc<SoundData>>,
-        stream_receiver: Option<rtrb::Consumer<Vec<f32>>>,
+        mut streamer: Option<crate::audio::streaming::DiskStreamer>,
         stream_sample_rate: u32,
         stream_channels: u16,
         is_loop: bool,
@@ -250,6 +251,8 @@ impl SoundInstance {
         let mut smoother = crate::audio::dsp::dsp_utils::GainSmoother::new(1.0, 0.01);
         smoother.set_target(volume);
 
+        let stream_receiver = streamer.as_mut().and_then(|s| s.chunk_receiver.take());
+
         Self {
             instance_id,
             id,
@@ -257,6 +260,7 @@ impl SoundInstance {
             track_id_str,
             data,
             stream_receiver,
+            streamer,
             stream_buffer: Vec::with_capacity(131072),
             stream_sample_rate,
             stream_channels,

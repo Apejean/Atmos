@@ -248,7 +248,9 @@ pub fn api_play_track(room_id: String, track_id: String) -> Result<(), AtmosErro
                     let target_sr = GLOBAL_STATE.engine_sample_rate.load(std::sync::atomic::Ordering::Relaxed);
                     // Start DiskStreamer for BGM or streaming tracks
                     match crate::audio::streaming::DiskStreamer::new(track.file_path.clone(), track.is_loop, target_sr) {
-                        Ok(mut streamer) => {
+                        Ok(streamer) => {
+                            let sample_rate = streamer.sample_rate;
+                            let channels = streamer.channels;
                             GLOBAL_STATE.add_playing_track(instance_id, track_id.clone());
                             GLOBAL_STATE
                                 .command_sender
@@ -258,11 +260,12 @@ pub fn api_play_track(room_id: String, track_id: String) -> Result<(), AtmosErro
                                     track_id: hash_id(&track_id),
                                     track_id_str: track_id.clone(),
                                     data: None,
-                                    stream_receiver: streamer.chunk_receiver.take(),
-                                    stream_sample_rate: streamer.sample_rate,
-                                    stream_channels: streamer.channels,
+                                    streamer: Some(streamer),
+                                    stream_sample_rate: sample_rate,
+                                    stream_channels: channels,
                                     is_loop: track.is_loop,
                                     volume: track.volume,
+                                    room_volume: room.volume,
                                     output_channel: track.output_channel as usize,
                                     output_stereo: track.output_stereo,
                                     current_position: None,
@@ -305,11 +308,12 @@ pub fn api_play_track(room_id: String, track_id: String) -> Result<(), AtmosErro
                                 track_id: hash_id(&track_id),
                                 track_id_str: track_id.clone(),
                                 data: Some(data.clone()),
-                                stream_receiver: None,
+                                streamer: None,
                                 stream_sample_rate: data.sample_rate,
                                 stream_channels: data.channels,
                                 is_loop: false,
                                 volume: track.volume,
+                                room_volume: room.volume,
                                 output_channel: track.output_channel as usize,
                                 output_stereo: track.output_stereo,
                                 current_position: None,
@@ -331,11 +335,12 @@ pub fn api_play_track(room_id: String, track_id: String) -> Result<(), AtmosErro
                                 track_id: hash_id(&track_id),
                                 track_id_str: track_id.clone(),
                                 data: Some(data.clone()),
-                                stream_receiver: None,
+                                streamer: None,
                                 stream_sample_rate: data.sample_rate,
                                 stream_channels: data.channels,
                                 is_loop: false,
                                 volume: track.volume,
+                                room_volume: room.volume,
                                 output_channel: track.output_channel as usize,
                                 output_stereo: track.output_stereo,
                                 current_position: None,
@@ -371,11 +376,12 @@ pub fn api_play_track(room_id: String, track_id: String) -> Result<(), AtmosErro
                                         track_id: hash_id(&track_id),
                                         track_id_str: track_id.clone(),
                                         data: Some(arc_data.clone()),
-                                        stream_receiver: None,
+                                        streamer: None,
                                         stream_sample_rate: arc_data.sample_rate,
                                         stream_channels: arc_data.channels,
                                         is_loop: false,
                                         volume: track.volume,
+                                        room_volume: room.volume,
                                         output_channel: track.output_channel as usize,
                                         output_stereo: track.output_stereo,
                                         current_position: None,

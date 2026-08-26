@@ -402,11 +402,12 @@ impl AudioEngine {
                     track_id,
                     track_id_str,
                     data,
-                    stream_receiver,
+                    streamer,
                     stream_sample_rate,
                     stream_channels,
                     is_loop,
                     volume,
+                    room_volume,
                     output_channel,
                     output_stereo,
                     current_position,
@@ -417,7 +418,7 @@ impl AudioEngine {
                         room_id,
                         track_id_str,
                         data,
-                        stream_receiver,
+                        streamer,
                         stream_sample_rate,
                         stream_channels,
                         is_loop,
@@ -426,11 +427,20 @@ impl AudioEngine {
                         output_stereo,
                         current_position,
                     );
-                    // instance.volume is already set in new
-                    if let Some(slot) = mixer.instances.iter_mut().find(|s| s.is_none()) {
-                        if let Some(old) = slot.replace(instance) {
-                            let _ = mixer.gc_sender.try_send(old);
+                    
+                    let mut found_idx = None;
+                    for (i, slot) in mixer.instances.iter_mut().enumerate() {
+                        if slot.is_none() {
+                            found_idx = Some(i);
+                            if let Some(old) = slot.replace(instance) {
+                                let _ = mixer.gc_sender.try_send(old);
+                            }
+                            break;
                         }
+                    }
+                    if let Some(i) = found_idx {
+                        mixer.temp_room_vols_target[i] = room_volume;
+                        mixer.temp_room_vols[i] = room_volume;
                     } else {
                         // Mixer object pool full
                     }
