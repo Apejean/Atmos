@@ -2179,15 +2179,15 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                 bottom: 16,
                 child: Consumer(
                   builder: (context, ref, child) {
-                    final blueprint = ref.watch(blueprintProvider);
-                    if (blueprint.rooms.isEmpty) return const SizedBox.shrink();
+                    final rooms = ref.watch(roomZoneProvider);
+                    if (rooms.isEmpty) return const SizedBox.shrink();
                     final room = _selectedRoomId != null 
-                        ? blueprint.rooms.firstWhere((r) => r.id == _selectedRoomId, orElse: () => blueprint.rooms.first)
-                        : blueprint.rooms.first;
+                        ? rooms.firstWhere((r) => r.id == _selectedRoomId, orElse: () => rooms.first)
+                        : rooms.first;
                     return RoomSetupWindow(
                       room: room,
                       onApply: (updatedRoom) {
-                        ref.read(blueprintProvider.notifier).updateRoom(updatedRoom);
+                        ref.read(roomZoneProvider.notifier).updateRoom(updatedRoom);
                       },
                       onClose: () => setState(() => _isRoomSetupOpen = false),
                     );
