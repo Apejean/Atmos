@@ -135,7 +135,7 @@ void main() {
         themeStartOscAddress: '/atmos/start',
         systemResetOscAddress: '/atmos/reset',
         monoConfigs: {
-          1: ChannelSetting(enabled: true, customName: 'Mic1', delayMs: 2.5, eqBands: []),
+          1: ChannelSetting(enabled: true, customName: 'Mic1', delayMs: 2.5, eqBands: [], gainDb: 0.0, phaseInvert: false),
         },
         stereoConfigs: {},
         multiConfigs: {},

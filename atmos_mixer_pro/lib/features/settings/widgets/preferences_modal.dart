@@ -1985,12 +1985,7 @@ class _OutputConfigDialogState extends ConsumerState<OutputConfigDialog> {
           InkWell(
             onTap: () {
               onChanged(
-                ChannelSetting(
-                  enabled: !setting.enabled,
-                  customName: setting.customName,
-                  delayMs: setting.delayMs,
-                  eqBands: setting.eqBands,
-                ),
+                ChannelSetting(enabled: !setting.enabled, customName: setting.customName, delayMs: setting.delayMs, eqBands: setting.eqBands, gainDb: 0.0, phaseInvert: false),
               );
             },
             child: Container(
@@ -2036,12 +2031,7 @@ class _OutputConfigDialogState extends ConsumerState<OutputConfigDialog> {
                 ),
                 onChanged: (val) {
                   onChanged(
-                    ChannelSetting(
-                      enabled: setting.enabled,
-                      customName: val,
-                      delayMs: setting.delayMs,
-                      eqBands: setting.eqBands,
-                    ),
+                    ChannelSetting(enabled: setting.enabled, customName: val, delayMs: setting.delayMs, eqBands: setting.eqBands, gainDb: 0.0, phaseInvert: false),
                   );
                 },
               ),
@@ -2122,12 +2112,7 @@ class _OutputConfigDialogState extends ConsumerState<OutputConfigDialog> {
                               final key = displayCh1;
                               final setting =
                                   monoConfigs[key] ??
-                                  const ChannelSetting(
-                                    enabled: false,
-                                    customName: '',
-                                    delayMs: 0.0,
-                                    eqBands: [],
-                                  );
+                                  const ChannelSetting(enabled: false, customName: '', delayMs: 0.0, eqBands: [], gainDb: 0.0, phaseInvert: false);
 
                               return _buildChannelRow('$displayCh1', setting, (
                                 newSetting,
@@ -2173,12 +2158,7 @@ class _OutputConfigDialogState extends ConsumerState<OutputConfigDialog> {
                               final key = displayCh1;
                               final setting =
                                   stereoConfigs[key] ??
-                                  const ChannelSetting(
-                                    enabled: false,
-                                    customName: '',
-                                    delayMs: 0.0,
-                                    eqBands: [],
-                                  );
+                                  const ChannelSetting(enabled: false, customName: '', delayMs: 0.0, eqBands: [], gainDb: 0.0, phaseInvert: false);
 
                               return _buildChannelRow(
                                 '$displayCh1/$displayCh2',
@@ -2222,12 +2202,7 @@ class _OutputConfigDialogState extends ConsumerState<OutputConfigDialog> {
                               final key = displayCh1;
                               final setting =
                                   multiConfigs[key] ??
-                                  const ChannelSetting(
-                                    enabled: false,
-                                    customName: '',
-                                    delayMs: 0.0,
-                                    eqBands: [],
-                                  );
+                                  const ChannelSetting(enabled: false, customName: '', delayMs: 0.0, eqBands: [], gainDb: 0.0, phaseInvert: false);
 
                               return _buildChannelRow(
                                 'Ch $displayCh1 시작',

@@ -1707,7 +1707,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> with 
                     icon: const Icon(Icons.picture_as_pdf, size: 16),
                     label: const Text('EXPORT PDF REPORT'),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.surfaceLighter,
+                      backgroundColor: AppColors.surface,
                       foregroundColor: AppColors.primaryNeon,
                     ),
                   ),
