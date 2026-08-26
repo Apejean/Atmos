@@ -18,7 +18,7 @@ class _RoomCalibrationWizardModalState extends ConsumerState<RoomCalibrationWiza
   
   // Step 1 State
   String? _selectedRoomId;
-  String _selectedMic = 'System Default Microphone';
+  int _selectedMicChannelChannel = 1;
   
   // Step 2 State
   double _measureProgress = 0.0;
@@ -93,15 +93,15 @@ class _RoomCalibrationWizardModalState extends ConsumerState<RoomCalibrationWiza
           onChanged: (v) => setState(() => _selectedRoomId = v),
         ),
         const SizedBox(height: 24),
-        const Text('Measurement Microphone', style: TextStyle(color: Colors.white70)),
+        const Text('측정 마이크 입력 채널 (Input Channel)', style: TextStyle(color: Colors.white70)),
         const SizedBox(height: 8),
         DropdownButton<String>(
           isExpanded: true,
-          value: _selectedMic,
+          value: _selectedMicChannelChannel,
           dropdownColor: AppColors.cardSurfaceSolid,
           style: const TextStyle(color: Colors.white),
-          items: ['System Default Microphone', 'UMIK-1 (USB)', 'Earthworks M30'].map((m) => DropdownMenuItem(value: m, child: Text(m))).toList(),
-          onChanged: (v) => setState(() => _selectedMic = v!),
+          items: List.generate(32, (index) => index + 1).map((ch) => DropdownMenuItem(value: ch, child: Text('Input Ch $ch'))).toList(),
+          onChanged: (v) => setState(() => _selectedMicChannelChannel = v!),
         ),
       ],
     );
