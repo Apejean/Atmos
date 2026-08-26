@@ -21,6 +21,7 @@ import 'package:atmos_mixer_pro/features/exhibition/screens/speaker_canvas_scree
     as atmos_exhibition;
 import 'package:atmos_mixer_pro/features/dashboard/widgets/safety_alert_border.dart';
 import 'package:atmos_mixer_pro/src/rust/api/simple.dart' as rust_api;
+import 'package:atmos_mixer_pro/src/rust/api/calibration.dart';
 import 'package:atmos_mixer_pro/src/rust/common/config.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:window_manager/window_manager.dart';
@@ -855,6 +856,7 @@ oscWhitelist: config.oscWhitelist,
                   style: TextStyle(color: Colors.white),
                 ),
               ),
+              const SizedBox(width: 12),
               ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.danger,
@@ -883,6 +885,7 @@ oscWhitelist: config.oscWhitelist,
                   }
                 },
               ),
+              const SizedBox(width: 12),
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.danger,
@@ -904,6 +907,7 @@ oscWhitelist: config.oscWhitelist,
                   style: TextStyle(color: Colors.white),
                 ),
               ),
+              const SizedBox(width: 12),
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.darkGrey,
@@ -932,6 +936,7 @@ oscWhitelist: config.oscWhitelist,
                   style: TextStyle(color: Colors.white),
                 ),
               ),
+              const SizedBox(width: 12),
               IconButton(
                 icon: const Icon(Icons.graphic_eq, color: AppColors.primaryNeon),
                 tooltip: '24ch RTA Spectrum & Multitrack Timeline Analyzer',
@@ -1068,27 +1073,26 @@ oscWhitelist: config.oscWhitelist,
                   final roomDepth = bp.canvasHeightMeters;
                   final earLevel = bp.listeningHeightMeters;
                   
-                  final speakerChannels = frb.Uint64List(nodes.length);
-                  final speakerX = List<double>.filled(nodes.length, 0.0);
-                  final speakerY = List<double>.filled(nodes.length, 0.0);
-                  final speakerZ = List<double>.filled(nodes.length, 0.0);
+                  final specs = <SpeakerPhysicalSpec>[];
                   
                   for (var i = 0; i < nodes.length; i++) {
                     final node = nodes[i];
-                    speakerChannels[i] = BigInt.from(node.channel);
-                    speakerX[i] = node.x / bp.scale;
-                    speakerY[i] = node.y / bp.scale;
-                    speakerZ[i] = node.heightZ;
+                    specs.add(SpeakerPhysicalSpec(
+                      channel: node.channel,
+                      x: node.x / bp.scale,
+                      y: node.y / bp.scale,
+                      z: node.heightZ,
+                      internalLatencyMs: node.dspLatencyMs,
+                      lowCutHz: node.lowCutHz,
+                      boundaryType: node.boundaryType,
+                    ));
                   }
                   
                   final results = rust_api.apiCalculate3DCalibration(
                     roomWidth: roomWidth,
                     roomDepth: roomDepth,
                     earLevel: earLevel,
-                    speakerChannels: speakerChannels,
-                    speakerX: speakerX,
-                    speakerY: speakerY,
-                    speakerZ: speakerZ,
+                    specs: specs,
                   );
                   
                   final routingNotifier = ref.read(outputRoutingProvider.notifier);
@@ -1099,10 +1103,17 @@ oscWhitelist: config.oscWhitelist,
                     final idx = currentRouting.indexWhere((ch) => ch.id == chId);
                     final chModel = idx != -1 ? currentRouting[idx] : OutputChannelModel(id: chId, name: 'Speaker $chId');
                     
+                    final newEqs = List<EqBand>.from(chModel.eqBands);
+                    if (res.eqBands.isNotEmpty) {
+                      newEqs[0] = res.eqBands[0]; // Override Band 1 with Boundary EQ
+                    }
+                    
                     routingNotifier.updateChannel(
                       chModel.copyWith(
                         delayMs: res.delayMs.clamp(0.0, 500.0),
                         gainDb: res.gainDb.clamp(-60.0, 12.0),
+                        isPhaseInverted: res.phaseInvert,
+                        eqBands: newEqs,
                       )
                     );
                   }

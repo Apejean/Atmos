@@ -316,18 +316,12 @@ List<CalibrationResult> apiCalculate3DCalibration({
   required double roomWidth,
   required double roomDepth,
   required double earLevel,
-  required Uint64List speakerChannels,
-  required List<double> speakerX,
-  required List<double> speakerY,
-  required List<double> speakerZ,
+  required List<SpeakerPhysicalSpec> specs,
 }) => RustLib.instance.api.crateApiSimpleApiCalculate3DCalibration(
   roomWidth: roomWidth,
   roomDepth: roomDepth,
   earLevel: earLevel,
-  speakerChannels: speakerChannels,
-  speakerX: speakerX,
-  speakerY: speakerY,
-  speakerZ: speakerZ,
+  specs: specs,
 );
 
 class ChannelTuningParams {

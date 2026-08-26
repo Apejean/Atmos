@@ -114,16 +114,10 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<Point3D> dco_decode_list_point_3_d(dynamic raw);
 
   @protected
-  List<double> dco_decode_list_prim_f_32_loose(dynamic raw);
-
-  @protected
   Float32List dco_decode_list_prim_f_32_strict(dynamic raw);
 
   @protected
   Uint8List dco_decode_list_prim_u_8_strict(dynamic raw);
-
-  @protected
-  Uint64List dco_decode_list_prim_usize_strict(dynamic raw);
 
   @protected
   List<(String, Point3D)> dco_decode_list_record_string_point_3_d(dynamic raw);
@@ -134,13 +128,13 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
-  List<(BigInt, Point3D)> dco_decode_list_record_usize_point_3_d(dynamic raw);
-
-  @protected
   List<RoomConfig> dco_decode_list_room_config(dynamic raw);
 
   @protected
   List<RoomZone> dco_decode_list_room_zone(dynamic raw);
+
+  @protected
+  List<SpeakerPhysicalSpec> dco_decode_list_speaker_physical_spec(dynamic raw);
 
   @protected
   List<TrackConfig> dco_decode_list_track_config(dynamic raw);
@@ -170,9 +164,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   (int, ChannelSetting) dco_decode_record_u_32_channel_setting(dynamic raw);
 
   @protected
-  (BigInt, Point3D) dco_decode_record_usize_point_3_d(dynamic raw);
-
-  @protected
   RoomConfig dco_decode_room_config(dynamic raw);
 
   @protected
@@ -180,6 +171,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   SpatialConfigPayload dco_decode_spatial_config_payload(dynamic raw);
+
+  @protected
+  SpeakerPhysicalSpec dco_decode_speaker_physical_spec(dynamic raw);
 
   @protected
   TrackConfig dco_decode_track_config(dynamic raw);
@@ -311,16 +305,10 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<Point3D> sse_decode_list_point_3_d(SseDeserializer deserializer);
 
   @protected
-  List<double> sse_decode_list_prim_f_32_loose(SseDeserializer deserializer);
-
-  @protected
   Float32List sse_decode_list_prim_f_32_strict(SseDeserializer deserializer);
 
   @protected
   Uint8List sse_decode_list_prim_u_8_strict(SseDeserializer deserializer);
-
-  @protected
-  Uint64List sse_decode_list_prim_usize_strict(SseDeserializer deserializer);
 
   @protected
   List<(String, Point3D)> sse_decode_list_record_string_point_3_d(
@@ -333,15 +321,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
-  List<(BigInt, Point3D)> sse_decode_list_record_usize_point_3_d(
-    SseDeserializer deserializer,
-  );
-
-  @protected
   List<RoomConfig> sse_decode_list_room_config(SseDeserializer deserializer);
 
   @protected
   List<RoomZone> sse_decode_list_room_zone(SseDeserializer deserializer);
+
+  @protected
+  List<SpeakerPhysicalSpec> sse_decode_list_speaker_physical_spec(
+    SseDeserializer deserializer,
+  );
 
   @protected
   List<TrackConfig> sse_decode_list_track_config(SseDeserializer deserializer);
@@ -377,11 +365,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
-  (BigInt, Point3D) sse_decode_record_usize_point_3_d(
-    SseDeserializer deserializer,
-  );
-
-  @protected
   RoomConfig sse_decode_room_config(SseDeserializer deserializer);
 
   @protected
@@ -389,6 +372,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   SpatialConfigPayload sse_decode_spatial_config_payload(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  SpeakerPhysicalSpec sse_decode_speaker_physical_spec(
     SseDeserializer deserializer,
   );
 
@@ -549,12 +537,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_list_point_3_d(List<Point3D> self, SseSerializer serializer);
 
   @protected
-  void sse_encode_list_prim_f_32_loose(
-    List<double> self,
-    SseSerializer serializer,
-  );
-
-  @protected
   void sse_encode_list_prim_f_32_strict(
     Float32List self,
     SseSerializer serializer,
@@ -563,12 +545,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_list_prim_u_8_strict(
     Uint8List self,
-    SseSerializer serializer,
-  );
-
-  @protected
-  void sse_encode_list_prim_usize_strict(
-    Uint64List self,
     SseSerializer serializer,
   );
 
@@ -585,12 +561,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
-  void sse_encode_list_record_usize_point_3_d(
-    List<(BigInt, Point3D)> self,
-    SseSerializer serializer,
-  );
-
-  @protected
   void sse_encode_list_room_config(
     List<RoomConfig> self,
     SseSerializer serializer,
@@ -598,6 +568,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_list_room_zone(List<RoomZone> self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_list_speaker_physical_spec(
+    List<SpeakerPhysicalSpec> self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_list_track_config(
@@ -645,12 +621,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
-  void sse_encode_record_usize_point_3_d(
-    (BigInt, Point3D) self,
-    SseSerializer serializer,
-  );
-
-  @protected
   void sse_encode_room_config(RoomConfig self, SseSerializer serializer);
 
   @protected
@@ -659,6 +629,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_spatial_config_payload(
     SpatialConfigPayload self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_speaker_physical_spec(
+    SpeakerPhysicalSpec self,
     SseSerializer serializer,
   );
 

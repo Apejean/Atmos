@@ -79,13 +79,21 @@ class _RoomSetupFloatingWindowState extends ConsumerState<RoomSetupFloatingWindo
                 padding: const EdgeInsets.all(16.0),
                 child: Column(
                   children: [
-                    _buildRow('Width:', '${blueprintState.canvasWidthMeters.toStringAsFixed(1)} m'),
+                    _buildRow('Width:', blueprintState.canvasWidthMeters, (v) {
+                      ref.read(blueprintProvider.notifier).updateDimensions(canvasWidthMeters: v);
+                    }),
                     const SizedBox(height: 12),
-                    _buildRow('Depth:', '${blueprintState.canvasHeightMeters.toStringAsFixed(1)} m'),
+                    _buildRow('Depth:', blueprintState.canvasHeightMeters, (v) {
+                      ref.read(blueprintProvider.notifier).updateDimensions(canvasHeightMeters: v);
+                    }),
                     const SizedBox(height: 12),
-                    _buildRow('Ceiling Height:', '3.0 m'),
+                    _buildRow('Ceiling Height:', blueprintState.roomHeightMeters, (v) {
+                      ref.read(blueprintProvider.notifier).updateDimensions(roomHeightMeters: v);
+                    }),
                     const SizedBox(height: 12),
-                    _buildRow('Ear Level:', '1.2 m'),
+                    _buildRow('Ear Level:', blueprintState.listeningHeightMeters, (v) {
+                      ref.read(blueprintProvider.notifier).updateDimensions(listeningHeightMeters: v);
+                    }),
                   ],
                 ),
               ),
@@ -120,39 +128,29 @@ class _RoomSetupFloatingWindowState extends ConsumerState<RoomSetupFloatingWindo
     );
   }
 
-  Widget _buildRow(String label, String value) {
+  Widget _buildRow(String label, double value, Function(double) onChanged) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(
-          label,
-          style: const TextStyle(color: Colors.white70, fontSize: 13),
-        ),
-        Container(
+        Text(label, style: const TextStyle(color: Colors.white70, fontSize: 13)),
+        SizedBox(
           width: 80,
-          height: 28,
-          decoration: BoxDecoration(
-            border: Border.all(color: AppColors.primaryBlue),
-            borderRadius: BorderRadius.circular(4),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Padding(
-                padding: const EdgeInsets.only(left: 8.0),
-                child: Text(
-                  value,
-                  style: const TextStyle(color: Colors.white, fontSize: 13),
-                ),
-              ),
-              const Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.arrow_drop_up, size: 12, color: AppColors.primaryBlue),
-                  Icon(Icons.arrow_drop_down, size: 12, color: AppColors.primaryBlue),
-                ],
-              )
-            ],
+          height: 24,
+          child: TextFormField(
+            initialValue: value.toStringAsFixed(1),
+            style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: const InputDecoration(
+              contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+              isDense: true,
+              border: OutlineInputBorder(),
+              suffixText: 'm',
+              suffixStyle: TextStyle(color: Colors.white54, fontSize: 12),
+            ),
+            onChanged: (val) {
+              final d = double.tryParse(val);
+              if (d != null) onChanged(d);
+            },
           ),
         ),
       ],

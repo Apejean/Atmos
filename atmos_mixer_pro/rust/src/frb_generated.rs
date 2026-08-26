@@ -38,7 +38,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueMoi,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.12.0";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = 617636573;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -319663978;
 
 // Section: executor
 
@@ -180,10 +180,8 @@ fn wire__crate__api__simple__api_calculate_3d_calibration_impl(
             let api_room_width = <f32>::sse_decode(&mut deserializer);
             let api_room_depth = <f32>::sse_decode(&mut deserializer);
             let api_ear_level = <f32>::sse_decode(&mut deserializer);
-            let api_speaker_channels = <Vec<usize>>::sse_decode(&mut deserializer);
-            let api_speaker_x = <Vec<f32>>::sse_decode(&mut deserializer);
-            let api_speaker_y = <Vec<f32>>::sse_decode(&mut deserializer);
-            let api_speaker_z = <Vec<f32>>::sse_decode(&mut deserializer);
+            let api_specs =
+                <Vec<crate::api::calibration::SpeakerPhysicalSpec>>::sse_decode(&mut deserializer);
             deserializer.end();
             transform_result_sse::<_, ()>((move || {
                 let output_ok =
@@ -191,10 +189,7 @@ fn wire__crate__api__simple__api_calculate_3d_calibration_impl(
                         api_room_width,
                         api_room_depth,
                         api_ear_level,
-                        api_speaker_channels,
-                        api_speaker_x,
-                        api_speaker_y,
-                        api_speaker_z,
+                        api_specs,
                     ))?;
                 Ok(output_ok)
             })())
@@ -2147,7 +2142,7 @@ fn wire__crate__api__calibration__calculate_3d_calibration_impl(
             let api_room_depth = <f32>::sse_decode(&mut deserializer);
             let api_ear_level = <f32>::sse_decode(&mut deserializer);
             let api_speakers =
-                <Vec<(usize, crate::common::config::Point3D)>>::sse_decode(&mut deserializer);
+                <Vec<crate::api::calibration::SpeakerPhysicalSpec>>::sse_decode(&mut deserializer);
             deserializer.end();
             move |context| {
                 transform_result_sse::<_, ()>((move || {
@@ -2224,6 +2219,40 @@ fn wire__crate__api__simple__spatial_config_payload_default_impl(
                 transform_result_sse::<_, ()>((move || {
                     let output_ok =
                         Result::<_, ()>::Ok(crate::api::simple::SpatialConfigPayload::default())?;
+                    Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
+fn wire__crate__api__calibration__speaker_physical_spec_default_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "speaker_physical_spec_default",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, ()>((move || {
+                    let output_ok = Result::<_, ()>::Ok(
+                        crate::api::calibration::SpeakerPhysicalSpec::default(),
+                    )?;
                     Ok(output_ok)
                 })())
             }
@@ -2365,13 +2394,17 @@ impl SseDecode for bool {
 impl SseDecode for crate::api::calibration::CalibrationResult {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        let mut var_channel = <usize>::sse_decode(deserializer);
+        let mut var_channel = <u32>::sse_decode(deserializer);
         let mut var_delayMs = <f32>::sse_decode(deserializer);
         let mut var_gainDb = <f32>::sse_decode(deserializer);
+        let mut var_phaseInvert = <bool>::sse_decode(deserializer);
+        let mut var_eqBands = <Vec<crate::common::config::EqBand>>::sse_decode(deserializer);
         return crate::api::calibration::CalibrationResult {
             channel: var_channel,
             delay_ms: var_delayMs,
             gain_db: var_gainDb,
+            phase_invert: var_phaseInvert,
+            eq_bands: var_eqBands,
         };
     }
 }
@@ -2596,18 +2629,6 @@ impl SseDecode for Vec<u8> {
     }
 }
 
-impl SseDecode for Vec<usize> {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        let mut len_ = <i32>::sse_decode(deserializer);
-        let mut ans_ = Vec::with_capacity(len_ as usize);
-        for idx_ in 0..len_ {
-            ans_.push(<usize>::sse_decode(deserializer));
-        }
-        return ans_;
-    }
-}
-
 impl SseDecode for Vec<(String, crate::common::config::Point3D)> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -2636,20 +2657,6 @@ impl SseDecode for Vec<(u32, crate::common::config::ChannelSetting)> {
     }
 }
 
-impl SseDecode for Vec<(usize, crate::common::config::Point3D)> {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        let mut len_ = <i32>::sse_decode(deserializer);
-        let mut ans_ = Vec::with_capacity(len_ as usize);
-        for idx_ in 0..len_ {
-            ans_.push(<(usize, crate::common::config::Point3D)>::sse_decode(
-                deserializer,
-            ));
-        }
-        return ans_;
-    }
-}
-
 impl SseDecode for Vec<crate::common::config::RoomConfig> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -2671,6 +2678,20 @@ impl SseDecode for Vec<crate::common::config::RoomZone> {
         let mut ans_ = Vec::with_capacity(len_ as usize);
         for idx_ in 0..len_ {
             ans_.push(<crate::common::config::RoomZone>::sse_decode(deserializer));
+        }
+        return ans_;
+    }
+}
+
+impl SseDecode for Vec<crate::api::calibration::SpeakerPhysicalSpec> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = Vec::with_capacity(len_ as usize);
+        for idx_ in 0..len_ {
+            ans_.push(<crate::api::calibration::SpeakerPhysicalSpec>::sse_decode(
+                deserializer,
+            ));
         }
         return ans_;
     }
@@ -2801,15 +2822,6 @@ impl SseDecode for (u32, crate::common::config::ChannelSetting) {
     }
 }
 
-impl SseDecode for (usize, crate::common::config::Point3D) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        let mut var_field0 = <usize>::sse_decode(deserializer);
-        let mut var_field1 = <crate::common::config::Point3D>::sse_decode(deserializer);
-        return (var_field0, var_field1);
-    }
-}
-
 impl SseDecode for crate::common::config::RoomConfig {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -2868,6 +2880,28 @@ impl SseDecode for crate::api::simple::SpatialConfigPayload {
             room_zones: var_roomZones,
             trajectory: var_trajectory,
             track_positions: var_trackPositions,
+        };
+    }
+}
+
+impl SseDecode for crate::api::calibration::SpeakerPhysicalSpec {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_channel = <u32>::sse_decode(deserializer);
+        let mut var_x = <f32>::sse_decode(deserializer);
+        let mut var_y = <f32>::sse_decode(deserializer);
+        let mut var_z = <f32>::sse_decode(deserializer);
+        let mut var_internalLatencyMs = <f32>::sse_decode(deserializer);
+        let mut var_lowCutHz = <f32>::sse_decode(deserializer);
+        let mut var_boundaryType = <String>::sse_decode(deserializer);
+        return crate::api::calibration::SpeakerPhysicalSpec {
+            channel: var_channel,
+            x: var_x,
+            y: var_y,
+            z: var_z,
+            internal_latency_ms: var_internalLatencyMs,
+            low_cut_hz: var_lowCutHz,
+            boundary_type: var_boundaryType,
         };
     }
 }
@@ -3167,6 +3201,12 @@ fn pde_ffi_dispatcher_primary_impl(
             rust_vec_len,
             data_len,
         ),
+        63 => wire__crate__api__calibration__speaker_physical_spec_default_impl(
+            port,
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
         _ => unreachable!(),
     }
 }
@@ -3253,6 +3293,8 @@ impl flutter_rust_bridge::IntoDart for crate::api::calibration::CalibrationResul
             self.channel.into_into_dart().into_dart(),
             self.delay_ms.into_into_dart().into_dart(),
             self.gain_db.into_into_dart().into_dart(),
+            self.phase_invert.into_into_dart().into_dart(),
+            self.eq_bands.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
@@ -3532,6 +3574,32 @@ impl flutter_rust_bridge::IntoIntoDart<crate::api::simple::SpatialConfigPayload>
     }
 }
 // Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::api::calibration::SpeakerPhysicalSpec {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.channel.into_into_dart().into_dart(),
+            self.x.into_into_dart().into_dart(),
+            self.y.into_into_dart().into_dart(),
+            self.z.into_into_dart().into_dart(),
+            self.internal_latency_ms.into_into_dart().into_dart(),
+            self.low_cut_hz.into_into_dart().into_dart(),
+            self.boundary_type.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::api::calibration::SpeakerPhysicalSpec
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::api::calibration::SpeakerPhysicalSpec>
+    for crate::api::calibration::SpeakerPhysicalSpec
+{
+    fn into_into_dart(self) -> crate::api::calibration::SpeakerPhysicalSpec {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
 impl flutter_rust_bridge::IntoDart for crate::common::config::TrackConfig {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         [
@@ -3691,9 +3759,11 @@ impl SseEncode for bool {
 impl SseEncode for crate::api::calibration::CalibrationResult {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        <usize>::sse_encode(self.channel, serializer);
+        <u32>::sse_encode(self.channel, serializer);
         <f32>::sse_encode(self.delay_ms, serializer);
         <f32>::sse_encode(self.gain_db, serializer);
+        <bool>::sse_encode(self.phase_invert, serializer);
+        <Vec<crate::common::config::EqBand>>::sse_encode(self.eq_bands, serializer);
     }
 }
 
@@ -3866,16 +3936,6 @@ impl SseEncode for Vec<u8> {
     }
 }
 
-impl SseEncode for Vec<usize> {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        <i32>::sse_encode(self.len() as _, serializer);
-        for item in self {
-            <usize>::sse_encode(item, serializer);
-        }
-    }
-}
-
 impl SseEncode for Vec<(String, crate::common::config::Point3D)> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -3896,16 +3956,6 @@ impl SseEncode for Vec<(u32, crate::common::config::ChannelSetting)> {
     }
 }
 
-impl SseEncode for Vec<(usize, crate::common::config::Point3D)> {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        <i32>::sse_encode(self.len() as _, serializer);
-        for item in self {
-            <(usize, crate::common::config::Point3D)>::sse_encode(item, serializer);
-        }
-    }
-}
-
 impl SseEncode for Vec<crate::common::config::RoomConfig> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -3922,6 +3972,16 @@ impl SseEncode for Vec<crate::common::config::RoomZone> {
         <i32>::sse_encode(self.len() as _, serializer);
         for item in self {
             <crate::common::config::RoomZone>::sse_encode(item, serializer);
+        }
+    }
+}
+
+impl SseEncode for Vec<crate::api::calibration::SpeakerPhysicalSpec> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <crate::api::calibration::SpeakerPhysicalSpec>::sse_encode(item, serializer);
         }
     }
 }
@@ -4017,14 +4077,6 @@ impl SseEncode for (u32, crate::common::config::ChannelSetting) {
     }
 }
 
-impl SseEncode for (usize, crate::common::config::Point3D) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        <usize>::sse_encode(self.0, serializer);
-        <crate::common::config::Point3D>::sse_encode(self.1, serializer);
-    }
-}
-
 impl SseEncode for crate::common::config::RoomConfig {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -4062,6 +4114,19 @@ impl SseEncode for crate::api::simple::SpatialConfigPayload {
             self.track_positions,
             serializer,
         );
+    }
+}
+
+impl SseEncode for crate::api::calibration::SpeakerPhysicalSpec {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <u32>::sse_encode(self.channel, serializer);
+        <f32>::sse_encode(self.x, serializer);
+        <f32>::sse_encode(self.y, serializer);
+        <f32>::sse_encode(self.z, serializer);
+        <f32>::sse_encode(self.internal_latency_ms, serializer);
+        <f32>::sse_encode(self.low_cut_hz, serializer);
+        <String>::sse_encode(self.boundary_type, serializer);
     }
 }
 

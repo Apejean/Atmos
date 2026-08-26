@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:atmos_mixer_pro/features/dashboard/widgets/object_panner_modal.dart';
 import 'package:atmos_mixer_pro/core/theme/colors.dart';
 import 'package:atmos_mixer_pro/src/rust/common/config.dart';
 
@@ -342,10 +343,21 @@ class _TrackCardState extends ConsumerState<TrackCard> {
                           onPressed: () {
                             showDialog(
                               context: context,
+                              builder: (context) => ObjectPannerModal(trackId: widget.track.id),
+                            );
+                          },
+                          child: const Text('3D Panner', style: TextStyle(color: Colors.black, fontSize: 10)),
+                        ),
+                        const SizedBox(width: 4),
+                        ElevatedButton(
+                          style: ElevatedButton.styleFrom(backgroundColor: Colors.white24, padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0)),
+                          onPressed: () {
+                            showDialog(
+                              context: context,
                               builder: (context) => TrajectorySettingsModal(trackId: widget.track.id),
                             );
                           },
-                          child: const Text('3D Trajectory', style: TextStyle(color: Colors.black, fontSize: 10)),
+                          child: const Text('Auto-Move', style: TextStyle(color: Colors.white, fontSize: 10)),
                         )
                       ],
                     ),

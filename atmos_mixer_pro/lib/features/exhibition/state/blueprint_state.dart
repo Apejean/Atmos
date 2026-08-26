@@ -92,6 +92,20 @@ class BlueprintState extends Notifier<BlueprintData> {
     await prefs.setString(_kImagePathKey, path);
   }
 
+  void updateDimensions({
+    double? canvasWidthMeters,
+    double? canvasHeightMeters,
+    double? roomHeightMeters,
+    double? listeningHeightMeters,
+  }) {
+    state = state.copyWith(
+      canvasWidthMeters: canvasWidthMeters,
+      canvasHeightMeters: canvasHeightMeters,
+      roomHeightMeters: roomHeightMeters,
+      listeningHeightMeters: listeningHeightMeters,
+    );
+  }
+
   Future<void> setOpacity(double opacity) async {
     state = state.copyWith(opacity: opacity);
     final prefs = await SharedPreferences.getInstance();

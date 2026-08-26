@@ -70,7 +70,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.12.0';
 
   @override
-  int get rustContentHash => 617636573;
+  int get rustContentHash => -319663978;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -101,10 +101,7 @@ abstract class RustLibApi extends BaseApi {
     required double roomWidth,
     required double roomDepth,
     required double earLevel,
-    required Uint64List speakerChannels,
-    required List<double> speakerX,
-    required List<double> speakerY,
-    required List<double> speakerZ,
+    required List<SpeakerPhysicalSpec> specs,
   });
 
   Future<Point3D> crateApiSimpleApiCalculateBezierPoint({
@@ -293,12 +290,14 @@ abstract class RustLibApi extends BaseApi {
     required double roomWidth,
     required double roomDepth,
     required double earLevel,
-    required List<(BigInt, Point3D)> speakers,
+    required List<SpeakerPhysicalSpec> speakers,
   });
 
   Future<CalibrationResult> crateApiCalibrationCalibrationResultDefault();
 
   Future<SpatialConfigPayload> crateApiSimpleSpatialConfigPayloadDefault();
+
+  Future<SpeakerPhysicalSpec> crateApiCalibrationSpeakerPhysicalSpecDefault();
 }
 
 class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
@@ -419,10 +418,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     required double roomWidth,
     required double roomDepth,
     required double earLevel,
-    required Uint64List speakerChannels,
-    required List<double> speakerX,
-    required List<double> speakerY,
-    required List<double> speakerZ,
+    required List<SpeakerPhysicalSpec> specs,
   }) {
     return handler.executeSync(
       SyncTask(
@@ -431,10 +427,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           sse_encode_f_32(roomWidth, serializer);
           sse_encode_f_32(roomDepth, serializer);
           sse_encode_f_32(earLevel, serializer);
-          sse_encode_list_prim_usize_strict(speakerChannels, serializer);
-          sse_encode_list_prim_f_32_loose(speakerX, serializer);
-          sse_encode_list_prim_f_32_loose(speakerY, serializer);
-          sse_encode_list_prim_f_32_loose(speakerZ, serializer);
+          sse_encode_list_speaker_physical_spec(specs, serializer);
           return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 4)!;
         },
         codec: SseCodec(
@@ -442,15 +435,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           decodeErrorData: null,
         ),
         constMeta: kCrateApiSimpleApiCalculate3DCalibrationConstMeta,
-        argValues: [
-          roomWidth,
-          roomDepth,
-          earLevel,
-          speakerChannels,
-          speakerX,
-          speakerY,
-          speakerZ,
-        ],
+        argValues: [roomWidth, roomDepth, earLevel, specs],
         apiImpl: this,
       ),
     );
@@ -459,15 +444,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   TaskConstMeta get kCrateApiSimpleApiCalculate3DCalibrationConstMeta =>
       const TaskConstMeta(
         debugName: "api_calculate_3d_calibration",
-        argNames: [
-          "roomWidth",
-          "roomDepth",
-          "earLevel",
-          "speakerChannels",
-          "speakerX",
-          "speakerY",
-          "speakerZ",
-        ],
+        argNames: ["roomWidth", "roomDepth", "earLevel", "specs"],
       );
 
   @override
@@ -2238,7 +2215,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     required double roomWidth,
     required double roomDepth,
     required double earLevel,
-    required List<(BigInt, Point3D)> speakers,
+    required List<SpeakerPhysicalSpec> speakers,
   }) {
     return handler.executeNormal(
       NormalTask(
@@ -2247,7 +2224,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           sse_encode_f_32(roomWidth, serializer);
           sse_encode_f_32(roomDepth, serializer);
           sse_encode_f_32(earLevel, serializer);
-          sse_encode_list_record_usize_point_3_d(speakers, serializer);
+          sse_encode_list_speaker_physical_spec(speakers, serializer);
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
@@ -2329,6 +2306,36 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   TaskConstMeta get kCrateApiSimpleSpatialConfigPayloadDefaultConstMeta =>
       const TaskConstMeta(
         debugName: "spatial_config_payload_default",
+        argNames: [],
+      );
+
+  @override
+  Future<SpeakerPhysicalSpec> crateApiCalibrationSpeakerPhysicalSpecDefault() {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 63,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_speaker_physical_spec,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiCalibrationSpeakerPhysicalSpecDefaultConstMeta,
+        argValues: [],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiCalibrationSpeakerPhysicalSpecDefaultConstMeta =>
+      const TaskConstMeta(
+        debugName: "speaker_physical_spec_default",
         argNames: [],
       );
 
@@ -2450,12 +2457,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   CalibrationResult dco_decode_calibration_result(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 3)
-      throw Exception('unexpected arr length: expect 3 but see ${arr.length}');
+    if (arr.length != 5)
+      throw Exception('unexpected arr length: expect 5 but see ${arr.length}');
     return CalibrationResult(
-      channel: dco_decode_usize(arr[0]),
+      channel: dco_decode_u_32(arr[0]),
       delayMs: dco_decode_f_32(arr[1]),
       gainDb: dco_decode_f_32(arr[2]),
+      phaseInvert: dco_decode_bool(arr[3]),
+      eqBands: dco_decode_list_eq_band(arr[4]),
     );
   }
 
@@ -2585,12 +2594,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  List<double> dco_decode_list_prim_f_32_loose(dynamic raw) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    return raw as List<double>;
-  }
-
-  @protected
   Float32List dco_decode_list_prim_f_32_strict(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw as Float32List;
@@ -2600,12 +2603,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   Uint8List dco_decode_list_prim_u_8_strict(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw as Uint8List;
-  }
-
-  @protected
-  Uint64List dco_decode_list_prim_usize_strict(dynamic raw) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    return raw as Uint64List;
   }
 
   @protected
@@ -2627,14 +2624,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  List<(BigInt, Point3D)> dco_decode_list_record_usize_point_3_d(dynamic raw) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    return (raw as List<dynamic>)
-        .map(dco_decode_record_usize_point_3_d)
-        .toList();
-  }
-
-  @protected
   List<RoomConfig> dco_decode_list_room_config(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return (raw as List<dynamic>).map(dco_decode_room_config).toList();
@@ -2644,6 +2633,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   List<RoomZone> dco_decode_list_room_zone(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return (raw as List<dynamic>).map(dco_decode_room_zone).toList();
+  }
+
+  @protected
+  List<SpeakerPhysicalSpec> dco_decode_list_speaker_physical_spec(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>)
+        .map(dco_decode_speaker_physical_spec)
+        .toList();
   }
 
   @protected
@@ -2738,16 +2735,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  (BigInt, Point3D) dco_decode_record_usize_point_3_d(dynamic raw) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    final arr = raw as List<dynamic>;
-    if (arr.length != 2) {
-      throw Exception('Expected 2 elements, got ${arr.length}');
-    }
-    return (dco_decode_usize(arr[0]), dco_decode_point_3_d(arr[1]));
-  }
-
-  @protected
   RoomConfig dco_decode_room_config(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
@@ -2790,6 +2777,23 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       roomZones: dco_decode_list_room_zone(arr[1]),
       trajectory: dco_decode_opt_box_autoadd_trajectory(arr[2]),
       trackPositions: dco_decode_Map_String_point_3_d_None(arr[3]),
+    );
+  }
+
+  @protected
+  SpeakerPhysicalSpec dco_decode_speaker_physical_spec(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 7)
+      throw Exception('unexpected arr length: expect 7 but see ${arr.length}');
+    return SpeakerPhysicalSpec(
+      channel: dco_decode_u_32(arr[0]),
+      x: dco_decode_f_32(arr[1]),
+      y: dco_decode_f_32(arr[2]),
+      z: dco_decode_f_32(arr[3]),
+      internalLatencyMs: dco_decode_f_32(arr[4]),
+      lowCutHz: dco_decode_f_32(arr[5]),
+      boundaryType: dco_decode_String(arr[6]),
     );
   }
 
@@ -3000,13 +3004,17 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     SseDeserializer deserializer,
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    var var_channel = sse_decode_usize(deserializer);
+    var var_channel = sse_decode_u_32(deserializer);
     var var_delayMs = sse_decode_f_32(deserializer);
     var var_gainDb = sse_decode_f_32(deserializer);
+    var var_phaseInvert = sse_decode_bool(deserializer);
+    var var_eqBands = sse_decode_list_eq_band(deserializer);
     return CalibrationResult(
       channel: var_channel,
       delayMs: var_delayMs,
       gainDb: var_gainDb,
+      phaseInvert: var_phaseInvert,
+      eqBands: var_eqBands,
     );
   }
 
@@ -3196,13 +3204,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  List<double> sse_decode_list_prim_f_32_loose(SseDeserializer deserializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    var len_ = sse_decode_i_32(deserializer);
-    return deserializer.buffer.getFloat32List(len_);
-  }
-
-  @protected
   Float32List sse_decode_list_prim_f_32_strict(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var len_ = sse_decode_i_32(deserializer);
@@ -3214,13 +3215,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var len_ = sse_decode_i_32(deserializer);
     return deserializer.buffer.getUint8List(len_);
-  }
-
-  @protected
-  Uint64List sse_decode_list_prim_usize_strict(SseDeserializer deserializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    var len_ = sse_decode_i_32(deserializer);
-    return deserializer.buffer.getUint64List(len_);
   }
 
   @protected
@@ -3252,20 +3246,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  List<(BigInt, Point3D)> sse_decode_list_record_usize_point_3_d(
-    SseDeserializer deserializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-
-    var len_ = sse_decode_i_32(deserializer);
-    var ans_ = <(BigInt, Point3D)>[];
-    for (var idx_ = 0; idx_ < len_; ++idx_) {
-      ans_.add(sse_decode_record_usize_point_3_d(deserializer));
-    }
-    return ans_;
-  }
-
-  @protected
   List<RoomConfig> sse_decode_list_room_config(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
 
@@ -3285,6 +3265,20 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var ans_ = <RoomZone>[];
     for (var idx_ = 0; idx_ < len_; ++idx_) {
       ans_.add(sse_decode_room_zone(deserializer));
+    }
+    return ans_;
+  }
+
+  @protected
+  List<SpeakerPhysicalSpec> sse_decode_list_speaker_physical_spec(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <SpeakerPhysicalSpec>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_speaker_physical_spec(deserializer));
     }
     return ans_;
   }
@@ -3412,16 +3406,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  (BigInt, Point3D) sse_decode_record_usize_point_3_d(
-    SseDeserializer deserializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    var var_field0 = sse_decode_usize(deserializer);
-    var var_field1 = sse_decode_point_3_d(deserializer);
-    return (var_field0, var_field1);
-  }
-
-  @protected
   RoomConfig sse_decode_room_config(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var var_id = sse_decode_String(deserializer);
@@ -3475,6 +3459,29 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       roomZones: var_roomZones,
       trajectory: var_trajectory,
       trackPositions: var_trackPositions,
+    );
+  }
+
+  @protected
+  SpeakerPhysicalSpec sse_decode_speaker_physical_spec(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_channel = sse_decode_u_32(deserializer);
+    var var_x = sse_decode_f_32(deserializer);
+    var var_y = sse_decode_f_32(deserializer);
+    var var_z = sse_decode_f_32(deserializer);
+    var var_internalLatencyMs = sse_decode_f_32(deserializer);
+    var var_lowCutHz = sse_decode_f_32(deserializer);
+    var var_boundaryType = sse_decode_String(deserializer);
+    return SpeakerPhysicalSpec(
+      channel: var_channel,
+      x: var_x,
+      y: var_y,
+      z: var_z,
+      internalLatencyMs: var_internalLatencyMs,
+      lowCutHz: var_lowCutHz,
+      boundaryType: var_boundaryType,
     );
   }
 
@@ -3709,9 +3716,11 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     SseSerializer serializer,
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_usize(self.channel, serializer);
+    sse_encode_u_32(self.channel, serializer);
     sse_encode_f_32(self.delayMs, serializer);
     sse_encode_f_32(self.gainDb, serializer);
+    sse_encode_bool(self.phaseInvert, serializer);
+    sse_encode_list_eq_band(self.eqBands, serializer);
   }
 
   @protected
@@ -3858,18 +3867,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  void sse_encode_list_prim_f_32_loose(
-    List<double> self,
-    SseSerializer serializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_i_32(self.length, serializer);
-    serializer.buffer.putFloat32List(
-      self is Float32List ? self : Float32List.fromList(self),
-    );
-  }
-
-  @protected
   void sse_encode_list_prim_f_32_strict(
     Float32List self,
     SseSerializer serializer,
@@ -3887,16 +3884,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_i_32(self.length, serializer);
     serializer.buffer.putUint8List(self);
-  }
-
-  @protected
-  void sse_encode_list_prim_usize_strict(
-    Uint64List self,
-    SseSerializer serializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_i_32(self.length, serializer);
-    serializer.buffer.putUint64List(self);
   }
 
   @protected
@@ -3924,18 +3911,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  void sse_encode_list_record_usize_point_3_d(
-    List<(BigInt, Point3D)> self,
-    SseSerializer serializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_i_32(self.length, serializer);
-    for (final item in self) {
-      sse_encode_record_usize_point_3_d(item, serializer);
-    }
-  }
-
-  @protected
   void sse_encode_list_room_config(
     List<RoomConfig> self,
     SseSerializer serializer,
@@ -3956,6 +3931,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_i_32(self.length, serializer);
     for (final item in self) {
       sse_encode_room_zone(item, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_list_speaker_physical_spec(
+    List<SpeakerPhysicalSpec> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_speaker_physical_spec(item, serializer);
     }
   }
 
@@ -4066,16 +4053,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  void sse_encode_record_usize_point_3_d(
-    (BigInt, Point3D) self,
-    SseSerializer serializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_usize(self.$1, serializer);
-    sse_encode_point_3_d(self.$2, serializer);
-  }
-
-  @protected
   void sse_encode_room_config(RoomConfig self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_String(self.id, serializer);
@@ -4110,6 +4087,21 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_list_room_zone(self.roomZones, serializer);
     sse_encode_opt_box_autoadd_trajectory(self.trajectory, serializer);
     sse_encode_Map_String_point_3_d_None(self.trackPositions, serializer);
+  }
+
+  @protected
+  void sse_encode_speaker_physical_spec(
+    SpeakerPhysicalSpec self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_u_32(self.channel, serializer);
+    sse_encode_f_32(self.x, serializer);
+    sse_encode_f_32(self.y, serializer);
+    sse_encode_f_32(self.z, serializer);
+    sse_encode_f_32(self.internalLatencyMs, serializer);
+    sse_encode_f_32(self.lowCutHz, serializer);
+    sse_encode_String(self.boundaryType, serializer);
   }
 
   @protected

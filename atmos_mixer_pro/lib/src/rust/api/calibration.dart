@@ -7,13 +7,13 @@ import '../common/config.dart';
 import '../frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `fmt`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `fmt`, `fmt`
 
 Future<List<CalibrationResult>> calculate3DCalibration({
   required double roomWidth,
   required double roomDepth,
   required double earLevel,
-  required List<(BigInt, Point3D)> speakers,
+  required List<SpeakerPhysicalSpec> speakers,
 }) => RustLib.instance.api.crateApiCalibrationCalculate3DCalibration(
   roomWidth: roomWidth,
   roomDepth: roomDepth,
@@ -22,21 +22,30 @@ Future<List<CalibrationResult>> calculate3DCalibration({
 );
 
 class CalibrationResult {
-  final BigInt channel;
+  final int channel;
   final double delayMs;
   final double gainDb;
+  final bool phaseInvert;
+  final List<EqBand> eqBands;
 
   const CalibrationResult({
     required this.channel,
     required this.delayMs,
     required this.gainDb,
+    required this.phaseInvert,
+    required this.eqBands,
   });
 
   static Future<CalibrationResult> default_() =>
       RustLib.instance.api.crateApiCalibrationCalibrationResultDefault();
 
   @override
-  int get hashCode => channel.hashCode ^ delayMs.hashCode ^ gainDb.hashCode;
+  int get hashCode =>
+      channel.hashCode ^
+      delayMs.hashCode ^
+      gainDb.hashCode ^
+      phaseInvert.hashCode ^
+      eqBands.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -45,5 +54,53 @@ class CalibrationResult {
           runtimeType == other.runtimeType &&
           channel == other.channel &&
           delayMs == other.delayMs &&
-          gainDb == other.gainDb;
+          gainDb == other.gainDb &&
+          phaseInvert == other.phaseInvert &&
+          eqBands == other.eqBands;
+}
+
+class SpeakerPhysicalSpec {
+  final int channel;
+  final double x;
+  final double y;
+  final double z;
+  final double internalLatencyMs;
+  final double lowCutHz;
+  final String boundaryType;
+
+  const SpeakerPhysicalSpec({
+    required this.channel,
+    required this.x,
+    required this.y,
+    required this.z,
+    required this.internalLatencyMs,
+    required this.lowCutHz,
+    required this.boundaryType,
+  });
+
+  static Future<SpeakerPhysicalSpec> default_() =>
+      RustLib.instance.api.crateApiCalibrationSpeakerPhysicalSpecDefault();
+
+  @override
+  int get hashCode =>
+      channel.hashCode ^
+      x.hashCode ^
+      y.hashCode ^
+      z.hashCode ^
+      internalLatencyMs.hashCode ^
+      lowCutHz.hashCode ^
+      boundaryType.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is SpeakerPhysicalSpec &&
+          runtimeType == other.runtimeType &&
+          channel == other.channel &&
+          x == other.x &&
+          y == other.y &&
+          z == other.z &&
+          internalLatencyMs == other.internalLatencyMs &&
+          lowCutHz == other.lowCutHz &&
+          boundaryType == other.boundaryType;
 }

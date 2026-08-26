@@ -1,4 +1,3 @@
-import 'package:atmos_mixer_pro/features/exhibition/widgets/room_zone_widget.dart';
 import 'dart:ui';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
@@ -8,7 +7,7 @@ import 'package:atmos_mixer_pro/features/exhibition/state/speaker_layout_state.d
 import 'package:atmos_mixer_pro/features/exhibition/state/blueprint_state.dart';
 import 'package:atmos_mixer_pro/core/theme/colors.dart';
 import 'package:atmos_mixer_pro/core/state/global_state.dart';
-import 'package:atmos_mixer_pro/src/rust/api/simple.dart' as rust_api;
+import 'package:atmos_mixer_pro/features/exhibition/widgets/hud/speaker_inspector_panel.dart';
 
 class SpeakerCanvasScreen extends ConsumerStatefulWidget {
   const SpeakerCanvasScreen({super.key});
@@ -18,22 +17,28 @@ class SpeakerCanvasScreen extends ConsumerStatefulWidget {
 }
 
 class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> with SingleTickerProviderStateMixin {
-  final TransformationController _transformationController = TransformationController();
+  final TransformationController _topViewController = TransformationController();
+  final TransformationController _isoViewController = TransformationController();
   final FocusNode _canvasFocusNode = FocusNode();
   String? _inspectorSpeakerId;
   bool _showHeatmap = false;
+  double _targetSPL = 75.0;
+  
+  double _orbitAngleX = math.pi / 4; // 45 degrees
+  double _orbitAngleY = math.pi / 6; // 30 degrees tilt
 
   @override
   void initState() {
     super.initState();
-    _transformationController.value = Matrix4.identity()
-      ..setTranslationRaw(200, 150, 0.0);
+    _topViewController.value = Matrix4.identity()..setTranslationRaw(0, 0, 0.0);
+    _isoViewController.value = Matrix4.identity()..setTranslationRaw(0, 0, 0.0);
   }
 
   @override
   void dispose() {
     _canvasFocusNode.dispose();
-    _transformationController.dispose();
+    _topViewController.dispose();
+    _isoViewController.dispose();
     super.dispose();
   }
 
@@ -50,7 +55,6 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> with 
     final uiRooms = config?.rooms ?? [];
     final tabLength = uiRooms.isEmpty ? 1 : uiRooms.length;
 
-    // The dark sci-fi background color
     final bgColor = const Color(0xFF0F111A);
     final panelColor = const Color(0xFF191D26);
     final borderColor = const Color(0xFF2C3240);
@@ -59,15 +63,24 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> with 
     return DefaultTabController(
       length: tabLength,
       child: Builder(builder: (context) {
-        final tabController = DefaultTabController.of(context);
-        tabController.addListener(() {
-          if (tabController.indexIsChanging && _inspectorSpeakerId != null) {
-            setState(() { _inspectorSpeakerId = null; });
-          }
-        });
-
         return Scaffold(
           backgroundColor: bgColor,
+          floatingActionButton: FloatingActionButton.extended(
+            backgroundColor: neonCyan,
+            icon: const Icon(Icons.add, color: Colors.black),
+            label: const Text('Add Speaker', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+            onPressed: () {
+              ref.read(speakerLayoutProvider.notifier).addSpeaker(
+                SpeakerNode(
+                  id: DateTime.now().millisecondsSinceEpoch.toString(),
+                  x: blueprint.canvasWidthMeters / 2,
+                  y: blueprint.canvasHeightMeters / 2,
+                  heightZ: blueprint.roomHeightMeters, 
+                  channel: 0,
+                ),
+              );
+            },
+          ),
           body: Column(
             children: [
               // HEADER (Top Bar)
@@ -80,22 +93,34 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> with 
                 ),
                 child: Row(
                   children: [
-                    // LOGO
-                    Row(
-                      children: [
-                        Icon(Icons.graphic_eq, color: neonCyan, size: 28),
-                        const SizedBox(width: 8),
-                        Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: const [
-                            Text('3D AUDIO', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16, height: 1.0)),
-                            Text('SIMULATOR', style: TextStyle(color: Colors.white70, fontSize: 14, height: 1.0)),
-                          ],
-                        ),
-                      ],
+                    // BACK & LOGO
+                    IconButton(
+                      icon: const Icon(Icons.arrow_back, color: Colors.white),
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
+                    const SizedBox(width: 8),
+                    Icon(Icons.graphic_eq, color: neonCyan, size: 28),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'Atmos Mixer Pro',
+                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
                     ),
                     const Spacer(),
+                    
+                    // TARGET SPL
+                    const Text('Target SPL:', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                    SizedBox(
+                      width: 120,
+                      child: Slider(
+                        value: _targetSPL,
+                        min: 50.0, max: 95.0,
+                        activeColor: neonCyan,
+                        onChanged: (v) => setState(() => _targetSPL = v),
+                      ),
+                    ),
+                    Text('${_targetSPL.toStringAsFixed(1)} dB', style: const TextStyle(color: Colors.white, fontSize: 12)),
+                    
+                    const SizedBox(width: 24),
                     
                     // SPL HEATMAP
                     const Text('SPL HEATMAP', style: TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.bold)),
@@ -110,7 +135,6 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> with 
                     ),
                     const SizedBox(width: 24),
                     
-                    // EXPORT PDF REPORT
                     OutlinedButton.icon(
                       onPressed: () {},
                       icon: Icon(Icons.description, color: neonCyan, size: 16),
@@ -118,34 +142,9 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> with 
                       style: OutlinedButton.styleFrom(
                         side: BorderSide(color: neonCyan),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                       ),
                     ),
-                    const SizedBox(width: 24),
-                    
-                    // USER ICON
-                    const CircleAvatar(
-                      backgroundColor: Colors.white10,
-                      child: Icon(Icons.person, color: Colors.white70),
-                    ),
                   ],
-                ),
-              ),
-
-              // TAB BAR
-              Container(
-                color: panelColor,
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: TabBar(
-                    isScrollable: true,
-                    indicatorColor: neonCyan,
-                    labelColor: neonCyan,
-                    unselectedLabelColor: Colors.white54,
-                    tabs: uiRooms.isEmpty 
-                      ? [const Tab(text: 'Default Room')]
-                      : uiRooms.map((r) => Tab(text: r.name)).toList(),
-                  ),
                 ),
               ),
 
@@ -153,64 +152,131 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> with 
               Expanded(
                 child: Row(
                   children: [
-                    // CANVAS AREA
+                    // DUAL VIEWPORT AREA
                     Expanded(
-                      child: Stack(
+                      child: Column(
                         children: [
-                          // Interactive Viewer for Canvas
-                          GestureDetector(
-                            onTap: () {
-                              _canvasFocusNode.requestFocus();
-                              setState(() => _inspectorSpeakerId = null);
-                            },
+                          // 1. TOP VIEW (2D)
+                          Expanded(
+                            flex: 1,
                             child: Container(
-                              color: bgColor,
-                              child: InteractiveViewer(
-                                transformationController: _transformationController,
-                                minScale: 0.1,
-                                maxScale: 10.0,
-                                constrained: false,
-                                child: Stack(
-                                  clipBehavior: Clip.none,
-                                  children: [
-                                    // Base dimensions
-                                    Container(
-                                      width: 800,
-                                      height: 600,
-                                      color: Colors.transparent,
-                                    ),
-                                    // Custom Painter for Grid and Blueprint
-                                    Positioned.fill(
-                                      child: CustomPaint(
-                                        painter: _SciFiGridPainter(neonCyan: neonCyan),
-                                      ),
-                                    ),
-                                    
-                                    // Heatmap
-                                    if (_showHeatmap)
-                                      Positioned.fill(
-                                        child: Consumer(
-                                          builder: (context, ref, child) {
-                                            final nodes = ref.watch(speakerLayoutProvider);
-                                            return CustomPaint(
+                              decoration: BoxDecoration(
+                                border: Border(bottom: BorderSide(color: borderColor)),
+                              ),
+                              child: Stack(
+                                children: [
+                                  InteractiveViewer(
+                                    transformationController: _topViewController,
+                                    boundaryMargin: const EdgeInsets.all(double.infinity),
+                                    minScale: 0.1, maxScale: 10.0,
+                                    constrained: false,
+                                    child: SizedBox(
+                                      width: 800, height: 600,
+                                      child: Stack(
+                                        children: [
+                                          CustomPaint(
+                                            size: const Size(800, 600),
+                                            painter: _TopViewGridPainter(neonCyan: neonCyan, blueprint: blueprint),
+                                          ),
+                                          if (_showHeatmap)
+                                            CustomPaint(
+                                              size: const Size(800, 600),
                                               painter: _HeatmapPainter(
-                                                speakers: nodes,
-                                                scale: blueprint.scale,
+                                                speakers: ref.watch(speakerLayoutProvider),
+                                                blueprint: blueprint,
+                                                isTopView: true,
+                                                targetSPL: _targetSPL,
+                                              ),
+                                            ),
+                                          ...ref.watch(speakerLayoutProvider).map((node) {
+                                            return Positioned(
+                                              left: node.x * blueprint.scale - 20,
+                                              top: node.y * blueprint.scale - 20,
+                                              child: GestureDetector(
+                                                onTap: () => _onSpeakerTap(node.id),
+                                                onPanUpdate: (d) {
+                                                  final newX = node.x + d.delta.dx / blueprint.scale;
+                                                  final newY = node.y + d.delta.dy / blueprint.scale;
+                                                  ref.read(speakerLayoutProvider.notifier).updateSpeaker(
+                                                    node.copyWith(x: newX, y: newY)
+                                                  );
+                                                },
+                                                child: _SciFiSpeakerWidget(
+                                                  node: node,
+                                                  isSelected: _inspectorSpeakerId == node.id,
+                                                  neonCyan: neonCyan,
+                                                ),
                                               ),
                                             );
-                                          },
-                                        ),
+                                          }).toList(),
+                                        ],
                                       ),
-                                    
-                                    // Speakers
-                                    Consumer(
-                                      builder: (context, ref, child) {
-                                        final nodes = ref.watch(speakerLayoutProvider);
-                                        return Stack(
-                                          children: nodes.map((node) {
+                                    ),
+                                  ),
+                                  const Positioned(
+                                    top: 10, left: 10,
+                                    child: Text('TOP VIEW (XY)', style: TextStyle(color: Colors.white54, fontWeight: FontWeight.bold)),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          
+                          // 2. ISOMETRIC 3D VIEW (Orbit)
+                          Expanded(
+                            flex: 2,
+                            child: GestureDetector(
+                              onPanUpdate: (details) {
+                                setState(() {
+                                  _orbitAngleX += details.delta.dx * 0.01;
+                                  _orbitAngleY -= details.delta.dy * 0.01;
+                                  _orbitAngleY = _orbitAngleY.clamp(-math.pi/2, math.pi/2);
+                                });
+                              },
+                              child: Stack(
+                                children: [
+                                  InteractiveViewer(
+                                    transformationController: _isoViewController,
+                                    boundaryMargin: const EdgeInsets.all(double.infinity),
+                                    minScale: 0.1, maxScale: 10.0,
+                                    constrained: false,
+                                    child: SizedBox(
+                                      width: 1200, height: 800,
+                                      child: Stack(
+                                        children: [
+                                          CustomPaint(
+                                            size: const Size(1200, 800),
+                                            painter: _IsoViewPainter(
+                                              neonCyan: neonCyan,
+                                              blueprint: blueprint,
+                                              orbitAngleX: _orbitAngleX,
+                                              orbitAngleY: _orbitAngleY,
+                                            ),
+                                          ),
+                                          if (_showHeatmap)
+                                            CustomPaint(
+                                              size: const Size(1200, 800),
+                                              painter: _HeatmapPainter(
+                                                speakers: ref.watch(speakerLayoutProvider),
+                                                blueprint: blueprint,
+                                                isTopView: false,
+                                                orbitAngleX: _orbitAngleX,
+                                                orbitAngleY: _orbitAngleY,
+                                                targetSPL: _targetSPL,
+                                              ),
+                                            ),
+                                          ...ref.watch(speakerLayoutProvider).map((node) {
+                                            final proj = _IsoProjector(
+                                              scale: blueprint.scale,
+                                              cx: 600, cy: 400,
+                                              roomW: blueprint.canvasWidthMeters,
+                                              roomD: blueprint.canvasHeightMeters,
+                                              angleX: _orbitAngleX, angleY: _orbitAngleY,
+                                            ).project(node.x, node.y, node.heightZ);
+                                            
                                             return Positioned(
-                                              left: node.x * blueprint.scale - 30, // Offset for center
-                                              top: node.y * blueprint.scale - 30,
+                                              left: proj.dx - 20,
+                                              top: proj.dy - 20,
                                               child: GestureDetector(
                                                 onTap: () => _onSpeakerTap(node.id),
                                                 child: _SciFiSpeakerWidget(
@@ -221,38 +287,17 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> with 
                                               ),
                                             );
                                           }).toList(),
-                                        );
-                                      },
-                                    ),
-                                    
-                                    // Center Listener
-                                    Positioned(
-                                      left: 400 - 24, // Assuming 800x600 center
-                                      top: 300 - 24,
-                                      child: Container(
-                                        width: 48,
-                                        height: 48,
-                                        decoration: BoxDecoration(
-                                          shape: BoxShape.circle,
-                                          color: neonCyan.withValues(alpha: 0.1),
-                                          border: Border.all(color: neonCyan, width: 2),
-                                        ),
-                                        child: Center(
-                                          child: Icon(Icons.person, color: neonCyan),
-                                        ),
+                                        ],
                                       ),
                                     ),
-                                  ],
-                                ),
+                                  ),
+                                  const Positioned(
+                                    top: 10, left: 10,
+                                    child: Text('3D ISOMETRIC VIEW (Drag to Orbit, Scroll to Zoom)', style: TextStyle(color: Colors.white54, fontWeight: FontWeight.bold)),
+                                  ),
+                                ],
                               ),
                             ),
-                          ),
-                          
-                          // FLOATING ROOM SETUP
-                          Positioned(
-                            left: 24,
-                            bottom: 24,
-                            child: _RoomSetupPanel(neonCyan: neonCyan, panelColor: panelColor, borderColor: borderColor),
                           ),
                         ],
                       ),
@@ -264,12 +309,11 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> with 
                         builder: (context, ref, child) {
                           final nodes = ref.watch(speakerLayoutProvider);
                           final node = nodes.firstWhere((n) => n.id == _inspectorSpeakerId, orElse: () => nodes.first);
-                          return _SpeakerInspectorPanel(
-                            node: node,
-                            neonCyan: neonCyan,
-                            panelColor: panelColor,
-                            borderColor: borderColor,
-                            onClose: () => setState(() => _inspectorSpeakerId = null),
+                          return Align(
+                            alignment: Alignment.centerRight,
+                            child: SpeakerInspectorPanel(
+                              selectedSpeaker: node,
+                            ),
                           );
                         },
                       ),
@@ -284,50 +328,167 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> with 
   }
 }
 
-// ============================================================================
-// CUSTOM PAINTERS & WIDGETS
-// ============================================================================
+class _IsoProjector {
+  final double scale;
+  final double cx, cy;
+  final double roomW, roomD;
+  final double angleX, angleY;
 
-class _SciFiGridPainter extends CustomPainter {
+  _IsoProjector({required this.scale, required this.cx, required this.cy, required this.roomW, required this.roomD, required this.angleX, required this.angleY});
+
+  Offset project(double xMeters, double yMeters, double zMeters) {
+    // Relative to center
+    double dx = (xMeters - roomW / 2) * scale;
+    double dy = (yMeters - roomD / 2) * scale;
+    double dz = zMeters * scale;
+
+    // Rotation around Z (Pan/OrbitX)
+    double rx = dx * math.cos(angleX) - dy * math.sin(angleX);
+    double ry = dx * math.sin(angleX) + dy * math.cos(angleX);
+
+    // Rotation around X (Tilt/OrbitY)
+    double sy = ry * math.cos(angleY) - dz * math.sin(angleY);
+    double sz = ry * math.sin(angleY) + dz * math.cos(angleY); // actually projected out, but sz is depth
+
+    return Offset(cx + rx, cy + sy);
+  }
+}
+
+class _TopViewGridPainter extends CustomPainter {
   final Color neonCyan;
-  _SciFiGridPainter({required this.neonCyan});
+  final BlueprintData blueprint;
+
+  _TopViewGridPainter({required this.neonCyan, required this.blueprint});
 
   @override
   void paint(Canvas canvas, Size size) {
-    // Draw Dark Grid
-    final gridPaint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.05)
-      ..strokeWidth = 1.0;
-      
-    final step = 50.0;
-    for (double x = 0; x <= size.width; x += step) {
-      canvas.drawLine(Offset(x, 0), Offset(x, size.height), gridPaint);
-    }
-    for (double y = 0; y <= size.height; y += step) {
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
-    }
+    final paintLine = Paint()..color = Colors.white30..strokeWidth = 1.0..style = PaintingStyle.stroke;
+    final w = blueprint.canvasWidthMeters * blueprint.scale;
+    final h = blueprint.canvasHeightMeters * blueprint.scale;
+    canvas.drawRect(Rect.fromLTWH(0, 0, w, h), paintLine);
     
-    // Draw Outer Room Wireframe
-    final roomPaint = Paint()
-      ..color = Colors.white30
-      ..strokeWidth = 2.0
-      ..style = PaintingStyle.stroke;
+    // grid
+    for(double x=0; x<=w; x+=blueprint.scale) canvas.drawLine(Offset(x, 0), Offset(x, h), paintLine);
+    for(double y=0; y<=h; y+=blueprint.scale) canvas.drawLine(Offset(0, y), Offset(w, y), paintLine);
     
-    final roomRect = Rect.fromLTWH(100, 100, size.width - 200, size.height - 200);
-    canvas.drawRect(roomRect, roomPaint);
-    
-    // Draw Corner Lines (Isometric depth illusion on 2D plane)
-    canvas.drawLine(Offset(100, 100), Offset(130, 130), roomPaint);
-    canvas.drawLine(Offset(size.width-100, 100), Offset(size.width-130, 130), roomPaint);
-    canvas.drawLine(Offset(100, size.height-100), Offset(130, size.height-130), roomPaint);
-    canvas.drawLine(Offset(size.width-100, size.height-100), Offset(size.width-130, size.height-130), roomPaint);
-    
-    final innerRect = Rect.fromLTWH(130, 130, size.width - 260, size.height - 260);
-    canvas.drawRect(innerRect, roomPaint);
+    // listener
+    canvas.drawCircle(Offset(w/2, h/2), 10, Paint()..color=neonCyan.withValues(alpha:0.5));
   }
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
+}
+
+class _IsoViewPainter extends CustomPainter {
+  final Color neonCyan;
+  final BlueprintData blueprint;
+  final double orbitAngleX;
+  final double orbitAngleY;
+
+  _IsoViewPainter({required this.neonCyan, required this.blueprint, required this.orbitAngleX, required this.orbitAngleY});
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  void paint(Canvas canvas, Size size) {
+    final proj = _IsoProjector(
+      scale: blueprint.scale, cx: size.width/2, cy: size.height/2,
+      roomW: blueprint.canvasWidthMeters, roomD: blueprint.canvasHeightMeters,
+      angleX: orbitAngleX, angleY: orbitAngleY,
+    );
+
+    final line = Paint()..color = Colors.white30..strokeWidth = 1.0;
+    final w = blueprint.canvasWidthMeters;
+    final d = blueprint.canvasHeightMeters;
+    final h = blueprint.roomHeightMeters;
+
+    for (double x = 0; x <= w; x += 1.0) canvas.drawLine(proj.project(x, 0, 0), proj.project(x, d, 0), line);
+    for (double y = 0; y <= d; y += 1.0) canvas.drawLine(proj.project(0, y, 0), proj.project(w, y, 0), line);
+
+    final wall = Paint()..color = neonCyan.withValues(alpha:0.4)..strokeWidth = 2.0;
+    final corners = [
+      [proj.project(0,0,0), proj.project(0,0,h)], [proj.project(w,0,0), proj.project(w,0,h)],
+      [proj.project(0,d,0), proj.project(0,d,h)], [proj.project(w,d,0), proj.project(w,d,h)]
+    ];
+    for (var c in corners) canvas.drawLine(c[0], c[1], wall);
+    
+    final tops = [proj.project(0,0,h), proj.project(w,0,h), proj.project(w,d,h), proj.project(0,d,h)];
+    for(int i=0; i<4; i++) canvas.drawLine(tops[i], tops[(i+1)%4], wall);
+
+    canvas.drawCircle(proj.project(w/2, d/2, blueprint.listeningHeightMeters), 8, Paint()..color=neonCyan);
+  }
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
+}
+
+class _HeatmapPainter extends CustomPainter {
+  final List<SpeakerNode> speakers;
+  final BlueprintData blueprint;
+  final bool isTopView;
+  final double orbitAngleX;
+  final double orbitAngleY;
+  final double targetSPL;
+
+  _HeatmapPainter({required this.speakers, required this.blueprint, required this.isTopView, this.orbitAngleX=0, this.orbitAngleY=0, required this.targetSPL});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (speakers.isEmpty) return;
+
+    for (var spk in speakers) {
+      // 3. 히트맵 렌더링 반경(Rx, Ry) 공식에 CoverageDistance와 Dispersion 값 대입
+      final dist = spk.dispersionDistance * blueprint.scale;
+      final rx = dist * math.tan((spk.dispersionAngle / 2) * math.pi / 180.0);
+      final ry = dist * math.tan((spk.dispersionAngleV / 2) * math.pi / 180.0);
+      
+      final H = math.max(0.1, spk.heightZ - blueprint.listeningHeightMeters);
+      final tilt = spk.pitchTilt * math.pi / 180.0;
+      final projOffset = (H / math.tan(tilt)) * blueprint.scale;
+
+      final Gradient thermalGradient = RadialGradient(
+        colors: [
+          const Color(0xFFFF0000).withValues(alpha: 0.8), // Red
+          const Color(0xFFFFFF00).withValues(alpha: 0.6), // Yellow
+          const Color(0xFF00FF00).withValues(alpha: 0.4), // Green
+          const Color(0xFF00FFFF).withValues(alpha: 0.2), // Cyan
+          const Color(0x00000000),
+        ],
+        stops: const [0.0, 0.2, 0.45, 0.75, 1.0],
+      );
+
+      final Paint heat = Paint()..blendMode = BlendMode.screen;
+      heat.shader = thermalGradient.createShader(Rect.fromCircle(center: Offset.zero, radius: math.max(rx, ry)));
+      
+      canvas.save();
+      if (isTopView) {
+        canvas.translate(spk.x * blueprint.scale, spk.y * blueprint.scale);
+        canvas.rotate(spk.rotation * math.pi / 180.0);
+        canvas.translate(0, projOffset);
+        canvas.scale(rx / math.max(rx, ry), ry / math.max(rx, ry));
+      } else {
+        final proj = _IsoProjector(
+          scale: blueprint.scale, cx: size.width/2, cy: size.height/2,
+          roomW: blueprint.canvasWidthMeters, roomD: blueprint.canvasHeightMeters,
+          angleX: orbitAngleX, angleY: orbitAngleY,
+        );
+        // Map the center of the heatmap (which is on the floor) to screen
+        // We know its world coordinates:
+        double hx = spk.x - (H / math.tan(tilt)) * math.sin(spk.rotation * math.pi / 180.0);
+        double hy = spk.y + (H / math.tan(tilt)) * math.cos(spk.rotation * math.pi / 180.0);
+        
+        final centerScreen = proj.project(hx, hy, blueprint.listeningHeightMeters);
+        canvas.translate(centerScreen.dx, centerScreen.dy);
+        
+        // Rotate and scale according to orbit
+        canvas.rotate(orbitAngleX);
+        canvas.scale(1.0, math.cos(orbitAngleY));
+        canvas.rotate(spk.rotation * math.pi / 180.0);
+        canvas.scale(rx / math.max(rx, ry), ry / math.max(rx, ry));
+      }
+      
+      canvas.drawCircle(Offset.zero, math.max(rx, ry), heat);
+      canvas.restore();
+    }
+  }
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
 }
 
 class _SciFiSpeakerWidget extends StatelessWidget {
@@ -340,391 +501,19 @@ class _SciFiSpeakerWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 60,
-      height: 60,
+      width: 40,
+      height: 40,
       decoration: BoxDecoration(
-        color: isSelected ? neonCyan.withValues(alpha: 0.2) : Colors.transparent,
-        border: isSelected ? Border.all(color: neonCyan, width: 2) : null,
-        borderRadius: BorderRadius.circular(8),
+        color: isSelected ? neonCyan.withValues(alpha: 0.3) : Colors.black87,
+        border: Border.all(color: isSelected ? neonCyan : Colors.white54, width: 2),
+        shape: BoxShape.circle,
       ),
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          // Basic Box Representation
-          Container(
-            width: 30,
-            height: 30,
-            decoration: BoxDecoration(
-              border: Border.all(color: neonCyan, width: 1.5),
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: Center(
-              child: Container(
-                width: 15,
-                height: 15,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(color: neonCyan, width: 1.5),
-                ),
-              ),
-            ),
-          ),
-          // Waves (simplified static)
-          Positioned(
-            right: 0,
-            child: Icon(Icons.wifi, color: neonCyan, size: 20),
-          ),
-          // Label
-          Positioned(
-            top: -10,
-            child: Text(
-              node.id,
-              style: TextStyle(color: neonCyan, fontSize: 10, fontWeight: FontWeight.bold),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _RoomSetupPanel extends StatelessWidget {
-  final Color neonCyan;
-  final Color panelColor;
-  final Color borderColor;
-
-  const _RoomSetupPanel({required this.neonCyan, required this.panelColor, required this.borderColor});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 250,
-      decoration: BoxDecoration(
-        color: panelColor.withValues(alpha: 0.9),
-        border: Border.all(color: borderColor),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              border: Border(bottom: BorderSide(color: borderColor)),
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.desktop_windows, color: neonCyan, size: 16),
-                const SizedBox(width: 8),
-                const Text('ROOM SETUP', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
-                const Spacer(),
-                const Icon(Icons.close, color: Colors.white54, size: 16),
-              ],
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              children: [
-                _buildField('Width:', '6.0 m', neonCyan, borderColor),
-                const SizedBox(height: 8),
-                _buildField('Depth:', '4.5 m', neonCyan, borderColor),
-                const SizedBox(height: 8),
-                _buildField('Ceiling Height:', '3.0 m', neonCyan, borderColor),
-                const SizedBox(height: 8),
-                _buildField('Ear Level:', '1.2 m', neonCyan, borderColor),
-              ],
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                TextButton(
-                  onPressed: () {},
-                  child: const Text('Apply', style: TextStyle(color: Colors.white)),
-                ),
-                TextButton(
-                  onPressed: () {},
-                  child: const Text('Cancel', style: TextStyle(color: Colors.white54)),
-                ),
-              ],
-            ),
-          )
-        ],
-      ),
-    );
-  }
-
-  Widget _buildField(String label, String val, Color neon, Color border) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(label, style: const TextStyle(color: Colors.white70, fontSize: 12)),
-        Container(
-          width: 80,
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          decoration: BoxDecoration(
-            border: Border.all(color: neon),
-            borderRadius: BorderRadius.circular(4),
-          ),
-          child: Text(val, style: const TextStyle(color: Colors.white, fontSize: 12), textAlign: TextAlign.right),
+      child: Center(
+        child: Text(
+          'CH${node.channel+1}',
+          style: TextStyle(color: isSelected ? Colors.black : Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
         ),
-      ],
-    );
-  }
-}
-
-class _SpeakerInspectorPanel extends ConsumerStatefulWidget {
-  final SpeakerNode node;
-  final Color neonCyan;
-  final Color panelColor;
-  final Color borderColor;
-  final VoidCallback onClose;
-
-  const _SpeakerInspectorPanel({
-    required this.node,
-    required this.neonCyan,
-    required this.panelColor,
-    required this.borderColor,
-    required this.onClose,
-  });
-
-  @override
-  ConsumerState<_SpeakerInspectorPanel> createState() => _SpeakerInspectorPanelState();
-}
-
-class _SpeakerInspectorPanelState extends ConsumerState<_SpeakerInspectorPanel> {
-  late double h;
-  late double t;
-  late double p;
-
-  @override
-  void initState() {
-    super.initState();
-    h = widget.node.heightZ;
-    t = widget.node.pitchTilt;
-    p = widget.node.rotation;
-  }
-
-  @override
-  void didUpdateWidget(covariant _SpeakerInspectorPanel oldWidget) {
-    if (oldWidget.node.id != widget.node.id) {
-      h = widget.node.heightZ;
-      t = widget.node.pitchTilt;
-      p = widget.node.rotation;
-    }
-    super.didUpdateWidget(oldWidget);
-  }
-
-  void _sync() {
-    ref.read(speakerLayoutProvider.notifier).updateSpeaker(
-      widget.node.copyWith(heightZ: h, pitchTilt: t, rotation: p)
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 300,
-      decoration: BoxDecoration(
-        color: widget.panelColor,
-        border: Border(left: BorderSide(color: widget.borderColor)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                Icon(Icons.volume_up, color: widget.neonCyan, size: 20),
-                const SizedBox(width: 8),
-                const Text('SPEAKER INSPECTOR', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-              ],
-            ),
-          ),
-          const Divider(color: Colors.white10, height: 1),
-          
-          Expanded(
-            child: ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                Text('Selected Speaker: ${widget.node.id}', style: const TextStyle(color: Colors.white70)),
-                const SizedBox(height: 24),
-
-                // Height Z
-                const Text('HEIGHT (Z)', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: widget.borderColor),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    children: [
-                      // Vertical Slider fake
-                      RotatedBox(
-                        quarterTurns: 3,
-                        child: Slider(
-                          value: h, min: 0, max: 20,
-                          activeColor: widget.neonCyan,
-                          onChanged: (v) { setState(() => h = v); _sync(); },
-                        ),
-                      ),
-                      const Spacer(),
-                      Column(
-                        children: [
-                          Icon(Icons.unfold_more, color: widget.neonCyan, size: 32),
-                          const SizedBox(height: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                            decoration: BoxDecoration(border: Border.all(color: widget.neonCyan), borderRadius: BorderRadius.circular(4)),
-                            child: Text('${h.toStringAsFixed(1)} m', style: const TextStyle(color: Colors.white)),
-                          ),
-                        ],
-                      )
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 24),
-
-                // Tilt Angle
-                const Text('TILT ANGLE', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: widget.borderColor),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Column(
-                    children: [
-                      Slider(
-                        value: t, min: -90, max: 90,
-                        activeColor: widget.neonCyan,
-                        onChanged: (v) { setState(() => t = v); _sync(); },
-                      ),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                            decoration: BoxDecoration(border: Border.all(color: widget.neonCyan), borderRadius: BorderRadius.circular(4)),
-                            child: Text('${t.toStringAsFixed(0)}°', style: const TextStyle(color: Colors.white)),
-                          ),
-                        ],
-                      )
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 24),
-
-                // Pan Angle
-                const Text('PAN ANGLE', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: widget.borderColor),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Column(
-                    children: [
-                      Slider(
-                        value: p, min: -180, max: 180,
-                        activeColor: widget.neonCyan,
-                        onChanged: (v) { setState(() => p = v); _sync(); },
-                      ),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                            decoration: BoxDecoration(border: Border.all(color: widget.neonCyan), borderRadius: BorderRadius.circular(4)),
-                            child: Text('${p.toStringAsFixed(0)}°', style: const TextStyle(color: Colors.white)),
-                          ),
-                        ],
-                      )
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          
-          // Bottom Buttons
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                Expanded(child: OutlinedButton(onPressed: (){}, style: OutlinedButton.styleFrom(side: const BorderSide(color: Colors.white54)), child: const Text('Mute', style: TextStyle(color: Colors.white)))),
-                const SizedBox(width: 8),
-                Expanded(child: OutlinedButton(onPressed: (){}, style: OutlinedButton.styleFrom(side: const BorderSide(color: Colors.white54)), child: const Text('Solo', style: TextStyle(color: Colors.white)))),
-                const SizedBox(width: 8),
-                Expanded(flex: 2, child: OutlinedButton(onPressed: (){}, style: OutlinedButton.styleFrom(side: const BorderSide(color: Colors.white54)), child: const Text('Remove Speaker', style: TextStyle(color: Colors.white, fontSize: 12)))),
-              ],
-            ),
-          )
-        ],
       ),
     );
   }
-}
-
-class _HeatmapPainter extends CustomPainter {
-  final List<SpeakerNode> speakers;
-  final double scale;
-  final double earLevelZ = 1.2;
-
-  _HeatmapPainter({required this.speakers, required this.scale});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (speakers.isEmpty) return;
-
-    for (var spk in speakers) {
-      final double H = math.max(0.1, spk.heightZ - earLevelZ);
-      final double tiltRad = spk.pitchTilt.clamp(1.0, 90.0) * math.pi / 180.0;
-      final double halfDispersionRad = (spk.dispersionAngle / 2.0) * math.pi / 180.0;
-      final double projectionOffset = (H / math.tan(tiltRad)) * scale;
-      final double widthX = (H * math.tan(halfDispersionRad)) * scale;
-      final double lengthY = (widthX / math.sin(tiltRad)); 
-
-      final Gradient thermalGradient = RadialGradient(
-        colors: [
-          const Color(0xFFFF0000).withValues(alpha: 0.8), // Red (Core)
-          const Color(0xFFFFFF00).withValues(alpha: 0.6), // Yellow
-          const Color(0xFF00FF00).withValues(alpha: 0.4), // Green
-          const Color(0xFF00FFFF).withValues(alpha: 0.2), // Cyan
-          const Color(0x00000000),                        // Transparent
-        ],
-        stops: const [0.0, 0.2, 0.45, 0.75, 1.0],
-      );
-
-      final Paint heatPaint = Paint()
-        ..blendMode = BlendMode.screen;
-
-      final center = Offset(spk.x * scale, spk.y * scale);
-      
-      canvas.save();
-      canvas.translate(center.dx, center.dy);
-      canvas.rotate(spk.rotation * math.pi / 180.0);
-      canvas.translate(0, -projectionOffset);
-      canvas.scale(widthX / 100.0, lengthY / 100.0);
-
-      final Rect rect = Rect.fromCircle(center: Offset.zero, radius: 100.0);
-      heatPaint.shader = thermalGradient.createShader(rect);
-      
-      canvas.drawCircle(Offset.zero, 100.0, heatPaint);
-      canvas.restore();
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _HeatmapPainter oldDelegate) => true;
 }
