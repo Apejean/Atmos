@@ -295,21 +295,25 @@ class _StepperInputRowState extends State<_StepperInputRow> {
                       _focusNode.requestFocus();
                     },
                     child: _isEditing
-                        ? TextField(
-                            controller: _controller,
-                            focusNode: _focusNode,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w500,
+                        ? Material(
+                            type: MaterialType.transparency,
+                            child: TextField(
+                              controller: _controller,
+                              focusNode: _focusNode,
+                              textAlign: TextAlign.right,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                              ),
+                              decoration: const InputDecoration(
+                                isDense: true,
+                                contentPadding: EdgeInsets.zero,
+                                border: InputBorder.none,
+                              ),
+                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                              onSubmitted: (_) => _submit(),
                             ),
-                            decoration: const InputDecoration(
-                              isDense: true,
-                              contentPadding: EdgeInsets.zero,
-                              border: InputBorder.none,
-                            ),
-                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                            onSubmitted: (_) => _submit(),
                           )
                         : Text(
                             '${widget.value.toStringAsFixed(1)} m',
