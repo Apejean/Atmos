@@ -942,16 +942,6 @@ oscWhitelist: config.oscWhitelist,
                 },
               ),
               IconButton(
-                icon: const Icon(Icons.tune, color: Colors.cyanAccent),
-                tooltip: '1-Click Auto Calibration',
-                onPressed: () {
-                  showDialog(
-                    context: context,
-                    builder: (context) => const AutoCalibrationModal(),
-                  );
-                },
-              ),
-              IconButton(
                 icon: const Icon(Icons.science, color: Colors.greenAccent),
                 tooltip: 'Advanced Physical Acoustics Panel (Doppler, Air HF, Directivity)',
                 onPressed: () {
