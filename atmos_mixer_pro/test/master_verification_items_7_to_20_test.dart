@@ -129,7 +129,7 @@ void main() {
 
     // ITEM 13: Preset Save/Load & Session Restore
     test('Item 13: Preset Serialization - AppConfig Lossless Round-trip', () {
-      final config = AppConfig(oscWhitelist: const [], 
+      final config = AppConfig(globalReverbMix: 0.0, globalReverbDecay: 1.0, oscWhitelist: const [], 
         oscPort: 9000,
         bufferSize: 256,
         themeStartOscAddress: '/atmos/start',
@@ -253,7 +253,7 @@ void main() {
       expect(defaultSampleRate, equals(48000));
 
       // Verify reset state
-      final resetConfig = AppConfig(oscWhitelist: const [], 
+      final resetConfig = AppConfig(globalReverbMix: 0.0, globalReverbDecay: 1.0, oscWhitelist: const [], 
         oscPort: 8000,
         bufferSize: defaultBufferSize,
         themeStartOscAddress: '',

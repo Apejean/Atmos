@@ -205,7 +205,7 @@ class _RoomCardState extends ConsumerState<RoomCard> {
       ref
           .read(configProvider.notifier)
           .saveConfig(
-            AppConfig(oscWhitelist: const [], 
+            AppConfig(globalReverbMix: 0.0, globalReverbDecay: 1.0, oscWhitelist: const [], 
               masterHeadroomDb: currentConfig.masterHeadroomDb,
               peakLimiterEnabled: currentConfig.peakLimiterEnabled,
               oscPort: currentConfig.oscPort,
@@ -265,7 +265,7 @@ class _RoomCardState extends ConsumerState<RoomCard> {
         ref
             .read(configProvider.notifier)
             .saveConfig(
-              AppConfig(oscWhitelist: const [], 
+              AppConfig(globalReverbMix: 0.0, globalReverbDecay: 1.0, oscWhitelist: const [], 
                 masterHeadroomDb: config.masterHeadroomDb,
                 peakLimiterEnabled: config.peakLimiterEnabled,
                 oscPort: config.oscPort,
@@ -472,7 +472,7 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                                       ref
                                           .read(configProvider.notifier)
                                           .saveConfig(
-                                            AppConfig(oscWhitelist: const [], 
+                                            AppConfig(globalReverbMix: 0.0, globalReverbDecay: 1.0, oscWhitelist: const [], 
                                               masterHeadroomDb: currentConfig.masterHeadroomDb,
                                               peakLimiterEnabled: currentConfig.peakLimiterEnabled,
                                               oscPort: currentConfig.oscPort,
@@ -526,7 +526,7 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                                   ref
                                       .read(configProvider.notifier)
                                       .saveConfig(
-                                        AppConfig(oscWhitelist: const [], 
+                                        AppConfig(globalReverbMix: 0.0, globalReverbDecay: 1.0, oscWhitelist: const [], 
                                           masterHeadroomDb: currentConfig.masterHeadroomDb,
                                           peakLimiterEnabled: currentConfig.peakLimiterEnabled,
                                           oscPort: currentConfig.oscPort,
@@ -779,7 +779,7 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                                     ref
                                         .read(configProvider.notifier)
                                         .saveConfig(
-                                          AppConfig(oscWhitelist: const [], 
+                                          AppConfig(globalReverbMix: 0.0, globalReverbDecay: 1.0, oscWhitelist: const [], 
                                             masterHeadroomDb: currentConfig.masterHeadroomDb,
                                             peakLimiterEnabled: currentConfig.peakLimiterEnabled,
                                               oscPort: currentConfig.oscPort,
@@ -857,7 +857,7 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                                     ref
                                         .read(configProvider.notifier)
                                         .saveConfig(
-                                          AppConfig(oscWhitelist: const [], 
+                                          AppConfig(globalReverbMix: 0.0, globalReverbDecay: 1.0, oscWhitelist: const [], 
                                             masterHeadroomDb: currentConfig.masterHeadroomDb,
                                             peakLimiterEnabled: currentConfig.peakLimiterEnabled,
                                               oscPort: currentConfig.oscPort,
@@ -929,7 +929,7 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                                     ref
                                         .read(configProvider.notifier)
                                         .saveConfig(
-                                          AppConfig(oscWhitelist: const [], 
+                                          AppConfig(globalReverbMix: 0.0, globalReverbDecay: 1.0, oscWhitelist: const [], 
                                             masterHeadroomDb: currentConfig.masterHeadroomDb,
                                             peakLimiterEnabled: currentConfig.peakLimiterEnabled,
                                               oscPort: currentConfig.oscPort,
@@ -1000,7 +1000,7 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                                     ref
                                         .read(configProvider.notifier)
                                         .saveConfig(
-                                          AppConfig(oscWhitelist: const [], 
+                                          AppConfig(globalReverbMix: 0.0, globalReverbDecay: 1.0, oscWhitelist: const [], 
                                             masterHeadroomDb: currentConfig.masterHeadroomDb,
                                             peakLimiterEnabled: currentConfig.peakLimiterEnabled,
                                               oscPort: currentConfig.oscPort,
@@ -1071,7 +1071,7 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                                     ref
                                         .read(configProvider.notifier)
                                         .saveConfig(
-                                          AppConfig(oscWhitelist: const [], 
+                                          AppConfig(globalReverbMix: 0.0, globalReverbDecay: 1.0, oscWhitelist: const [], 
                                             masterHeadroomDb: currentConfig.masterHeadroomDb,
                                             peakLimiterEnabled: currentConfig.peakLimiterEnabled,
                                               oscPort: currentConfig.oscPort,
@@ -1148,7 +1148,7 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                                     ref
                                         .read(configProvider.notifier)
                                         .saveConfig(
-                                          AppConfig(oscWhitelist: const [], 
+                                          AppConfig(globalReverbMix: 0.0, globalReverbDecay: 1.0, oscWhitelist: const [], 
                                             masterHeadroomDb: currentConfig.masterHeadroomDb,
                                             peakLimiterEnabled: currentConfig.peakLimiterEnabled,
                                               oscPort: currentConfig.oscPort,

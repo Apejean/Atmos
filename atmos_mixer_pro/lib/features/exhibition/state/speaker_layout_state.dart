@@ -99,6 +99,9 @@ class SpeakerLayoutState extends Notifier<List<SpeakerNode>> {
             'yaw_rotation': node.rotation,
             'pitch_tilt': node.pitchTilt,
             'dispersion_angle': node.dispersionAngle,
+            'pan_deg': node.panDeg,
+            'reverb_send': node.reverbSend,
+            'early_ref_mix': node.earlyRefMix,
           };
         },
       ),

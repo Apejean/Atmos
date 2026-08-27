@@ -23,6 +23,8 @@ class AppConfig {
   final double masterHeadroomDb;
   final bool peakLimiterEnabled;
   final List<String> oscWhitelist;
+  final double globalReverbMix;
+  final double globalReverbDecay;
 
   const AppConfig({
     required this.oscPort,
@@ -41,6 +43,8 @@ class AppConfig {
     required this.masterHeadroomDb,
     required this.peakLimiterEnabled,
     required this.oscWhitelist,
+    required this.globalReverbMix,
+    required this.globalReverbDecay,
   });
 
   @override
@@ -60,7 +64,9 @@ class AppConfig {
       isExhibitionMode.hashCode ^
       masterHeadroomDb.hashCode ^
       peakLimiterEnabled.hashCode ^
-      oscWhitelist.hashCode;
+      oscWhitelist.hashCode ^
+      globalReverbMix.hashCode ^
+      globalReverbDecay.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -82,7 +88,9 @@ class AppConfig {
           isExhibitionMode == other.isExhibitionMode &&
           masterHeadroomDb == other.masterHeadroomDb &&
           peakLimiterEnabled == other.peakLimiterEnabled &&
-          oscWhitelist == other.oscWhitelist;
+          oscWhitelist == other.oscWhitelist &&
+          globalReverbMix == other.globalReverbMix &&
+          globalReverbDecay == other.globalReverbDecay;
 }
 
 class ChannelSetting {
@@ -249,6 +257,7 @@ class RoomZone {
   final Point3D boundaryMax;
   final double boundaryDelayMs;
   final List<EqBand> boundaryEqBands;
+  final double transmissionLossDb;
 
   const RoomZone({
     required this.roomId,
@@ -256,6 +265,7 @@ class RoomZone {
     required this.boundaryMax,
     required this.boundaryDelayMs,
     required this.boundaryEqBands,
+    required this.transmissionLossDb,
   });
 
   @override
@@ -264,7 +274,8 @@ class RoomZone {
       boundaryMin.hashCode ^
       boundaryMax.hashCode ^
       boundaryDelayMs.hashCode ^
-      boundaryEqBands.hashCode;
+      boundaryEqBands.hashCode ^
+      transmissionLossDb.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -275,7 +286,8 @@ class RoomZone {
           boundaryMin == other.boundaryMin &&
           boundaryMax == other.boundaryMax &&
           boundaryDelayMs == other.boundaryDelayMs &&
-          boundaryEqBands == other.boundaryEqBands;
+          boundaryEqBands == other.boundaryEqBands &&
+          transmissionLossDb == other.transmissionLossDb;
 }
 
 class TrackConfig {

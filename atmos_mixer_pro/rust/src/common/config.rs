@@ -28,6 +28,8 @@ pub struct RoomZone {
     pub boundary_delay_ms: f32,
     #[serde(default)]
     pub boundary_eq_bands: Vec<EqBand>,
+    #[serde(default)]
+    pub transmission_loss_db: f32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
@@ -115,6 +117,10 @@ pub struct AppConfig {
     pub peak_limiter_enabled: bool,
     #[serde(default)]
     pub osc_whitelist: Vec<String>,
+    #[serde(default)]
+    pub global_reverb_mix: f32,
+    #[serde(default)]
+    pub global_reverb_decay: f32,
 }
 
 fn default_master_headroom() -> f32 {
@@ -136,6 +142,8 @@ impl Default for AppConfig {
             rooms: Vec::new(),
             global_trajectory: None,
             room_zones: Vec::new(),
+            global_reverb_mix: 0.0,
+            global_reverb_decay: 1.0,
             is_exhibition_mode: false,
             master_headroom_db: 0.0,
             peak_limiter_enabled: true,

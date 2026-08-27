@@ -6,7 +6,9 @@
 // Static analysis wrongly picks the IO variant, thus ignore this
 // ignore_for_file: argument_type_not_assignable
 
+import 'api/acoustics.dart';
 import 'api/error.dart';
+import 'api/scene.dart';
 import 'api/simple.dart';
 import 'common/config.dart';
 import 'dart:async';

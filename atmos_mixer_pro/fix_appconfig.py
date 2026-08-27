@@ -1,30 +1,29 @@
-import re
 import os
-import glob
-
-def find_dart_files(directory):
-    return glob.glob(os.path.join(directory, '**/*.dart'), recursive=True)
+import re
 
 def process_file(filepath):
-    with open(filepath, 'r', encoding='utf-8') as f:
+    with open(filepath, 'r') as f:
         content = f.read()
 
-    if 'AppConfig(' not in content:
-        return
+    # Find all occurrences of AppConfig( ... ) and add globalReverbMix: 0.0, globalReverbDecay: 1.0, if not present.
+    # It might span multiple lines, so we can replace 'AppConfig(' with a custom function, but since it's just named arguments, we can just insert them right after 'AppConfig('
+    # Wait, inserting right after 'AppConfig(' is safest.
+    
+    if "AppConfig(" in content and "globalReverbMix:" not in content:
+        # We need to make sure we don't mess up other things.
+        # Just replace "AppConfig(" with "AppConfig(globalReverbMix: 0.0, globalReverbDecay: 1.0,"
+        content = content.replace("AppConfig(", "AppConfig(globalReverbMix: 0.0, globalReverbDecay: 1.0, ")
+        
+        with open(filepath, 'w') as f:
+            f.write(content)
 
-    # Print the lines containing AppConfig instantiations and following lines
-    lines = content.split('\n')
-    for i, line in enumerate(lines):
-        if 'AppConfig(' in line:
-            print(f"--- {filepath}:{i+1} ---")
-            for j in range(i, min(i+25, len(lines))):
-                print(f"{j+1}: {lines[j]}")
-                if ');' in lines[j] or '), ' in lines[j] or ')' in lines[j] and 'AppConfig' not in lines[j]:
-                    break
-            print("-----------------------")
+for root, _, files in os.walk("lib"):
+    for file in files:
+        if file.endswith(".dart"):
+            process_file(os.path.join(root, file))
 
-if __name__ == '__main__':
-    for f in find_dart_files('lib'):
-        process_file(f)
-    for f in find_dart_files('test'):
-        process_file(f)
+for root, _, files in os.walk("test"):
+    for file in files:
+        if file.endswith(".dart"):
+            process_file(os.path.join(root, file))
+

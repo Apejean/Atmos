@@ -270,7 +270,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             onSelected: () {
               final config = ref.read(configProvider);
               if (config != null) {
-                final updated = AppConfig(
+                final updated = AppConfig(globalReverbMix: 0.0, globalReverbDecay: 1.0, 
 oscWhitelist: config.oscWhitelist,
 
                   oscPort: config.oscPort,
@@ -499,7 +499,7 @@ oscWhitelist: config.oscWhitelist,
                     onPressed: () {
                       final config = ref.read(configProvider);
                       if (config != null) {
-                        final updated = AppConfig(
+                        final updated = AppConfig(globalReverbMix: 0.0, globalReverbDecay: 1.0, 
 oscWhitelist: config.oscWhitelist,
 
                           oscPort: config.oscPort,
@@ -978,7 +978,7 @@ oscWhitelist: config.oscWhitelist,
                       volumeOscAddress: '/room/volume',
                       tracks: [],
                     );
-                    final updated = AppConfig(
+                    final updated = AppConfig(globalReverbMix: 0.0, globalReverbDecay: 1.0, 
 oscWhitelist: config.oscWhitelist,
 
                       oscPort: config.oscPort,

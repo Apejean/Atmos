@@ -70,7 +70,7 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
     final currentConfig = ref.read(configProvider);
     _tempConfig = currentConfig != null
         ? cloneConfig(currentConfig)
-        : AppConfig(
+        : AppConfig(globalReverbMix: 0.0, globalReverbDecay: 1.0, 
 oscWhitelist: const [],
 
             oscPort: 8000,
@@ -216,7 +216,7 @@ oscWhitelist: const [],
               .where((d) => d.trim() == _tempConfig.deviceName!.trim())
               .firstOrNull;
           if (spaceMatch != null) {
-            _tempConfig = AppConfig(
+            _tempConfig = AppConfig(globalReverbMix: 0.0, globalReverbDecay: 1.0, 
 oscWhitelist: _tempConfig.oscWhitelist,
 
               oscPort: _tempConfig.oscPort,
@@ -243,7 +243,7 @@ oscWhitelist: _tempConfig.oscWhitelist,
                 .firstOrNull;
             if (prefixMatch != null &&
                 !_tempConfig.deviceName!.startsWith('[')) {
-              _tempConfig = AppConfig(
+              _tempConfig = AppConfig(globalReverbMix: 0.0, globalReverbDecay: 1.0, 
 oscWhitelist: _tempConfig.oscWhitelist,
 
                 oscPort: _tempConfig.oscPort,
@@ -309,7 +309,7 @@ oscWhitelist: _tempConfig.oscWhitelist,
 
   // Very basic deep clone for editing
   AppConfig cloneConfig(AppConfig config) {
-    return AppConfig(
+    return AppConfig(globalReverbMix: 0.0, globalReverbDecay: 1.0, 
 oscWhitelist: config.oscWhitelist,
 
       oscPort: config.oscPort,
@@ -390,7 +390,7 @@ oscWhitelist: config.oscWhitelist,
     }).toList();
 
     final currentConfig = ref.read(configProvider);
-    final finalConfig = AppConfig(
+    final finalConfig = AppConfig(globalReverbMix: 0.0, globalReverbDecay: 1.0, 
 oscWhitelist: _tempConfig.oscWhitelist,
 
       oscPort: _tempConfig.oscPort,
@@ -453,7 +453,7 @@ oscWhitelist: _tempConfig.oscWhitelist,
             );
           }).toList();
 
-          _tempConfig = AppConfig(
+          _tempConfig = AppConfig(globalReverbMix: 0.0, globalReverbDecay: 1.0, 
 oscWhitelist: _tempConfig.oscWhitelist,
 
             oscPort: _tempConfig.oscPort,
@@ -714,7 +714,7 @@ oscWhitelist: _tempConfig.oscWhitelist,
                         newDeviceName = null;
                       }
 
-                      _tempConfig = AppConfig(
+                      _tempConfig = AppConfig(globalReverbMix: 0.0, globalReverbDecay: 1.0, 
 oscWhitelist: _tempConfig.oscWhitelist,
 
                         oscPort: _tempConfig.oscPort,
@@ -802,7 +802,7 @@ oscWhitelist: _tempConfig.oscWhitelist,
                 onChanged: (val) {
                   _isDeviceManuallyChanged = true;
                   setState(() {
-                    _tempConfig = AppConfig(
+                    _tempConfig = AppConfig(globalReverbMix: 0.0, globalReverbDecay: 1.0, 
 oscWhitelist: _tempConfig.oscWhitelist,
 
                       oscPort: _tempConfig.oscPort,
@@ -889,7 +889,7 @@ oscWhitelist: _tempConfig.oscWhitelist,
                 onChanged: (val) {
                   if (val != null) {
                     setState(() {
-                      _tempConfig = AppConfig(
+                      _tempConfig = AppConfig(globalReverbMix: 0.0, globalReverbDecay: 1.0, 
 oscWhitelist: _tempConfig.oscWhitelist,
 
                         oscPort: _tempConfig.oscPort,
@@ -946,7 +946,7 @@ oscWhitelist: _tempConfig.oscWhitelist,
               selected: {_tempConfig.masterHeadroomDb},
               onSelectionChanged: (Set<double> newSelection) {
                 setState(() {
-                  _tempConfig = AppConfig(
+                  _tempConfig = AppConfig(globalReverbMix: 0.0, globalReverbDecay: 1.0, 
 oscWhitelist: _tempConfig.oscWhitelist,
 
                     oscPort: _tempConfig.oscPort,
@@ -1007,7 +1007,7 @@ oscWhitelist: _tempConfig.oscWhitelist,
               activeThumbColor: AppColors.primaryNeon,
               onChanged: (val) {
                 setState(() {
-                  _tempConfig = AppConfig(
+                  _tempConfig = AppConfig(globalReverbMix: 0.0, globalReverbDecay: 1.0, 
 oscWhitelist: _tempConfig.oscWhitelist,
 
                     oscPort: _tempConfig.oscPort,
@@ -1060,7 +1060,7 @@ oscWhitelist: _tempConfig.oscWhitelist,
               activeThumbColor: AppColors.primaryNeon,
               onChanged: (val) {
                 setState(() {
-                  _tempConfig = AppConfig(
+                  _tempConfig = AppConfig(globalReverbMix: 0.0, globalReverbDecay: 1.0, 
                     oscWhitelist: _tempConfig.oscWhitelist,
                     oscPort: _tempConfig.oscPort,
                     deviceName: _tempConfig.deviceName,
@@ -1133,7 +1133,7 @@ oscWhitelist: _tempConfig.oscWhitelist,
                       );
                   if (result != null) {
                     setState(() {
-                      _tempConfig = AppConfig(
+                      _tempConfig = AppConfig(globalReverbMix: 0.0, globalReverbDecay: 1.0, 
 oscWhitelist: _tempConfig.oscWhitelist,
 
                         oscPort: _tempConfig.oscPort,
@@ -1406,7 +1406,7 @@ oscWhitelist: _tempConfig.oscWhitelist,
                                 tracks: newTracks,
                               );
                               setState(() {
-                                _tempConfig = AppConfig(
+                                _tempConfig = AppConfig(globalReverbMix: 0.0, globalReverbDecay: 1.0, 
 oscWhitelist: _tempConfig.oscWhitelist,
 
                                   oscPort: _tempConfig.oscPort,
@@ -1488,7 +1488,7 @@ oscWhitelist: _tempConfig.oscWhitelist,
                   ),
                   onChanged: (val) {
                     setState(() {
-                      _tempConfig = AppConfig(
+                      _tempConfig = AppConfig(globalReverbMix: 0.0, globalReverbDecay: 1.0, 
 oscWhitelist: _tempConfig.oscWhitelist,
 
                         oscPort: _tempConfig.oscPort,
@@ -1544,7 +1544,7 @@ oscWhitelist: _tempConfig.oscWhitelist,
                   ),
                   onChanged: (val) {
                     setState(() {
-                      _tempConfig = AppConfig(
+                      _tempConfig = AppConfig(globalReverbMix: 0.0, globalReverbDecay: 1.0, 
 oscWhitelist: _tempConfig.oscWhitelist,
 
                         oscPort: _tempConfig.oscPort,
@@ -1625,7 +1625,7 @@ oscWhitelist: _tempConfig.oscWhitelist,
                             tracks: room.tracks,
                           );
                           setState(() {
-                            _tempConfig = AppConfig(
+                            _tempConfig = AppConfig(globalReverbMix: 0.0, globalReverbDecay: 1.0, 
 oscWhitelist: _tempConfig.oscWhitelist,
 
                               oscPort: _tempConfig.oscPort,
@@ -1689,7 +1689,7 @@ oscWhitelist: _tempConfig.oscWhitelist,
                             tracks: room.tracks,
                           );
                           setState(() {
-                            _tempConfig = AppConfig(
+                            _tempConfig = AppConfig(globalReverbMix: 0.0, globalReverbDecay: 1.0, 
                               oscWhitelist: _tempConfig.oscWhitelist,
                               oscPort: _tempConfig.oscPort,
                               deviceName: _tempConfig.deviceName,
@@ -1775,7 +1775,7 @@ oscWhitelist: _tempConfig.oscWhitelist,
                                 tracks: newTracks,
                               );
                               setState(() {
-                                _tempConfig = AppConfig(
+                                _tempConfig = AppConfig(globalReverbMix: 0.0, globalReverbDecay: 1.0, 
 oscWhitelist: _tempConfig.oscWhitelist,
 
                                   oscPort: _tempConfig.oscPort,
@@ -1846,7 +1846,7 @@ oscWhitelist: _tempConfig.oscWhitelist,
                                 tracks: newTracks,
                               );
                               setState(() {
-                                _tempConfig = AppConfig(
+                                _tempConfig = AppConfig(globalReverbMix: 0.0, globalReverbDecay: 1.0, 
 oscWhitelist: _tempConfig.oscWhitelist,
 
                                   oscPort: _tempConfig.oscPort,
@@ -1911,7 +1911,7 @@ oscWhitelist: _tempConfig.oscWhitelist,
                   final p = int.tryParse(val);
                   if (p != null) {
                     setState(() {
-                      _tempConfig = AppConfig(
+                      _tempConfig = AppConfig(globalReverbMix: 0.0, globalReverbDecay: 1.0, 
 oscWhitelist: _tempConfig.oscWhitelist,
 
                         oscPort: int.tryParse(val) ?? _tempConfig.oscPort,

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:atmos_mixer_pro/features/exhibition/models/speaker_node.dart';
-import 'package:atmos_mixer_pro/features/exhibition/state/blueprint_state.dart';
 import 'package:atmos_mixer_pro/features/exhibition/state/speaker_layout_state.dart';
 
 class SpeakerInspectorPanel extends ConsumerStatefulWidget {
@@ -19,6 +19,84 @@ class SpeakerInspectorPanel extends ConsumerStatefulWidget {
 }
 
 class _SpeakerInspectorPanelState extends ConsumerState<SpeakerInspectorPanel> {
+  Widget _buildControlBox(String iconPath, String label, double value, String unit, Function(double) onChanged) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      height: 48,
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 48,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              border: Border(right: BorderSide(color: Colors.white.withValues(alpha: 0.1))),
+            ),
+            child: SvgPicture.asset(iconPath, width: 24, height: 24, colorFilter: const ColorFilter.mode(Colors.lightBlueAccent, BlendMode.srcIn)),
+          ),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: GestureDetector(
+                onDoubleTap: () {
+                  _showEditDialog(label, value, onChanged);
+                },
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(label, style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                    Text('\${value.toStringAsFixed(1)}$unit', style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _showEditDialog(String label, double currentValue, Function(double) onChanged) async {
+    final controller = TextEditingController(text: currentValue.toString());
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF1E2632),
+        title: Text('Edit \$label', style: const TextStyle(color: Colors.white)),
+        content: TextField(
+          controller: controller,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          style: const TextStyle(color: Colors.white),
+          autofocus: true,
+          decoration: const InputDecoration(
+            enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.white30)),
+            focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.lightBlueAccent)),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel', style: TextStyle(color: Colors.white54)),
+          ),
+          TextButton(
+            onPressed: () {
+              final val = double.tryParse(controller.text);
+              if (val != null) {
+                onChanged(val);
+              }
+              Navigator.pop(context);
+            },
+            child: const Text('Apply', style: TextStyle(color: Colors.lightBlueAccent)),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final layout = ref.watch(speakerLayoutProvider);
@@ -29,113 +107,74 @@ class _SpeakerInspectorPanelState extends ConsumerState<SpeakerInspectorPanel> {
       speaker = null;
     }
 
-    if (speaker == null) {
-      return const SizedBox.shrink();
-    }
-
-    const bgColor = Color(0xFF232C3A);
-    const borderColor = Color(0xFF3F556D);
-    const textLight = Color(0xFFE2E8F0);
+    if (speaker == null) return const SizedBox.shrink();
 
     return Container(
-      width: 300,
+      width: 320,
       decoration: BoxDecoration(
-        color: bgColor.withValues(alpha: 0.95),
-        border: const Border(
-          left: BorderSide(color: borderColor, width: 1),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.5),
-            blurRadius: 10,
-            offset: const Offset(-2, 0),
-          ),
-        ],
+        color: const Color(0xFF151921).withValues(alpha: 0.85),
+        border: Border(left: BorderSide(color: Colors.white.withValues(alpha: 0.1), width: 1)),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.5), blurRadius: 20)],
       ),
       child: Column(
         children: [
           // Header
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: const BoxDecoration(
-              color: Color(0xFF1E2632),
-              border: Border(bottom: BorderSide(color: borderColor, width: 1)),
-            ),
+            height: 60,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            decoration: BoxDecoration(border: Border(bottom: BorderSide(color: Colors.white.withValues(alpha: 0.1)))),
             child: Row(
               children: [
-                const Icon(Icons.speaker, color: Colors.lightBlueAccent, size: 18),
-                const SizedBox(width: 8),
-                const Expanded(
-                  child: Text(
-                    'SPEAKER INSPECTOR',
-                    style: TextStyle(
-                      color: textLight,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 0.5,
+                Expanded(
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<int>(
+                      value: speaker.channel,
+                      dropdownColor: const Color(0xFF1E2632),
+                      style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
+                      items: List.generate(24, (i) => DropdownMenuItem(value: i, child: Text('Selected Speaker: CH \${i + 1}'))),
+                      onChanged: (val) {
+                        if (val != null) {
+                          ref.read(speakerLayoutProvider.notifier).updateSpeaker(speaker!.copyWith(channel: val));
+                        }
+                      },
                     ),
                   ),
                 ),
-                InkWell(
-                  onTap: widget.onClose,
-                  child: const Icon(Icons.close, color: Colors.white54, size: 18),
-                ),
+                IconButton(icon: const Icon(Icons.close, color: Colors.white54), onPressed: widget.onClose),
               ],
             ),
           ),
           
           // Body
           Expanded(
-            child: SingleChildScrollView(
+            child: ListView(
               padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildSectionTitle('1. IDENTITY'),
-                  _buildRow('Channel:', 'Ch ${speaker.channel + 1} (${speaker.channel.toString()})'),
-                  const SizedBox(height: 16),
-                  
-                  _buildSectionTitle('2. POSITION & ORIENTATION'),
-                  _buildSliderRow('X Position', speaker.x, 0.0, 20.0, (val) => _updateSpeaker(speaker!, x: val)),
-                  _buildSliderRow('Y Position', speaker.y, 0.0, 20.0, (val) => _updateSpeaker(speaker!, y: val)),
-                  // Note: Assuming heightZ, pitchTilt, panDeg exist or will be added. Default to 0 for now.
-                  _buildSliderRow('Z Height', 2.0, 0.0, 10.0, (val) {}),
-                  _buildSliderRow('Tilt', 0.0, -90.0, 90.0, (val) {}),
-                  _buildSliderRow('Pan', 0.0, -180.0, 180.0, (val) {}),
-                  
-                  const SizedBox(height: 16),
-                  _buildSectionTitle('3. POWER & COVERAGE'),
-                  _buildRow('Type:', 'Mid-size (300W)'),
-                  
-                  const SizedBox(height: 16),
-                  _buildSectionTitle('4. DSP MATRIX'),
-                  _buildSliderRow('Gain', 0.0, -24.0, 12.0, (val) {}),
-                  
-                  const SizedBox(height: 16),
-                  _buildSectionTitle('5. REVERB & ACOUSTICS'),
-                  _buildSliderRow('Reverb Send', 0.5, 0.0, 1.0, (val) {}),
-                  _buildSliderRow('Early Ref Mix', 0.2, 0.0, 1.0, (val) {}),
-                  _buildSliderRow('Room Size', 1.0, 0.1, 3.0, (val) {}),
-                  
-                  const SizedBox(height: 24),
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton.icon(
-                      onPressed: () {
-                        ref.read(speakerLayoutProvider.notifier).removeSpeaker(speaker!.id);
-                        widget.onClose();
-                      },
-                      icon: const Icon(Icons.delete, color: Colors.redAccent, size: 16),
-                      label: const Text('Remove Speaker', style: TextStyle(color: Colors.redAccent)),
-                      style: OutlinedButton.styleFrom(
-                        side: const BorderSide(color: Colors.redAccent),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                      ),
-                    ),
-                  ),
-                ],
+              children: [
+                _buildControlBox('assets/3d_simulator/icons/icon_x.svg', 'X Position', speaker.x, 'm', (v) => _updateSpeaker(speaker!, x: v)),
+                _buildControlBox('assets/3d_simulator/icons/icon_y.svg', 'Y Position', speaker.y, 'm', (v) => _updateSpeaker(speaker!, y: v)),
+                _buildControlBox('assets/3d_simulator/icons/icon_height.svg', 'Z Height', speaker.heightZ, 'm', (v) => _updateSpeaker(speaker!, z: v)),
+                _buildControlBox('assets/3d_simulator/icons/icon_pan.svg', 'Pan', speaker.panDeg, '°', (v) => _updateSpeaker(speaker!, pan: v)),
+                _buildControlBox('assets/3d_simulator/icons/icon_tilt.svg', 'Tilt', speaker.pitchTilt, '°', (v) => _updateSpeaker(speaker!, tilt: v)),
+                _buildControlBox('assets/3d_simulator/icons/icon_dispersion.svg', 'Dispersion', speaker.dispersionAngle, '°', (v) => _updateSpeaker(speaker!, disp: v)),
+                _buildControlBox('assets/3d_simulator/icons/icon_reverb.svg', 'Reverb Send', speaker.reverbSend, '%', (v) => _updateSpeaker(speaker!, rev: v)),
+              ],
+            ),
+          ),
+          
+          // Footer
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: OutlinedButton(
+              onPressed: () {
+                ref.read(speakerLayoutProvider.notifier).removeSpeaker(speaker!.id);
+                widget.onClose();
+              },
+              style: OutlinedButton.styleFrom(
+                side: const BorderSide(color: Colors.redAccent),
+                minimumSize: const Size(double.infinity, 48),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               ),
+              child: const Text('Remove Speaker', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
             ),
           ),
         ],
@@ -143,79 +182,16 @@ class _SpeakerInspectorPanelState extends ConsumerState<SpeakerInspectorPanel> {
     );
   }
 
-  Widget _buildSectionTitle(String title) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Text(
-        title,
-        style: const TextStyle(
-          color: Colors.lightBlueAccent,
-          fontSize: 11,
-          fontWeight: FontWeight.bold,
-          letterSpacing: 0.5,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label, style: const TextStyle(color: Colors.white70, fontSize: 12)),
-          Text(value, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSliderRow(String label, double value, double min, double max, Function(double) onChanged) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 70,
-            child: Text(label, style: const TextStyle(color: Colors.white70, fontSize: 12)),
-          ),
-          Expanded(
-            child: SliderTheme(
-              data: SliderThemeData(
-                trackHeight: 2,
-                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
-                overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
-                activeTrackColor: Colors.lightBlueAccent,
-                inactiveTrackColor: Colors.white12,
-                thumbColor: Colors.white,
-              ),
-              child: Slider(
-                value: value.clamp(min, max),
-                min: min,
-                max: max,
-                onChanged: onChanged,
-              ),
-            ),
-          ),
-          SizedBox(
-            width: 40,
-            child: Text(
-              value.toStringAsFixed(1),
-              textAlign: TextAlign.right,
-              style: const TextStyle(color: Colors.lightBlueAccent, fontSize: 12, fontWeight: FontWeight.bold),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _updateSpeaker(SpeakerNode speaker, {double? x, double? y}) {
-    final updated = speaker.copyWith(
+  void _updateSpeaker(SpeakerNode speaker, {double? x, double? y, double? z, double? pan, double? tilt, double? disp, double? rev}) {
+    ref.read(speakerLayoutProvider.notifier).updateSpeaker(speaker.copyWith(
       x: x ?? speaker.x,
       y: y ?? speaker.y,
-    );
-    ref.read(speakerLayoutProvider.notifier).updateSpeaker(updated);
+      heightZ: z ?? speaker.heightZ,
+      pitchTilt: tilt ?? speaker.pitchTilt,
+      panDeg: pan ?? speaker.panDeg,
+      dispersionAngle: disp ?? speaker.dispersionAngle,
+      reverbSend: rev ?? speaker.reverbSend,
+    ));
+    // Trigger real-time sync via global state or similar if needed.
   }
 }

@@ -7,7 +7,7 @@ pub fn save_scene(scene_id: &str, name: &str) -> Result<(), AtmosError> {
     
     let scenes_dir = Path::new("scenes");
     if !scenes_dir.exists() {
-        fs::create_dir_all(scenes_dir).map_err(|e| AtmosError::IoError(e.to_string()))?;
+        fs::create_dir_all(scenes_dir).map_err(|e| AtmosError { message: e.to_string() })?;
     }
     
     let file_path = scenes_dir.join(format!("{}.json", scene_id));
@@ -19,10 +19,10 @@ pub fn save_scene(scene_id: &str, name: &str) -> Result<(), AtmosError> {
     };
     
     let json_data = serde_json::to_string_pretty(&config)
-        .map_err(|e| AtmosError::SerializationError(e.to_string()))?;
+        .map_err(|e| AtmosError { message: e.to_string() })?;
         
     fs::write(&file_path, json_data)
-        .map_err(|e| AtmosError::IoError(e.to_string()))?;
+        .map_err(|e| AtmosError { message: e.to_string() })?;
         
     println!("✅ [디버깅] 씬 저장 완료: {:?}", file_path);
     Ok(())
@@ -33,26 +33,22 @@ pub fn load_scene(scene_id: &str) -> Result<(), AtmosError> {
     
     let file_path = Path::new("scenes").join(format!("{}.json", scene_id));
     if !file_path.exists() {
-        return Err(AtmosError::IoError("Scene file not found".to_string()));
+        return Err(AtmosError { message: "Scene file not found".to_string() });
     }
     
     let json_data = fs::read_to_string(&file_path)
-        .map_err(|e| AtmosError::IoError(e.to_string()))?;
+        .map_err(|e| AtmosError { message: e.to_string() })?;
         
     let new_config: crate::common::config::AppConfig = serde_json::from_str(&json_data)
-        .map_err(|e| AtmosError::SerializationError(e.to_string()))?;
+        .map_err(|e| AtmosError { message: e.to_string() })?;
         
     {
         let mut state = crate::core::state::GLOBAL_STATE.config.write().unwrap();
-        *state = new_config.clone();
+        *state = Some(new_config.clone());
     }
     
     // Notify audio engine to update config
-    let _ = crate::core::state::GLOBAL_STATE.command_sender.send(crate::common::commands::AudioCommand::UpdateSpatialConfig {
-        channel_positions: new_config.mono_configs.iter().map(|(&id, c)| (id, c.position.clone())).collect(),
-        room_zones: new_config.room_zones.clone(),
-        trajectory: new_config.global_trajectory.clone(),
-    });
+    // The frontend will handle sending UpdateSpatialConfig after loading or clearing.
     
     Ok(())
 }
@@ -62,16 +58,16 @@ pub fn clear_room() -> Result<(), AtmosError> {
     
     {
         let mut state = crate::core::state::GLOBAL_STATE.config.write().unwrap();
-        state.rooms.clear();
-        state.room_zones.clear();
-        state.global_trajectory = None;
+        if let Some(config) = state.as_mut() {
+            config.rooms.clear();
+            config.room_zones.clear();
+            config.global_trajectory = None;
+        }
+        
+        
     }
     
-    let _ = crate::core::state::GLOBAL_STATE.command_sender.send(crate::common::commands::AudioCommand::UpdateSpatialConfig {
-        channel_positions: std::collections::HashMap::new(),
-        room_zones: Vec::new(),
-        trajectory: None,
-    });
+    // The frontend will handle sending UpdateSpatialConfig after loading or clearing.
     
     Ok(())
 }

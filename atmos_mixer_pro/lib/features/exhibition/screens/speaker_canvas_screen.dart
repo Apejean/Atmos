@@ -12,6 +12,10 @@ import 'package:atmos_mixer_pro/features/exhibition/widgets/trajectory_layer_pai
 import 'package:atmos_mixer_pro/features/exhibition/widgets/trajectory_sidebar_widget.dart';
 import 'package:atmos_mixer_pro/features/exhibition/widgets/trajectory_editor_toolbar.dart';
 
+
+import 'package:atmos_mixer_pro/features/exhibition/widgets/viewport_3d/dynamic_3d_room.dart';
+import 'package:atmos_mixer_pro/features/exhibition/widgets/hud/speaker_inspector_panel.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
 
@@ -72,6 +76,8 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
   bool _isRoomInteracting = false;
 
   bool _isMeasuringScale = false;
+  bool _is3DMode = false;
+  String? _selectedInspectorSpeakerId;
   Offset? _measureStart;
   Offset? _measureEnd;
 
@@ -1547,10 +1553,53 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
       child: Scaffold(
         backgroundColor: AppColors.background,
         appBar: AppBar(
-          title: const Text('Exhibition Canvas', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back, color: Colors.white),
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+          title: const Text('Exhibition Canvas', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
           backgroundColor: Colors.black,
+          actions: [
+            Row(
+              children: [
+                const Text('3D Mode', style: TextStyle(color: Colors.white70)),
+                Switch(
+                  value: _is3DMode,
+                  onChanged: (v) => setState(() {
+                     _is3DMode = v;
+                     if (!v) _selectedInspectorSpeakerId = null;
+                  }),
+                  activeColor: Colors.lightBlueAccent,
+                ),
+              ],
+            ),
+          ],
         ),
-        body: Stack(
+        body: _is3DMode
+            ? Stack(
+                children: [
+                  Positioned.fill(
+                    child: Dynamic3DRoom(
+                      onSpeakerTapped: (id) {
+                        setState(() {
+                          _selectedInspectorSpeakerId = id;
+                        });
+                      }
+                    ),
+                  ),
+                  if (_selectedInspectorSpeakerId != null)
+                    Positioned(
+                      top: 0,
+                      bottom: 0,
+                      right: 0,
+                      child: SpeakerInspectorPanel(
+                        speakerId: _selectedInspectorSpeakerId!,
+                        onClose: () => setState(() => _selectedInspectorSpeakerId = null),
+                      ),
+                    ),
+                ],
+              )
+            : Stack(
           children: [
             Positioned.fill(
               child: LayoutBuilder(

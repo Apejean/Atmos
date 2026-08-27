@@ -44,6 +44,8 @@ dependencies:
   shared_preferences: ^2.5.5
   desktop_drop: ^0.7.1
   uuid: ^4.6.0
+  model_viewer_plus: ^1.10.0
+  flutter_svg: ^2.3.0
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -98,3 +100,8 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
+  assets:
+    - assets/3d_simulator/
+    - assets/3d_simulator/icons/
+    - assets/models/
