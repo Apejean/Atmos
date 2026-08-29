@@ -1,8 +1,0 @@
-lib/features/exhibition/screens/speaker_canvas_screen.dart.bak:1894:                              behavior: HitTestBehavior.opaque,
-lib/features/exhibition/screens/speaker_canvas_screen.dart.bak:2101:                                        behavior: HitTestBehavior.opaque,
-lib/features/exhibition/screens/speaker_canvas_screen.dart.bak:2421:                  behavior: HitTestBehavior.opaque,
-lib/features/exhibition/widgets/viewport_3d/dynamic_3d_room.dart:107:      ..setBackgroundColor(const Color(0xFF0B0F14)) // Set explicitly to prevent opaque error
-lib/features/exhibition/widgets/room_zone_widget.dart:101:          behavior: HitTestBehavior.opaque,
-lib/features/exhibition/widgets/room_zone_widget.dart:279:        behavior: HitTestBehavior.opaque,
-lib/features/exhibition/widgets/room_zone_widget.dart:332:          behavior: HitTestBehavior.opaque,
-lib/features/exhibition/widgets/room_zone_widget.dart:439:                    behavior: HitTestBehavior.opaque,

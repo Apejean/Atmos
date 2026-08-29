@@ -102,10 +102,10 @@ class _Dynamic3DRoomState extends ConsumerState<Dynamic3DRoom> {
   void _initWebViewController() {
     if (_serverUrl == null) return;
 
-    final controller = WebViewController()
-      ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setBackgroundColor(const Color(0xFF0B0F14)) // Set explicitly to prevent opaque error
-      ..addJavaScriptChannel(
+    final controller = WebViewController();
+    controller.setJavaScriptMode(JavaScriptMode.unrestricted);
+    // controller.setBackgroundColor(const Color(0xFF0B0F14)); // REMOVED DUE TO OPAQUE BUG
+    controller.addJavaScriptChannel(
         "SpeakerBridge",
         onMessageReceived: (message) {
           try {
@@ -120,8 +120,8 @@ class _Dynamic3DRoomState extends ConsumerState<Dynamic3DRoom> {
             debugPrint("Error handling JS message: $e");
           }
         },
-      )
-      ..setNavigationDelegate(
+      );
+    controller.setNavigationDelegate(
         NavigationDelegate(
           onPageFinished: (url) {
             if (mounted) {
@@ -132,8 +132,8 @@ class _Dynamic3DRoomState extends ConsumerState<Dynamic3DRoom> {
             }
           },
         ),
-      )
-      ..loadRequest(Uri.parse(_serverUrl!));
+      );
+    controller.loadRequest(Uri.parse(_serverUrl!));
 
     if (mounted) {
       setState(() {
