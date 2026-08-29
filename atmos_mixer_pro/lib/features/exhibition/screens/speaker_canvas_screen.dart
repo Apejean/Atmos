@@ -55,46 +55,6 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
     }
   }
 
-  void _addNewRoom() {
-    final rooms = ref.read(roomZoneProvider);
-    final newIndex = rooms.length + 1;
-    final newRoom = RoomZone(
-      id: 'room_${DateTime.now().millisecondsSinceEpoch}',
-      label: 'Room $newIndex',
-      x: 0,
-      y: 0,
-      width: 250,
-      height: 250,
-      color: 0xFF10B981,
-      physicalWidth: 5.0,
-      physicalHeight: 5.0,
-      ceilingHeight: 2.8,
-      earLevel: 1.2,
-    );
-    ref.read(roomZoneProvider.notifier).addRoomZone(newRoom);
-    setState(() {
-      _selectedRoomId = newRoom.id;
-    });
-  }
-
-  void _removeRoom(String id) {
-    final rooms = ref.read(roomZoneProvider);
-    if (rooms.length <= 1) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('최소 1개의 룸이 유지되어야 합니다.'),
-          duration: Duration(seconds: 2),
-        ),
-      );
-      return;
-    }
-    ref.read(roomZoneProvider.notifier).removeRoomZone(id);
-    final remaining = ref.read(roomZoneProvider);
-    setState(() {
-      _selectedRoomId = remaining.firstOrNull?.id;
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     final rooms = ref.watch(roomZoneProvider);
@@ -108,7 +68,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
           onPressed: () => Navigator.of(context).pop(),
         ),
         title: const Text(
-          'Exhibition Canvas (3D Multi-Room Space)',
+          'Exhibition Canvas (3D Space)',
           style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
         ),
         backgroundColor: Colors.black,
@@ -209,6 +169,8 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
   }
 
   Widget _buildTopRoomTabBar(List<RoomZone> rooms, RoomZone? activeRoom) {
+    if (rooms.isEmpty) return const SizedBox.shrink();
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
@@ -231,34 +193,6 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
               _buildRoomTabItem(room, isSelected: room.id == activeRoom?.id),
               const SizedBox(width: 8),
             ],
-            // Add Room Tab Button
-            InkWell(
-              onTap: _addNewRoom,
-              borderRadius: BorderRadius.circular(6),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF1E293B),
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
-                ),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.add_rounded, size: 16, color: Colors.lightBlueAccent),
-                    SizedBox(width: 4),
-                    Text(
-                      'Add Room',
-                      style: TextStyle(
-                        color: Colors.lightBlueAccent,
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
           ],
         ),
       ),
@@ -274,7 +208,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
       },
       borderRadius: BorderRadius.circular(6),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
           color: isSelected
               ? const Color(0xFF1E3A5F)
@@ -292,10 +226,10 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
           children: [
             Icon(
               Icons.meeting_room_outlined,
-              size: 15,
+              size: 16,
               color: isSelected ? Colors.lightBlueAccent : Colors.white60,
             ),
-            const SizedBox(width: 6),
+            const SizedBox(width: 8),
             Text(
               room.label,
               style: TextStyle(
@@ -306,9 +240,9 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
             ),
             const SizedBox(width: 8),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.3),
+                color: Colors.black.withValues(alpha: 0.35),
                 borderRadius: BorderRadius.circular(4),
               ),
               child: Text(
@@ -318,15 +252,6 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                   fontSize: 10,
                   fontWeight: FontWeight.w500,
                 ),
-              ),
-            ),
-            const SizedBox(width: 6),
-            InkWell(
-              onTap: () => _removeRoom(room.id),
-              borderRadius: BorderRadius.circular(8),
-              child: const Padding(
-                padding: EdgeInsets.all(2.0),
-                child: Icon(Icons.close, size: 13, color: Colors.white38),
               ),
             ),
           ],
