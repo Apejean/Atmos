@@ -1,264 +1,185 @@
-import 'dart:math' as math;
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:vector_math/vector_math_64.dart' as vector;
+import 'package:model_viewer_plus/model_viewer_plus.dart';
 
 import 'package:atmos_mixer_pro/features/exhibition/state/speaker_layout_state.dart';
 import 'package:atmos_mixer_pro/features/exhibition/state/blueprint_state.dart';
 import 'package:atmos_mixer_pro/features/exhibition/models/speaker_node.dart';
-import 'package:atmos_mixer_pro/features/exhibition/widgets/viewport_3d/speaker_3d_box.dart';
-
-class SceneObject {
-  final vector.Vector3 position;
-  final Widget child;
-
-  SceneObject({required this.position, required this.child});
-}
 
 class Dynamic3DRoom extends ConsumerStatefulWidget {
   final Function(String)? onSpeakerTapped;
-  const Dynamic3DRoom({super.key, this.onSpeakerTapped});
+  final String? selectedSpeakerId;
+
+  const Dynamic3DRoom({
+    super.key,
+    this.onSpeakerTapped,
+    this.selectedSpeakerId,
+  });
 
   @override
   ConsumerState<Dynamic3DRoom> createState() => _Dynamic3DRoomState();
 }
 
 class _Dynamic3DRoomState extends ConsumerState<Dynamic3DRoom> {
-  double _pitch = 0.3; 
-  double _yaw = -0.5;
-  double _zoom = 0.8;
-  
-  final double ppm = 100.0; // Pixels Per Meter
-
   @override
   Widget build(BuildContext context) {
     final speakers = ref.watch(speakerLayoutProvider);
     final bp = ref.watch(blueprintProvider);
 
-    final roomW = bp.canvasWidthMeters * ppm;
-    final roomD = bp.canvasHeightMeters * ppm;
-    final roomH = 3.5 * ppm; // standard height
-
-    final cameraMatrix = Matrix4.identity()
-      ..setEntry(3, 2, 0.001) // perspective
-      ..scale(vector.Vector3.all(_zoom))
-      ..rotateX(_pitch)
-      ..rotateY(_yaw);
-
-    final objects = <SceneObject>[];
-
-    // 1. Floor Grid
-    objects.add(SceneObject(
-      position: vector.Vector3(0, roomH / 2, 0),
-      child: Transform(
-        transform: Matrix4.translationValues(0, roomH / 2, 0)..rotateX(math.pi / 2),
-        alignment: Alignment.center,
-        child: Container(
-          width: roomW,
-          height: roomD,
-          decoration: BoxDecoration(
-            border: Border.all(color: Colors.lightBlueAccent.withValues(alpha: 0.3), width: 2),
-            color: Colors.lightBlueAccent.withValues(alpha: 0.05),
-          ),
-          child: CustomPaint(painter: GridPainter(roomW, roomD)),
-        ),
-      ),
-    ));
-
-    // 2. Ceiling Wireframe
-    objects.add(SceneObject(
-      position: vector.Vector3(0, -roomH / 2, 0),
-      child: Transform(
-        transform: Matrix4.translationValues(0, -roomH / 2, 0)..rotateX(math.pi / 2),
-        alignment: Alignment.center,
-        child: Container(
-          width: roomW,
-          height: roomD,
-          decoration: BoxDecoration(
-            border: Border.all(color: Colors.lightBlueAccent.withValues(alpha: 0.3), width: 1),
-          ),
-        ),
-      ),
-    ));
-
-    // 3. Pillars
-    final pColor = Colors.lightBlueAccent.withValues(alpha: 0.3);
-    final halfW = roomW / 2;
-    final halfD = roomD / 2;
-    
-    Widget buildPillar(double x, double z) {
-      return Transform(
-        transform: Matrix4.translationValues(x, 0, z),
-        alignment: Alignment.center,
-        child: Container(width: 1, height: roomH, color: pColor),
-      );
-    }
-
-    objects.add(SceneObject(position: vector.Vector3(-halfW, 0, -halfD), child: buildPillar(-halfW, -halfD)));
-    objects.add(SceneObject(position: vector.Vector3(halfW, 0, -halfD), child: buildPillar(halfW, -halfD)));
-    objects.add(SceneObject(position: vector.Vector3(-halfW, 0, halfD), child: buildPillar(-halfW, halfD)));
-    objects.add(SceneObject(position: vector.Vector3(halfW, 0, halfD), child: buildPillar(halfW, halfD)));
-
-    // 4. Dummy Head (Listener) at center, ear level 1.2m
-    final headY = roomH / 2 - (1.2 * ppm);
-    objects.add(SceneObject(
-      position: vector.Vector3(0, headY, 0),
-      child: Transform(
-        transform: Matrix4.translationValues(0, headY, 0)
-          ..rotateY(-_yaw)
-          ..rotateX(-_pitch), // Billboard effect
-        alignment: Alignment.center,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 32, height: 32,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.grey.shade300,
-                boxShadow: const [BoxShadow(color: Colors.black54, blurRadius: 4)],
-              ),
-            ),
-            Container(width: 8, height: 12, color: Colors.grey.shade400),
-            Container(
-              width: 48, height: 20,
-              decoration: BoxDecoration(
-                color: Colors.grey.shade500,
-                borderRadius: BorderRadius.circular(10),
-              ),
-            )
-          ],
-        ),
-      ),
-    ));
-
-    // 5. Speakers
-    for (var spk in speakers) {
-      final sx = (spk.x - bp.canvasWidthMeters / 2) * ppm;
-      final sz = (spk.y - bp.canvasHeightMeters / 2) * ppm;
-      final sy = roomH / 2 - (spk.heightZ * ppm);
-
-      objects.add(SceneObject(
-        position: vector.Vector3(sx, sy, sz),
-        child: Transform(
-          transform: Matrix4.translationValues(sx, sy, sz),
-          alignment: Alignment.center,
-          child: GestureDetector(
-            onTap: () {
-              if (widget.onSpeakerTapped != null) widget.onSpeakerTapped!(spk.id);
-            },
-            child: Transform.scale(
-              scale: 0.25, // Adjust for SVG box size
-              child: Speaker3DBox(
-                angleX: spk.pitchTilt * math.pi / 180,
-                angleY: spk.panDeg * math.pi / 180,
-                angleZ: 0,
-              ),
-            ),
-          ),
-        ),
-      ));
-    }
-
-    // Painter's Algorithm: Sort by Z-depth after camera transform
-    objects.sort((a, b) {
-      final aTrans = cameraMatrix.transform3(a.position);
-      final bTrans = cameraMatrix.transform3(b.position);
-      return bTrans.z.compareTo(aTrans.z);
-    });
-
     return Scaffold(
-      backgroundColor: const Color(0xFF0F111A),
+      backgroundColor: const Color(0xFF0E131A),
       body: Stack(
         children: [
-          GestureDetector(
-            onScaleUpdate: (details) {
-              if (details.scale != 1.0) {
-                setState(() {
-                  _zoom = (_zoom * details.scale).clamp(0.2, 3.0);
-                });
-              }
-              setState(() {
-                _yaw -= details.focalPointDelta.dx * 0.005;
-                _pitch += details.focalPointDelta.dy * 0.005;
-                _pitch = _pitch.clamp(-math.pi / 2, math.pi / 2);
-              });
-            },
-            child: Listener(
-              onPointerSignal: (event) {
-                if (event is PointerScrollEvent) {
-                  setState(() {
-                    _zoom -= event.scrollDelta.dy * 0.001;
-                    _zoom = _zoom.clamp(0.2, 3.0);
-                  });
-                }
-              },
-              child: Container(
-                color: Colors.transparent, // catch gestures
-                child: Center(
-                  child: Transform(
-                    transform: cameraMatrix,
-                    alignment: Alignment.center,
-                    child: Stack(
-                      clipBehavior: Clip.none,
-                      alignment: Alignment.center,
-                      children: objects.map((o) => o.child).toList(),
+          // 1. Core 3D Orbit View: 3D Wireframe Room + 4x4 Grid + Mannequin Bust
+          Positioned.fill(
+            child: ModelViewer(
+              key: const ValueKey('room_3d_model_viewer'),
+              src: 'assets/models/room_with_listener.glb',
+              alt: '3D Room Simulator with Listener Mannequin',
+              autoRotate: false,
+              cameraControls: true,
+              shadowIntensity: 0.6,
+              shadowSoftness: 0.8,
+              exposure: 1.1,
+              backgroundColor: const Color(0xFF0E131A),
+              cameraOrbit: '45deg 65deg 6.5m',
+              minCameraOrbit: 'auto auto 2m',
+              maxCameraOrbit: 'auto auto 15m',
+              fieldOfView: '35deg',
+              interactionPrompt: InteractionPrompt.none,
+            ),
+          ),
+
+          // 2. Top-Left Room & Viewport Info Badge
+          Positioned(
+            top: 24,
+            left: 80,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFF161E28).withValues(alpha: 0.85),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.3),
+                    blurRadius: 10,
+                  ),
+                ],
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.view_in_ar_rounded, size: 16, color: Colors.lightBlueAccent),
+                  const SizedBox(width: 8),
+                  Text(
+                    '3D Room: ${bp.canvasWidthMeters.toStringAsFixed(1)}m × ${bp.canvasHeightMeters.toStringAsFixed(1)}m | 4×4 Grid',
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
-                ),
+                ],
               ),
             ),
           ),
-          
-          // Floating Controls
+
+          // 3. Bottom Speaker Quick Selection Bar
           Positioned(
-            bottom: 32,
-            right: 32,
+            left: 24,
+            bottom: 24,
+            right: 180,
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  for (final spk in speakers) ...[
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8.0),
+                      child: ActionChip(
+                        avatar: CircleAvatar(
+                          backgroundColor: widget.selectedSpeakerId == spk.id
+                              ? Colors.lightBlueAccent
+                              : const Color(0xFF2A3A4D),
+                          child: Text(
+                            '${spk.channel + 1}',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: widget.selectedSpeakerId == spk.id
+                                  ? Colors.black
+                                  : Colors.white70,
+                            ),
+                          ),
+                        ),
+                        label: Text(
+                          'CH ${spk.channel + 1} (${spk.x.toStringAsFixed(1)}, ${spk.y.toStringAsFixed(1)}, ${spk.heightZ.toStringAsFixed(1)}m)',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: widget.selectedSpeakerId == spk.id
+                                ? Colors.lightBlueAccent
+                                : Colors.white70,
+                            fontWeight: widget.selectedSpeakerId == spk.id
+                                ? FontWeight.bold
+                                : FontWeight.normal,
+                          ),
+                        ),
+                        backgroundColor: widget.selectedSpeakerId == spk.id
+                            ? const Color(0xFF1A2B3D)
+                            : const Color(0xFF131B24).withValues(alpha: 0.9),
+                        side: BorderSide(
+                          color: widget.selectedSpeakerId == spk.id
+                              ? Colors.lightBlueAccent.withValues(alpha: 0.8)
+                              : Colors.white.withValues(alpha: 0.1),
+                        ),
+                        onPressed: () {
+                          if (widget.onSpeakerTapped != null) {
+                            widget.onSpeakerTapped!(spk.id);
+                          }
+                        },
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+
+          // 4. Floating Action Button: Add Speaker
+          Positioned(
+            bottom: 24,
+            right: 24,
             child: FloatingActionButton.extended(
               onPressed: () {
                 final newId = 'spk_${DateTime.now().millisecondsSinceEpoch}';
+                final nextChannel = speakers.isEmpty
+                    ? 0
+                    : (speakers.map((s) => s.channel).reduce((a, b) => a > b ? a : b) + 1);
                 final newNode = SpeakerNode(
                   id: newId,
                   x: bp.canvasWidthMeters / 2,
                   y: bp.canvasHeightMeters / 2,
-                  channel: speakers.length,
+                  heightZ: 1.5,
+                  channel: nextChannel,
                 );
                 ref.read(speakerLayoutProvider.notifier).addSpeaker(newNode);
+                if (widget.onSpeakerTapped != null) {
+                  widget.onSpeakerTapped!(newId);
+                }
               },
-              backgroundColor: Colors.lightBlueAccent,
-              icon: const Icon(Icons.add),
-              label: const Text('Add Speaker'),
+              backgroundColor: const Color(0xFF2563EB),
+              foregroundColor: Colors.white,
+              elevation: 6,
+              icon: const Icon(Icons.add_rounded),
+              label: const Text(
+                'Add Speaker',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
             ),
           ),
         ],
       ),
     );
   }
-}
-
-class GridPainter extends CustomPainter {
-  final double w;
-  final double d;
-
-  GridPainter(this.w, this.d);
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = Colors.lightBlueAccent.withValues(alpha: 0.15)
-      ..strokeWidth = 1.0;
-
-    for (int i = 1; i < 4; i++) {
-      final x = w * (i / 4);
-      canvas.drawLine(Offset(x, 0), Offset(x, d), paint);
-    }
-    for (int i = 1; i < 4; i++) {
-      final y = d * (i / 4);
-      canvas.drawLine(Offset(0, y), Offset(w, y), paint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

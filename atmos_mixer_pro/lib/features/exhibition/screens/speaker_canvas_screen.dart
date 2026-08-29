@@ -33,6 +33,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
           // 100% 3D Native Space
           Positioned.fill(
             child: Dynamic3DRoom(
+              selectedSpeakerId: _selectedInspectorSpeakerId,
               onSpeakerTapped: (id) {
                 setState(() {
                   _selectedInspectorSpeakerId = id;
