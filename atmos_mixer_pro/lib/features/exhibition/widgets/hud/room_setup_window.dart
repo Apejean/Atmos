@@ -199,7 +199,7 @@ class _RoomSetupWindowState extends State<RoomSetupWindow> {
                   icon: Icons.height,
                   label: 'Ceiling Height:',
                   value: ceilingHeight,
-                  onChanged: (val) => setState(() => ceilingHeight = val.clamp(1.5, 20.0)),
+                  onChanged: (val) => setState(() => ceilingHeight = val.clamp(1.5, 1000.0)),
                   step: 0.1,
                 ),
                 const SizedBox(height: 10),
