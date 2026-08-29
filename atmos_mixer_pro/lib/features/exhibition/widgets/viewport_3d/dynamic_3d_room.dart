@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:atmos_mixer_pro/features/exhibition/utils/glb_scaler.dart';
 import 'dart:math' as math;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:model_viewer_plus/model_viewer_plus.dart';
@@ -69,10 +70,36 @@ class HeatmapPainter extends CustomPainter {
 }
 
 class _Dynamic3DRoomState extends ConsumerState<Dynamic3DRoom> {
-  
+  String? _localGlbPath;
+  double _lastW = -1, _lastD = -1, _lastH = -1;
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _checkAndGenerateGlb();
+  }
 
+  @override
+  void didUpdateWidget(Dynamic3DRoom oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _checkAndGenerateGlb();
+  }
 
+  Future<void> _checkAndGenerateGlb() async {
+    final w = widget.activeRoom?.physicalWidth ?? 6.0;
+    final d = widget.activeRoom?.physicalHeight ?? 4.5;
+    final h = widget.activeRoom?.ceilingHeight ?? 3.0;
+    
+    if (w == _lastW && d == _lastD && h == _lastH && _localGlbPath != null) return;
+    
+    _lastW = w; _lastD = d; _lastH = h;
+    final path = await GlbScaler.generateScaledRoom(w / 4.016, h / 2.616, d / 4.016);
+    if (mounted) {
+      setState(() {
+        _localGlbPath = path;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -97,9 +124,9 @@ class _Dynamic3DRoomState extends ConsumerState<Dynamic3DRoom> {
         children: [
           // 1. Core 3D Orbit View
           Positioned.fill(
-            child: ModelViewer(
+            child: _localGlbPath == null ? const Center(child: CircularProgressIndicator()) : ModelViewer(
               key: ValueKey('room_3d_viewer_${widget.activeRoom?.id ?? "def"}_${roomWidth}_${roomDepth}_${roomHeight}'), // Recreate when scale changes
-              src: 'assets/models/room_with_listener.glb', // Contains the listener mannequin
+              src: _localGlbPath != null ? 'file://${_localGlbPath}' : 'assets/models/room_with_listener.glb', // Contains the listener mannequin
               alt: '3D Room Space',
               autoRotate: false,
               cameraControls: true, // Native zoom and pan!
@@ -109,38 +136,13 @@ class _Dynamic3DRoomState extends ConsumerState<Dynamic3DRoom> {
               backgroundColor: const Color(0xFF0E131A),
               cameraOrbit: '45deg 65deg ${orbitDist}m',
               minCameraOrbit: 'auto auto 1.5m',
-              maxCameraOrbit: 'auto auto 100m',
+              maxCameraOrbit: 'auto auto 2000m',
               fieldOfView: '35deg',
               interactionPrompt: InteractionPrompt.none,
 
-              relatedJs: '''
-                const mv = document.querySelector('model-viewer');
-                mv.addEventListener('scene-graph-ready', function(e) {
-                  const sceneSymbol = Object.getOwnPropertySymbols(mv).find(s => s.description === 'scene');
-                  if(sceneSymbol) {
-                    const scene = mv[sceneSymbol];
-                    const scaleStr = mv.getAttribute('scale') || '1 1 1';
-                    const scaleParts = scaleStr.split(' ').map(parseFloat);
-                    const invX = 1.0 / scaleParts[0];
-                    const invY = 1.0 / scaleParts[1];
-                    const invZ = 1.0 / scaleParts[2];
-                    scene.traverse((node) => {
-                      if (node.isMesh && node.geometry && node.geometry.attributes.position.count > 1000) {
-                         node.scale.set(invX, invY, invZ);
-                         node.updateMatrix();
-                         node.updateMatrixWorld(true);
-                      }
-                    });
-                  }
-                  // Force a re-render to apply the scale immediately
-                  requestAnimationFrame(() => {
-                    const oldOrbit = mv.getCameraOrbit();
-                    mv.cameraOrbit = `\${oldOrbit.theta}rad \${oldOrbit.phi}rad \${oldOrbit.radius}m`;
-                  });
-                });
-              ''',
+              
 
-              scale: '${roomWidth / 4.016} ${roomHeight / 2.616} ${roomDepth / 4.016}',
+              
             ),
           ),
 

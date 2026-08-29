@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.3.0/model-viewer.min.js"></script>
+  <style> body { margin: 0; } model-viewer { width: 100vw; height: 100vh; } </style>
+</head>
+<body>
+  <model-viewer id="mv" src="assets/models/room_with_listener.glb" scale="2 1 2" camera-controls></model-viewer>
+  <script>
+    const mv = document.getElementById('mv');
+    mv.addEventListener('scene-graph-ready', () => {
+      const sceneSymbol = Object.getOwnPropertySymbols(mv).find(s => s.description === 'scene');
+      if (sceneSymbol) {
+        const scene = mv[sceneSymbol];
+        const scaleStr = mv.getAttribute('scale').split(' ').map(parseFloat);
+        const invX = 1.0 / scaleStr[0];
+        const invY = 1.0 / scaleStr[1];
+        const invZ = 1.0 / scaleStr[2];
+        scene.traverse(node => {
+          if (node.isMesh && node.geometry.attributes.position.count > 1000) {
+            console.log("Found mannequin!", node.name);
+            node.scale.set(invX, invY, invZ);
+            node.updateMatrix();
+            node.updateMatrixWorld(true);
+          }
+        });
+        requestAnimationFrame(() => {
+          const oldOrbit = mv.getCameraOrbit();
+          mv.cameraOrbit = `${oldOrbit.theta}rad ${oldOrbit.phi}rad ${oldOrbit.radius}m`;
+        });
+      }
+    });
+  </script>
+</body>
+</html>
