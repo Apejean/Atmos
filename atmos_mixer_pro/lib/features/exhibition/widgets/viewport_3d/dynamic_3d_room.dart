@@ -177,17 +177,17 @@ class _Dynamic3DRoomState extends ConsumerState<Dynamic3DRoom> {
                   final w = widget.activeRoom?.physicalWidth ?? 6.0;
                   final d = widget.activeRoom?.physicalHeight ?? 4.5;
                   final maxDim = w > d ? w : d;
-                  final orbitDist = (maxDim * 1.4).toStringAsFixed(1);
+                  final orbitDist = (maxDim * 1.25).toStringAsFixed(1);
                   final r = orbitDist;
-                  final eps = _flipFlop ? '0.001' : '0.002';
+                  final eps = _flipFlop ? 0.01 : 0.00;
 
                   switch(_selectedView) {
-                    case 'Auto': _cameraOrbit = '45.${eps}deg 65.${eps}deg ${r}m'; break;
-                    case 'Front': _cameraOrbit = '${eps}deg 85.${eps}deg ${r}m'; break;
-                    case 'Back': _cameraOrbit = '180.${eps}deg 85.${eps}deg ${r}m'; break;
-                    case 'Side(L)': _cameraOrbit = '90.${eps}deg 85.${eps}deg ${r}m'; break;
-                    case 'Side(R)': _cameraOrbit = '-90.${eps}deg 85.${eps}deg ${r}m'; break;
-                    case 'Top': _cameraOrbit = '${eps}deg ${eps}deg ${r}m'; break;
+                    case 'Auto': _cameraOrbit = '${45.0 + eps}deg ${65.0 + eps}deg ${r}m'; break;
+                    case 'Front': _cameraOrbit = '${0.0 + eps}deg ${85.0 + eps}deg ${r}m'; break;
+                    case 'Back': _cameraOrbit = '${180.0 + eps}deg ${85.0 + eps}deg ${r}m'; break;
+                    case 'Side(L)': _cameraOrbit = '${90.0 + eps}deg ${85.0 + eps}deg ${r}m'; break;
+                    case 'Side(R)': _cameraOrbit = '${-90.0 + eps}deg ${85.0 + eps}deg ${r}m'; break;
+                    case 'Top': _cameraOrbit = '${0.0 + eps}deg ${0.0 + eps}deg ${r}m'; break;
                   }
                 });
               },
@@ -201,7 +201,7 @@ class _Dynamic3DRoomState extends ConsumerState<Dynamic3DRoom> {
               shadowSoftness: 0.8,
               exposure: 1.1,
               backgroundColor: const Color(0xFF0E131A),
-              cameraOrbit: _cameraOrbit ?? '45deg 65deg ${(maxDim * 1.4).toStringAsFixed(1)}m',
+              cameraOrbit: _cameraOrbit ?? '45deg 65deg ${(maxDim * 1.25).toStringAsFixed(1)}m',
               minCameraOrbit: 'auto auto 1.5m',
               maxCameraOrbit: 'auto auto 2000m',
               fieldOfView: '40deg',
@@ -314,19 +314,19 @@ class _Dynamic3DRoomState extends ConsumerState<Dynamic3DRoom> {
                               final w = widget.activeRoom?.physicalWidth ?? 6.0;
                               final d = widget.activeRoom?.physicalHeight ?? 4.5;
                               final maxDim = w > d ? w : d;
-                              final orbitDist = (maxDim * 1.4).toStringAsFixed(1);
+                              final orbitDist = (maxDim * 1.25).toStringAsFixed(1);
                               setState(() {
                                 _selectedView = val;
                                 _flipFlop = !_flipFlop;
                                 final r = orbitDist;
-                                final eps = _flipFlop ? '0.001' : '0.002';
+                                final eps = _flipFlop ? 0.01 : 0.00;
                                 switch(val) {
-                                  case 'Auto': _cameraOrbit = '45.${eps}deg 65.${eps}deg ${r}m'; break;
-                                  case 'Front': _cameraOrbit = '${eps}deg 85.${eps}deg ${r}m'; break;
-                                  case 'Back': _cameraOrbit = '180.${eps}deg 85.${eps}deg ${r}m'; break;
-                                  case 'Side(L)': _cameraOrbit = '90.${eps}deg 85.${eps}deg ${r}m'; break;
-                                  case 'Side(R)': _cameraOrbit = '-90.${eps}deg 85.${eps}deg ${r}m'; break;
-                                  case 'Top': _cameraOrbit = '${eps}deg ${eps}deg ${r}m'; break;
+                                  case 'Auto': _cameraOrbit = '${45.0 + eps}deg ${65.0 + eps}deg ${r}m'; break;
+                                  case 'Front': _cameraOrbit = '${0.0 + eps}deg ${85.0 + eps}deg ${r}m'; break;
+                                  case 'Back': _cameraOrbit = '${180.0 + eps}deg ${85.0 + eps}deg ${r}m'; break;
+                                  case 'Side(L)': _cameraOrbit = '${90.0 + eps}deg ${85.0 + eps}deg ${r}m'; break;
+                                  case 'Side(R)': _cameraOrbit = '${-90.0 + eps}deg ${85.0 + eps}deg ${r}m'; break;
+                                  case 'Top': _cameraOrbit = '${0.0 + eps}deg ${0.0 + eps}deg ${r}m'; break;
                                 }
                               });
                             },
