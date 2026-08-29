@@ -104,7 +104,7 @@ class _Dynamic3DRoomState extends ConsumerState<Dynamic3DRoom> {
 
     final controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setBackgroundColor(const Color(0xFF0B0F14))
+      ..setBackgroundColor(const Color(0xFF0B0F14)) // Set explicitly to prevent opaque error
       ..addJavaScriptChannel(
         "SpeakerBridge",
         onMessageReceived: (message) {
@@ -181,14 +181,14 @@ class _Dynamic3DRoomState extends ConsumerState<Dynamic3DRoom> {
       }).toList(),
     };
 
-    final jsCall = "window.updateScene(${jsonEncode(payload)});";
+    final jsCall = "if (typeof window.updateScene === 'function') { window.updateScene(${jsonEncode(payload)}); }";
     _webViewController!.runJavaScript(jsCall);
   }
 
   void _setCameraView(String viewName) {
     setState(() => _selectedView = viewName);
     if (_webViewController != null && _isEngineReady) {
-      _webViewController!.runJavaScript("window.setCameraView('$viewName');");
+      _webViewController!.runJavaScript("if (typeof window.setCameraView === 'function') { window.setCameraView('$viewName'); }");
     }
   }
 
