@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 class SpeakerNode {
   final String id;
+  final String? roomId;
   final double x;
   final double y;
   final int channel;
@@ -21,6 +22,7 @@ class SpeakerNode {
 
   SpeakerNode({
     required this.id,
+    this.roomId,
     required this.x,
     required this.y,
     required this.channel,
@@ -56,6 +58,7 @@ class SpeakerNode {
 
   SpeakerNode copyWith({
     String? id,
+    String? roomId,
     double? x,
     double? y,
     int? channel,
@@ -75,6 +78,7 @@ class SpeakerNode {
   }) {
     return SpeakerNode(
       id: id ?? this.id,
+      roomId: roomId ?? this.roomId,
       x: x ?? this.x,
       y: y ?? this.y,
       channel: channel ?? this.channel,
@@ -97,6 +101,7 @@ class SpeakerNode {
   Map<String, dynamic> toJson() {
     return {
       'id': id,
+      'room_id': roomId,
       'x': x,
       'y': y,
       'channel': channel,
@@ -119,6 +124,7 @@ class SpeakerNode {
   factory SpeakerNode.fromJson(Map<String, dynamic> map) {
     return SpeakerNode(
       id: map['id'],
+      roomId: map['room_id'],
       x: map['x'].toDouble(),
       y: map['y'].toDouble(),
       channel: map['channel'],

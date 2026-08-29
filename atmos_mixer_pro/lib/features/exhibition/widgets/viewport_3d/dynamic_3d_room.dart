@@ -11,22 +11,67 @@ class Dynamic3DRoom extends ConsumerStatefulWidget {
   final Function(String)? onSpeakerTapped;
   final String? selectedSpeakerId;
   final RoomZone? activeRoom;
+  final bool showHeatmap;
 
   const Dynamic3DRoom({
     super.key,
     this.onSpeakerTapped,
     this.selectedSpeakerId,
     this.activeRoom,
+    this.showHeatmap = false,
   });
 
   @override
   ConsumerState<Dynamic3DRoom> createState() => _Dynamic3DRoomState();
 }
 
+
+class HeatmapPainter extends CustomPainter {
+  final List<SpeakerNode> speakers;
+  final double roomWidth;
+  final double roomDepth;
+
+  HeatmapPainter(this.speakers, this.roomWidth, this.roomDepth);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (speakers.isEmpty || roomWidth == 0 || roomDepth == 0) return;
+
+    final double scaleX = size.width / roomWidth;
+    final double scaleY = size.height / roomDepth;
+
+    for (final spk in speakers) {
+      // Very basic isometric projection approximation
+      final double projX = (spk.x * scaleX);
+      final double projY = (spk.y * scaleY);
+      
+      final rect = Rect.fromCircle(center: Offset(projX, projY), radius: size.width * 0.4);
+      final paint = Paint()
+        ..shader = RadialGradient(
+          colors: [
+            Colors.red.withValues(alpha: 0.6),
+            Colors.orange.withValues(alpha: 0.4),
+            Colors.green.withValues(alpha: 0.2),
+            Colors.blue.withValues(alpha: 0.05),
+            Colors.transparent,
+          ],
+          stops: const [0.0, 0.3, 0.6, 0.8, 1.0],
+        ).createShader(rect)
+        ..blendMode = BlendMode.screen;
+      
+      canvas.drawRect(rect, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
+}
+
 class _Dynamic3DRoomState extends ConsumerState<Dynamic3DRoom> {
   @override
   Widget build(BuildContext context) {
-    final speakers = ref.watch(speakerLayoutProvider);
+    final allSpeakers = ref.watch(speakerLayoutProvider);
+    final speakers = allSpeakers.where((s) => s.roomId == null || s.roomId == widget.activeRoom?.id).toList();
     final bp = ref.watch(blueprintProvider);
 
     final roomWidth = widget.activeRoom?.physicalWidth ?? bp.canvasWidthMeters;
@@ -58,7 +103,19 @@ class _Dynamic3DRoomState extends ConsumerState<Dynamic3DRoom> {
             ),
           ),
 
+          
+          // Heatmap Overlay
+          if (widget.showHeatmap)
+            Positioned.fill(
+              child: IgnorePointer(
+                child: CustomPaint(
+                  painter: HeatmapPainter(speakers, roomWidth, roomDepth),
+                ),
+              ),
+            ),
+
           // 2. Top-Left Room & Viewport Info Badge
+
           Positioned(
             top: 16,
             left: 16,
@@ -105,6 +162,7 @@ class _Dynamic3DRoomState extends ConsumerState<Dynamic3DRoom> {
                     : (speakers.map((s) => s.channel).reduce((a, b) => a > b ? a : b) + 1);
                 final newNode = SpeakerNode(
                   id: newId,
+                  roomId: widget.activeRoom?.id,
                   x: roomWidth / 2,
                   y: roomDepth / 2,
                   heightZ: 1.5,

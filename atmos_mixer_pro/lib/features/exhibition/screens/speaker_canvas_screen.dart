@@ -20,6 +20,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
   String? _selectedInspectorSpeakerId;
   String? _selectedRoomId;
   bool _isRoomSetupOpen = false;
+  bool _showHeatmap = false;
 
   @override
   void initState() {
@@ -96,10 +97,39 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
           icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: const Text(
-          'Exhibition Canvas (3D Space)',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Exhibition Canvas (3D Space)',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+            ),
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                _buildAppBarButton(
+                  icon: Icons.map_rounded,
+                  label: 'SPL Heatmap',
+                  isActive: _showHeatmap,
+                  onTap: () => setState(() => _showHeatmap = !_showHeatmap),
+                ),
+                const SizedBox(width: 12),
+                _buildAppBarButton(
+                  icon: Icons.picture_as_pdf_rounded,
+                  label: 'Export PDF Report',
+                  onTap: () {},
+                ),
+                const SizedBox(width: 12),
+                _buildAppBarButton(
+                  icon: Icons.settings_input_antenna_rounded,
+                  label: 'Apply 3D Calibration',
+                  onTap: () {},
+                ),
+              ],
+            ),
+          ],
         ),
+        toolbarHeight: 80,
         backgroundColor: const Color(0xFF0D1219),
         elevation: 4,
         bottom: PreferredSize(
@@ -119,6 +149,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
           Positioned.fill(
             child: Dynamic3DRoom(
               activeRoom: activeRoom,
+              showHeatmap: _showHeatmap,
               selectedSpeakerId: _selectedInspectorSpeakerId,
               onSpeakerTapped: (id) {
                 setState(() {
@@ -269,6 +300,38 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                   fontSize: 10,
                   fontWeight: FontWeight.w500,
                 ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAppBarButton({required IconData icon, required String label, required VoidCallback onTap, bool isActive = false}) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(4),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: isActive ? Colors.lightBlueAccent.withValues(alpha: 0.2) : Colors.transparent,
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(
+            color: isActive ? Colors.lightBlueAccent : Colors.white24,
+            width: 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, size: 14, color: isActive ? Colors.lightBlueAccent : Colors.white70),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 11,
+                color: isActive ? Colors.lightBlueAccent : Colors.white70,
+                fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
               ),
             ),
           ],
