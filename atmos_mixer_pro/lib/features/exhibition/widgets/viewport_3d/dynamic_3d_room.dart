@@ -38,13 +38,12 @@ class _Dynamic3DRoomState extends ConsumerState<Dynamic3DRoom> {
       backgroundColor: const Color(0xFF0E131A),
       body: Stack(
         children: [
-          // 1. Core 3D Orbit View: Pure 60fps Native WebGL Engine with Inertial Damping
+          // 1. Core 3D Orbit View: 3D Wireframe Room + 4x4 Floor Grid + Centered Listener Mannequin (W/2, D/2, 1.2m)
           Positioned.fill(
             child: ModelViewer(
-              // Stable key tied strictly to room ID so WebGL engine is never reset during zooming/orbiting
               key: ValueKey('room_3d_viewport_${widget.activeRoom?.id ?? "def"}'),
-              src: 'assets/models/room_frame.glb',
-              alt: '3D Room Wireframe & 4x4 Grid',
+              src: 'assets/models/room_with_listener.glb',
+              alt: '3D Room Space with Listener Mannequin',
               autoRotate: false,
               cameraControls: true,
               shadowIntensity: 0.6,
@@ -82,7 +81,7 @@ class _Dynamic3DRoomState extends ConsumerState<Dynamic3DRoom> {
                   const Icon(Icons.view_in_ar_rounded, size: 16, color: Colors.lightBlueAccent),
                   const SizedBox(width: 8),
                   Text(
-                    '$roomLabel: ${roomWidth.toStringAsFixed(1)}m × ${roomDepth.toStringAsFixed(1)}m × ${roomHeight.toStringAsFixed(1)}m | 4×4 Grid',
+                    '$roomLabel: ${roomWidth.toStringAsFixed(1)}m × ${roomDepth.toStringAsFixed(1)}m × ${roomHeight.toStringAsFixed(1)}m | Listener at (${(roomWidth / 2).toStringAsFixed(1)}, ${(roomDepth / 2).toStringAsFixed(1)}, 1.2m)',
                     style: const TextStyle(
                       color: Colors.white70,
                       fontSize: 12,
