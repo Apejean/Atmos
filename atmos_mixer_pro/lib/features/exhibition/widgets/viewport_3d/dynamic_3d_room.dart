@@ -1,5 +1,5 @@
-
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:model_viewer_plus/model_viewer_plus.dart';
 
@@ -27,7 +27,6 @@ class Dynamic3DRoom extends ConsumerStatefulWidget {
   @override
   ConsumerState<Dynamic3DRoom> createState() => _Dynamic3DRoomState();
 }
-
 
 class HeatmapPainter extends CustomPainter {
   final List<SpeakerNode> speakers;
@@ -70,11 +69,47 @@ class HeatmapPainter extends CustomPainter {
 }
 
 class _Dynamic3DRoomState extends ConsumerState<Dynamic3DRoom> {
-  
+  double _cameraDistance = 6.5;
+  double _basePinchDistance = 6.5;
+  double _yaw = 45.0;
+  double _pitch = 65.0;
 
+  void _handlePointerSignal(PointerSignalEvent event) {
+    if (event is PointerScrollEvent) {
+      final delta = event.scrollDelta.dy;
+      if (delta != 0) {
+        setState(() {
+          final zoomFactor = delta > 0 ? 1.08 : 0.92;
+          _cameraDistance = (_cameraDistance * zoomFactor).clamp(1.5, 25.0);
+        });
+      }
+    }
+  }
 
+  void _handleScaleStart(ScaleStartDetails details) {
+    _basePinchDistance = _cameraDistance;
+  }
 
+  void _handleScaleUpdate(ScaleUpdateDetails details) {
+    if (details.scale != 1.0) {
+      setState(() {
+        _cameraDistance = (_basePinchDistance / details.scale).clamp(1.5, 25.0);
+      });
+    } else if (details.focalPointDelta.dx != 0 || details.focalPointDelta.dy != 0) {
+      setState(() {
+        _yaw = (_yaw - details.focalPointDelta.dx * 0.4) % 360;
+        _pitch = (_pitch - details.focalPointDelta.dy * 0.3).clamp(5.0, 85.0);
+      });
+    }
+  }
 
+  void _resetCamera() {
+    setState(() {
+      _cameraDistance = 6.5;
+      _yaw = 45.0;
+      _pitch = 65.0;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -87,30 +122,39 @@ class _Dynamic3DRoomState extends ConsumerState<Dynamic3DRoom> {
     final roomHeight = widget.activeRoom?.ceilingHeight ?? 3.0;
     final roomLabel = widget.activeRoom?.label ?? 'Room 1';
 
-    
+    final orbitString = '${_yaw.toStringAsFixed(0)}deg ${_pitch.toStringAsFixed(0)}deg ${_cameraDistance.toStringAsFixed(1)}m';
 
     return Scaffold(
       backgroundColor: const Color(0xFF0E131A),
       body: Stack(
         children: [
-          // 1. Core 3D Orbit View (Native WebGL Zoom/Pan)
+          // 1. Core 3D Orbit View
           Positioned.fill(
-            child: ModelViewer(
-              key: ValueKey('room_3d_viewer_${widget.activeRoom?.id ?? "def"}'), // Static key so it never rebuilds/flashes
-              src: 'assets/models/room_with_listener.glb', // Use the mannequin!
-              alt: '3D Room Space with Listener Mannequin',
-              autoRotate: false,
-              cameraControls: true, // Natively handles smooth zoom/pan/orbit without setState
-              shadowIntensity: 0.6,
-              shadowSoftness: 0.8,
-              exposure: 1.1,
-              backgroundColor: const Color(0xFF0E131A),
-              cameraOrbit: '45deg 65deg 6.5m', // Initial orbit
-              minCameraOrbit: 'auto auto 1.5m',
-              maxCameraOrbit: 'auto auto 25m',
-              fieldOfView: '35deg',
-              interactionPrompt: InteractionPrompt.none,
-
+            child: Listener(
+              onPointerSignal: _handlePointerSignal,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onScaleStart: _handleScaleStart,
+                onScaleUpdate: _handleScaleUpdate,
+                onDoubleTap: _resetCamera,
+                child: ModelViewer(
+                  // FIXED: Static Key to prevent rebuilding webview and flashing!
+                  key: ValueKey('room_3d_viewer_${widget.activeRoom?.id ?? "def"}'),
+                  src: 'assets/models/room_with_listener.glb', // User mannequin
+                  alt: '3D Room Space with Listener Mannequin',
+                  autoRotate: false,
+                  cameraControls: false, // Handle controls manually in Flutter side
+                  shadowIntensity: 0.6,
+                  shadowSoftness: 0.8,
+                  exposure: 1.1,
+                  backgroundColor: const Color(0xFF0E131A),
+                  cameraOrbit: orbitString,
+                  minCameraOrbit: 'auto auto 1.5m',
+                  maxCameraOrbit: 'auto auto 25m',
+                  fieldOfView: '35deg',
+                  interactionPrompt: InteractionPrompt.none,
+                ),
+              ),
             ),
           ),
 
@@ -124,89 +168,88 @@ class _Dynamic3DRoomState extends ConsumerState<Dynamic3DRoom> {
               ),
             ),
 
-          // 2. Top-Left Room Setup & Info Badge
+          // 2. Top-Left Room & Viewport Info Badge
           Positioned(
             top: 16,
             left: 16,
-            child: Row(
-              children: [
-                OutlinedButton.icon(
-                  icon: const Icon(Icons.tune_rounded, size: 16, color: Colors.lightBlueAccent),
-                  label: const Text(
-                    'ROOM SETUP',
-                    style: TextStyle(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFF161E28).withValues(alpha: 0.85),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.3),
+                    blurRadius: 10,
+                  ),
+                ],
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.view_in_ar_rounded, size: 16, color: Colors.lightBlueAccent),
+                  const SizedBox(width: 8),
+                  Text(
+                    '$roomLabel: ${roomWidth.toStringAsFixed(1)}m × ${roomDepth.toStringAsFixed(1)}m × ${roomHeight.toStringAsFixed(1)}m | 4x4 Grid',
+                    style: const TextStyle(
+                      color: Colors.white70,
                       fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 0.5,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.lightBlueAccent,
-                    backgroundColor: const Color(0xFF161E28).withValues(alpha: 0.95),
-                    side: BorderSide(color: Colors.lightBlueAccent.withValues(alpha: 0.7), width: 1.2),
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    elevation: 6,
-                  ),
-                  onPressed: () {
-                    if (widget.onOpenRoomSetup != null) {
-                      widget.onOpenRoomSetup!();
-                    }
-                  },
-                ),
-                const SizedBox(width: 16),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF161E28).withValues(alpha: 0.85),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.3),
-                        blurRadius: 10,
+                  const SizedBox(width: 10),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.3),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      'Zoom: ${_cameraDistance.toStringAsFixed(1)}m',
+                      style: const TextStyle(
+                        color: Colors.lightBlueAccent,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
                       ),
-                    ],
+                    ),
                   ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.view_in_ar_rounded, size: 16, color: Colors.lightBlueAccent),
-                      const SizedBox(width: 8),
-                      Text(
-                        '$roomLabel: ${roomWidth.toStringAsFixed(1)}m × ${roomDepth.toStringAsFixed(1)}m × ${roomHeight.toStringAsFixed(1)}m | 4×4 Grid',
-                        style: const TextStyle(
-                          color: Colors.white70,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.3),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: const Text(
-                          'Zoom: Auto',
-                          style: TextStyle(
-                            color: Colors.lightBlueAccent,
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
 
+          // 3. Bottom-Left Room Setup Button
+          Positioned(
+            bottom: 24,
+            left: 24,
+            child: OutlinedButton.icon(
+              icon: const Icon(Icons.tune_rounded, size: 16, color: Colors.lightBlueAccent),
+              label: const Text(
+                'ROOM SETUP',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.5,
+                ),
+              ),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.lightBlueAccent,
+                backgroundColor: const Color(0xFF161E28).withValues(alpha: 0.95),
+                side: BorderSide(color: Colors.lightBlueAccent.withValues(alpha: 0.7), width: 1.5),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                elevation: 6,
+              ),
+              onPressed: () {
+                if (widget.onOpenRoomSetup != null) {
+                  widget.onOpenRoomSetup!();
+                }
+              },
+            ),
+          ),
 
-
-          // 4. Floating Action Button: Add Speaker
+          // 4. Bottom-Right Floating Action Button: Add Speaker
           Positioned(
             bottom: 24,
             right: widget.selectedSpeakerId != null ? 360 : 24,
