@@ -1,4 +1,4 @@
-import 'package:flutter/gestures.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:model_viewer_plus/model_viewer_plus.dart';
@@ -128,38 +128,31 @@ class _Dynamic3DRoomState extends ConsumerState<Dynamic3DRoom> {
     final roomHeight = widget.activeRoom?.ceilingHeight ?? 3.0;
     final roomLabel = widget.activeRoom?.label ?? 'Room 1';
 
-    final orbitString = '${_yaw.toStringAsFixed(0)}deg ${_pitch.toStringAsFixed(0)}deg ${_cameraDistance.toStringAsFixed(1)}m';
+    
 
     return Scaffold(
       backgroundColor: const Color(0xFF0E131A),
       body: Stack(
         children: [
-          // 1. Core 3D Orbit View with Native Trackpad Pinch & Mouse Wheel Zoom
+          // 1. Core 3D Orbit View (Native WebGL Zoom/Pan)
           Positioned.fill(
-            child: Listener(
-              onPointerSignal: _handlePointerSignal,
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onScaleStart: _handleScaleStart,
-                onScaleUpdate: _handleScaleUpdate,
-                onDoubleTap: _resetCamera,
-                child: ModelViewer(
-                  key: ValueKey('room_3d_viewer_${widget.activeRoom?.id ?? "def"}_${_cameraDistance.toStringAsFixed(1)}_${_yaw.toStringAsFixed(0)}_${_pitch.toStringAsFixed(0)}'),
-                  src: 'assets/models/room_frame.glb',
-                  alt: '3D Room Wireframe & 4x4 Grid',
-                  autoRotate: false,
-                  cameraControls: true,
-                  shadowIntensity: 0.6,
-                  shadowSoftness: 0.8,
-                  exposure: 1.1,
-                  backgroundColor: const Color(0xFF0E131A),
-                  cameraOrbit: orbitString,
-                  minCameraOrbit: 'auto auto 1.5m',
-                  maxCameraOrbit: 'auto auto 25m',
-                  fieldOfView: '35deg',
-                  interactionPrompt: InteractionPrompt.none,
-                ),
-              ),
+            child: ModelViewer(
+              key: ValueKey('room_3d_viewer_${widget.activeRoom?.id ?? "def"}'), // Static key so it never rebuilds/flashes
+              src: 'assets/models/room_with_listener.glb', // Use the mannequin!
+              alt: '3D Room Space with Listener Mannequin',
+              autoRotate: false,
+              cameraControls: true, // Natively handles smooth zoom/pan/orbit without setState
+              shadowIntensity: 0.6,
+              shadowSoftness: 0.8,
+              exposure: 1.1,
+              backgroundColor: const Color(0xFF0E131A),
+              cameraOrbit: '45deg 65deg 6.5m', // Initial orbit
+              minCameraOrbit: 'auto auto 1.5m',
+              maxCameraOrbit: 'auto auto 25m',
+              fieldOfView: '35deg',
+              interactionPrompt: InteractionPrompt.none,
+              // scale 속성 주입 (GLB 내부 렌더러에 의해 방 비율이 조정됨)
+              innerModelViewerHtml: '<model-viewer scale="${roomWidth / 6.0} ${roomHeight / 3.0} ${roomDepth / 4.5}"',
             ),
           ),
 
@@ -211,7 +204,7 @@ class _Dynamic3DRoomState extends ConsumerState<Dynamic3DRoom> {
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
-                      'Zoom: ${_cameraDistance.toStringAsFixed(1)}m',
+                      'Zoom: Auto',
                       style: const TextStyle(
                         color: Colors.lightBlueAccent,
                         fontSize: 10,
@@ -224,66 +217,7 @@ class _Dynamic3DRoomState extends ConsumerState<Dynamic3DRoom> {
             ),
           ),
 
-          // 3. Bottom Speaker Quick Selection Bar
-          Positioned(
-            left: 200,
-            bottom: 24,
-            right: widget.selectedSpeakerId != null ? 360 : 180,
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  for (final spk in speakers) ...[
-                    Padding(
-                      padding: const EdgeInsets.only(right: 8.0),
-                      child: ActionChip(
-                        avatar: CircleAvatar(
-                          backgroundColor: widget.selectedSpeakerId == spk.id
-                              ? Colors.lightBlueAccent
-                              : const Color(0xFF2A3A4D),
-                          child: Text(
-                            '${spk.channel + 1}',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                              color: widget.selectedSpeakerId == spk.id
-                                  ? Colors.black
-                                  : Colors.white70,
-                            ),
-                          ),
-                        ),
-                        label: Text(
-                          'CH ${spk.channel + 1} (${spk.x.toStringAsFixed(1)}, ${spk.y.toStringAsFixed(1)}, ${spk.heightZ.toStringAsFixed(1)}m)',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: widget.selectedSpeakerId == spk.id
-                                ? Colors.lightBlueAccent
-                                : Colors.white70,
-                            fontWeight: widget.selectedSpeakerId == spk.id
-                                ? FontWeight.bold
-                                : FontWeight.normal,
-                          ),
-                        ),
-                        backgroundColor: widget.selectedSpeakerId == spk.id
-                            ? const Color(0xFF1A2B3D)
-                            : const Color(0xFF131B24).withValues(alpha: 0.9),
-                        side: BorderSide(
-                          color: widget.selectedSpeakerId == spk.id
-                              ? Colors.lightBlueAccent.withValues(alpha: 0.8)
-                              : Colors.white.withValues(alpha: 0.1),
-                        ),
-                        onPressed: () {
-                          if (widget.onSpeakerTapped != null) {
-                            widget.onSpeakerTapped!(spk.id);
-                          }
-                        },
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ),
+
 
           // 4. Floating Action Button: Add Speaker
           Positioned(
