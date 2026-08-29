@@ -116,9 +116,50 @@ class _Dynamic3DRoomState extends ConsumerState<Dynamic3DRoom> {
     final roomLabel = widget.activeRoom?.label ?? 'Room 1';
 
     final maxDim = math.max(roomWidth, roomDepth);
-    final orbitDist = (maxDim * 1.5).toStringAsFixed(1);
+    final orbitDist = (maxDim * 1.8).toStringAsFixed(1);
 
 
+
+
+    // Build Hotspots for Speakers
+    String innerHtml = '';
+    for (var i = 0; i < speakers.length; i++) {
+      final s = speakers[i];
+      // physicalWidth maps to X. x=0 is left, x=width is right. Center is width/2
+      final posX = (s.x / roomWidth * widget.activeRoom!.physicalWidth) - (widget.activeRoom!.physicalWidth / 2);
+      final posZ = (s.y / roomDepth * widget.activeRoom!.physicalHeight) - (widget.activeRoom!.physicalHeight / 2);
+      final posY = s.heightZ;
+      
+      final isSelected = widget.selectedSpeakerId == s.id;
+      final color = isSelected ? '#ff3b30' : '#00ffff'; // Neon Blue
+      final glow = isSelected ? '0 0 10px #ff3b30' : '0 0 8px #00ffff';
+      
+      innerHtml += '''
+        <button slot="hotspot-spk-${s.id}" data-position="${posX}m ${posY}m ${posZ}m" data-normal="0 1 0" 
+          style="
+            background-color: rgba(14, 19, 26, 0.9); 
+            border: 1px solid ${color}; 
+            box-shadow: ${glow};
+            border-radius: 6px; 
+            padding: 4px 8px; 
+            color: white; 
+            font-family: sans-serif; 
+            font-size: 11px; 
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            pointer-events: none;
+          ">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+            <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+          </svg>
+          CH ${s.channel}
+        </button>
+      ''';
+    }
 
     return Scaffold(
       backgroundColor: const Color(0xFF0E131A),
@@ -146,8 +187,9 @@ class _Dynamic3DRoomState extends ConsumerState<Dynamic3DRoom> {
               cameraOrbit: _cameraOrbit ?? '45deg 65deg ${orbitDist}m',
               minCameraOrbit: 'auto auto 1.5m',
               maxCameraOrbit: 'auto auto 2000m',
-              fieldOfView: '35deg',
+              fieldOfView: 'auto',
               interactionPrompt: InteractionPrompt.none,
+              innerModelViewerHtml: innerHtml,
             ),
             ),
           ),
@@ -255,17 +297,17 @@ class _Dynamic3DRoomState extends ConsumerState<Dynamic3DRoom> {
                               final w = widget.activeRoom?.physicalWidth ?? 6.0;
                               final d = widget.activeRoom?.physicalHeight ?? 4.5;
                               final maxDim = w > d ? w : d;
-                              final orbitDist = (maxDim * 1.5).toStringAsFixed(1);
+                              final orbitDist = (maxDim * 1.8).toStringAsFixed(1);
                               setState(() {
                                 _selectedView = val;
                                 final r = orbitDist;
                                 switch(val) {
                                   case 'Auto': _cameraOrbit = null; break;
-                                  case 'Front': _cameraOrbit = '0deg 85deg ${r}m'; break;
-                                  case 'Back': _cameraOrbit = '180deg 85deg ${r}m'; break;
-                                  case 'Side(L)': _cameraOrbit = '90deg 85deg ${r}m'; break;
-                                  case 'Side(R)': _cameraOrbit = '-90deg 85deg ${r}m'; break;
-                                  case 'Top': _cameraOrbit = '0deg 0deg ${r}m'; break;
+                                  case 'Front': _cameraOrbit = '0deg 85deg auto'; break;
+                                  case 'Back': _cameraOrbit = '180deg 85deg auto'; break;
+                                  case 'Side(L)': _cameraOrbit = '90deg 85deg auto'; break;
+                                  case 'Side(R)': _cameraOrbit = '-90deg 85deg auto'; break;
+                                  case 'Top': _cameraOrbit = '0deg 0deg auto'; break;
                                 }
                               });
                             },
