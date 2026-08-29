@@ -5,15 +5,18 @@ import 'package:model_viewer_plus/model_viewer_plus.dart';
 import 'package:atmos_mixer_pro/features/exhibition/state/speaker_layout_state.dart';
 import 'package:atmos_mixer_pro/features/exhibition/state/blueprint_state.dart';
 import 'package:atmos_mixer_pro/features/exhibition/models/speaker_node.dart';
+import 'package:atmos_mixer_pro/features/exhibition/models/room_zone.dart';
 
 class Dynamic3DRoom extends ConsumerStatefulWidget {
   final Function(String)? onSpeakerTapped;
   final String? selectedSpeakerId;
+  final RoomZone? activeRoom;
 
   const Dynamic3DRoom({
     super.key,
     this.onSpeakerTapped,
     this.selectedSpeakerId,
+    this.activeRoom,
   });
 
   @override
@@ -26,6 +29,11 @@ class _Dynamic3DRoomState extends ConsumerState<Dynamic3DRoom> {
     final speakers = ref.watch(speakerLayoutProvider);
     final bp = ref.watch(blueprintProvider);
 
+    final roomWidth = widget.activeRoom?.physicalWidth ?? bp.canvasWidthMeters;
+    final roomDepth = widget.activeRoom?.physicalHeight ?? bp.canvasHeightMeters;
+    final roomHeight = widget.activeRoom?.ceilingHeight ?? 3.0;
+    final roomLabel = widget.activeRoom?.label ?? 'Room 1';
+
     return Scaffold(
       backgroundColor: const Color(0xFF0E131A),
       body: Stack(
@@ -33,7 +41,7 @@ class _Dynamic3DRoomState extends ConsumerState<Dynamic3DRoom> {
           // 1. Core 3D Orbit View: 3D Wireframe Room + 4x4 Grid (Without Mannequin)
           Positioned.fill(
             child: ModelViewer(
-              key: const ValueKey('room_3d_model_viewer'),
+              key: ValueKey('room_3d_model_viewer_${widget.activeRoom?.id ?? "default"}'),
               src: 'assets/models/room_frame.glb',
               alt: '3D Room Wireframe & 4x4 Grid',
               autoRotate: false,
@@ -52,8 +60,8 @@ class _Dynamic3DRoomState extends ConsumerState<Dynamic3DRoom> {
 
           // 2. Top-Left Room & Viewport Info Badge
           Positioned(
-            top: 24,
-            left: 80,
+            top: 68, // Positioned nicely below the top room tab bar
+            left: 16,
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               decoration: BoxDecoration(
@@ -73,7 +81,7 @@ class _Dynamic3DRoomState extends ConsumerState<Dynamic3DRoom> {
                   const Icon(Icons.view_in_ar_rounded, size: 16, color: Colors.lightBlueAccent),
                   const SizedBox(width: 8),
                   Text(
-                    '3D Room: ${bp.canvasWidthMeters.toStringAsFixed(1)}m × ${bp.canvasHeightMeters.toStringAsFixed(1)}m | 4×4 Grid',
+                    '$roomLabel: ${roomWidth.toStringAsFixed(1)}m × ${roomDepth.toStringAsFixed(1)}m × ${roomHeight.toStringAsFixed(1)}m | 4×4 Grid',
                     style: const TextStyle(
                       color: Colors.white70,
                       fontSize: 12,
@@ -87,7 +95,7 @@ class _Dynamic3DRoomState extends ConsumerState<Dynamic3DRoom> {
 
           // 3. Bottom Speaker Quick Selection Bar
           Positioned(
-            left: 24,
+            left: 200, // Leave room on the left for the bottom-left Room Setup button
             bottom: 24,
             right: 180,
             child: SingleChildScrollView(
@@ -158,8 +166,8 @@ class _Dynamic3DRoomState extends ConsumerState<Dynamic3DRoom> {
                     : (speakers.map((s) => s.channel).reduce((a, b) => a > b ? a : b) + 1);
                 final newNode = SpeakerNode(
                   id: newId,
-                  x: bp.canvasWidthMeters / 2,
-                  y: bp.canvasHeightMeters / 2,
+                  x: roomWidth / 2,
+                  y: roomDepth / 2,
                   heightZ: 1.5,
                   channel: nextChannel,
                 );
