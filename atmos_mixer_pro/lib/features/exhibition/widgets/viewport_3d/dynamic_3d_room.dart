@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:model_viewer_plus/model_viewer_plus.dart';
@@ -41,7 +42,6 @@ class HeatmapPainter extends CustomPainter {
     final double scaleY = size.height / roomDepth;
 
     for (final spk in speakers) {
-      // Very basic isometric projection approximation
       final double projX = (spk.x * scaleX);
       final double projY = (spk.y * scaleY);
       
@@ -68,6 +68,53 @@ class HeatmapPainter extends CustomPainter {
 }
 
 class _Dynamic3DRoomState extends ConsumerState<Dynamic3DRoom> {
+  double _cameraDistance = 6.5;
+  double _basePinchDistance = 6.5;
+  double _yaw = 45.0;
+  double _pitch = 65.0;
+
+  void _handlePointerSignal(PointerSignalEvent event) {
+    if (event is PointerScrollEvent) {
+      // Handles Windows Mouse Wheel & Mac 2-Finger Trackpad Scroll
+      final delta = event.scrollDelta.dy;
+      if (delta != 0) {
+        setState(() {
+          // Smooth zoom scale: scroll up (negative) -> zoom in, scroll down (positive) -> zoom out
+          final zoomFactor = delta > 0 ? 1.08 : 0.92;
+          _cameraDistance = (_cameraDistance * zoomFactor).clamp(1.5, 25.0);
+        });
+      }
+    }
+  }
+
+  void _handleScaleStart(ScaleStartDetails details) {
+    _basePinchDistance = _cameraDistance;
+  }
+
+  void _handleScaleUpdate(ScaleUpdateDetails details) {
+    // 1. Mac Trackpad Pinch-to-Zoom
+    if (details.scale != 1.0) {
+      setState(() {
+        _cameraDistance = (_basePinchDistance / details.scale).clamp(1.5, 25.0);
+      });
+    }
+    // 2. Trackpad / Mouse Drag Orbit Rotation
+    else if (details.focalPointDelta.dx != 0 || details.focalPointDelta.dy != 0) {
+      setState(() {
+        _yaw = (_yaw - details.focalPointDelta.dx * 0.4) % 360;
+        _pitch = (_pitch - details.focalPointDelta.dy * 0.3).clamp(5.0, 85.0);
+      });
+    }
+  }
+
+  void _resetCamera() {
+    setState(() {
+      _cameraDistance = 6.5;
+      _yaw = 45.0;
+      _pitch = 65.0;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final allSpeakers = ref.watch(speakerLayoutProvider);
@@ -79,31 +126,41 @@ class _Dynamic3DRoomState extends ConsumerState<Dynamic3DRoom> {
     final roomHeight = widget.activeRoom?.ceilingHeight ?? 3.0;
     final roomLabel = widget.activeRoom?.label ?? 'Room 1';
 
+    final orbitString = '${_yaw.toStringAsFixed(0)}deg ${_pitch.toStringAsFixed(0)}deg ${_cameraDistance.toStringAsFixed(1)}m';
+
     return Scaffold(
       backgroundColor: const Color(0xFF0E131A),
       body: Stack(
         children: [
-          // 1. Core 3D Orbit View: 3D Wireframe Room + 4x4 Floor Grid + Centered Listener Mannequin (W/2, D/2, 1.2m)
+          // 1. Core 3D Orbit View with Native Trackpad Pinch & Mouse Wheel Zoom
           Positioned.fill(
-            child: ModelViewer(
-              key: ValueKey('room_3d_viewport_${widget.activeRoom?.id ?? "def"}'),
-              src: 'assets/models/room_with_listener.glb',
-              alt: '3D Room Space with Listener Mannequin',
-              autoRotate: false,
-              cameraControls: true,
-              shadowIntensity: 0.6,
-              shadowSoftness: 0.8,
-              exposure: 1.1,
-              backgroundColor: const Color(0xFF0E131A),
-              cameraOrbit: '45deg 65deg 6.5m',
-              minCameraOrbit: 'auto auto 2.0m',
-              maxCameraOrbit: 'auto auto 25.0m',
-              fieldOfView: '35deg',
-              interactionPrompt: InteractionPrompt.none,
+            child: Listener(
+              onPointerSignal: _handlePointerSignal,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onScaleStart: _handleScaleStart,
+                onScaleUpdate: _handleScaleUpdate,
+                onDoubleTap: _resetCamera,
+                child: ModelViewer(
+                  key: ValueKey('room_3d_viewer_${widget.activeRoom?.id ?? "def"}_${_cameraDistance.toStringAsFixed(1)}_${_yaw.toStringAsFixed(0)}_${_pitch.toStringAsFixed(0)}'),
+                  src: 'assets/models/room_frame.glb',
+                  alt: '3D Room Wireframe & 4x4 Grid',
+                  autoRotate: false,
+                  cameraControls: true,
+                  shadowIntensity: 0.6,
+                  shadowSoftness: 0.8,
+                  exposure: 1.1,
+                  backgroundColor: const Color(0xFF0E131A),
+                  cameraOrbit: orbitString,
+                  minCameraOrbit: 'auto auto 1.5m',
+                  maxCameraOrbit: 'auto auto 25m',
+                  fieldOfView: '35deg',
+                  interactionPrompt: InteractionPrompt.none,
+                ),
+              ),
             ),
           ),
 
-          
           // Heatmap Overlay
           if (widget.showHeatmap)
             Positioned.fill(
@@ -115,9 +172,8 @@ class _Dynamic3DRoomState extends ConsumerState<Dynamic3DRoom> {
             ),
 
           // 2. Top-Left Room & Viewport Info Badge
-
           Positioned(
-            top: 16,
+            top: 68,
             left: 16,
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
@@ -138,11 +194,27 @@ class _Dynamic3DRoomState extends ConsumerState<Dynamic3DRoom> {
                   const Icon(Icons.view_in_ar_rounded, size: 16, color: Colors.lightBlueAccent),
                   const SizedBox(width: 8),
                   Text(
-                    '$roomLabel: ${roomWidth.toStringAsFixed(1)}m × ${roomDepth.toStringAsFixed(1)}m × ${roomHeight.toStringAsFixed(1)}m | Listener at (${(roomWidth / 2).toStringAsFixed(1)}, ${(roomDepth / 2).toStringAsFixed(1)}, 1.2m)',
+                    '$roomLabel: ${roomWidth.toStringAsFixed(1)}m × ${roomDepth.toStringAsFixed(1)}m × ${roomHeight.toStringAsFixed(1)}m | 4×4 Grid',
                     style: const TextStyle(
                       color: Colors.white70,
                       fontSize: 12,
                       fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.3),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      'Zoom: ${_cameraDistance.toStringAsFixed(1)}m',
+                      style: const TextStyle(
+                        color: Colors.lightBlueAccent,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                 ],
@@ -150,7 +222,68 @@ class _Dynamic3DRoomState extends ConsumerState<Dynamic3DRoom> {
             ),
           ),
 
-          // 3. Floating Action Button: Add Speaker (Bottom Right)
+          // 3. Bottom Speaker Quick Selection Bar
+          Positioned(
+            left: 200,
+            bottom: 24,
+            right: widget.selectedSpeakerId != null ? 360 : 180,
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  for (final spk in speakers) ...[
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8.0),
+                      child: ActionChip(
+                        avatar: CircleAvatar(
+                          backgroundColor: widget.selectedSpeakerId == spk.id
+                              ? Colors.lightBlueAccent
+                              : const Color(0xFF2A3A4D),
+                          child: Text(
+                            '${spk.channel + 1}',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: widget.selectedSpeakerId == spk.id
+                                  ? Colors.black
+                                  : Colors.white70,
+                            ),
+                          ),
+                        ),
+                        label: Text(
+                          'CH ${spk.channel + 1} (${spk.x.toStringAsFixed(1)}, ${spk.y.toStringAsFixed(1)}, ${spk.heightZ.toStringAsFixed(1)}m)',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: widget.selectedSpeakerId == spk.id
+                                ? Colors.lightBlueAccent
+                                : Colors.white70,
+                            fontWeight: widget.selectedSpeakerId == spk.id
+                                ? FontWeight.bold
+                                : FontWeight.normal,
+                          ),
+                        ),
+                        backgroundColor: widget.selectedSpeakerId == spk.id
+                            ? const Color(0xFF1A2B3D)
+                            : const Color(0xFF131B24).withValues(alpha: 0.9),
+                        side: BorderSide(
+                          color: widget.selectedSpeakerId == spk.id
+                              ? Colors.lightBlueAccent.withValues(alpha: 0.8)
+                              : Colors.white.withValues(alpha: 0.1),
+                        ),
+                        onPressed: () {
+                          if (widget.onSpeakerTapped != null) {
+                            widget.onSpeakerTapped!(spk.id);
+                          }
+                        },
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+
+          // 4. Floating Action Button: Add Speaker
           Positioned(
             bottom: 24,
             right: widget.selectedSpeakerId != null ? 360 : 24,
