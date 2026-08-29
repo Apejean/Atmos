@@ -36,7 +36,6 @@ class _Dynamic3DRoomState extends ConsumerState<Dynamic3DRoom> {
       final delta = event.scrollDelta.dy;
       if (delta != 0) {
         setState(() {
-          // Smooth zoom scale: scroll up (negative) -> zoom in, scroll down (positive) -> zoom out
           final zoomFactor = delta > 0 ? 1.08 : 0.92;
           _cameraDistance = (_cameraDistance * zoomFactor).clamp(1.5, 25.0);
         });
@@ -119,7 +118,7 @@ class _Dynamic3DRoomState extends ConsumerState<Dynamic3DRoom> {
 
           // 2. Top-Left Room & Viewport Info Badge
           Positioned(
-            top: 68,
+            top: 16,
             left: 16,
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
@@ -168,68 +167,7 @@ class _Dynamic3DRoomState extends ConsumerState<Dynamic3DRoom> {
             ),
           ),
 
-          // 3. Bottom Speaker Quick Selection Bar
-          Positioned(
-            left: 200,
-            bottom: 24,
-            right: widget.selectedSpeakerId != null ? 360 : 180,
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  for (final spk in speakers) ...[
-                    Padding(
-                      padding: const EdgeInsets.only(right: 8.0),
-                      child: ActionChip(
-                        avatar: CircleAvatar(
-                          backgroundColor: widget.selectedSpeakerId == spk.id
-                              ? Colors.lightBlueAccent
-                              : const Color(0xFF2A3A4D),
-                          child: Text(
-                            '${spk.channel + 1}',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                              color: widget.selectedSpeakerId == spk.id
-                                  ? Colors.black
-                                  : Colors.white70,
-                            ),
-                          ),
-                        ),
-                        label: Text(
-                          'CH ${spk.channel + 1} (${spk.x.toStringAsFixed(1)}, ${spk.y.toStringAsFixed(1)}, ${spk.heightZ.toStringAsFixed(1)}m)',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: widget.selectedSpeakerId == spk.id
-                                ? Colors.lightBlueAccent
-                                : Colors.white70,
-                            fontWeight: widget.selectedSpeakerId == spk.id
-                                ? FontWeight.bold
-                                : FontWeight.normal,
-                          ),
-                        ),
-                        backgroundColor: widget.selectedSpeakerId == spk.id
-                            ? const Color(0xFF1A2B3D)
-                            : const Color(0xFF131B24).withValues(alpha: 0.9),
-                        side: BorderSide(
-                          color: widget.selectedSpeakerId == spk.id
-                              ? Colors.lightBlueAccent.withValues(alpha: 0.8)
-                              : Colors.white.withValues(alpha: 0.1),
-                        ),
-                        onPressed: () {
-                          if (widget.onSpeakerTapped != null) {
-                            widget.onSpeakerTapped!(spk.id);
-                          }
-                        },
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ),
-
-          // 4. Floating Action Button: Add Speaker
+          // 3. Floating Action Button: Add Speaker (Bottom Right)
           Positioned(
             bottom: 24,
             right: widget.selectedSpeakerId != null ? 360 : 24,

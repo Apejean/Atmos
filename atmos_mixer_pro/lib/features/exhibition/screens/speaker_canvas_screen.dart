@@ -71,7 +71,18 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
           'Exhibition Canvas (3D Space)',
           style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
         ),
-        backgroundColor: Colors.black,
+        backgroundColor: const Color(0xFF0D1219),
+        elevation: 4,
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(50),
+          child: Container(
+            height: 50,
+            color: const Color(0xFF131923),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+            alignment: Alignment.centerLeft,
+            child: _buildTopPinnedRoomTabs(rooms, activeRoom),
+          ),
+        ),
       ),
       body: Stack(
         children: [
@@ -88,15 +99,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
             ),
           ),
 
-          // 2. 상단 룸별 탭 바 (Top Room Tabs Bar)
-          Positioned(
-            top: 12,
-            left: 16,
-            right: _selectedInspectorSpeakerId != null ? 360 : 16,
-            child: _buildTopRoomTabBar(rooms, activeRoom),
-          ),
-
-          // 3. 우측 스피커 인스펙터 패널 (Glassmorphism right side)
+          // 2. 우측 스피커 인스펙터 패널 (Glassmorphism right side)
           if (_selectedInspectorSpeakerId != null)
             Positioned(
               top: 0,
@@ -108,7 +111,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
               ),
             ),
 
-          // 4. 왼쪽 하단 룸 셋업 윈도우 (Bottom left Room Setup)
+          // 3. 왼쪽 하단 룸 셋업 윈도우 (Bottom-Left Room Setup Window)
           if (_isRoomSetupOpen && activeRoom != null)
             Positioned(
               left: 16,
@@ -136,7 +139,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
               ),
             ),
 
-          // 5. 왼쪽 하단 룸 셋업 토글 버튼 (Room Setup Toggle Button)
+          // 4. 왼쪽 하단 룸 셋업 토글 버튼 (Room Setup Toggle Button)
           if (!_isRoomSetupOpen)
             Positioned(
               left: 16,
@@ -153,8 +156,8 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                 ),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: Colors.lightBlueAccent,
-                  backgroundColor: const Color(0xFF161E28).withValues(alpha: 0.92),
-                  side: BorderSide(color: Colors.lightBlueAccent.withValues(alpha: 0.6), width: 1.2),
+                  backgroundColor: const Color(0xFF161E28).withValues(alpha: 0.95),
+                  side: BorderSide(color: Colors.lightBlueAccent.withValues(alpha: 0.7), width: 1.2),
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   shadowColor: Colors.black,
@@ -168,33 +171,18 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
     );
   }
 
-  Widget _buildTopRoomTabBar(List<RoomZone> rooms, RoomZone? activeRoom) {
+  Widget _buildTopPinnedRoomTabs(List<RoomZone> rooms, RoomZone? activeRoom) {
     if (rooms.isEmpty) return const SizedBox.shrink();
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: const Color(0xFF101721).withValues(alpha: 0.92),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.4),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: [
-            for (final room in rooms) ...[
-              _buildRoomTabItem(room, isSelected: room.id == activeRoom?.id),
-              const SizedBox(width: 8),
-            ],
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          for (final room in rooms) ...[
+            _buildRoomTabItem(room, isSelected: room.id == activeRoom?.id),
+            const SizedBox(width: 8),
           ],
-        ),
+        ],
       ),
     );
   }
@@ -208,16 +196,16 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
       },
       borderRadius: BorderRadius.circular(6),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
         decoration: BoxDecoration(
           color: isSelected
               ? const Color(0xFF1E3A5F)
-              : const Color(0xFF161E28).withValues(alpha: 0.7),
+              : const Color(0xFF161E28).withValues(alpha: 0.8),
           borderRadius: BorderRadius.circular(6),
           border: Border.all(
             color: isSelected
                 ? Colors.lightBlueAccent
-                : Colors.white.withValues(alpha: 0.08),
+                : Colors.white.withValues(alpha: 0.1),
             width: isSelected ? 1.5 : 1.0,
           ),
         ),
