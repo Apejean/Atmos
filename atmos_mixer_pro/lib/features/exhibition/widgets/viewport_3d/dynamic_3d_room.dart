@@ -70,6 +70,8 @@ class HeatmapPainter extends CustomPainter {
 }
 
 class _Dynamic3DRoomState extends ConsumerState<Dynamic3DRoom> {
+  String? _cameraOrbit;
+  String _selectedView = 'Auto';
   String? _localGlbPath;
   double _lastW = -1, _lastD = -1, _lastH = -1;
 
@@ -124,7 +126,14 @@ class _Dynamic3DRoomState extends ConsumerState<Dynamic3DRoom> {
         children: [
           // 1. Core 3D Orbit View
           Positioned.fill(
-            child: _localGlbPath == null ? const Center(child: CircularProgressIndicator()) : ModelViewer(
+            child: _localGlbPath == null ? const Center(child: CircularProgressIndicator()) : GestureDetector(
+              onDoubleTap: () {
+                setState(() {
+                  _selectedView = 'Auto';
+                  _cameraOrbit = null; // Revert to dynamic auto calculation
+                });
+              },
+              child: ModelViewer(
               key: ValueKey('room_3d_viewer_${widget.activeRoom?.id ?? "def"}_${roomWidth}_${roomDepth}_${roomHeight}'), // Recreate when scale changes
               src: _localGlbPath != null ? 'file://${_localGlbPath}' : 'assets/models/room_with_listener.glb', // Contains the listener mannequin
               alt: '3D Room Space',
@@ -134,15 +143,12 @@ class _Dynamic3DRoomState extends ConsumerState<Dynamic3DRoom> {
               shadowSoftness: 0.8,
               exposure: 1.1,
               backgroundColor: const Color(0xFF0E131A),
-              cameraOrbit: '45deg 65deg ${orbitDist}m',
+              cameraOrbit: _cameraOrbit ?? '45deg 65deg ${orbitDist}m',
               minCameraOrbit: 'auto auto 1.5m',
               maxCameraOrbit: 'auto auto 2000m',
               fieldOfView: '35deg',
               interactionPrompt: InteractionPrompt.none,
-
-              
-
-              
+            ),
             ),
           ),
 
@@ -224,17 +230,45 @@ class _Dynamic3DRoomState extends ConsumerState<Dynamic3DRoom> {
                       ),
                       const SizedBox(width: 12),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+                        height: 24,
                         decoration: BoxDecoration(
                           color: Colors.black.withValues(alpha: 0.3),
                           borderRadius: BorderRadius.circular(4),
                         ),
-                        child: const Text(
-                          'Zoom: Auto',
-                          style: TextStyle(
-                            color: Colors.lightBlueAccent,
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<String>(
+                            value: _selectedView,
+                            icon: const Icon(Icons.arrow_drop_down, color: Colors.lightBlueAccent, size: 16),
+                            dropdownColor: const Color(0xFF1B232E),
+                            style: const TextStyle(color: Colors.lightBlueAccent, fontSize: 11, fontWeight: FontWeight.bold),
+                            items: const [
+                              DropdownMenuItem(value: 'Auto', child: Text('Zoom: Auto')),
+                              DropdownMenuItem(value: 'Front', child: Text('Front View')),
+                              DropdownMenuItem(value: 'Back', child: Text('Back View')),
+                              DropdownMenuItem(value: 'Side(L)', child: Text('Left View')),
+                              DropdownMenuItem(value: 'Side(R)', child: Text('Right View')),
+                              DropdownMenuItem(value: 'Top', child: Text('Top View')),
+                            ],
+                            onChanged: (val) {
+                              if (val == null) return;
+                              final w = widget.activeRoom?.physicalWidth ?? 6.0;
+                              final d = widget.activeRoom?.physicalHeight ?? 4.5;
+                              final maxDim = w > d ? w : d;
+                              final orbitDist = (maxDim * 1.5).toStringAsFixed(1);
+                              setState(() {
+                                _selectedView = val;
+                                final r = orbitDist;
+                                switch(val) {
+                                  case 'Auto': _cameraOrbit = null; break;
+                                  case 'Front': _cameraOrbit = '0deg 85deg ${r}m'; break;
+                                  case 'Back': _cameraOrbit = '180deg 85deg ${r}m'; break;
+                                  case 'Side(L)': _cameraOrbit = '90deg 85deg ${r}m'; break;
+                                  case 'Side(R)': _cameraOrbit = '-90deg 85deg ${r}m'; break;
+                                  case 'Top': _cameraOrbit = '0deg 0deg ${r}m'; break;
+                                }
+                              });
+                            },
                           ),
                         ),
                       ),
