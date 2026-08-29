@@ -127,9 +127,16 @@ class _Dynamic3DRoomState extends ConsumerState<Dynamic3DRoom> {
                     scene.traverse((node) => {
                       if (node.isMesh && node.geometry && node.geometry.attributes.position.count > 1000) {
                          node.scale.set(invX, invY, invZ);
+                         node.updateMatrix();
+                         node.updateMatrixWorld(true);
                       }
                     });
                   }
+                  // Force a re-render to apply the scale immediately
+                  requestAnimationFrame(() => {
+                    const oldOrbit = mv.getCameraOrbit();
+                    mv.cameraOrbit = `\${oldOrbit.theta}rad \${oldOrbit.phi}rad \${oldOrbit.radius}m`;
+                  });
                 });
               ''',
 
