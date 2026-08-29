@@ -154,7 +154,8 @@ class _SpeakerInspectorPanelState extends ConsumerState<SpeakerInspectorPanel> {
                 _buildControlBox('assets/3d_simulator/icons/icon_y.svg', 'Y Position', speaker.y, 'm', (v) => _updateSpeaker(speaker!, y: v)),
                 _buildControlBox('assets/3d_simulator/icons/icon_height.svg', 'Z Height', speaker.heightZ, 'm', (v) => _updateSpeaker(speaker!, z: v)),
                 _buildControlBox('assets/3d_simulator/icons/icon_pan.svg', 'Pan', speaker.panDeg, '°', (v) => _updateSpeaker(speaker!, pan: v)),
-                _buildControlBox('assets/3d_simulator/icons/icon_tilt.svg', 'Tilt', speaker.pitchTilt, '°', (v) => _updateSpeaker(speaker!, tilt: v)),
+                _buildControlBox('assets/3d_simulator/icons/icon_tilt.svg', 'Yaw (Rotation)', speaker.rotation, '°', (v) => _updateSpeaker(speaker!, rot: v)),
+                _buildControlBox('assets/3d_simulator/icons/icon_tilt.svg', 'Pitch (Tilt)', speaker.pitchTilt, '°', (v) => _updateSpeaker(speaker!, tilt: v)),
                 _buildControlBox('assets/3d_simulator/icons/icon_dispersion.svg', 'Dispersion', speaker.dispersionAngle, '°', (v) => _updateSpeaker(speaker!, disp: v)),
                 _buildControlBox('assets/3d_simulator/icons/icon_reverb.svg', 'Reverb Send', speaker.reverbSend, '%', (v) => _updateSpeaker(speaker!, rev: v)),
               ],
@@ -182,12 +183,13 @@ class _SpeakerInspectorPanelState extends ConsumerState<SpeakerInspectorPanel> {
     );
   }
 
-  void _updateSpeaker(SpeakerNode speaker, {double? x, double? y, double? z, double? pan, double? tilt, double? disp, double? rev}) {
+  void _updateSpeaker(SpeakerNode speaker, {double? x, double? y, double? z, double? pan, double? tilt, double? rot, double? disp, double? rev}) {
     ref.read(speakerLayoutProvider.notifier).updateSpeaker(speaker.copyWith(
       x: x ?? speaker.x,
       y: y ?? speaker.y,
       heightZ: z ?? speaker.heightZ,
       pitchTilt: tilt ?? speaker.pitchTilt,
+      rotation: rot ?? speaker.rotation,
       panDeg: pan ?? speaker.panDeg,
       dispersionAngle: disp ?? speaker.dispersionAngle,
       reverbSend: rev ?? speaker.reverbSend,

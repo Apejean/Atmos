@@ -292,7 +292,7 @@
       const beamLength = 1.8;
       const coneRadius = Math.tan(dispersionAngle / 2) * beamLength;
       const coneGeo = new THREE.ConeGeometry(coneRadius, beamLength, 16, 1, true);
-      coneGeo.rotateX(Math.PI / 2);
+      coneGeo.rotateX(-Math.PI / 2);
       coneGeo.translate(0, 0, beamLength / 2);
 
       const coneMat = new THREE.MeshBasicMaterial({
@@ -354,8 +354,13 @@
     // --- 8. Set Camera View Presets ---
     window.setCameraView = function(viewName) {
       const maxDim = Math.max(currentRoom.width, currentRoom.depth);
-      const dist = maxDim * 1.35;
+      // Decrease the multiplier from 1.35 so that it is "딱 핏하게" (snugly fit) with some margin.
+      // Since FOV is usually around 45-60, distance = maxDim / (2 * tan(fov/2))
+      // For FOV 50, tan(25) ~ 0.46, so distance ~ maxDim / 0.92 ~ maxDim * 1.08.
+      // Let's use 1.0.
+      const dist = maxDim * 1.4;
 
+      window.currentViewName = viewName;
       switch(viewName) {
         case 'Auto':
           camera.position.set(0, 4.5, dist);
@@ -414,6 +419,12 @@
           }
         }
       }
+    });
+
+    
+    // --- 9.5 Double Click to Reset Camera ---
+    window.addEventListener('dblclick', () => {
+      window.setCameraView(window.currentViewName || 'Auto');
     });
 
     // --- 10. Window Resize Handler ---
