@@ -1,4 +1,5 @@
-import 'dart:math' as math;
+with open('lib/features/exhibition/widgets/viewport_3d/dynamic_3d_room.dart', 'w') as f:
+    f.write("""import 'dart:math' as math;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -29,20 +30,20 @@ class _Dynamic3DRoomState extends ConsumerState<Dynamic3DRoom> {
   double _yaw = -0.5;
   double _zoom = 0.8;
   
-  final double ppm = 100.0; // Pixels Per Meter
+  final double PPM = 100.0; // Pixels Per Meter
 
   @override
   Widget build(BuildContext context) {
     final speakers = ref.watch(speakerLayoutProvider);
     final bp = ref.watch(blueprintProvider);
 
-    final roomW = bp.canvasWidthMeters * ppm;
-    final roomD = bp.canvasHeightMeters * ppm;
-    final roomH = 3.5 * ppm; // standard height
+    final roomW = bp.canvasWidthMeters * PPM;
+    final roomD = bp.canvasHeightMeters * PPM;
+    final roomH = 3.5 * PPM; // standard height
 
     final cameraMatrix = Matrix4.identity()
       ..setEntry(3, 2, 0.001) // perspective
-      ..scale(vector.Vector3.all(_zoom))
+      ..scale(_zoom, _zoom, _zoom)
       ..rotateX(_pitch)
       ..rotateY(_yaw);
 
@@ -101,7 +102,7 @@ class _Dynamic3DRoomState extends ConsumerState<Dynamic3DRoom> {
     objects.add(SceneObject(position: vector.Vector3(halfW, 0, halfD), child: buildPillar(halfW, halfD)));
 
     // 4. Dummy Head (Listener) at center, ear level 1.2m
-    final headY = roomH / 2 - (1.2 * ppm);
+    final headY = roomH / 2 - (1.2 * PPM);
     objects.add(SceneObject(
       position: vector.Vector3(0, headY, 0),
       child: Transform(
@@ -135,9 +136,9 @@ class _Dynamic3DRoomState extends ConsumerState<Dynamic3DRoom> {
 
     // 5. Speakers
     for (var spk in speakers) {
-      final sx = (spk.x - bp.canvasWidthMeters / 2) * ppm;
-      final sz = (spk.y - bp.canvasHeightMeters / 2) * ppm;
-      final sy = roomH / 2 - (spk.heightZ * ppm);
+      final sx = (spk.x - bp.canvasWidthMeters / 2) * PPM;
+      final sz = (spk.y - bp.canvasHeightMeters / 2) * PPM;
+      final sy = roomH / 2 - (spk.heightZ * PPM);
 
       objects.add(SceneObject(
         position: vector.Vector3(sx, sy, sz),
@@ -173,15 +174,10 @@ class _Dynamic3DRoomState extends ConsumerState<Dynamic3DRoom> {
       body: Stack(
         children: [
           GestureDetector(
-            onScaleUpdate: (details) {
-              if (details.scale != 1.0) {
-                setState(() {
-                  _zoom = (_zoom * details.scale).clamp(0.2, 3.0);
-                });
-              }
+            onPanUpdate: (details) {
               setState(() {
-                _yaw -= details.focalPointDelta.dx * 0.005;
-                _pitch += details.focalPointDelta.dy * 0.005;
+                _yaw -= details.delta.dx * 0.005;
+                _pitch += details.delta.dy * 0.005;
                 _pitch = _pitch.clamp(-math.pi / 2, math.pi / 2);
               });
             },
@@ -262,3 +258,4 @@ class GridPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
+""")

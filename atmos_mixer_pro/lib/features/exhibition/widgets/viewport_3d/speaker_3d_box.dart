@@ -22,7 +22,7 @@ class Speaker3DBox extends StatelessWidget {
 
     return Transform(
       transform: Matrix4.identity()
-        ..setEntry(3, 2, 0.001) // perspective
+        // perspective handled by parent
         ..rotateX(angleX)
         ..rotateY(angleY)
         ..rotateZ(angleZ),
