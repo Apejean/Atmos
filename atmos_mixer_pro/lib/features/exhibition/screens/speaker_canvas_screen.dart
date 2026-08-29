@@ -6,6 +6,7 @@ import 'package:atmos_mixer_pro/features/exhibition/widgets/hud/room_setup_windo
 import 'package:atmos_mixer_pro/features/exhibition/state/room_zone_state.dart';
 import 'package:atmos_mixer_pro/features/exhibition/state/blueprint_state.dart';
 import 'package:atmos_mixer_pro/features/exhibition/models/room_zone.dart';
+import 'package:atmos_mixer_pro/core/state/global_state.dart';
 import 'package:atmos_mixer_pro/core/theme/colors.dart';
 
 class SpeakerCanvasScreen extends ConsumerStatefulWidget {
@@ -30,24 +31,52 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
 
   void _ensureDefaultRoom() {
     final rooms = ref.read(roomZoneProvider);
+    final config = ref.read(configProvider);
+
     if (rooms.isEmpty) {
-      final defaultRoom = RoomZone(
-        id: 'room_1',
-        label: 'Room 1 (Main Hall)',
-        x: 0,
-        y: 0,
-        width: 300,
-        height: 225,
-        color: 0xFF2196F3,
-        physicalWidth: 6.0,
-        physicalHeight: 4.5,
-        ceilingHeight: 3.0,
-        earLevel: 1.2,
-      );
-      ref.read(roomZoneProvider.notifier).addRoomZone(defaultRoom);
-      setState(() {
-        _selectedRoomId = defaultRoom.id;
-      });
+      if (config != null && config.rooms.isNotEmpty) {
+        for (final r in config.rooms) {
+          final colorInt = int.tryParse(r.colorHex.replaceFirst('#', '0xFF')) ?? 0xFF2196F3;
+          final newRoom = RoomZone(
+            id: r.id,
+            label: r.name,
+            x: 0,
+            y: 0,
+            width: 300,
+            height: 225,
+            color: colorInt,
+            physicalWidth: 6.0,
+            physicalHeight: 4.5,
+            ceilingHeight: 3.0,
+            earLevel: 1.2,
+          );
+          ref.read(roomZoneProvider.notifier).addRoomZone(newRoom);
+        }
+        final updatedRooms = ref.read(roomZoneProvider);
+        if (updatedRooms.isNotEmpty) {
+          setState(() {
+            _selectedRoomId = updatedRooms.first.id;
+          });
+        }
+      } else {
+        final defaultRoom = RoomZone(
+          id: 'room_1',
+          label: 'Room 1 (Main Hall)',
+          x: 0,
+          y: 0,
+          width: 300,
+          height: 225,
+          color: 0xFF2196F3,
+          physicalWidth: 6.0,
+          physicalHeight: 4.5,
+          ceilingHeight: 3.0,
+          earLevel: 1.2,
+        );
+        ref.read(roomZoneProvider.notifier).addRoomZone(defaultRoom);
+        setState(() {
+          _selectedRoomId = defaultRoom.id;
+        });
+      }
     } else if (_selectedRoomId == null || !rooms.any((r) => r.id == _selectedRoomId)) {
       setState(() {
         _selectedRoomId = rooms.first.id;
