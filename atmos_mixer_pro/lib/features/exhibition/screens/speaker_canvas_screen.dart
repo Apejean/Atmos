@@ -31,6 +31,13 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
   }
 
   void _ensureDefaultRoom() {
+    final roomNotifier = ref.read(roomZoneProvider.notifier);
+    if (!roomNotifier.isLoaded) {
+      // Retry in 100ms
+      Future.delayed(const Duration(milliseconds: 100), _ensureDefaultRoom);
+      return;
+    }
+    
     final rooms = ref.read(roomZoneProvider);
     final config = ref.read(configProvider);
 

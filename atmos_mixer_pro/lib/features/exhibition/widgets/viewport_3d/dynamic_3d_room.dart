@@ -109,13 +109,13 @@ class _Dynamic3DRoomState extends ConsumerState<Dynamic3DRoom> {
               backgroundColor: const Color(0xFF0E131A),
               cameraOrbit: '45deg 65deg ${orbitDist}m',
               minCameraOrbit: 'auto auto 1.5m',
-              maxCameraOrbit: 'auto auto 25m',
+              maxCameraOrbit: 'auto auto 100m',
               fieldOfView: '35deg',
               interactionPrompt: InteractionPrompt.none,
 
               relatedJs: '''
-                document.querySelector('model-viewer').addEventListener('load', function(e) {
-                  const mv = e.target;
+                const mv = document.querySelector('model-viewer');
+                mv.addEventListener('scene-graph-ready', function(e) {
                   const sceneSymbol = Object.getOwnPropertySymbols(mv).find(s => s.description === 'scene');
                   if(sceneSymbol) {
                     const scene = mv[sceneSymbol];

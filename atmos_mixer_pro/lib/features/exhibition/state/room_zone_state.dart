@@ -14,6 +14,8 @@ const _kRoomZonePrefsKey = 'exhibition_room_zone_layout';
 const _kRoomZonePrefsBackupKey = 'exhibition_room_zone_layout_backup';
 
 class RoomZoneState extends Notifier<List<RoomZone>> {
+  bool _isLoaded = false;
+  bool get isLoaded => _isLoaded;
   Timer? _saveDebounceTimer;
 
   @override
@@ -52,6 +54,7 @@ class RoomZoneState extends Notifier<List<RoomZone>> {
         state = [];
       }
     }
+    _isLoaded = true;
   }
 
   void _saveToPrefsDebounced() {
