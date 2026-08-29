@@ -111,7 +111,6 @@ class _TrackCardState extends ConsumerState<TrackCard> {
     final engineState = ref.watch(engineStateProvider);
     final isPlaying = engineState.playingTrackIds.contains(widget.track.id);
 
-    final config = ref.watch(configProvider);
     final hwChannelsAsync = ref.watch(hardwareChannelsProvider);
     
     final hwChannels = hwChannelsAsync.value ?? [];

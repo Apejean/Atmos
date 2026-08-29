@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:atmos_mixer_pro/features/exhibition/widgets/viewport_3d/dynamic_3d_room.dart';
-import 'package:atmos_mixer_pro/features/exhibition/widgets/hud/speaker_inspector_panel.dart';
-import 'package:atmos_mixer_pro/features/exhibition/widgets/hud/room_setup_window.dart';
+import 'package:atmos_mixer_pro/core/theme/colors.dart';
 import 'package:atmos_mixer_pro/features/exhibition/state/room_zone_state.dart';
 import 'package:atmos_mixer_pro/features/exhibition/state/blueprint_state.dart';
 import 'package:atmos_mixer_pro/features/exhibition/models/room_zone.dart';
-import 'package:atmos_mixer_pro/core/state/global_state.dart';
-import 'package:atmos_mixer_pro/core/theme/colors.dart';
+import 'package:atmos_mixer_pro/features/exhibition/widgets/hud/room_setup_window.dart';
+import 'package:atmos_mixer_pro/features/exhibition/widgets/hud/speaker_inspector_panel.dart';
+import 'package:atmos_mixer_pro/features/exhibition/widgets/viewport_3d/dynamic_3d_room.dart';
 
 class SpeakerCanvasScreen extends ConsumerStatefulWidget {
   const SpeakerCanvasScreen({super.key});
@@ -17,74 +16,39 @@ class SpeakerCanvasScreen extends ConsumerStatefulWidget {
 }
 
 class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
-  String? _selectedInspectorSpeakerId;
   String? _selectedRoomId;
+  String? _selectedInspectorSpeakerId;
   bool _isRoomSetupOpen = false;
-  bool _showHeatmap = false;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _ensureDefaultRoom();
+      _syncDefaultRooms();
     });
   }
 
-  void _ensureDefaultRoom() {
-    final roomNotifier = ref.read(roomZoneProvider.notifier);
-    if (!roomNotifier.isLoaded) {
-      // Retry in 100ms
-      Future.delayed(const Duration(milliseconds: 100), _ensureDefaultRoom);
-      return;
-    }
-    
+  void _syncDefaultRooms() {
     final rooms = ref.read(roomZoneProvider);
-    final config = ref.read(configProvider);
 
     if (rooms.isEmpty) {
-      if (config != null && config.rooms.isNotEmpty) {
-        for (final r in config.rooms) {
-          final colorInt = int.tryParse(r.colorHex.replaceFirst('#', '0xFF')) ?? 0xFF2196F3;
-          final newRoom = RoomZone(
-            id: r.id,
-            label: r.name,
-            x: 0,
-            y: 0,
-            width: 300,
-            height: 225,
-            color: colorInt,
-            physicalWidth: 6.0,
-            physicalHeight: 4.5,
-            ceilingHeight: 3.0,
-            earLevel: 1.2,
-          );
-          ref.read(roomZoneProvider.notifier).addRoomZone(newRoom);
-        }
-        final updatedRooms = ref.read(roomZoneProvider);
-        if (updatedRooms.isNotEmpty) {
-          setState(() {
-            _selectedRoomId = updatedRooms.first.id;
-          });
-        }
-      } else {
-        final defaultRoom = RoomZone(
-          id: 'room_1',
-          label: 'Room 1 (Main Hall)',
-          x: 0,
-          y: 0,
-          width: 300,
-          height: 225,
-          color: 0xFF2196F3,
-          physicalWidth: 6.0,
-          physicalHeight: 4.5,
-          ceilingHeight: 3.0,
-          earLevel: 1.2,
-        );
-        ref.read(roomZoneProvider.notifier).addRoomZone(defaultRoom);
-        setState(() {
-          _selectedRoomId = defaultRoom.id;
-        });
-      }
+      final defaultRoom = RoomZone(
+        id: 'room_1',
+        label: 'Room 1 (Main Hall)',
+        x: 0,
+        y: 0,
+        width: 6.0,
+        height: 4.5,
+        color: 0xFF0284C7,
+        physicalWidth: 6.0,
+        physicalHeight: 4.5,
+        ceilingHeight: 3.0,
+        earLevel: 1.2,
+      );
+      ref.read(roomZoneProvider.notifier).addRoomZone(defaultRoom);
+      setState(() {
+        _selectedRoomId = defaultRoom.id;
+      });
     } else if (_selectedRoomId == null || !rooms.any((r) => r.id == _selectedRoomId)) {
       setState(() {
         _selectedRoomId = rooms.first.id;
@@ -104,45 +68,47 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
           icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Exhibition Canvas (3D Space)',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
-            ),
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                _buildAppBarButton(
-                  icon: Icons.map_rounded,
-                  label: 'SPL Heatmap',
-                  isActive: _showHeatmap,
-                  onTap: () => setState(() => _showHeatmap = !_showHeatmap),
-                ),
-                const SizedBox(width: 12),
-                _buildAppBarButton(
-                  icon: Icons.picture_as_pdf_rounded,
-                  label: 'Export PDF Report',
-                  onTap: () {},
-                ),
-                const SizedBox(width: 12),
-                _buildAppBarButton(
-                  icon: Icons.settings_input_antenna_rounded,
-                  label: 'Apply 3D Calibration',
-                  onTap: () {},
-                ),
-              ],
-            ),
-          ],
+        title: const Text(
+          'Exhibition Canvas (3D Space)',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
         ),
-        toolbarHeight: 80,
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 16),
+            child: OutlinedButton.icon(
+              icon: const Icon(Icons.picture_as_pdf_rounded, size: 16, color: Colors.lightBlueAccent),
+              label: const Text(
+                'Export PDF Report',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.lightBlueAccent,
+                ),
+              ),
+              style: OutlinedButton.styleFrom(
+                side: BorderSide(color: Colors.lightBlueAccent.withValues(alpha: 0.6)),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                backgroundColor: const Color(0xFF161E28).withValues(alpha: 0.8),
+              ),
+              onPressed: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('PDF 음향 리포트 내보내기 기능이 준비 중입니다.'),
+                    duration: Duration(seconds: 2),
+                    backgroundColor: Color(0xFF1E293B),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
         backgroundColor: const Color(0xFF0D1219),
         elevation: 4,
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(50),
+          preferredSize: const Size.fromHeight(48),
           child: Container(
-            height: 50,
+            height: 48,
             color: const Color(0xFF131923),
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
             alignment: Alignment.centerLeft,
@@ -152,11 +118,10 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
       ),
       body: Stack(
         children: [
-          // 1. 100% 3D Native Space
+          // 1. 100% 3D WebGL Three.js Studio Engine
           Positioned.fill(
             child: Dynamic3DRoom(
               activeRoom: activeRoom,
-              showHeatmap: _showHeatmap,
               selectedSpeakerId: _selectedInspectorSpeakerId,
               onOpenRoomSetup: () => setState(() => _isRoomSetupOpen = true),
               onSpeakerTapped: (id) {
@@ -167,11 +132,38 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
             ),
           ),
 
-          // Room Setup Window (Now floating below tabs)
+          // 2. Left-Bottom Room Setup Toggle Button
+          if (!_isRoomSetupOpen && activeRoom != null)
+            Positioned(
+              left: 16,
+              bottom: 24,
+              child: OutlinedButton.icon(
+                icon: const Icon(Icons.tune_rounded, size: 16, color: Colors.lightBlueAccent),
+                label: Text(
+                  'ROOM SETUP: ${activeRoom.label}',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.lightBlueAccent,
+                  backgroundColor: const Color(0xFF161E28).withValues(alpha: 0.95),
+                  side: BorderSide(color: Colors.lightBlueAccent.withValues(alpha: 0.7), width: 1.2),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  elevation: 6,
+                ),
+                onPressed: () => setState(() => _isRoomSetupOpen = true),
+              ),
+            ),
+
+          // 3. Left-Bottom Room Setup Window Modal
           if (_isRoomSetupOpen && activeRoom != null)
             Positioned(
               left: 16,
-              top: 70,
+              bottom: 24,
               child: RoomSetupWindow(
                 room: activeRoom,
                 onApply: (updated) {
@@ -195,7 +187,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
               ),
             ),
 
-          // 2. 우측 스피커 인스펙터 패널 (Glassmorphism right side)
+          // 4. Right Side Speaker Inspector Panel
           if (_selectedInspectorSpeakerId != null)
             Positioned(
               top: 0,
@@ -206,8 +198,6 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                 onClose: () => setState(() => _selectedInspectorSpeakerId = null),
               ),
             ),
-
-
         ],
       ),
     );
@@ -288,38 +278,6 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                   fontSize: 10,
                   fontWeight: FontWeight.w500,
                 ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAppBarButton({required IconData icon, required String label, required VoidCallback onTap, bool isActive = false}) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(4),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        decoration: BoxDecoration(
-          color: isActive ? Colors.lightBlueAccent.withValues(alpha: 0.2) : Colors.transparent,
-          borderRadius: BorderRadius.circular(4),
-          border: Border.all(
-            color: isActive ? Colors.lightBlueAccent : Colors.white24,
-            width: 1,
-          ),
-        ),
-        child: Row(
-          children: [
-            Icon(icon, size: 14, color: isActive ? Colors.lightBlueAccent : Colors.white70),
-            const SizedBox(width: 6),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 11,
-                color: isActive ? Colors.lightBlueAccent : Colors.white70,
-                fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
               ),
             ),
           ],

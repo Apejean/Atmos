@@ -117,7 +117,6 @@ class _IsometricRoomPainter extends CustomPainter {
       // Rotate X (Tilt)
       final cosX = math.cos(rotationX);
       final sinX = math.sin(rotationX);
-      final rz = ry * sinX + z * cosX;
       final ry2 = ry * cosX - z * sinX;
 
       // Map to 2D

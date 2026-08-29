@@ -1,0 +1,11 @@
+<svg width="120" height="280" viewBox="0 0 120 280" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="sideGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#15161A" />
+      <stop offset="100%" stop-color="#0F1012" />
+    </linearGradient>
+  </defs>
+
+  <!-- 측면 배경 (폭 120, 높이 280) -->
+  <rect x="0" y="0" width="120" height="280" fill="url(#sideGrad)" stroke="#222" stroke-width="2" />
+</svg>

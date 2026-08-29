@@ -1,0 +1,28 @@
+<svg width="64" height="64" viewBox="0 0 64 64" fill="none" stroke="#4FC3F7" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg">
+  <!-- 바닥 평면 (Isometric Grid Square) -->
+  <polygon points="32,60 6,48 32,36 58,48" fill="#4FC3F7" fill-opacity="0.1" stroke-width="1.5" />
+  <polygon points="32,54 14,46 32,38 50,46" stroke="#4FC3F7" stroke-width="0.8" stroke-opacity="0.5" />
+
+  <!-- 수직 상승 화살표 (Z축) -->
+  <line x1="32" y1="42" x2="32" y2="28" stroke-width="1.5" stroke="#4FC3F7" />
+  <polygon points="32,22 27,29 37,29" fill="#4FC3F7" stroke="none" />
+
+  <!-- 허공에 떠 있는 3D 스피커 (Isometric) -->
+  <g stroke-width="1.2" fill="#0F1722" fill-opacity="0.8">
+    <!-- 윗면 -->
+    <polygon points="32,4 44,9 32,14 20,9" />
+    <!-- 우측면 -->
+    <polygon points="32,14 44,9 44,21 32,26" />
+    <!-- 좌측면 (정면 역할) -->
+    <polygon points="20,9 32,14 32,26 20,21" />
+  </g>
+  
+  <!-- 스피커 전면부(좌측면) 콘 디테일 -->
+  <g opacity="0.7" stroke-width="0.8">
+    <!-- 트위터 -->
+    <ellipse cx="26" cy="13.5" rx="2" ry="3.5" transform="rotate(-23 26 13.5)" />
+    <!-- 우퍼 -->
+    <ellipse cx="26" cy="19.5" rx="3.5" ry="5.5" transform="rotate(-23 26 19.5)" />
+    <circle cx="26" cy="19.5" r="0.8" fill="#4FC3F7" stroke="none" />
+  </g>
+</svg>

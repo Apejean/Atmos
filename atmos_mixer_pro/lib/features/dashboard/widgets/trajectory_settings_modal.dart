@@ -3,7 +3,6 @@ import 'package:atmos_mixer_pro/core/theme/colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:atmos_mixer_pro/features/exhibition/state/trajectory_state.dart';
 import 'package:atmos_mixer_pro/features/exhibition/models/trajectory.dart';
-import 'package:atmos_mixer_pro/core/state/global_state.dart';
 
 class TrajectorySettingsModal extends ConsumerStatefulWidget {
   final String? trackId;
@@ -95,7 +94,8 @@ class _TrajectorySettingsModalState extends ConsumerState<TrajectorySettingsModa
             SwitchListTile(
               title: const Text('OSC Automation', style: TextStyle(color: Colors.white)),
               value: _oscEnabled,
-              activeColor: AppColors.primaryNeon,
+              activeTrackColor: AppColors.primaryNeon.withValues(alpha: 0.5),
+              activeThumbColor: AppColors.primaryNeon,
               onChanged: (v) => setState(() => _oscEnabled = v),
             ),
           ],
