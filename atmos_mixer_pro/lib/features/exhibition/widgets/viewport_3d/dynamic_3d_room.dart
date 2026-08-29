@@ -70,52 +70,11 @@ class HeatmapPainter extends CustomPainter {
 }
 
 class _Dynamic3DRoomState extends ConsumerState<Dynamic3DRoom> {
-  double _cameraDistance = 6.5;
-  double _basePinchDistance = 6.5;
-  double _yaw = 45.0;
-  double _pitch = 65.0;
+  
 
-  void _handlePointerSignal(PointerSignalEvent event) {
-    if (event is PointerScrollEvent) {
-      // Handles Windows Mouse Wheel & Mac 2-Finger Trackpad Scroll
-      final delta = event.scrollDelta.dy;
-      if (delta != 0) {
-        setState(() {
-          // Smooth zoom scale: scroll up (negative) -> zoom in, scroll down (positive) -> zoom out
-          final zoomFactor = delta > 0 ? 1.08 : 0.92;
-          _cameraDistance = (_cameraDistance * zoomFactor).clamp(1.5, 25.0);
-        });
-      }
-    }
-  }
 
-  void _handleScaleStart(ScaleStartDetails details) {
-    _basePinchDistance = _cameraDistance;
-  }
 
-  void _handleScaleUpdate(ScaleUpdateDetails details) {
-    // 1. Mac Trackpad Pinch-to-Zoom
-    if (details.scale != 1.0) {
-      setState(() {
-        _cameraDistance = (_basePinchDistance / details.scale).clamp(1.5, 25.0);
-      });
-    }
-    // 2. Trackpad / Mouse Drag Orbit Rotation
-    else if (details.focalPointDelta.dx != 0 || details.focalPointDelta.dy != 0) {
-      setState(() {
-        _yaw = (_yaw - details.focalPointDelta.dx * 0.4) % 360;
-        _pitch = (_pitch - details.focalPointDelta.dy * 0.3).clamp(5.0, 85.0);
-      });
-    }
-  }
 
-  void _resetCamera() {
-    setState(() {
-      _cameraDistance = 6.5;
-      _yaw = 45.0;
-      _pitch = 65.0;
-    });
-  }
 
   @override
   Widget build(BuildContext context) {
