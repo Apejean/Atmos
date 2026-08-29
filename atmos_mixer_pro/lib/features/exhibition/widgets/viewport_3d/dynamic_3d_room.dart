@@ -13,6 +13,7 @@ class Dynamic3DRoom extends ConsumerStatefulWidget {
   final String? selectedSpeakerId;
   final RoomZone? activeRoom;
   final bool showHeatmap;
+  final VoidCallback? onOpenRoomSetup;
 
   const Dynamic3DRoom({
     super.key,
@@ -20,6 +21,7 @@ class Dynamic3DRoom extends ConsumerStatefulWidget {
     this.selectedSpeakerId,
     this.activeRoom,
     this.showHeatmap = false,
+    this.onOpenRoomSetup,
   });
 
   @override

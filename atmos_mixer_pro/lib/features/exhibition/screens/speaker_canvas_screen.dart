@@ -151,6 +151,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
               activeRoom: activeRoom,
               showHeatmap: _showHeatmap,
               selectedSpeakerId: _selectedInspectorSpeakerId,
+              onOpenRoomSetup: () => setState(() => _isRoomSetupOpen = true),
               onSpeakerTapped: (id) {
                 setState(() {
                   _selectedInspectorSpeakerId = id;
@@ -159,23 +160,11 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
             ),
           ),
 
-          // 2. 우측 스피커 인스펙터 패널 (Glassmorphism right side)
-          if (_selectedInspectorSpeakerId != null)
-            Positioned(
-              top: 0,
-              bottom: 0,
-              right: 0,
-              child: SpeakerInspectorPanel(
-                speakerId: _selectedInspectorSpeakerId!,
-                onClose: () => setState(() => _selectedInspectorSpeakerId = null),
-              ),
-            ),
-
-          // 3. 왼쪽 하단 룸 셋업 윈도우 (Bottom-Left Room Setup Window)
+          // Room Setup Window (Now floating below tabs)
           if (_isRoomSetupOpen && activeRoom != null)
             Positioned(
               left: 16,
-              bottom: 16,
+              top: 70,
               child: RoomSetupWindow(
                 room: activeRoom,
                 onApply: (updated) {
@@ -199,33 +188,19 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
               ),
             ),
 
-          // 4. 왼쪽 하단 룸 셋업 토글 버튼 (Room Setup Toggle Button)
-          if (!_isRoomSetupOpen)
+          // 2. 우측 스피커 인스펙터 패널 (Glassmorphism right side)
+          if (_selectedInspectorSpeakerId != null)
             Positioned(
-              left: 16,
-              bottom: 24,
-              child: OutlinedButton.icon(
-                icon: const Icon(Icons.tune_rounded, size: 16, color: Colors.lightBlueAccent),
-                label: Text(
-                  'ROOM SETUP: ${activeRoom?.label ?? "Room"}',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.lightBlueAccent,
-                  backgroundColor: const Color(0xFF161E28).withValues(alpha: 0.95),
-                  side: BorderSide(color: Colors.lightBlueAccent.withValues(alpha: 0.7), width: 1.2),
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  shadowColor: Colors.black,
-                  elevation: 6,
-                ),
-                onPressed: () => setState(() => _isRoomSetupOpen = true),
+              top: 0,
+              bottom: 0,
+              right: 0,
+              child: SpeakerInspectorPanel(
+                speakerId: _selectedInspectorSpeakerId!,
+                onClose: () => setState(() => _selectedInspectorSpeakerId = null),
               ),
             ),
+
+
         ],
       ),
     );
@@ -234,16 +209,22 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
   Widget _buildTopPinnedRoomTabs(List<RoomZone> rooms, RoomZone? activeRoom) {
     if (rooms.isEmpty) return const SizedBox.shrink();
 
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: [
-          for (final room in rooms) ...[
-            _buildRoomTabItem(room, isSelected: room.id == activeRoom?.id),
-            const SizedBox(width: 8),
-          ],
-        ],
-      ),
+    return Row(
+      children: [
+        Expanded(
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                for (final room in rooms) ...[
+                  _buildRoomTabItem(room, isSelected: room.id == activeRoom?.id),
+                  const SizedBox(width: 8),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 
