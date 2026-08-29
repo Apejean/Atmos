@@ -1,4 +1,3 @@
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:model_viewer_plus/model_viewer_plus.dart';
@@ -25,52 +24,6 @@ class Dynamic3DRoom extends ConsumerStatefulWidget {
 }
 
 class _Dynamic3DRoomState extends ConsumerState<Dynamic3DRoom> {
-  double _cameraDistance = 6.5;
-  double _basePinchDistance = 6.5;
-  double _yaw = 45.0;
-  double _pitch = 65.0;
-
-  void _handlePointerSignal(PointerSignalEvent event) {
-    if (event is PointerScrollEvent) {
-      // Handles Windows Mouse Wheel & Mac 2-Finger Trackpad Scroll
-      final delta = event.scrollDelta.dy;
-      if (delta != 0) {
-        setState(() {
-          final zoomFactor = delta > 0 ? 1.08 : 0.92;
-          _cameraDistance = (_cameraDistance * zoomFactor).clamp(1.5, 25.0);
-        });
-      }
-    }
-  }
-
-  void _handleScaleStart(ScaleStartDetails details) {
-    _basePinchDistance = _cameraDistance;
-  }
-
-  void _handleScaleUpdate(ScaleUpdateDetails details) {
-    // 1. Mac Trackpad Pinch-to-Zoom
-    if (details.scale != 1.0) {
-      setState(() {
-        _cameraDistance = (_basePinchDistance / details.scale).clamp(1.5, 25.0);
-      });
-    }
-    // 2. Trackpad / Mouse Drag Orbit Rotation
-    else if (details.focalPointDelta.dx != 0 || details.focalPointDelta.dy != 0) {
-      setState(() {
-        _yaw = (_yaw - details.focalPointDelta.dx * 0.4) % 360;
-        _pitch = (_pitch - details.focalPointDelta.dy * 0.3).clamp(5.0, 85.0);
-      });
-    }
-  }
-
-  void _resetCamera() {
-    setState(() {
-      _cameraDistance = 6.5;
-      _yaw = 45.0;
-      _pitch = 65.0;
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     final speakers = ref.watch(speakerLayoutProvider);
@@ -81,38 +34,28 @@ class _Dynamic3DRoomState extends ConsumerState<Dynamic3DRoom> {
     final roomHeight = widget.activeRoom?.ceilingHeight ?? 3.0;
     final roomLabel = widget.activeRoom?.label ?? 'Room 1';
 
-    final orbitString = '${_yaw.toStringAsFixed(0)}deg ${_pitch.toStringAsFixed(0)}deg ${_cameraDistance.toStringAsFixed(1)}m';
-
     return Scaffold(
       backgroundColor: const Color(0xFF0E131A),
       body: Stack(
         children: [
-          // 1. Core 3D Orbit View with Native Trackpad Pinch & Mouse Wheel Zoom
+          // 1. Core 3D Orbit View: Pure 60fps Native WebGL Engine with Inertial Damping
           Positioned.fill(
-            child: Listener(
-              onPointerSignal: _handlePointerSignal,
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onScaleStart: _handleScaleStart,
-                onScaleUpdate: _handleScaleUpdate,
-                onDoubleTap: _resetCamera,
-                child: ModelViewer(
-                  key: ValueKey('room_3d_viewer_${widget.activeRoom?.id ?? "def"}_${_cameraDistance.toStringAsFixed(1)}_${_yaw.toStringAsFixed(0)}_${_pitch.toStringAsFixed(0)}'),
-                  src: 'assets/models/room_frame.glb',
-                  alt: '3D Room Wireframe & 4x4 Grid',
-                  autoRotate: false,
-                  cameraControls: true,
-                  shadowIntensity: 0.6,
-                  shadowSoftness: 0.8,
-                  exposure: 1.1,
-                  backgroundColor: const Color(0xFF0E131A),
-                  cameraOrbit: orbitString,
-                  minCameraOrbit: 'auto auto 1.5m',
-                  maxCameraOrbit: 'auto auto 25m',
-                  fieldOfView: '35deg',
-                  interactionPrompt: InteractionPrompt.none,
-                ),
-              ),
+            child: ModelViewer(
+              // Stable key tied strictly to room ID so WebGL engine is never reset during zooming/orbiting
+              key: ValueKey('room_3d_viewport_${widget.activeRoom?.id ?? "def"}'),
+              src: 'assets/models/room_frame.glb',
+              alt: '3D Room Wireframe & 4x4 Grid',
+              autoRotate: false,
+              cameraControls: true,
+              shadowIntensity: 0.6,
+              shadowSoftness: 0.8,
+              exposure: 1.1,
+              backgroundColor: const Color(0xFF0E131A),
+              cameraOrbit: '45deg 65deg 6.5m',
+              minCameraOrbit: 'auto auto 2.0m',
+              maxCameraOrbit: 'auto auto 25.0m',
+              fieldOfView: '35deg',
+              interactionPrompt: InteractionPrompt.none,
             ),
           ),
 
@@ -144,22 +87,6 @@ class _Dynamic3DRoomState extends ConsumerState<Dynamic3DRoom> {
                       color: Colors.white70,
                       fontSize: 12,
                       fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.3),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(
-                      'Zoom: ${_cameraDistance.toStringAsFixed(1)}m',
-                      style: const TextStyle(
-                        color: Colors.lightBlueAccent,
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                      ),
                     ),
                   ),
                 ],
