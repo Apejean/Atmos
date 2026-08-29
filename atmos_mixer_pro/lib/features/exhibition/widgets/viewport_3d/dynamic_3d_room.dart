@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/gestures.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:model_viewer_plus/model_viewer_plus.dart';
 
@@ -69,47 +68,10 @@ class HeatmapPainter extends CustomPainter {
 }
 
 class _Dynamic3DRoomState extends ConsumerState<Dynamic3DRoom> {
-  double _cameraDistance = 6.5;
-  double _basePinchDistance = 6.5;
-  double _yaw = 45.0;
-  double _pitch = 65.0;
+  
 
-  void _handlePointerSignal(PointerSignalEvent event) {
-    if (event is PointerScrollEvent) {
-      final delta = event.scrollDelta.dy;
-      if (delta != 0) {
-        setState(() {
-          final zoomFactor = delta > 0 ? 1.08 : 0.92;
-          _cameraDistance = (_cameraDistance * zoomFactor).clamp(1.5, 25.0);
-        });
-      }
-    }
-  }
 
-  void _handleScaleStart(ScaleStartDetails details) {
-    _basePinchDistance = _cameraDistance;
-  }
 
-  void _handleScaleUpdate(ScaleUpdateDetails details) {
-    if (details.scale != 1.0) {
-      setState(() {
-        _cameraDistance = (_basePinchDistance / details.scale).clamp(1.5, 25.0);
-      });
-    } else if (details.focalPointDelta.dx != 0 || details.focalPointDelta.dy != 0) {
-      setState(() {
-        _yaw = (_yaw - details.focalPointDelta.dx * 0.4) % 360;
-        _pitch = (_pitch - details.focalPointDelta.dy * 0.3).clamp(5.0, 85.0);
-      });
-    }
-  }
-
-  void _resetCamera() {
-    setState(() {
-      _cameraDistance = 6.5;
-      _yaw = 45.0;
-      _pitch = 65.0;
-    });
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -122,7 +84,6 @@ class _Dynamic3DRoomState extends ConsumerState<Dynamic3DRoom> {
     final roomHeight = widget.activeRoom?.ceilingHeight ?? 3.0;
     final roomLabel = widget.activeRoom?.label ?? 'Room 1';
 
-    final orbitString = '${_yaw.toStringAsFixed(0)}deg ${_pitch.toStringAsFixed(0)}deg ${_cameraDistance.toStringAsFixed(1)}m';
 
     return Scaffold(
       backgroundColor: const Color(0xFF0E131A),
@@ -130,34 +91,34 @@ class _Dynamic3DRoomState extends ConsumerState<Dynamic3DRoom> {
         children: [
           // 1. Core 3D Orbit View
           Positioned.fill(
-            child: Listener(
-              onPointerSignal: _handlePointerSignal,
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onScaleStart: _handleScaleStart,
-                onScaleUpdate: _handleScaleUpdate,
-                onDoubleTap: _resetCamera,
-                child: ModelViewer(
-                  // FIXED: Static Key to prevent rebuilding webview and flashing!
-                  key: ValueKey('room_3d_viewer_${widget.activeRoom?.id ?? "def"}'),
-                  src: 'assets/models/room_with_listener.glb', // User mannequin
-                  alt: '3D Room Space with Listener Mannequin',
-                  autoRotate: false,
-                  cameraControls: false, // Handle controls manually in Flutter side
-                  shadowIntensity: 0.6,
-                  shadowSoftness: 0.8,
-                  exposure: 1.1,
-                  backgroundColor: const Color(0xFF0E131A),
-                  cameraOrbit: orbitString,
-                  minCameraOrbit: 'auto auto 1.5m',
-                  maxCameraOrbit: 'auto auto 25m',
-                  fieldOfView: '35deg',
-                  interactionPrompt: InteractionPrompt.none,
-                ),
-              ),
+            child: ModelViewer(
+              key: ValueKey('room_3d_viewer_${widget.activeRoom?.id ?? "def"}'), // Only recreate when room ID changes
+              src: 'assets/models/room_with_listener.glb', // Contains the listener mannequin
+              alt: '3D Room Space',
+              autoRotate: false,
+              cameraControls: true, // Native zoom and pan!
+              shadowIntensity: 0.6,
+              shadowSoftness: 0.8,
+              exposure: 1.1,
+              backgroundColor: const Color(0xFF0E131A),
+              cameraOrbit: '45deg 65deg 6.5m',
+              minCameraOrbit: 'auto auto 1.5m',
+              maxCameraOrbit: 'auto auto 25m',
+              fieldOfView: '35deg',
+              interactionPrompt: InteractionPrompt.none,
+              innerModelViewerHtml: '<model-viewer scale="${roomWidth / 6.0} ${roomHeight / 3.0} ${roomDepth / 4.5}"></model-viewer>',
             ),
           ),
 
+          // Heatmap Overlay
+          if (widget.showHeatmap)
+            Positioned.fill(
+              child: IgnorePointer(
+                child: CustomPaint(
+                  painter: HeatmapPainter(speakers, roomWidth, roomDepth),
+                ),
+              ),
+            ),
           // Heatmap Overlay
           if (widget.showHeatmap)
             Positioned.fill(
