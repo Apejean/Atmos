@@ -106,7 +106,7 @@ class _Dynamic3DRoomState extends ConsumerState<Dynamic3DRoom> {
               maxCameraOrbit: 'auto auto 25m',
               fieldOfView: '35deg',
               interactionPrompt: InteractionPrompt.none,
-              innerModelViewerHtml: '<model-viewer scale="${roomWidth / 6.0} ${roomHeight / 3.0} ${roomDepth / 4.5}"></model-viewer>',
+              scale: '${roomWidth / 6.0} ${roomHeight / 3.0} ${roomDepth / 4.5}',
             ),
           ),
 
@@ -167,7 +167,7 @@ class _Dynamic3DRoomState extends ConsumerState<Dynamic3DRoom> {
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
-                      'Zoom: ${_cameraDistance.toStringAsFixed(1)}m',
+                      'Zoom: Auto',
                       style: const TextStyle(
                         color: Colors.lightBlueAccent,
                         fontSize: 10,
