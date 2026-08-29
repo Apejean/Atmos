@@ -32,22 +32,11 @@ class _Dynamic3DRoomState extends ConsumerState<Dynamic3DRoom> {
         children: [
           // 1. Core 3D Orbit View: 3D Wireframe Room + 4x4 Grid + Mannequin Bust
           Positioned.fill(
-            child: ModelViewer(
-              key: const ValueKey('room_3d_model_viewer'),
-              src: 'assets/models/room_with_listener.glb',
-              alt: '3D Room Simulator with Listener Mannequin',
-              autoRotate: false,
-              cameraControls: true,
-              shadowIntensity: 0.6,
-              shadowSoftness: 0.8,
-              exposure: 1.1,
-              backgroundColor: const Color(0xFF0E131A),
-              cameraOrbit: '45deg 65deg 6.5m',
-              minCameraOrbit: 'auto auto 2m',
-              maxCameraOrbit: 'auto auto 15m',
-              fieldOfView: '35deg',
-              interactionPrompt: InteractionPrompt.none,
-            ),
+            child: Icon(
+                Icons.person,
+                size: 80,
+                color: Colors.white54,
+              ),
           ),
 
           // 2. Top-Left Room & Viewport Info Badge
