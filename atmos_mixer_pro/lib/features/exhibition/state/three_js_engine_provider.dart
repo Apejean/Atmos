@@ -35,33 +35,43 @@ class ThreeJsEngineService {
         final response = request.response;
         
         try {
-          if (path == "/") {
-            final html = await rootBundle.loadString("assets/3d_simulator/studio_engine.html");
-            response
-              ..statusCode = HttpStatus.ok
-              ..headers.set("Content-Type", "text/html; charset=utf-8")
-              ..add(utf8.encode(html));
-          } else if (path == "/js/three.min.js") {
-            final data = await rootBundle.load("assets/js/three.min.js");
-            response
-              ..statusCode = HttpStatus.ok
-              ..headers.set("Content-Type", "application/javascript")
-              ..add(data.buffer.asUint8List());
-          } else if (path == "/js/OrbitControls.js") {
-            final data = await rootBundle.load("assets/js/OrbitControls.js");
-            response
-              ..statusCode = HttpStatus.ok
-              ..headers.set("Content-Type", "application/javascript")
-              ..add(data.buffer.asUint8List());
+          String assetPath;
+          String contentType = "application/octet-stream";
+
+          if (path == "/" || path == "/index.html") {
+            assetPath = "assets/3d_simulator/studio_engine.html";
+            contentType = "text/html; charset=utf-8";
+          } else if (path.startsWith("/js/")) {
+            assetPath = "assets$path";
+            contentType = "application/javascript; charset=utf-8";
+          } else if (path.startsWith("/models/")) {
+            assetPath = "assets$path";
+            if (path.endsWith(".glb")) contentType = "model/gltf-binary";
+            else if (path.endsWith(".gltf")) contentType = "model/gltf+json";
+          } else if (path.startsWith("/assets/")) {
+            assetPath = path.substring(1);
+            if (path.endsWith(".html")) contentType = "text/html; charset=utf-8";
+            else if (path.endsWith(".js")) contentType = "application/javascript; charset=utf-8";
+            else if (path.endsWith(".glb")) contentType = "model/gltf-binary";
+            else if (path.endsWith(".gltf")) contentType = "model/gltf+json";
+            else if (path.endsWith(".svg")) contentType = "image/svg+xml";
+            else if (path.endsWith(".png")) contentType = "image/png";
           } else {
-            response
-              ..statusCode = HttpStatus.notFound
-              ..write("Not found");
+            assetPath = "assets/3d_simulator$path";
+            if (path.endsWith(".svg")) contentType = "image/svg+xml";
+            else if (path.endsWith(".png")) contentType = "image/png";
           }
+
+          final data = await rootBundle.load(assetPath);
+          response
+            ..statusCode = HttpStatus.ok
+            ..headers.set("Content-Type", contentType)
+            ..headers.set("Access-Control-Allow-Origin", "*")
+            ..add(data.buffer.asUint8List());
         } catch (e) {
           response
-            ..statusCode = HttpStatus.internalServerError
-            ..write("Error loading asset");
+            ..statusCode = HttpStatus.notFound
+            ..write("Asset not found: $path");
         } finally {
           await response.close();
         }

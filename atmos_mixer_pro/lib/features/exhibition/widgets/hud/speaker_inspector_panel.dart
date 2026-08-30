@@ -162,9 +162,10 @@ class _SpeakerInspectorPanelState extends ConsumerState<SpeakerInspectorPanel> {
     double roomH = 5.0;
     
     if (rooms.isNotEmpty) {
-      roomW = rooms.first.physicalWidth;
-      roomD = rooms.first.physicalHeight;
-      roomH = rooms.first.ceilingHeight;
+      final activeRoom = rooms.firstWhere((r) => r.id == speaker?.roomId, orElse: () => rooms.first);
+      roomW = activeRoom.physicalWidth;
+      roomD = activeRoom.physicalHeight;
+      roomH = activeRoom.ceilingHeight;
     }
 
     return Container(
@@ -190,7 +191,7 @@ class _SpeakerInspectorPanelState extends ConsumerState<SpeakerInspectorPanel> {
                       dropdownColor: const Color(0xFF1E2632),
                       style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
                       items: List.generate(maxChannels > 0 ? maxChannels : 2, (i) {
-                        final inUseBy = speakers.where((s) => s.channel == i && s.id != speaker!.id).firstOrNull;
+                        final inUseBy = speakers.where((s) => s.channel == i && s.id != speaker.id).firstOrNull;
                         final label = inUseBy != null ? 'Output CH ${i + 1} (In Use: ${inUseBy.id.substring(0, math.min(3, inUseBy.id.length))})' : 'Output CH ${i + 1}';
                         return DropdownMenuItem(
                           value: i, 
@@ -200,7 +201,7 @@ class _SpeakerInspectorPanelState extends ConsumerState<SpeakerInspectorPanel> {
                                 label, 
                                 style: TextStyle(color: inUseBy != null ? Colors.white54 : Colors.white)
                               ),
-                              if (speaker!.channel == i) const Padding(
+                              if (speaker.channel == i) const Padding(
                                 padding: EdgeInsets.only(left: 8.0),
                                 child: Icon(Icons.check, size: 16, color: Colors.lightBlueAccent),
                               )
@@ -210,7 +211,7 @@ class _SpeakerInspectorPanelState extends ConsumerState<SpeakerInspectorPanel> {
                       }),
                       onChanged: (val) {
                         if (val != null) {
-                          ref.read(speakerLayoutProvider.notifier).updateSpeaker(speaker!.copyWith(channel: val));
+                          ref.read(speakerLayoutProvider.notifier).updateSpeaker(speaker.copyWith(channel: val));
                         }
                       },
                     ),
@@ -226,13 +227,13 @@ class _SpeakerInspectorPanelState extends ConsumerState<SpeakerInspectorPanel> {
             child: ListView(
               padding: const EdgeInsets.all(16),
               children: [
-                _buildControlBox('assets/3d_simulator/icons/icon_x.svg', 'X Position', speaker.x, 'm', 0.25, roomW - 0.25, speaker.isFixed ? null : (v) => _updateSpeaker(speaker!, x: v)),
-                _buildControlBox('assets/3d_simulator/icons/icon_y.svg', 'Y Position', speaker.y, 'm', 0.25, roomD - 0.25, speaker.isFixed ? null : (v) => _updateSpeaker(speaker!, y: v)),
-                _buildControlBox('assets/3d_simulator/icons/icon_height.svg', 'Z Height', speaker.heightZ, 'm', 0.25, roomH - 0.25, speaker.isFixed ? null : (v) => _updateSpeaker(speaker!, z: v)),
-                _buildControlBox('assets/3d_simulator/icons/icon_tilt.svg', 'Yaw (Rotation)', speaker.rotation, '°', -180.0, 180.0, speaker.isFixed ? null : (v) => _updateSpeaker(speaker!, rot: v)),
-                _buildControlBox('assets/3d_simulator/icons/icon_tilt.svg', 'Pitch (Tilt)', speaker.pitchTilt, '°', -90.0, 90.0, speaker.isFixed ? null : (v) => _updateSpeaker(speaker!, tilt: v)),
-                _buildControlBox('assets/3d_simulator/icons/icon_dispersion.svg', 'Dispersion', speaker.dispersionAngle, '°', 10.0, 180.0, speaker.isFixed ? null : (v) => _updateSpeaker(speaker!, disp: v)),
-                _buildControlBox('assets/3d_simulator/icons/icon_reverb.svg', 'Reverb Send', speaker.reverbSend, '%', 0.0, 100.0, (v) => _updateSpeaker(speaker!, rev: v)),
+                _buildControlBox('assets/3d_simulator/icons/icon_x.svg', 'X Position', speaker.x, 'm', 0.25, roomW - 0.25, speaker.isFixed ? null : (v) => _updateSpeaker(speaker, x: v)),
+                _buildControlBox('assets/3d_simulator/icons/icon_y.svg', 'Y Position', speaker.y, 'm', 0.25, roomD - 0.25, speaker.isFixed ? null : (v) => _updateSpeaker(speaker, y: v)),
+                _buildControlBox('assets/3d_simulator/icons/icon_height.svg', 'Z Height', speaker.heightZ, 'm', 0.25, roomH - 0.25, speaker.isFixed ? null : (v) => _updateSpeaker(speaker, z: v)),
+                _buildControlBox('assets/3d_simulator/icons/icon_tilt.svg', 'Yaw (Rotation)', speaker.rotation, '°', -180.0, 180.0, speaker.isFixed ? null : (v) => _updateSpeaker(speaker, rot: v)),
+                _buildControlBox('assets/3d_simulator/icons/icon_tilt.svg', 'Pitch (Tilt)', speaker.pitchTilt, '°', -90.0, 90.0, speaker.isFixed ? null : (v) => _updateSpeaker(speaker, tilt: v)),
+                _buildControlBox('assets/3d_simulator/icons/icon_dispersion.svg', 'Dispersion', speaker.dispersionAngle, '°', 10.0, 180.0, speaker.isFixed ? null : (v) => _updateSpeaker(speaker, disp: v)),
+                _buildControlBox('assets/3d_simulator/icons/icon_reverb.svg', 'Reverb Send', speaker.reverbSend, '%', 0.0, 100.0, (v) => _updateSpeaker(speaker, rev: v)),
               ],
             ),
           ),
@@ -245,7 +246,7 @@ class _SpeakerInspectorPanelState extends ConsumerState<SpeakerInspectorPanel> {
                 Expanded(
                   child: ElevatedButton.icon(
                     onPressed: () {
-                      _updateSpeaker(speaker!, isFixed: !speaker.isFixed);
+                      _updateSpeaker(speaker, isFixed: !speaker.isFixed);
                     },
                     icon: Icon(
                       speaker.isFixed ? Icons.lock_rounded : Icons.lock_open_rounded,
@@ -277,7 +278,7 @@ class _SpeakerInspectorPanelState extends ConsumerState<SpeakerInspectorPanel> {
                 Expanded(
                   child: OutlinedButton.icon(
                     onPressed: () {
-                      ref.read(speakerLayoutProvider.notifier).removeSpeaker(speaker!.id);
+                      ref.read(speakerLayoutProvider.notifier).removeSpeaker(speaker.id);
                       widget.onClose();
                     },
                     icon: const Icon(Icons.delete_outline_rounded, size: 18, color: Colors.redAccent),

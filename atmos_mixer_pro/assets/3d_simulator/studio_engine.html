@@ -23,6 +23,7 @@
   </style>
   <script src="js/three.min.js"></script>
   <script src="js/OrbitControls.js"></script>
+  <script src="js/GLTFLoader.js"></script>
 </head>
 <body>
   <canvas id="canvas3d"></canvas>
@@ -106,56 +107,142 @@
       const halfD = d / 2;
 
       // 4.1 Floor Grid
-      const maxDim = Math.max(w, d);
-      const divisions = Math.max(4, Math.round(maxDim));
-      const gridHelper = new THREE.GridHelper(maxDim, divisions, 0x38bdf8, 0x1e293b);
-      gridHelper.position.set(0, 0, 0);
+      // 3.1 Floor Grid
+      const gridHelper = new THREE.GridHelper(Math.max(w, d) * 1.2, Math.round(Math.max(w, d) * 2), 0x0ea5e9, 0x1e293b);
+      gridHelper.position.y = 0;
       roomGroup.add(gridHelper);
 
-      // 4.2 Room Bounding Wireframe Box
+      // 3.2 3D Room Bounding Box Wireframe
       const boxGeo = new THREE.BoxGeometry(w, h, d);
-      const edgesGeo = new THREE.EdgesGeometry(boxGeo);
-      const lineMat = new THREE.LineBasicMaterial({ color: 0x0284c7, transparent: true, opacity: 0.6, linewidth: 2 });
-      const wireframe = new THREE.LineSegments(edgesGeo, lineMat);
+      const wireGeo = new THREE.WireframeGeometry(boxGeo);
+      const wireMat = new THREE.LineBasicMaterial({
+        color: 0x38bdf8,
+        transparent: true,
+        opacity: 0.25
+      });
+      const wireframe = new THREE.LineSegments(wireGeo, wireMat);
       wireframe.position.set(0, h / 2, 0);
       roomGroup.add(wireframe);
 
-      // 4.3 Floor Perimeter Neon Line
-      const floorPts = [
-        new THREE.Vector3(-halfW, 0.01, -halfD),
-        new THREE.Vector3(halfW, 0.01, -halfD),
-        new THREE.Vector3(halfW, 0.01, halfD),
-        new THREE.Vector3(-halfW, 0.01, halfD),
-        new THREE.Vector3(-halfW, 0.01, -halfD),
+      // 3.3 Floor Boundary Line
+      const halfW = w / 2;
+      const halfD = d / 2;
+      const floorLinePts = [
+        new THREE.Vector3(-halfW, 0.005, -halfD),
+        new THREE.Vector3(halfW, 0.005, -halfD),
+        new THREE.Vector3(halfW, 0.005, halfD),
+        new THREE.Vector3(-halfW, 0.005, halfD),
+        new THREE.Vector3(-halfW, 0.005, -halfD)
       ];
-      const floorGeo = new THREE.BufferGeometry().setFromPoints(floorPts);
-      const floorMat = new THREE.LineBasicMaterial({ color: 0x38bdf8, linewidth: 2 });
+      const floorGeo = new THREE.BufferGeometry().setFromPoints(floorLinePts);
+      const floorMat = new THREE.LineBasicMaterial({ color: 0x0ea5e9, linewidth: 2 });
       roomGroup.add(new THREE.Line(floorGeo, floorMat));
     }
 
-    // --- 5. 3D Listener Mannequin Bust Builder (Seamless Anatomical Studio Mannequin) ---
-    function buildListenerMannequin(earLevel = 1.2) {
+    // --- 5. Smart 3D Listener Mannequin System (Acoustic Ear Canal Axis Alignment + Fallback) ---
+    let currentEarLevel = 1.2;
+    let cachedGLBScene = null;
+    let isGLBLoaded = false;
+    let isGLBLoading = false;
+    let glbLoadAttempted = false;
+
+    // Sweet Spot Ground Disc Ring
+    function addGroundSweetSpotRing() {
+      const ringGeo = new THREE.RingGeometry(0.35, 0.38, 48);
+      ringGeo.rotateX(-Math.PI / 2);
+      const ringMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8, side: THREE.DoubleSide, transparent: true, opacity: 0.6 });
+      const ringMesh = new THREE.Mesh(ringGeo, ringMat);
+      ringMesh.position.set(0, 0.02, 0);
+      listenerGroup.add(ringMesh);
+    }
+
+    // Tier 1: Apply 3D GLB Model Aligned to Ear Canal Axis (1:1 with earLevel)
+    function applyGLTFMannequin(sourceScene, earLevel) {
       while (listenerGroup.children.length > 0) {
         const obj = listenerGroup.children[0];
         if (obj.geometry) obj.geometry.dispose();
         listenerGroup.remove(obj);
       }
 
-      // Neutral studio matte acoustic gray polymer material
+      const model = sourceScene.clone(true);
+      const bbox = new THREE.Box3().setFromObject(model);
+      const size = new THREE.Vector3();
+      bbox.getSize(size);
+      const center = new THREE.Vector3();
+      bbox.getCenter(center);
+
+      // Auto-normalize scale if model units are not in meters (standard bust height ~0.50m)
+      if (size.y > 5.0 || size.y < 0.05) {
+        const targetHeight = size.y > 0.35 ? 0.50 : 0.25;
+        const scaleFactor = targetHeight / (size.y || 1.0);
+        model.scale.setScalar(scaleFactor);
+        bbox.setFromObject(model);
+        bbox.getSize(size);
+        bbox.getCenter(center);
+      }
+
+      // [핵심 ⭐] 양쪽 귓구멍 중심선(Interaural Auditory Axis) 정밀 계산
+      // GLB 노드 중 'EarAxis', 'Ear_L', 'EarCanal' 등의 마커가 있으면 해당 높이를 사용,
+      // 없으면 표준 인체 해부학적 두상/버스트 높이 비(Bust: 72%, Head: 48%)로 외이도 중심 계산
+      let localEarY;
+      const earMarker = model.getObjectByName("EarAxis") || model.getObjectByName("Ear_L") || model.getObjectByName("EarCanal");
+      if (earMarker) {
+        const markerPos = new THREE.Vector3();
+        earMarker.getWorldPosition(markerPos);
+        localEarY = markerPos.y;
+      } else {
+        const isBust = size.y > 0.35;
+        localEarY = bbox.min.y + size.y * (isBust ? 0.72 : 0.48);
+      }
+
+      // 귀 중심(Ear Canal Axis) 높이가 정확히 earLevel (Y = earLevel)이 되도록 오프셋 정렬
+      const offsetY = earLevel - localEarY;
+      model.position.set(-center.x, offsetY, -center.z);
+
+      // Studio Neutral Matte Gray Finish
       const dummyMat = new THREE.MeshStandardMaterial({
         color: 0x8ea0b4,
         roughness: 0.45,
         metalness: 0.1
       });
 
-      // 5.1 Continuous Anatomical Head-Neck-Bust Profile (Smooth Spline Lathe)
+      model.traverse(function(child) {
+        if (child.isMesh) {
+          child.castShadow = true;
+          child.receiveShadow = true;
+          if (!child.material || child.material.isMeshBasicMaterial) {
+            child.material = dummyMat;
+          }
+        }
+      });
+
+      listenerGroup.add(model);
+      addGroundSweetSpotRing();
+      console.log(`[ATMOS 3D] GLB Mannequin Mounted with Ear Canal Axis at Y=${earLevel.toFixed(3)}m`);
+    }
+
+    // Tier 2: Seamless Procedural Anatomical Dummy Head Fallback (Ear Canal strictly at Y = earLevel)
+    function buildProceduralMannequin(earLevel) {
+      while (listenerGroup.children.length > 0) {
+        const obj = listenerGroup.children[0];
+        if (obj.geometry) obj.geometry.dispose();
+        listenerGroup.remove(obj);
+      }
+
+      const dummyMat = new THREE.MeshStandardMaterial({
+        color: 0x8ea0b4,
+        roughness: 0.45,
+        metalness: 0.1
+      });
+
+      // Continuous Anatomical Spline Lathe (Y=0 corresponds precisely to Ear Canal Axis)
       const curvePoints = [
         new THREE.Vector2(0.001, 0.175), // Crown peak
         new THREE.Vector2(0.045, 0.170),
         new THREE.Vector2(0.082, 0.145), // Upper skull
         new THREE.Vector2(0.092, 0.095), // Forehead / Temples
         new THREE.Vector2(0.091, 0.040), // Cheekbone level
-        new THREE.Vector2(0.088, 0.000), // Ear / Midface
+        new THREE.Vector2(0.088, 0.000), // [Ear Level / Midface Axis: Y=0]
         new THREE.Vector2(0.080, -0.045), // Jaw angle
         new THREE.Vector2(0.066, -0.085), // Lower jaw
         new THREE.Vector2(0.052, -0.115), // Chin base
@@ -167,14 +254,13 @@
         new THREE.Vector2(0.200, -0.295), // Deltoid slope
         new THREE.Vector2(0.235, -0.320), // Shoulder edge
         new THREE.Vector2(0.240, -0.340), // Bust bottom
-        new THREE.Vector2(0.001, -0.340), // Flat base bottom center
+        new THREE.Vector2(0.001, -0.340), // Base center cap
       ];
 
       const spline = new THREE.SplineCurve(curvePoints);
       const points = spline.getPoints(64);
       const latheGeo = new THREE.LatheGeometry(points, 48);
 
-      // Anthropometric anatomical sculpting on vertices
       const pos = latheGeo.attributes.position;
       for (let i = 0; i < pos.count; i++) {
         let x = pos.getX(i);
@@ -188,11 +274,9 @@
         const frontRatio = Math.max(0, z / r);
 
         if (y > -0.12) {
-          // --- Head & Face (Natural human cranial oval) ---
-          x *= 0.88; // Cranium slightly narrower side-to-side
-          z *= (isFront ? 1.05 : 1.20); // Deep occipital skull in back
+          x *= 0.88;
+          z *= (isFront ? 1.05 : 1.20);
 
-          // Natural Jaw & Chin tapering
           if (y < 0.02 && y > -0.12) {
             const jawT = (0.02 - y) / 0.14;
             x *= (1.0 - jawT * 0.26);
@@ -201,30 +285,27 @@
             }
           }
 
-          // Sleek smooth nose bridge (Sculpted directly into the face)
           if (y > -0.03 && y < 0.05 && isFront) {
             const noseH = Math.cos(((y - 0.01) / 0.04) * (Math.PI / 2));
             const noseW = Math.pow(Math.max(0, frontRatio), 10);
             z += 0.024 * noseH * noseW;
           }
 
-          // Gentle forehead brow
           if (y > 0.05 && y < 0.12 && isFront) {
             z += 0.006 * frontRatio;
           }
         } else if (y <= -0.12 && y > -0.21) {
-          // --- Neck (Anatomical proportion & subtle posture) ---
           x *= 0.85;
           z *= 0.90;
           z -= 0.012;
         } else {
-          // --- Shoulder / Torso Bust (Aerodynamic studio bust) ---
           const shoulderT = Math.min(1.0, (-0.21 - y) / 0.13);
-          x *= (1.0 + shoulderT * 0.48); // Broad shoulder width
-          z *= (1.0 - shoulderT * 0.28); // Flatter torso front-to-back
+          x *= (1.0 + shoulderT * 0.48);
+          z *= (1.0 - shoulderT * 0.28);
           z -= 0.015 * shoulderT;
         }
 
+        // Exact height offset so local Y=0 becomes Y=earLevel
         pos.setXYZ(i, x, y + earLevel, z);
       }
 
@@ -232,18 +313,16 @@
       const bustMesh = new THREE.Mesh(latheGeo, dummyMat);
       listenerGroup.add(bustMesh);
 
-      // 5.2 Anatomical Low-Profile Flush Ears (Pinna naturally embedded on skull)
+      // Flush Anatomical Pinna Ears (Placed precisely on Ear Canal Axis Y=earLevel)
       function createFlushEar(isLeft) {
         const earGroup = new THREE.Group();
         const sideMult = isLeft ? -1 : 1;
 
-        // Ear Base / Concha Backing
         const conchaGeo = new THREE.CapsuleGeometry(0.013, 0.022, 8, 16);
         conchaGeo.scale(0.3, 1.0, 0.65);
         const concha = new THREE.Mesh(conchaGeo, dummyMat);
         earGroup.add(concha);
 
-        // Outer Helix Rim (C-curve torus)
         const helixGeo = new THREE.TorusGeometry(0.016, 0.0035, 12, 24, Math.PI * 1.3);
         helixGeo.rotateZ(isLeft ? Math.PI * 0.35 : -Math.PI * 0.35);
         helixGeo.scale(0.65, 1.1, 0.85);
@@ -251,10 +330,8 @@
         helix.position.set(sideMult * 0.003, 0.002, 0);
         earGroup.add(helix);
 
-        // Position flush against lateral head surface
         earGroup.position.set(sideMult * 0.078, earLevel, -0.012);
 
-        // 15° Anatomical Backward Tilt towards occiput
         const rotY = (isLeft ? -15 : 15) * Math.PI / 180;
         const rotX = 10 * Math.PI / 180;
         earGroup.rotation.set(rotX, rotY, isLeft ? 0.08 : -0.08);
@@ -262,19 +339,59 @@
         return earGroup;
       }
 
-      listenerGroup.add(createFlushEar(true));  // Left Pinna
-      listenerGroup.add(createFlushEar(false)); // Right Pinna
+      listenerGroup.add(createFlushEar(true));
+      listenerGroup.add(createFlushEar(false));
 
-      // 5.3 Ground Sweet Spot Ring
-      const ringGeo = new THREE.RingGeometry(0.35, 0.38, 48);
-      ringGeo.rotateX(-Math.PI / 2);
-      const ringMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8, side: THREE.DoubleSide, transparent: true, opacity: 0.6 });
-      const ringMesh = new THREE.Mesh(ringGeo, ringMat);
-      ringMesh.position.set(0, 0.02, 0);
-      listenerGroup.add(ringMesh);
+      addGroundSweetSpotRing();
     }
-    
-    // Global method to update ear level
+
+    // Main Entrypoint for Listener Mannequin
+    function buildListenerMannequin(earLevel = 1.2) {
+      currentEarLevel = earLevel;
+
+      // 1순위: 이미 로드된 GLB 에셋이 있으면 즉시 귀 중심 정렬 렌더링
+      if (cachedGLBScene) {
+        applyGLTFMannequin(cachedGLBScene, currentEarLevel);
+        return;
+      }
+
+      // 2순위 (기본): 절차적 무광 스튜디오 그레이 해부학적 더미헤드 즉시 렌더링 (귀 = earLevel)
+      buildProceduralMannequin(currentEarLevel);
+
+      // GLB 파일 비동기 로드 시도 (최초 1회)
+      if (!glbLoadAttempted && typeof THREE.GLTFLoader !== "undefined") {
+        glbLoadAttempted = true;
+        isGLBLoading = true;
+
+        const loader = new THREE.GLTFLoader();
+        const glbPaths = ["models/listener_head.glb", "/models/listener_head.glb", "assets/models/listener_head.glb"];
+        
+        function tryLoad(index) {
+          if (index >= glbPaths.length) {
+            isGLBLoading = false;
+            console.log("[ATMOS 3D] Custom GLB file not found. Procedural fallback active.");
+            return;
+          }
+          loader.load(
+            glbPaths[index],
+            function(gltf) {
+              isGLBLoaded = true;
+              isGLBLoading = false;
+              cachedGLBScene = gltf.scene;
+              console.log("[ATMOS 3D] Loaded custom listener GLB:", glbPaths[index]);
+              applyGLTFMannequin(cachedGLBScene, currentEarLevel);
+            },
+            undefined,
+            function(err) {
+              tryLoad(index + 1);
+            }
+          );
+        }
+        tryLoad(0);
+      }
+    }
+
+    // Global method to update ear level in real-time
     window.updateEarLevel = function(level) {
       buildListenerMannequin(level);
     };
