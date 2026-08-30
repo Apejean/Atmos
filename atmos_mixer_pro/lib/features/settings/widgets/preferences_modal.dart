@@ -1985,8 +1985,7 @@ class _OutputConfigDialogState extends ConsumerState<OutputConfigDialog> {
           InkWell(
             onTap: () {
               onChanged(
-                ChannelSetting(
-                  enabled: !setting.enabled,
+                ChannelSetting(phaseInvert: false, gainDb: 0.0, enabled: !setting.enabled,
                   customName: setting.customName,
                   delayMs: setting.delayMs,
                   eqBands: setting.eqBands,
@@ -2036,8 +2035,7 @@ class _OutputConfigDialogState extends ConsumerState<OutputConfigDialog> {
                 ),
                 onChanged: (val) {
                   onChanged(
-                    ChannelSetting(
-                      enabled: setting.enabled,
+                    ChannelSetting(phaseInvert: false, gainDb: 0.0, enabled: setting.enabled,
                       customName: val,
                       delayMs: setting.delayMs,
                       eqBands: setting.eqBands,
@@ -2122,8 +2120,7 @@ class _OutputConfigDialogState extends ConsumerState<OutputConfigDialog> {
                               final key = displayCh1;
                               final setting =
                                   monoConfigs[key] ??
-                                  const ChannelSetting(
-                                    enabled: false,
+                                  const ChannelSetting(phaseInvert: false, gainDb: 0.0, enabled: false,
                                     customName: '',
                                     delayMs: 0.0,
                                     eqBands: [],
@@ -2173,8 +2170,7 @@ class _OutputConfigDialogState extends ConsumerState<OutputConfigDialog> {
                               final key = displayCh1;
                               final setting =
                                   stereoConfigs[key] ??
-                                  const ChannelSetting(
-                                    enabled: false,
+                                  const ChannelSetting(phaseInvert: false, gainDb: 0.0, enabled: false,
                                     customName: '',
                                     delayMs: 0.0,
                                     eqBands: [],
@@ -2222,8 +2218,7 @@ class _OutputConfigDialogState extends ConsumerState<OutputConfigDialog> {
                               final key = displayCh1;
                               final setting =
                                   multiConfigs[key] ??
-                                  const ChannelSetting(
-                                    enabled: false,
+                                  const ChannelSetting(phaseInvert: false, gainDb: 0.0, enabled: false,
                                     customName: '',
                                     delayMs: 0.0,
                                     eqBands: [],

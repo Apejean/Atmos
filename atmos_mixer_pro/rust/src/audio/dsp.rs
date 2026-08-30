@@ -146,6 +146,8 @@ pub mod dsp_utils {
         pub target_distance_meters: f32,
         pub current_distance_meters: f32,
         pub air_absorption: crate::audio::dsp::acoustic_physics::AirAbsorptionFilter,
+        pub phase_invert: bool,
+        pub gain_db: f32,
     }
     
     impl Default for ChannelDspState {
@@ -172,6 +174,8 @@ pub mod dsp_utils {
                 target_distance_meters: 0.0,
                 current_distance_meters: 0.0,
                 air_absorption: crate::audio::dsp::acoustic_physics::AirAbsorptionFilter::new(),
+                phase_invert: false,
+                gain_db: 0.0,
             }
         }
     
@@ -264,6 +268,17 @@ pub mod dsp_utils {
             // Apply DC Blocker
             out = self.dc_blocker.process(out, fs);
             
+            // Apply Trim Gain
+            if self.gain_db.abs() > 0.01 {
+                let gain_linear = 10.0_f32.powf(self.gain_db / 20.0);
+                out *= gain_linear;
+            }
+
+            // Apply Phase Invert
+            if self.phase_invert {
+                out *= -1.0;
+            }
+
             out
         }
     }

@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'dart:math' as math;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:atmos_mixer_pro/features/exhibition/models/speaker_node.dart';
 import 'package:atmos_mixer_pro/features/exhibition/state/speaker_layout_state.dart';
 import 'package:atmos_mixer_pro/features/exhibition/state/room_zone_state.dart';
+import 'package:atmos_mixer_pro/core/state/global_state.dart';
 
 class SpeakerInspectorPanel extends ConsumerStatefulWidget {
   final String speakerId;
@@ -81,11 +83,17 @@ class _SpeakerInspectorPanelState extends ConsumerState<SpeakerInspectorPanel> {
                 thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6.0),
                 overlayShape: const RoundSliderOverlayShape(overlayRadius: 14.0),
               ),
-              child: Slider(
-                value: value.clamp(min, max),
-                min: min,
-                max: max,
-                onChanged: onChanged,
+              child: GestureDetector(
+                onDoubleTap: () {
+                  final middle = (min + max) / 2;
+                  onChanged(middle);
+                },
+                child: Slider(
+                  value: value.clamp(min, max),
+                  min: min,
+                  max: max,
+                  onChanged: onChanged,
+                ),
               ),
             ),
           ),
@@ -137,6 +145,9 @@ class _SpeakerInspectorPanelState extends ConsumerState<SpeakerInspectorPanel> {
   Widget build(BuildContext context) {
     final layout = ref.watch(speakerLayoutProvider);
     final rooms = ref.watch(roomZoneProvider);
+    final engineState = ref.watch(engineStateProvider);
+    final maxChannels = engineState.outputChannelCount;
+    final speakers = layout;
     SpeakerNode? speaker;
     try {
       speaker = layout.firstWhere((s) => s.id == widget.speakerId);
@@ -175,10 +186,28 @@ class _SpeakerInspectorPanelState extends ConsumerState<SpeakerInspectorPanel> {
                 Expanded(
                   child: DropdownButtonHideUnderline(
                     child: DropdownButton<int>(
-                      value: speaker.channel,
+                      value: speaker.channel < maxChannels ? speaker.channel : (maxChannels > 0 ? 0 : speaker.channel),
                       dropdownColor: const Color(0xFF1E2632),
                       style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
-                      items: List.generate(24, (i) => DropdownMenuItem(value: i, child: Text('Selected Speaker: CH ${i + 1}'))),
+                      items: List.generate(maxChannels > 0 ? maxChannels : 2, (i) {
+                        final inUseBy = speakers.where((s) => s.channel == i && s.id != speaker!.id).firstOrNull;
+                        final label = inUseBy != null ? 'Output CH ${i + 1} (In Use: ${inUseBy.id.substring(0, math.min(3, inUseBy.id.length))})' : 'Output CH ${i + 1}';
+                        return DropdownMenuItem(
+                          value: i, 
+                          child: Row(
+                            children: [
+                              Text(
+                                label, 
+                                style: TextStyle(color: inUseBy != null ? Colors.white54 : Colors.white)
+                              ),
+                              if (speaker!.channel == i) const Padding(
+                                padding: EdgeInsets.only(left: 8.0),
+                                child: Icon(Icons.check, size: 16, color: Colors.lightBlueAccent),
+                              )
+                            ]
+                          )
+                        );
+                      }),
                       onChanged: (val) {
                         if (val != null) {
                           ref.read(speakerLayoutProvider.notifier).updateSpeaker(speaker!.copyWith(channel: val));
@@ -197,10 +226,9 @@ class _SpeakerInspectorPanelState extends ConsumerState<SpeakerInspectorPanel> {
             child: ListView(
               padding: const EdgeInsets.all(16),
               children: [
-                _buildControlBox('assets/3d_simulator/icons/icon_x.svg', 'X Position', speaker.x, 'm', -roomW/2, roomW/2, (v) => _updateSpeaker(speaker!, x: v)),
-                _buildControlBox('assets/3d_simulator/icons/icon_y.svg', 'Y Position', speaker.y, 'm', -roomD/2, roomD/2, (v) => _updateSpeaker(speaker!, y: v)),
-                _buildControlBox('assets/3d_simulator/icons/icon_height.svg', 'Z Height', speaker.heightZ, 'm', 0.0, roomH, (v) => _updateSpeaker(speaker!, z: v)),
-                _buildControlBox('assets/3d_simulator/icons/icon_pan.svg', 'Pan', speaker.panDeg, '°', -180.0, 180.0, (v) => _updateSpeaker(speaker!, pan: v)),
+                _buildControlBox('assets/3d_simulator/icons/icon_x.svg', 'X Position', speaker.x, 'm', -roomW/2 + 0.25, roomW/2 - 0.25, (v) => _updateSpeaker(speaker!, x: v)),
+                _buildControlBox('assets/3d_simulator/icons/icon_y.svg', 'Y Position', speaker.y, 'm', -roomD/2 + 0.25, roomD/2 - 0.25, (v) => _updateSpeaker(speaker!, y: v)),
+                _buildControlBox('assets/3d_simulator/icons/icon_height.svg', 'Z Height', speaker.heightZ, 'm', 0.25, roomH - 0.25, (v) => _updateSpeaker(speaker!, z: v)),
                 _buildControlBox('assets/3d_simulator/icons/icon_tilt.svg', 'Yaw (Rotation)', speaker.rotation, '°', -180.0, 180.0, (v) => _updateSpeaker(speaker!, rot: v)),
                 _buildControlBox('assets/3d_simulator/icons/icon_tilt.svg', 'Pitch (Tilt)', speaker.pitchTilt, '°', -90.0, 90.0, (v) => _updateSpeaker(speaker!, tilt: v)),
                 _buildControlBox('assets/3d_simulator/icons/icon_dispersion.svg', 'Dispersion', speaker.dispersionAngle, '°', 10.0, 180.0, (v) => _updateSpeaker(speaker!, disp: v)),
@@ -212,17 +240,56 @@ class _SpeakerInspectorPanelState extends ConsumerState<SpeakerInspectorPanel> {
           // Footer
           Padding(
             padding: const EdgeInsets.all(16),
-            child: OutlinedButton(
-              onPressed: () {
-                ref.read(speakerLayoutProvider.notifier).removeSpeaker(speaker!.id);
-                widget.onClose();
-              },
-              style: OutlinedButton.styleFrom(
-                side: const BorderSide(color: Colors.redAccent),
-                minimumSize: const Size(double.infinity, 48),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-              ),
-              child: const Text('Remove Speaker', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
+            child: Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      _updateSpeaker(speaker!, isFixed: !speaker.isFixed);
+                    },
+                    icon: Icon(
+                      speaker.isFixed ? Icons.lock_rounded : Icons.lock_open_rounded,
+                      size: 18,
+                      color: speaker.isFixed ? const Color(0xFFF59E0B) : Colors.white70,
+                    ),
+                    label: Text(
+                      speaker.isFixed ? 'FIX ON' : 'FIX OFF',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: speaker.isFixed ? const Color(0xFFF59E0B) : Colors.white70,
+                      ),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF0F172A),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        side: BorderSide(
+                          color: speaker.isFixed ? const Color(0xFFF59E0B) : const Color(0xFF334155),
+                          width: 1.5,
+                        ),
+                      ),
+                      elevation: 0,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      ref.read(speakerLayoutProvider.notifier).removeSpeaker(speaker!.id);
+                      widget.onClose();
+                    },
+                    icon: const Icon(Icons.delete_outline_rounded, size: 18, color: Colors.redAccent),
+                    label: const Text('Remove', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: Colors.redAccent, width: 1.5),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -230,7 +297,7 @@ class _SpeakerInspectorPanelState extends ConsumerState<SpeakerInspectorPanel> {
     );
   }
 
-  void _updateSpeaker(SpeakerNode speaker, {double? x, double? y, double? z, double? pan, double? tilt, double? rot, double? disp, double? rev}) {
+  void _updateSpeaker(SpeakerNode speaker, {double? x, double? y, double? z, double? pan, double? tilt, double? rot, double? disp, double? rev, bool? isFixed}) {
     ref.read(speakerLayoutProvider.notifier).updateSpeaker(speaker.copyWith(
       x: x ?? speaker.x,
       y: y ?? speaker.y,
@@ -240,6 +307,7 @@ class _SpeakerInspectorPanelState extends ConsumerState<SpeakerInspectorPanel> {
       panDeg: pan ?? speaker.panDeg,
       dispersionAngle: disp ?? speaker.dispersionAngle,
       reverbSend: rev ?? speaker.reverbSend,
+      isFixed: isFixed ?? speaker.isFixed,
     ));
     // Trigger real-time sync via global state or similar if needed.
   }

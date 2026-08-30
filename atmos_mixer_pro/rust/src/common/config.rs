@@ -84,6 +84,10 @@ pub struct ChannelSetting {
     pub eq_bands: Vec<EqBand>,
     #[serde(default)]
     pub position: Option<Point3D>,
+    #[serde(default)]
+    pub phase_invert: bool,
+    #[serde(default)]
+    pub gain_db: f32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

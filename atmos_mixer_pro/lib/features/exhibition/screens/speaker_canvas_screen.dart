@@ -4,6 +4,7 @@ import 'package:atmos_mixer_pro/core/theme/colors.dart';
 import 'package:atmos_mixer_pro/features/exhibition/state/room_zone_state.dart';
 import 'package:atmos_mixer_pro/features/exhibition/state/blueprint_state.dart';
 import 'package:atmos_mixer_pro/features/exhibition/models/room_zone.dart';
+import 'package:atmos_mixer_pro/features/exhibition/state/speaker_layout_state.dart';
 import 'package:atmos_mixer_pro/features/exhibition/widgets/hud/room_setup_window.dart';
 import 'package:atmos_mixer_pro/features/exhibition/widgets/hud/speaker_inspector_panel.dart';
 import 'package:atmos_mixer_pro/features/exhibition/widgets/viewport_3d/dynamic_3d_room.dart';
@@ -73,6 +74,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
           style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
         ),
         actions: [
+
           Padding(
             padding: const EdgeInsets.only(right: 16),
             child: OutlinedButton.icon(
@@ -171,6 +173,21 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
                   final pixelW = updated.physicalWidth * bp.scale;
                   final pixelH = updated.physicalHeight * bp.scale;
                   final finalUpdated = updated.copyWith(width: pixelW, height: pixelH);
+
+                  // Scale speakers to maintain relative position
+                  if (activeRoom.physicalWidth > 0 && activeRoom.physicalHeight > 0) {
+                    final double scaleX = updated.physicalWidth / activeRoom.physicalWidth;
+                    final double scaleY = updated.physicalHeight / activeRoom.physicalHeight;
+                    
+                    final nodes = ref.read(speakerLayoutProvider);
+                    for (final node in nodes) {
+                      if (node.roomId == activeRoom.id || node.roomId == null) {
+                        final newX = (node.x * scaleX).clamp(0.0, updated.physicalWidth);
+                        final newY = (node.y * scaleY).clamp(0.0, updated.physicalHeight);
+                        ref.read(speakerLayoutProvider.notifier).updateSpeaker(node.copyWith(x: newX, y: newY), immediate: true);
+                      }
+                    }
+                  }
 
                   ref.read(roomZoneProvider.notifier).updateRoomZone(finalUpdated, immediate: true);
                   ref.read(blueprintProvider.notifier).setCanvasDimensions(

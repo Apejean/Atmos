@@ -122,6 +122,8 @@ impl AudioMixer {
                             channel_dsp[ch_idx].update_delay_target(setting.delay_ms);
                             channel_dsp[ch_idx].update_eq_targets(&setting.eq_bands.clone(), sample_rate as f32);
                             channel_positions[ch_idx] = setting.position.clone();
+                            channel_dsp[ch_idx].phase_invert = setting.phase_invert;
+                            channel_dsp[ch_idx].gain_db = setting.gain_db;
                         }
                     }
                 }
@@ -133,11 +135,15 @@ impl AudioMixer {
                             channel_dsp[ch_idx1].update_delay_target(setting.delay_ms);
                             channel_dsp[ch_idx1].update_eq_targets(&setting.eq_bands.clone(), sample_rate as f32);
                             channel_positions[ch_idx1] = setting.position.clone();
+                            channel_dsp[ch_idx1].phase_invert = setting.phase_invert;
+                            channel_dsp[ch_idx1].gain_db = setting.gain_db;
                         }
                         if ch_idx2 < channel_dsp.len() {
                             channel_dsp[ch_idx2].update_delay_target(setting.delay_ms);
                             channel_dsp[ch_idx2].update_eq_targets(&setting.eq_bands.clone(), sample_rate as f32);
                             channel_positions[ch_idx2] = setting.position.clone();
+                            channel_dsp[ch_idx2].phase_invert = setting.phase_invert;
+                            channel_dsp[ch_idx2].gain_db = setting.gain_db;
                         }
                     }
                 }
@@ -150,6 +156,8 @@ impl AudioMixer {
                                 channel_dsp[ch_idx].update_delay_target(setting.delay_ms);
                                 channel_dsp[ch_idx].update_eq_targets(&setting.eq_bands.clone(), sample_rate as f32);
                                 channel_positions[ch_idx] = setting.position.clone();
+                                channel_dsp[ch_idx].phase_invert = setting.phase_invert;
+                                channel_dsp[ch_idx].gain_db = setting.gain_db;
                             }
                         }
                     }

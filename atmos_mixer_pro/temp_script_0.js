@@ -1,33 +1,4 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>ATMOS 3D Studio Engine</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body {
-      width: 100%;
-      height: 100%;
-      overflow: hidden;
-      background-color: #0B0F14;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      user-select: none;
-      -webkit-user-select: none;
-    }
-    #canvas3d {
-      width: 100%;
-      height: 100%;
-      display: block;
-    }
-  </style>
-  <script src="js/three.min.js"></script>
-  <script src="js/OrbitControls.js"></script>
-</head>
-<body>
-  <canvas id="canvas3d"></canvas>
 
-  <script>
     window.onerror = function(msg, url, lineNo, columnNo, error) {
       console.error("Global Error: " + msg + " at line " + lineNo);
       return false;
@@ -133,129 +104,74 @@
       roomGroup.add(new THREE.Line(floorGeo, floorMat));
     }
 
-    // --- 5. 3D Listener Mannequin Bust Builder (Pure Studio Gray Anatomical Dummy) ---
-    function buildListenerMannequin(earLevel = 1.2) {
+    // --- 5. 3D Listener Mannequin Bust Builder ---
+    function buildListenerMannequin() {
       while (listenerGroup.children.length > 0) {
         const obj = listenerGroup.children[0];
         if (obj.geometry) obj.geometry.dispose();
         listenerGroup.remove(obj);
       }
 
-      // Pure neutral studio matte gray material (No cyborg / No sci-fi LED)
-      const dummyMat = new THREE.MeshStandardMaterial({
-        color: 0x8a9ba8,
-        roughness: 0.55,
-        metalness: 0.05
+      const mannequinMat = new THREE.MeshStandardMaterial({
+        color: 0x8ca0b9,
+        roughness: 0.4,
+        metalness: 0.1
       });
 
-      // 5.1 Cranium (상단 두개골 - 인체 해부학적 구형 + 후두부 볼륨)
-      const craniumGeo = new THREE.SphereGeometry(0.125, 32, 24);
-      craniumGeo.scale(0.88, 1.05, 1.12);
-      const cranium = new THREE.Mesh(craniumGeo, dummyMat);
-      cranium.position.set(0, earLevel + 0.055, -0.015);
-      listenerGroup.add(cranium);
+      // Head (Egg shape)
+      const headGeo = new THREE.SphereGeometry(0.14, 32, 24);
+      headGeo.scale(0.85, 1.15, 1.0);
+      const headMesh = new THREE.Mesh(headGeo, mannequinMat);
+      headMesh.position.set(0, 1.25, 0);
 
-      // 5.2 Jawline & Chin (하안부 / 턱선 - 아래로 좁아지는 테이퍼드 입체 윤곽)
-      const jawGeo = new THREE.CylinderGeometry(0.09, 0.045, 0.12, 32, 1);
-      jawGeo.scale(0.82, 1.0, 0.95);
-      const jaw = new THREE.Mesh(jawGeo, dummyMat);
-      jaw.position.set(0, earLevel - 0.035, 0.015);
-      listenerGroup.add(jaw);
+      // Nose (Forward indicator along +Z)
+      const noseGeo = new THREE.ConeGeometry(0.025, 0.06, 16);
+      noseGeo.rotateX(Math.PI / 2);
+      const noseMesh = new THREE.Mesh(noseGeo, mannequinMat);
+      noseMesh.position.set(0, 1.24, 0.14);
 
-      // 5.2.1 Chin Point (턱끝 둥근 볼륨)
-      const chinGeo = new THREE.SphereGeometry(0.038, 24, 16);
-      chinGeo.scale(0.9, 0.75, 1.1);
-      const chin = new THREE.Mesh(chinGeo, dummyMat);
-      chin.position.set(0, earLevel - 0.09, 0.035);
-      listenerGroup.add(chin);
+      // Left Pinna Ear
+      const earGeo = new THREE.SphereGeometry(0.035, 16, 16);
+      earGeo.scale(0.3, 1.2, 0.6);
+      const leftEar = new THREE.Mesh(earGeo, mannequinMat);
+      leftEar.position.set(-0.13, 1.25, 0);
 
-      // 5.3 Natural Nose Bridge (피노키오 콘 제거 -> 자연스러운 콧대 라인)
-      const noseShape = new THREE.Shape();
-      noseShape.moveTo(-0.010, 0);
-      noseShape.lineTo(0.010, 0);
-      noseShape.lineTo(0.007, 0.050);
-      noseShape.lineTo(-0.007, 0.050);
-      noseShape.closePath();
+      // Right Pinna Ear
+      const rightEar = new THREE.Mesh(earGeo, mannequinMat);
+      rightEar.position.set(0.13, 1.25, 0);
 
-      const extrudeSettings = {
-        steps: 1,
-        depth: 0.022,
-        bevelEnabled: true,
-        bevelThickness: 0.005,
-        bevelSize: 0.004,
-        bevelSegments: 3
-      };
-      const noseGeo = new THREE.ExtrudeGeometry(noseShape, extrudeSettings);
-      noseGeo.rotateX(-0.15);
-      const noseMesh = new THREE.Mesh(noseGeo, dummyMat);
-      noseMesh.position.set(0, earLevel - 0.02, 0.098);
-      listenerGroup.add(noseMesh);
+      // Neck
+      const neckGeo = new THREE.CylinderGeometry(0.06, 0.07, 0.12, 24);
+      const neckMesh = new THREE.Mesh(neckGeo, mannequinMat);
+      neckMesh.position.set(0, 1.10, 0);
 
-      // 5.4 Pinna Ears (C자형 귓바퀴 + 15도 뒤통수 방향 기울기 - 순수 그레이)
-      function createPinna(isLeft) {
-        const pinnaGroup = new THREE.Group();
-        const sideMult = isLeft ? -1 : 1;
+      // Bust / Shoulder Base
+      const bustGeo = new THREE.CylinderGeometry(0.12, 0.22, 0.15, 32);
+      bustGeo.scale(1.4, 1.0, 0.8);
+      const bustMesh = new THREE.Mesh(bustGeo, mannequinMat);
+      bustMesh.position.set(0, 0.98, 0);
 
-        // Outer Helix (C자 곡선 토러스 림)
-        const helixGeo = new THREE.TorusGeometry(0.026, 0.006, 16, 24, Math.PI * 1.35);
-        helixGeo.rotateZ(isLeft ? Math.PI * 0.35 : -Math.PI * 0.35);
-        const helix = new THREE.Mesh(helixGeo, dummyMat);
-        pinnaGroup.add(helix);
-
-        // Inner Concha & Lobe (외이도 및 귓볼)
-        const lobeGeo = new THREE.SphereGeometry(0.014, 16, 16);
-        lobeGeo.scale(0.6, 1.3, 0.8);
-        const lobe = new THREE.Mesh(lobeGeo, dummyMat);
-        lobe.position.set(0, -0.016, 0.002);
-        pinnaGroup.add(lobe);
-
-        // Position on head: slightly behind center (Z: -0.022m)
-        pinnaGroup.position.set(sideMult * 0.118, earLevel, -0.022);
-
-        // 15° Backward Anatomical Tilt (뒤통수 방향 15도 회전)
-        const tiltY = (isLeft ? -15 : 15) * Math.PI / 180;
-        const tiltX = 12 * Math.PI / 180;
-        pinnaGroup.rotation.set(tiltX, tiltY, isLeft ? 0.1 : -0.1);
-
-        return pinnaGroup;
-      }
-
-      listenerGroup.add(createPinna(true));  // Left Pinna
-      listenerGroup.add(createPinna(false)); // Right Pinna
-
-      // 5.5 Anatomical Neck (목 지오메트리)
-      const neckGeo = new THREE.CylinderGeometry(0.055, 0.068, 0.14, 32);
-      neckGeo.scale(0.88, 1.0, 1.05);
-      const neck = new THREE.Mesh(neckGeo, dummyMat);
-      neck.position.set(0, earLevel - 0.14, -0.01);
-      listenerGroup.add(neck);
-
-      // 5.6 Torso / Shoulder Base (승모근 및 어깨 베이스)
-      const bustGeo = new THREE.CylinderGeometry(0.11, 0.24, 0.18, 32);
-      bustGeo.scale(1.55, 1.0, 0.85);
-      const bust = new THREE.Mesh(bustGeo, dummyMat);
-      bust.position.set(0, earLevel - 0.28, -0.015);
-      listenerGroup.add(bust);
-
-      // 5.7 Ground Sweet Spot Ring
-      const ringGeo = new THREE.RingGeometry(0.35, 0.38, 48);
+      // Ground Sweet Spot Ring
+      const ringGeo = new THREE.RingGeometry(0.35, 0.38, 32);
       ringGeo.rotateX(-Math.PI / 2);
-      const ringMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8, side: THREE.DoubleSide, transparent: true, opacity: 0.6 });
+      const ringMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8, side: THREE.DoubleSide, transparent: true, opacity: 0.5 });
       const ringMesh = new THREE.Mesh(ringGeo, ringMat);
       ringMesh.position.set(0, 0.02, 0);
+
+      listenerGroup.add(headMesh);
+      listenerGroup.add(noseMesh);
+      listenerGroup.add(leftEar);
+      listenerGroup.add(rightEar);
+      listenerGroup.add(neckMesh);
+      listenerGroup.add(bustMesh);
       listenerGroup.add(ringMesh);
     }
-    
-    // Global method to update ear level
-    window.updateEarLevel = function(level) {
-      buildListenerMannequin(level);
-    };
 
     // --- 6. 3D Studio Monitor Speaker Builder ---
     function createSpeaker3DMesh(speakerData) {
       const group = new THREE.Group();
       group.name = "speaker_" + speakerData.id;
-      group.userData = { speakerId: speakerData.id, isFixed: speakerData.isFixed };
+      group.userData = { speakerId: speakerData.id };
 
       const isSelected = (speakerData.id === selectedSpeakerId);
 
@@ -341,7 +257,7 @@
       ctx.font = 'bold 26px -apple-system, sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(`CH ${(speakerData.channel !== undefined ? speakerData.channel + 1 : 1)}`, 64, 32);
+      ctx.fillText(`CH ${speakerData.channel || 1}`, 64, 32);
 
       const badgeTex = new THREE.CanvasTexture(badgeCanvas);
       const spriteMat = new THREE.SpriteMaterial({ map: badgeTex, depthTest: false });
@@ -366,7 +282,7 @@
         side: THREE.DoubleSide
       });
       const dispCone = new THREE.Mesh(coneGeo, coneMat);
-      dispCone.position.set(0, 0.0, frontZ);
+      dispCone.position.set(0, 0.09, frontZ);
       group.add(dispCone);
 
       // --- 6.6 Position & 3D Rotation Transform ---
@@ -471,7 +387,6 @@
         }
         if (root && root.userData && root.userData.speakerId) {
           const clickedId = root.userData.speakerId;
-          const isFixed = root.userData.isFixed;
           selectedSpeakerId = clickedId;
           window.updateScene({ speakers: currentSpeakers, selectedSpeakerId: clickedId });
 
@@ -482,15 +397,13 @@
             }));
           }
 
-          if (!isFixed) {
-            draggedSpeakerNode = root;
-            controls.enabled = false;
-            dragPlane.constant = -root.position.y;
-            const intersectPoint = new THREE.Vector3();
-            raycaster.ray.intersectPlane(dragPlane, intersectPoint);
-            if (intersectPoint) {
-              dragOffset.copy(intersectPoint).sub(root.position);
-            }
+          draggedSpeakerNode = root;
+          controls.enabled = false;
+          dragPlane.constant = -root.position.y;
+          const intersectPoint = new THREE.Vector3();
+          raycaster.ray.intersectPlane(dragPlane, intersectPoint);
+          if (intersectPoint) {
+            dragOffset.copy(intersectPoint).sub(root.position);
           }
         }
       }
@@ -507,15 +420,9 @@
       if (intersectPoint) {
         const newPos = intersectPoint.sub(dragOffset);
         
-        // Clamp to room bounds (account for 0.2m speaker mesh radius)
-        const halfW = (currentRoom.width / 2) - 0.2;
-        const halfD = (currentRoom.depth / 2) - 0.2;
-        
-        if (window.isSnapEnabled) {
-          newPos.x = Math.round(newPos.x * 10) / 10;
-          newPos.z = Math.round(newPos.z * 10) / 10;
-        }
-        
+        // Clamp to room bounds
+        const halfW = currentRoom.width / 2;
+        const halfD = currentRoom.depth / 2;
         newPos.x = Math.max(-halfW, Math.min(halfW, newPos.x));
         newPos.z = Math.max(-halfD, Math.min(halfD, newPos.z));
         
@@ -574,43 +481,10 @@
     window.dispatchEvent(new Event('resize'));
 
     // --- 12. Render Loop ---
-    
-    let isTopView = false;
-    let savedCameraPos = new THREE.Vector3();
-    let savedTarget = new THREE.Vector3();
-
-    window.toggleTopView = function() {
-      isTopView = !isTopView;
-      if (isTopView) {
-        // Save current state
-        savedCameraPos.copy(camera.position);
-        savedTarget.copy(controls.target);
-        
-        // Move to top view
-        // The room max size is around 20-30m, so height of 20m should see everything
-        const roomMaxDim = currentRoom ? Math.max(currentRoom.width, currentRoom.depth) : 10;
-        const h = Math.max(roomMaxDim * 1.5, 10);
-        camera.position.set(0, h, 0);
-        controls.target.set(0, 0, 0);
-        
-        // Disable rotation so it stays 2D
-        controls.enableRotate = false;
-        // Optionally lock to orthographic style if wanted, but just top-down perspective is fine
-      } else {
-        // Restore state
-        camera.position.copy(savedCameraPos);
-        controls.target.copy(savedTarget);
-        controls.enableRotate = true;
-      }
-      controls.update();
-    };
-
     function animate() {
       requestAnimationFrame(animate);
       controls.update();
       renderer.render(scene, camera);
     }
     animate();
-  </script>
-</body>
-</html>
+  

@@ -2463,14 +2463,16 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   ChannelSetting dco_decode_channel_setting(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 5)
-      throw Exception('unexpected arr length: expect 5 but see ${arr.length}');
+    if (arr.length != 7)
+      throw Exception('unexpected arr length: expect 7 but see ${arr.length}');
     return ChannelSetting(
       enabled: dco_decode_bool(arr[0]),
       customName: dco_decode_String(arr[1]),
       delayMs: dco_decode_f_32(arr[2]),
       eqBands: dco_decode_list_eq_band(arr[3]),
       position: dco_decode_opt_box_autoadd_point_3_d(arr[4]),
+      phaseInvert: dco_decode_bool(arr[5]),
+      gainDb: dco_decode_f_32(arr[6]),
     );
   }
 
@@ -2970,12 +2972,16 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_delayMs = sse_decode_f_32(deserializer);
     var var_eqBands = sse_decode_list_eq_band(deserializer);
     var var_position = sse_decode_opt_box_autoadd_point_3_d(deserializer);
+    var var_phaseInvert = sse_decode_bool(deserializer);
+    var var_gainDb = sse_decode_f_32(deserializer);
     return ChannelSetting(
       enabled: var_enabled,
       customName: var_customName,
       delayMs: var_delayMs,
       eqBands: var_eqBands,
       position: var_position,
+      phaseInvert: var_phaseInvert,
+      gainDb: var_gainDb,
     );
   }
 
@@ -3614,6 +3620,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_f_32(self.delayMs, serializer);
     sse_encode_list_eq_band(self.eqBands, serializer);
     sse_encode_opt_box_autoadd_point_3_d(self.position, serializer);
+    sse_encode_bool(self.phaseInvert, serializer);
+    sse_encode_f_32(self.gainDb, serializer);
   }
 
   @protected

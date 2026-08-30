@@ -4,6 +4,7 @@ import 'package:atmos_mixer_pro/features/dashboard/screens/dashboard_screen.dart
 import 'package:atmos_mixer_pro/core/state/global_state.dart';
 import 'package:atmos_mixer_pro/src/rust/api/simple.dart' as rust_api;
 import 'package:atmos_mixer_pro/features/settings/widgets/tuning_modal.dart';
+import 'package:atmos_mixer_pro/features/exhibition/state/three_js_engine_provider.dart';
 
 class AudioInitSplashScreen extends ConsumerStatefulWidget {
   const AudioInitSplashScreen({super.key});
@@ -30,6 +31,9 @@ class _AudioInitSplashScreenState extends ConsumerState<AudioInitSplashScreen> {
 
       // 2. Load EQ and delay settings from shared preferences
       await ref.read(tuningStateProvider.notifier).ensureLoaded();
+      
+      // Initialize 3D Engine in background
+      ref.read(threeJsEngineProvider);
 
       if (mounted) {
         setState(() {

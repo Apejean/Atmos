@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 class SpeakerNode {
+  final bool isFixed;
   final String id;
   final String? roomId;
   final double x;
@@ -26,6 +27,7 @@ class SpeakerNode {
     required this.x,
     required this.y,
     required this.channel,
+    this.isFixed = false,
     this.rotation = 0.0,
     this.dispersionAngle = 90.0,
     this.dispersionAngleV = 90.0,
@@ -64,6 +66,7 @@ class SpeakerNode {
     int? channel,
     double? rotation,
     double? dispersionAngle,
+    bool? isFixed,
     double? dispersionAngleV,
     double? dispersionDistance,
     double? heightZ,
@@ -84,6 +87,7 @@ class SpeakerNode {
       channel: channel ?? this.channel,
       rotation: rotation ?? this.rotation,
       dispersionAngle: dispersionAngle ?? this.dispersionAngle,
+      isFixed: isFixed ?? this.isFixed,
       dispersionDistance: dispersionDistance ?? this.dispersionDistance,
       heightZ: heightZ ?? this.heightZ,
       pitchTilt: pitchTilt ?? this.pitchTilt,
@@ -105,6 +109,7 @@ class SpeakerNode {
       'x': x,
       'y': y,
       'channel': channel,
+      'isFixed': isFixed,
       'rotation': rotation,
       'dispersion_angle': dispersionAngle,
       'dispersion_distance': dispersionDistance,
@@ -128,6 +133,7 @@ class SpeakerNode {
       x: map['x'].toDouble(),
       y: map['y'].toDouble(),
       channel: map['channel'],
+      isFixed: map['isFixed'] ?? false,
       rotation: (map['rotation'] ?? 0.0).toDouble(),
       dispersionAngle: (map['dispersion_angle'] ?? 90.0).toDouble(),
       dispersionDistance: (map['dispersion_distance'] ?? 220.0).toDouble(),

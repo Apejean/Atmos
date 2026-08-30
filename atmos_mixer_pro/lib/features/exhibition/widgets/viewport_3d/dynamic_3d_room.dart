@@ -1,7 +1,5 @@
 import "dart:convert";
-import "dart:io";
 import "package:flutter/material.dart";
-import "package:flutter/services.dart";
 import "package:flutter_riverpod/flutter_riverpod.dart";
 import "package:webview_flutter/webview_flutter.dart";
 
@@ -9,6 +7,8 @@ import "package:atmos_mixer_pro/features/exhibition/state/speaker_layout_state.d
 import "package:atmos_mixer_pro/features/exhibition/state/blueprint_state.dart";
 import "package:atmos_mixer_pro/features/exhibition/models/speaker_node.dart";
 import "package:atmos_mixer_pro/features/exhibition/models/room_zone.dart";
+import "package:atmos_mixer_pro/features/exhibition/state/three_js_engine_provider.dart";
+import "dart:async";
 
 class Dynamic3DRoom extends ConsumerStatefulWidget {
   final Function(String)? onSpeakerTapped;
@@ -31,137 +31,62 @@ class Dynamic3DRoom extends ConsumerStatefulWidget {
 }
 
 class _Dynamic3DRoomState extends ConsumerState<Dynamic3DRoom> {
-  HttpServer? _server;
-  String? _serverUrl;
-  WebViewController? _webViewController;
-  bool _isEngineReady = false;
   String _selectedView = "Auto";
+  StreamSubscription<String>? _speakerSub;
+  StreamSubscription<Map<String, dynamic>>? _speakerMovedSub;
 
   @override
   void initState() {
     super.initState();
-    _startLocalServer();
+    _speakerSub = ref.read(threeJsEngineProvider).onSpeakerTapped.listen((id) {
+      if (widget.onSpeakerTapped != null) {
+        widget.onSpeakerTapped!(id);
+      }
+    });
+    
+    _speakerMovedSub = ref.read(threeJsEngineProvider).onSpeakerMoved.listen((data) {
+      final String id = data['id'];
+      final double x = (data['x'] as num).toDouble();
+      final double y = (data['y'] as num).toDouble();
+      final bool isFinal = data['isFinal'] ?? false;
+      
+      final currentNodes = ref.read(speakerLayoutProvider);
+      final node = currentNodes.where((n) => n.id == id).firstOrNull;
+      if (node != null) {
+        ref.read(speakerLayoutProvider.notifier).updateSpeaker(
+          node.copyWith(x: x, y: y),
+          immediate: isFinal
+        );
+      }
+    });
   }
 
   @override
   void dispose() {
-    _server?.close(force: true);
+    _speakerSub?.cancel();
+    _speakerMovedSub?.cancel();
     super.dispose();
   }
 
-  Future<void> _startLocalServer() async {
-    try {
-      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
-      _server = server;
-      final port = server.port;
-      _serverUrl = "http://127.0.0.1:$port/";
+  
 
-      server.listen((HttpRequest request) async {
-        final path = request.uri.path;
-        final response = request.response;
-        debugPrint("HTTP Request: $path");
-
-        try {
-          if (path == "/" || path == "/index.html") {
-            final html = await rootBundle.loadString("assets/3d_simulator/studio_engine.html");
-            response
-              ..statusCode = HttpStatus.ok
-              ..headers.contentType = ContentType.html
-              ..write(html);
-          } else if (path == "/js/three.min.js") {
-            final data = await rootBundle.load("assets/js/three.min.js");
-            response
-              ..statusCode = HttpStatus.ok
-              ..headers.set("Content-Type", "application/javascript")
-              ..add(data.buffer.asUint8List());
-          } else if (path == "/js/OrbitControls.js") {
-            final data = await rootBundle.load("assets/js/OrbitControls.js");
-            response
-              ..statusCode = HttpStatus.ok
-              ..headers.set("Content-Type", "application/javascript")
-              ..add(data.buffer.asUint8List());
-          } else {
-            response
-              ..statusCode = HttpStatus.notFound
-              ..write("Not found");
-          }
-        } catch (e) {
-          response
-            ..statusCode = HttpStatus.internalServerError
-            ..write("Error loading asset: $e");
-        } finally {
-          await response.close();
-        }
-      });
-
-      _initWebViewController();
-    } catch (e) {
-      debugPrint("Error starting 3D local server: $e");
-    }
-  }
-
-  void _initWebViewController() {
-    if (_serverUrl == null) return;
-
-    final controller = WebViewController();
-    controller.setJavaScriptMode(JavaScriptMode.unrestricted);
-    // controller.setBackgroundColor(const Color(0xFF0B0F14)); // REMOVED DUE TO OPAQUE BUG
-    
-    controller.setOnConsoleMessage((message) {
-      debugPrint("JS Console [${message.level.name}]: ${message.message}");
-    });
-
-    controller.addJavaScriptChannel(
-        "SpeakerBridge",
-        onMessageReceived: (message) {
-          try {
-            final data = jsonDecode(message.message);
-            if (data["type"] == "SPEAKER_SELECTED" && data["speakerId"] != null) {
-              final id = data["speakerId"] as String;
-              if (widget.onSpeakerTapped != null) {
-                widget.onSpeakerTapped!(id);
-              }
-            }
-          } catch (e) {
-            debugPrint("Error handling JS message: $e");
-          }
-        },
-      );
-    controller.setNavigationDelegate(
-        NavigationDelegate(
-          onPageFinished: (url) {
-            debugPrint("WebView onPageFinished: $url");
-            if (mounted) {
-              setState(() {
-                _isEngineReady = true;
-              });
-              _syncSceneData();
-            }
-          },
-          onWebResourceError: (error) {
-            debugPrint("WebView Error: ${error.errorCode} - ${error.description}");
-          },
-        ),
-      );
-    controller.loadRequest(Uri.parse(_serverUrl!));
-
-    if (mounted) {
-      setState(() {
-        _webViewController = controller;
-      });
-    }
-  }
+  
 
   @override
   void didUpdateWidget(Dynamic3DRoom oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (_isEngineReady) {
+    if (ref.read(threeJsEngineProvider).isEngineReady) {
       _syncSceneData();
     }
   }
 
   void _syncSceneData() {
-    if (_webViewController == null || !_isEngineReady) return;
+    final engine = ref.read(threeJsEngineProvider);
+    if (!engine.isEngineReady) return;
+    
+    if (widget.activeRoom != null) {
+      engine.setEarLevel(widget.activeRoom!.earLevel);
+    }
 
     final allSpeakers = ref.read(speakerLayoutProvider);
     final speakers = allSpeakers.where((s) => s.roomId == null || s.roomId == widget.activeRoom?.id).toList();
@@ -192,14 +117,12 @@ class _Dynamic3DRoomState extends ConsumerState<Dynamic3DRoom> {
     };
 
     final jsCall = "if (typeof window.updateScene === 'function') { window.updateScene(${jsonEncode(payload)}); } else { console.error('updateScene is not defined!'); }";
-    _webViewController!.runJavaScript(jsCall);
+    engine.executeJavaScript(jsCall);
   }
 
   void _setCameraView(String viewName) {
     setState(() => _selectedView = viewName);
-    if (_webViewController != null && _isEngineReady) {
-      _webViewController!.runJavaScript("if (typeof window.setCameraView === 'function') { window.setCameraView('$viewName'); }");
-    }
+    ref.read(threeJsEngineProvider).executeJavaScript("if (typeof window.setCameraView === 'function') { window.setCameraView('$viewName'); }");
   }
 
   @override
@@ -223,13 +146,31 @@ class _Dynamic3DRoomState extends ConsumerState<Dynamic3DRoom> {
         children: [
           // 1. Core 3D WebGL Three.js Studio Engine
           Positioned.fill(
-            child: _webViewController == null
-                ? const Center(
-                    child: CircularProgressIndicator(
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.lightBlueAccent),
-                    ),
-                  )
-                : WebViewWidget(controller: _webViewController!),
+            child: Consumer(
+              builder: (context, ref, child) {
+                final engine = ref.read(threeJsEngineProvider);
+                
+                return ValueListenableBuilder<bool>(
+                  valueListenable: engine.isEngineReadyNotifier,
+                  builder: (context, isReady, child) {
+                    if (engine.controller == null || !isReady) {
+                      return const Center(
+                        child: CircularProgressIndicator(
+                          valueColor: AlwaysStoppedAnimation<Color>(Colors.lightBlueAccent),
+                        ),
+                      );
+                    }
+                    
+                    // Immediately sync scene data on first display if ready
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (mounted) _syncSceneData();
+                    });
+
+                    return WebViewWidget(controller: engine.controller!);
+                  },
+                );
+              },
+            ),
           ),
 
           // 2. Top-Left Room Info & Camera View Presets
