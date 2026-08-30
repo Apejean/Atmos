@@ -133,7 +133,7 @@
       roomGroup.add(new THREE.Line(floorGeo, floorMat));
     }
 
-    // --- 5. 3D Listener Mannequin Bust Builder (Pure Studio Gray Anatomical Dummy) ---
+    // --- 5. 3D Listener Mannequin Bust Builder (Seamless Anatomical Studio Mannequin) ---
     function buildListenerMannequin(earLevel = 1.2) {
       while (listenerGroup.children.length > 0) {
         const obj = listenerGroup.children[0];
@@ -141,103 +141,131 @@
         listenerGroup.remove(obj);
       }
 
-      // Pure neutral studio matte gray material (No cyborg / No sci-fi LED)
+      // Neutral studio matte acoustic gray polymer material
       const dummyMat = new THREE.MeshStandardMaterial({
-        color: 0x8a9ba8,
-        roughness: 0.55,
-        metalness: 0.05
+        color: 0x8ea0b4,
+        roughness: 0.45,
+        metalness: 0.1
       });
 
-      // 5.1 Cranium (상단 두개골 - 인체 해부학적 구형 + 후두부 볼륨)
-      const craniumGeo = new THREE.SphereGeometry(0.125, 32, 24);
-      craniumGeo.scale(0.88, 1.05, 1.12);
-      const cranium = new THREE.Mesh(craniumGeo, dummyMat);
-      cranium.position.set(0, earLevel + 0.055, -0.015);
-      listenerGroup.add(cranium);
+      // 5.1 Continuous Anatomical Head-Neck-Bust Profile (Smooth Spline Lathe)
+      const curvePoints = [
+        new THREE.Vector2(0.001, 0.175), // Crown peak
+        new THREE.Vector2(0.045, 0.170),
+        new THREE.Vector2(0.082, 0.145), // Upper skull
+        new THREE.Vector2(0.092, 0.095), // Forehead / Temples
+        new THREE.Vector2(0.091, 0.040), // Cheekbone level
+        new THREE.Vector2(0.088, 0.000), // Ear / Midface
+        new THREE.Vector2(0.080, -0.045), // Jaw angle
+        new THREE.Vector2(0.066, -0.085), // Lower jaw
+        new THREE.Vector2(0.052, -0.115), // Chin base
+        new THREE.Vector2(0.048, -0.140), // Under-chin / Upper neck
+        new THREE.Vector2(0.052, -0.175), // Mid neck
+        new THREE.Vector2(0.062, -0.210), // Base of neck
+        new THREE.Vector2(0.095, -0.240), // Trapezius curve
+        new THREE.Vector2(0.145, -0.270), // Collar / Shoulder slope
+        new THREE.Vector2(0.200, -0.295), // Deltoid slope
+        new THREE.Vector2(0.235, -0.320), // Shoulder edge
+        new THREE.Vector2(0.240, -0.340), // Bust bottom
+        new THREE.Vector2(0.001, -0.340), // Flat base bottom center
+      ];
 
-      // 5.2 Jawline & Chin (하안부 / 턱선 - 아래로 좁아지는 테이퍼드 입체 윤곽)
-      const jawGeo = new THREE.CylinderGeometry(0.09, 0.045, 0.12, 32, 1);
-      jawGeo.scale(0.82, 1.0, 0.95);
-      const jaw = new THREE.Mesh(jawGeo, dummyMat);
-      jaw.position.set(0, earLevel - 0.035, 0.015);
-      listenerGroup.add(jaw);
+      const spline = new THREE.SplineCurve(curvePoints);
+      const points = spline.getPoints(64);
+      const latheGeo = new THREE.LatheGeometry(points, 48);
 
-      // 5.2.1 Chin Point (턱끝 둥근 볼륨)
-      const chinGeo = new THREE.SphereGeometry(0.038, 24, 16);
-      chinGeo.scale(0.9, 0.75, 1.1);
-      const chin = new THREE.Mesh(chinGeo, dummyMat);
-      chin.position.set(0, earLevel - 0.09, 0.035);
-      listenerGroup.add(chin);
+      // Anthropometric anatomical sculpting on vertices
+      const pos = latheGeo.attributes.position;
+      for (let i = 0; i < pos.count; i++) {
+        let x = pos.getX(i);
+        let y = pos.getY(i);
+        let z = pos.getZ(i);
 
-      // 5.3 Natural Nose Bridge (피노키오 콘 제거 -> 자연스러운 콧대 라인)
-      const noseShape = new THREE.Shape();
-      noseShape.moveTo(-0.010, 0);
-      noseShape.lineTo(0.010, 0);
-      noseShape.lineTo(0.007, 0.050);
-      noseShape.lineTo(-0.007, 0.050);
-      noseShape.closePath();
+        const r = Math.sqrt(x * x + z * z);
+        if (r < 0.0001) continue;
 
-      const extrudeSettings = {
-        steps: 1,
-        depth: 0.022,
-        bevelEnabled: true,
-        bevelThickness: 0.005,
-        bevelSize: 0.004,
-        bevelSegments: 3
-      };
-      const noseGeo = new THREE.ExtrudeGeometry(noseShape, extrudeSettings);
-      noseGeo.rotateX(-0.15);
-      const noseMesh = new THREE.Mesh(noseGeo, dummyMat);
-      noseMesh.position.set(0, earLevel - 0.02, 0.098);
-      listenerGroup.add(noseMesh);
+        const isFront = z > 0;
+        const frontRatio = Math.max(0, z / r);
 
-      // 5.4 Pinna Ears (C자형 귓바퀴 + 15도 뒤통수 방향 기울기 - 순수 그레이)
-      function createPinna(isLeft) {
-        const pinnaGroup = new THREE.Group();
-        const sideMult = isLeft ? -1 : 1;
+        if (y > -0.12) {
+          // --- Head & Face (Natural human cranial oval) ---
+          x *= 0.88; // Cranium slightly narrower side-to-side
+          z *= (isFront ? 1.05 : 1.20); // Deep occipital skull in back
 
-        // Outer Helix (C자 곡선 토러스 림)
-        const helixGeo = new THREE.TorusGeometry(0.026, 0.006, 16, 24, Math.PI * 1.35);
-        helixGeo.rotateZ(isLeft ? Math.PI * 0.35 : -Math.PI * 0.35);
-        const helix = new THREE.Mesh(helixGeo, dummyMat);
-        pinnaGroup.add(helix);
+          // Natural Jaw & Chin tapering
+          if (y < 0.02 && y > -0.12) {
+            const jawT = (0.02 - y) / 0.14;
+            x *= (1.0 - jawT * 0.26);
+            if (isFront) {
+              z += jawT * 0.022 * Math.pow(frontRatio, 2);
+            }
+          }
 
-        // Inner Concha & Lobe (외이도 및 귓볼)
-        const lobeGeo = new THREE.SphereGeometry(0.014, 16, 16);
-        lobeGeo.scale(0.6, 1.3, 0.8);
-        const lobe = new THREE.Mesh(lobeGeo, dummyMat);
-        lobe.position.set(0, -0.016, 0.002);
-        pinnaGroup.add(lobe);
+          // Sleek smooth nose bridge (Sculpted directly into the face)
+          if (y > -0.03 && y < 0.05 && isFront) {
+            const noseH = Math.cos(((y - 0.01) / 0.04) * (Math.PI / 2));
+            const noseW = Math.pow(Math.max(0, frontRatio), 10);
+            z += 0.024 * noseH * noseW;
+          }
 
-        // Position on head: slightly behind center (Z: -0.022m)
-        pinnaGroup.position.set(sideMult * 0.118, earLevel, -0.022);
+          // Gentle forehead brow
+          if (y > 0.05 && y < 0.12 && isFront) {
+            z += 0.006 * frontRatio;
+          }
+        } else if (y <= -0.12 && y > -0.21) {
+          // --- Neck (Anatomical proportion & subtle posture) ---
+          x *= 0.85;
+          z *= 0.90;
+          z -= 0.012;
+        } else {
+          // --- Shoulder / Torso Bust (Aerodynamic studio bust) ---
+          const shoulderT = Math.min(1.0, (-0.21 - y) / 0.13);
+          x *= (1.0 + shoulderT * 0.48); // Broad shoulder width
+          z *= (1.0 - shoulderT * 0.28); // Flatter torso front-to-back
+          z -= 0.015 * shoulderT;
+        }
 
-        // 15° Backward Anatomical Tilt (뒤통수 방향 15도 회전)
-        const tiltY = (isLeft ? -15 : 15) * Math.PI / 180;
-        const tiltX = 12 * Math.PI / 180;
-        pinnaGroup.rotation.set(tiltX, tiltY, isLeft ? 0.1 : -0.1);
-
-        return pinnaGroup;
+        pos.setXYZ(i, x, y + earLevel, z);
       }
 
-      listenerGroup.add(createPinna(true));  // Left Pinna
-      listenerGroup.add(createPinna(false)); // Right Pinna
+      latheGeo.computeVertexNormals();
+      const bustMesh = new THREE.Mesh(latheGeo, dummyMat);
+      listenerGroup.add(bustMesh);
 
-      // 5.5 Anatomical Neck (목 지오메트리)
-      const neckGeo = new THREE.CylinderGeometry(0.055, 0.068, 0.14, 32);
-      neckGeo.scale(0.88, 1.0, 1.05);
-      const neck = new THREE.Mesh(neckGeo, dummyMat);
-      neck.position.set(0, earLevel - 0.14, -0.01);
-      listenerGroup.add(neck);
+      // 5.2 Anatomical Low-Profile Flush Ears (Pinna naturally embedded on skull)
+      function createFlushEar(isLeft) {
+        const earGroup = new THREE.Group();
+        const sideMult = isLeft ? -1 : 1;
 
-      // 5.6 Torso / Shoulder Base (승모근 및 어깨 베이스)
-      const bustGeo = new THREE.CylinderGeometry(0.11, 0.24, 0.18, 32);
-      bustGeo.scale(1.55, 1.0, 0.85);
-      const bust = new THREE.Mesh(bustGeo, dummyMat);
-      bust.position.set(0, earLevel - 0.28, -0.015);
-      listenerGroup.add(bust);
+        // Ear Base / Concha Backing
+        const conchaGeo = new THREE.CapsuleGeometry(0.013, 0.022, 8, 16);
+        conchaGeo.scale(0.3, 1.0, 0.65);
+        const concha = new THREE.Mesh(conchaGeo, dummyMat);
+        earGroup.add(concha);
 
-      // 5.7 Ground Sweet Spot Ring
+        // Outer Helix Rim (C-curve torus)
+        const helixGeo = new THREE.TorusGeometry(0.016, 0.0035, 12, 24, Math.PI * 1.3);
+        helixGeo.rotateZ(isLeft ? Math.PI * 0.35 : -Math.PI * 0.35);
+        helixGeo.scale(0.65, 1.1, 0.85);
+        const helix = new THREE.Mesh(helixGeo, dummyMat);
+        helix.position.set(sideMult * 0.003, 0.002, 0);
+        earGroup.add(helix);
+
+        // Position flush against lateral head surface
+        earGroup.position.set(sideMult * 0.078, earLevel, -0.012);
+
+        // 15° Anatomical Backward Tilt towards occiput
+        const rotY = (isLeft ? -15 : 15) * Math.PI / 180;
+        const rotX = 10 * Math.PI / 180;
+        earGroup.rotation.set(rotX, rotY, isLeft ? 0.08 : -0.08);
+
+        return earGroup;
+      }
+
+      listenerGroup.add(createFlushEar(true));  // Left Pinna
+      listenerGroup.add(createFlushEar(false)); // Right Pinna
+
+      // 5.3 Ground Sweet Spot Ring
       const ringGeo = new THREE.RingGeometry(0.35, 0.38, 48);
       ringGeo.rotateX(-Math.PI / 2);
       const ringMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8, side: THREE.DoubleSide, transparent: true, opacity: 0.6 });
@@ -392,9 +420,17 @@
       if (!data) return;
 
       if (data.room) {
-        currentRoom = data.room;
-        buildRoom(currentRoom.width, currentRoom.depth, currentRoom.height);
-        buildListenerMannequin(currentRoom.earLevel || 1.2);
+        const roomChanged = !currentRoom || 
+            currentRoom.width !== data.room.width || 
+            currentRoom.depth !== data.room.depth || 
+            currentRoom.height !== data.room.height ||
+            currentRoom.earLevel !== data.room.earLevel;
+            
+        if (roomChanged) {
+            currentRoom = data.room;
+            buildRoom(currentRoom.width, currentRoom.depth, currentRoom.height);
+            buildListenerMannequin(currentRoom.earLevel || 1.2);
+        }
       }
 
       if (data.selectedSpeakerId !== undefined) {
@@ -403,14 +439,54 @@
 
       if (data.speakers) {
         currentSpeakers = data.speakers;
-        while (speakersGroup.children.length > 0) {
-          const obj = speakersGroup.children[0];
-          speakersGroup.remove(obj);
+        const validIds = new Set(currentSpeakers.map(s => s.id));
+        
+        // Remove deleted speakers
+        for (let i = speakersGroup.children.length - 1; i >= 0; i--) {
+          const child = speakersGroup.children[i];
+          if (!validIds.has(child.userData.speakerId)) {
+            speakersGroup.remove(child);
+          }
         }
 
+        // Update or create speakers
         currentSpeakers.forEach(sp => {
-          const mesh = createSpeaker3DMesh(sp);
-          speakersGroup.add(mesh);
+          let mesh = speakersGroup.children.find(c => c.userData.speakerId === sp.id);
+          const isSelected = (sp.id === selectedSpeakerId);
+          
+          if (mesh) {
+            // Update position
+            const posX = sp.x - (currentRoom.width / 2);
+            const posZ = sp.y - (currentRoom.depth / 2);
+            const posY = sp.z || 1.8;
+            mesh.position.set(posX, posY, posZ);
+            
+            // Update rotation
+            const yawRad = ((sp.rotation || 0) * Math.PI) / 180;
+            const pitchRad = ((sp.pitchTilt || 0) * Math.PI) / 180;
+            mesh.rotation.set(-pitchRad, -yawRad, 0);
+
+            // Update isFixed
+            mesh.userData.isFixed = sp.isFixed;
+            
+            // Update selection colors
+            const colorCabinet = isSelected ? 0x1e293b : 0x181e28;
+            const colorWire = isSelected ? 0x38bdf8 : 0x475569;
+            const colorDome = isSelected ? 0x38bdf8 : 0x0ea5e9;
+            const emissiveDome = isSelected ? 0x0284c7 : 0x0369a1;
+            
+            if (mesh.children.length > 3) {
+              if (mesh.children[0].material) mesh.children[0].material.color.setHex(colorCabinet);
+              if (mesh.children[1].material) mesh.children[1].material.color.setHex(colorWire);
+              if (mesh.children[3].material) {
+                mesh.children[3].material.color.setHex(colorDome);
+                mesh.children[3].material.emissive.setHex(emissiveDome);
+              }
+            }
+          } else {
+            mesh = createSpeaker3DMesh(sp);
+            speakersGroup.add(mesh);
+          }
         });
       }
     };
@@ -483,7 +559,7 @@
             }));
           }
 
-          if (!isFixed) {
+          console.log("Clicked ID: " + clickedId + ", isFixed: " + isFixed); if (!isFixed) {
             draggedSpeakerNode = root;
             controls.enabled = false;
             dragPlane.constant = -root.position.y;

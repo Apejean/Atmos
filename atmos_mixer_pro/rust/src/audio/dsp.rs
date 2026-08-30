@@ -147,7 +147,8 @@ pub mod dsp_utils {
         pub current_distance_meters: f32,
         pub air_absorption: crate::audio::dsp::acoustic_physics::AirAbsorptionFilter,
         pub phase_invert: bool,
-        pub gain_db: f32,
+        pub target_gain_linear: f32,
+        pub current_gain_linear: f32,
     }
     
     impl Default for ChannelDspState {
@@ -157,6 +158,9 @@ pub mod dsp_utils {
     }
 
     impl ChannelDspState {
+        pub fn set_gain_db(&mut self, db: f32) {
+            self.target_gain_linear = 10.0_f32.powf(db / 20.0);
+        }
         pub fn new() -> Self {
             let mut eq_filters = Vec::with_capacity(MAX_EQ_BANDS);
             for _ in 0..MAX_EQ_BANDS {
@@ -175,7 +179,8 @@ pub mod dsp_utils {
                 current_distance_meters: 0.0,
                 air_absorption: crate::audio::dsp::acoustic_physics::AirAbsorptionFilter::new(),
                 phase_invert: false,
-                gain_db: 0.0,
+                target_gain_linear: 1.0,
+                current_gain_linear: 1.0,
             }
         }
     
@@ -268,11 +273,14 @@ pub mod dsp_utils {
             // Apply DC Blocker
             out = self.dc_blocker.process(out, fs);
             
-            // Apply Trim Gain
-            if self.gain_db.abs() > 0.01 {
-                let gain_linear = 10.0_f32.powf(self.gain_db / 20.0);
-                out *= gain_linear;
+            // Smooth gain (Zipper noise prevention)
+            if (self.current_gain_linear - self.target_gain_linear).abs() > 0.0001 {
+                self.current_gain_linear += (self.target_gain_linear - self.current_gain_linear) * 0.002; // Simple one-pole smoothing
+            } else {
+                self.current_gain_linear = self.target_gain_linear;
             }
+            
+            out *= self.current_gain_linear;
 
             // Apply Phase Invert
             if self.phase_invert {

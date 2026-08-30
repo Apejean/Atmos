@@ -52,7 +52,7 @@ class _Dynamic3DRoomState extends ConsumerState<Dynamic3DRoom> {
       
       final currentNodes = ref.read(speakerLayoutProvider);
       final node = currentNodes.where((n) => n.id == id).firstOrNull;
-      if (node != null) {
+      if (node != null && !node.isFixed) {
         ref.read(speakerLayoutProvider.notifier).updateSpeaker(
           node.copyWith(x: x, y: y),
           immediate: isFinal
