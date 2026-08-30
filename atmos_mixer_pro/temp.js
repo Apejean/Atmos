@@ -1,33 +1,3 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>ATMOS 3D Studio Engine</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body {
-      width: 100%;
-      height: 100%;
-      overflow: hidden;
-      background-color: #0B0F14;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      user-select: none;
-      -webkit-user-select: none;
-    }
-    #canvas3d {
-      width: 100%;
-      height: 100%;
-      display: block;
-    }
-  </style>
-  <script src="js/three.min.js"></script>
-  <script src="js/OrbitControls.js"></script>
-</head>
-<body>
-  <canvas id="canvas3d"></canvas>
-
-  <script>
     // --- 1. Scene Initialization ---
     const canvas = document.getElementById('canvas3d');
     const renderer = new THREE.WebGLRenderer({
@@ -44,11 +14,7 @@
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x0B0F14);
 
-    let initialAspect = window.innerWidth / window.innerHeight;
-    if (isNaN(initialAspect) || initialAspect === 0 || !isFinite(initialAspect)) {
-      initialAspect = 1.0;
-    }
-    const camera = new THREE.PerspectiveCamera(45, initialAspect, 0.1, 2000);
+    const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 2000);
     camera.position.set(0, 4.5, 6.5);
 
     const controls = new THREE.OrbitControls(camera, renderer.domElement);
@@ -438,9 +404,6 @@
     buildRoom(currentRoom.width, currentRoom.depth, currentRoom.height);
     buildListenerMannequin();
 
-    // Trigger initial resize to fix any layout issues on macOS WKWebView
-    window.dispatchEvent(new Event('resize'));
-
     // --- 12. Render Loop ---
     function animate() {
       requestAnimationFrame(animate);
@@ -448,6 +411,3 @@
       renderer.render(scene, camera);
     }
     animate();
-  </script>
-</body>
-</html>

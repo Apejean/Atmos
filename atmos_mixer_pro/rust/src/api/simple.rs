@@ -8,14 +8,8 @@ use crate::frb_generated::StreamSink;
 #[flutter_rust_bridge::frb(init)]
 pub fn api_init_app() {
     flutter_rust_bridge::setup_default_user_utils();
-    
-    // Start OSC server in background
-    std::thread::spawn(|| {
-        let rt = tokio::runtime::Runtime::new().unwrap();
-        rt.block_on(async {
-            crate::api::osc::start_osc_server().await;
-        });
-    });
+    // (Removed start_osc_server to prevent port 8000/8001 conflict.
+    // The main OSC listener handles everything now.)
 }
 
 pub fn api_update_single_band_eq(

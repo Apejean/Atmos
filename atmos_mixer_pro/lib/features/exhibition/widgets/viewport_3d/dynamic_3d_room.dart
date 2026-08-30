@@ -59,6 +59,7 @@ class _Dynamic3DRoomState extends ConsumerState<Dynamic3DRoom> {
       server.listen((HttpRequest request) async {
         final path = request.uri.path;
         final response = request.response;
+        debugPrint("HTTP Request: $path");
 
         try {
           if (path == "/" || path == "/index.html") {
@@ -105,6 +106,11 @@ class _Dynamic3DRoomState extends ConsumerState<Dynamic3DRoom> {
     final controller = WebViewController();
     controller.setJavaScriptMode(JavaScriptMode.unrestricted);
     // controller.setBackgroundColor(const Color(0xFF0B0F14)); // REMOVED DUE TO OPAQUE BUG
+    
+    controller.setOnConsoleMessage((message) {
+      debugPrint("JS Console [${message.level.name}]: ${message.message}");
+    });
+
     controller.addJavaScriptChannel(
         "SpeakerBridge",
         onMessageReceived: (message) {
@@ -124,12 +130,16 @@ class _Dynamic3DRoomState extends ConsumerState<Dynamic3DRoom> {
     controller.setNavigationDelegate(
         NavigationDelegate(
           onPageFinished: (url) {
+            debugPrint("WebView onPageFinished: $url");
             if (mounted) {
               setState(() {
                 _isEngineReady = true;
               });
               _syncSceneData();
             }
+          },
+          onWebResourceError: (error) {
+            debugPrint("WebView Error: ${error.errorCode} - ${error.description}");
           },
         ),
       );
@@ -181,7 +191,7 @@ class _Dynamic3DRoomState extends ConsumerState<Dynamic3DRoom> {
       }).toList(),
     };
 
-    final jsCall = "if (typeof window.updateScene === 'function') { window.updateScene(${jsonEncode(payload)}); }";
+    final jsCall = "if (typeof window.updateScene === 'function') { window.updateScene(${jsonEncode(payload)}); } else { console.error('updateScene is not defined!'); }";
     _webViewController!.runJavaScript(jsCall);
   }
 

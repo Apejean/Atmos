@@ -167,10 +167,15 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
               child: RoomSetupWindow(
                 room: activeRoom,
                 onApply: (updated) {
-                  ref.read(roomZoneProvider.notifier).updateRoomZone(updated, immediate: true);
+                  final bp = ref.read(blueprintProvider);
+                  final pixelW = updated.physicalWidth * bp.scale;
+                  final pixelH = updated.physicalHeight * bp.scale;
+                  final finalUpdated = updated.copyWith(width: pixelW, height: pixelH);
+
+                  ref.read(roomZoneProvider.notifier).updateRoomZone(finalUpdated, immediate: true);
                   ref.read(blueprintProvider.notifier).setCanvasDimensions(
-                        updated.physicalWidth,
-                        updated.physicalHeight,
+                        finalUpdated.physicalWidth,
+                        finalUpdated.physicalHeight,
                       );
                   setState(() {
                     _isRoomSetupOpen = false;
