@@ -101,6 +101,7 @@ class _Dynamic3DRoomState extends ConsumerState<Dynamic3DRoom> {
         "width": roomWidth,
         "depth": roomDepth,
         "height": roomHeight,
+        "earLevel": widget.activeRoom?.earLevel ?? 1.2,
       },
       "selectedSpeakerId": widget.selectedSpeakerId,
       "speakers": speakers.map((s) => {
@@ -113,6 +114,7 @@ class _Dynamic3DRoomState extends ConsumerState<Dynamic3DRoom> {
         "rotation": s.rotation,
         "dispersionAngle": s.dispersionAngle,
         "maxSPL": s.maxSPL,
+        "isFixed": s.isFixed,
       }).toList(),
     };
 

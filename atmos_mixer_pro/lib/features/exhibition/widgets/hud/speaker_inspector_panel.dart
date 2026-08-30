@@ -29,7 +29,7 @@ class _SpeakerInspectorPanelState extends ConsumerState<SpeakerInspectorPanel> {
     String unit,
     double min,
     double max,
-    Function(double) onChanged,
+    Function(double)? onChanged,
   ) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -56,8 +56,8 @@ class _SpeakerInspectorPanelState extends ConsumerState<SpeakerInspectorPanel> {
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 12),
                   child: GestureDetector(
-                    onDoubleTap: () {
-                      _showEditDialog(label, value, min, max, onChanged);
+                    onDoubleTap: onChanged == null ? null : () {
+                      _showEditDialog(label, value, min, max, onChanged!);
                     },
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -84,9 +84,9 @@ class _SpeakerInspectorPanelState extends ConsumerState<SpeakerInspectorPanel> {
                 overlayShape: const RoundSliderOverlayShape(overlayRadius: 14.0),
               ),
               child: GestureDetector(
-                onDoubleTap: () {
+                onDoubleTap: onChanged == null ? null : () {
                   final middle = (min + max) / 2;
-                  onChanged(middle);
+                  onChanged!(middle);
                 },
                 child: Slider(
                   value: value.clamp(min, max),
@@ -226,12 +226,12 @@ class _SpeakerInspectorPanelState extends ConsumerState<SpeakerInspectorPanel> {
             child: ListView(
               padding: const EdgeInsets.all(16),
               children: [
-                _buildControlBox('assets/3d_simulator/icons/icon_x.svg', 'X Position', speaker.x, 'm', -roomW/2 + 0.25, roomW/2 - 0.25, (v) => _updateSpeaker(speaker!, x: v)),
-                _buildControlBox('assets/3d_simulator/icons/icon_y.svg', 'Y Position', speaker.y, 'm', -roomD/2 + 0.25, roomD/2 - 0.25, (v) => _updateSpeaker(speaker!, y: v)),
-                _buildControlBox('assets/3d_simulator/icons/icon_height.svg', 'Z Height', speaker.heightZ, 'm', 0.25, roomH - 0.25, (v) => _updateSpeaker(speaker!, z: v)),
-                _buildControlBox('assets/3d_simulator/icons/icon_tilt.svg', 'Yaw (Rotation)', speaker.rotation, '°', -180.0, 180.0, (v) => _updateSpeaker(speaker!, rot: v)),
-                _buildControlBox('assets/3d_simulator/icons/icon_tilt.svg', 'Pitch (Tilt)', speaker.pitchTilt, '°', -90.0, 90.0, (v) => _updateSpeaker(speaker!, tilt: v)),
-                _buildControlBox('assets/3d_simulator/icons/icon_dispersion.svg', 'Dispersion', speaker.dispersionAngle, '°', 10.0, 180.0, (v) => _updateSpeaker(speaker!, disp: v)),
+                _buildControlBox('assets/3d_simulator/icons/icon_x.svg', 'X Position', speaker.x, 'm', 0.25, roomW - 0.25, speaker.isFixed ? null : (v) => _updateSpeaker(speaker!, x: v)),
+                _buildControlBox('assets/3d_simulator/icons/icon_y.svg', 'Y Position', speaker.y, 'm', 0.25, roomD - 0.25, speaker.isFixed ? null : (v) => _updateSpeaker(speaker!, y: v)),
+                _buildControlBox('assets/3d_simulator/icons/icon_height.svg', 'Z Height', speaker.heightZ, 'm', 0.25, roomH - 0.25, speaker.isFixed ? null : (v) => _updateSpeaker(speaker!, z: v)),
+                _buildControlBox('assets/3d_simulator/icons/icon_tilt.svg', 'Yaw (Rotation)', speaker.rotation, '°', -180.0, 180.0, speaker.isFixed ? null : (v) => _updateSpeaker(speaker!, rot: v)),
+                _buildControlBox('assets/3d_simulator/icons/icon_tilt.svg', 'Pitch (Tilt)', speaker.pitchTilt, '°', -90.0, 90.0, speaker.isFixed ? null : (v) => _updateSpeaker(speaker!, tilt: v)),
+                _buildControlBox('assets/3d_simulator/icons/icon_dispersion.svg', 'Dispersion', speaker.dispersionAngle, '°', 10.0, 180.0, speaker.isFixed ? null : (v) => _updateSpeaker(speaker!, disp: v)),
                 _buildControlBox('assets/3d_simulator/icons/icon_reverb.svg', 'Reverb Send', speaker.reverbSend, '%', 0.0, 100.0, (v) => _updateSpeaker(speaker!, rev: v)),
               ],
             ),

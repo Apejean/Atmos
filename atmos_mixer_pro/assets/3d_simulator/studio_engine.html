@@ -394,6 +394,7 @@
       if (data.room) {
         currentRoom = data.room;
         buildRoom(currentRoom.width, currentRoom.depth, currentRoom.height);
+        buildListenerMannequin(currentRoom.earLevel || 1.2);
       }
 
       if (data.selectedSpeakerId !== undefined) {
