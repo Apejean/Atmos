@@ -139,11 +139,11 @@ void main() {
     await tester.tap(find.byType(DropdownButton<String>));
     await tester.pumpAndSettle();
 
-    // The stereo option should be "2-Ch (Stereo) 3/4 (Stereo3)"
-    await tester.tap(find.text('2-Ch (Stereo) 3/4 (Stereo3)').last);
+    // The stereo option should be "Ch 3-4 (Out 3 / Out 4)"
+    await tester.tap(find.text('Ch 3-4 (Out 3 / Out 4)').last);
     await tester.pumpAndSettle();
 
-    expect(parsedChannel, 2); // Because 3 - 1 = 2
+    expect(parsedChannel, 2); // 3 - 1 = 2
     expect(parsedIsStereo, true);
   });
 }

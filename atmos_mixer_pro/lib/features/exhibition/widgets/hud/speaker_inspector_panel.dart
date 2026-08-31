@@ -57,7 +57,7 @@ class _SpeakerInspectorPanelState extends ConsumerState<SpeakerInspectorPanel> {
                   padding: const EdgeInsets.symmetric(horizontal: 12),
                   child: GestureDetector(
                     onDoubleTap: onChanged == null ? null : () {
-                      _showEditDialog(label, value, min, max, onChanged!);
+                      _showEditDialog(label, value, min, max, onChanged);
                     },
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -86,7 +86,7 @@ class _SpeakerInspectorPanelState extends ConsumerState<SpeakerInspectorPanel> {
               child: GestureDetector(
                 onDoubleTap: onChanged == null ? null : () {
                   final middle = (min + max) / 2;
-                  onChanged!(middle);
+                  onChanged(middle);
                 },
                 child: Slider(
                   value: value.clamp(min, max),
@@ -148,12 +148,7 @@ class _SpeakerInspectorPanelState extends ConsumerState<SpeakerInspectorPanel> {
     final engineState = ref.watch(engineStateProvider);
     final maxChannels = engineState.outputChannelCount;
     final speakers = layout;
-    SpeakerNode? speaker;
-    try {
-      speaker = layout.firstWhere((s) => s.id == widget.speakerId);
-    } catch (e) {
-      speaker = null;
-    }
+    final speaker = layout.where((s) => s.id == widget.speakerId).firstOrNull;
 
     if (speaker == null) return const SizedBox.shrink();
 
@@ -162,7 +157,7 @@ class _SpeakerInspectorPanelState extends ConsumerState<SpeakerInspectorPanel> {
     double roomH = 5.0;
     
     if (rooms.isNotEmpty) {
-      final activeRoom = rooms.firstWhere((r) => r.id == speaker?.roomId, orElse: () => rooms.first);
+      final activeRoom = rooms.firstWhere((r) => r.id == speaker.roomId, orElse: () => rooms.first);
       roomW = activeRoom.physicalWidth;
       roomD = activeRoom.physicalHeight;
       roomH = activeRoom.ceilingHeight;
