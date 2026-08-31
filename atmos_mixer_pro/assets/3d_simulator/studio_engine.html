@@ -156,22 +156,21 @@
       const center = new THREE.Vector3();
       box.getCenter(center);
 
-      // 기본 성인 신장(1.75m)에 사용자 스케일 배수 적용
+      // 머리/상체 비율은 표준 성인(1.75m) 기준으로 고정하여 거인이 되지 않도록 함
       const baseHumanHeight = 1.75 * mannequinScale;
       const scale = baseHumanHeight / (size.y || 1);
 
-      // 3. 하체(종아리/허벅지) 늘리기/줄이기 계산 (얼굴/상체 변형 방지)
+      // 3. 하체 늘리기/줄이기 계산 (얼굴/상체 변형 완벽 방지)
       const localEarYFromBottom = size.y * 0.927; // 귀 위치 (약 92.7%)
-      const localWaistY = size.y * 0.55;          // 허리 위치 (55%)
-      const localAnkleY = size.y * 0.05;          // 발목 위치 (5%)
+      const localWaistY = size.y * 0.48;          // 허리/골반 위치 (48%)
+      const localAnkleY = size.y * 0.08;          // 발목 위치 (8%)
 
       const targetLocalEarYFromBottom = earLevel / scale;
       let diff = targetLocalEarYFromBottom - localEarYFromBottom;
       let sinkOffset = 0;
 
-      // 극단적으로 귀 높이를 낮추거나 스케일을 2배 이상 키울 경우 
-      // 다리가 뒤집히는(Invert) 것을 방지하고 최소 다리 길이를 보장
-      const minLegLength = size.y * 0.15;
+      // 극단적으로 귀 높이를 낮출 경우 다리가 역전(Invert)되지 않도록 최소 길이 보장
+      const minLegLength = size.y * 0.10;
       if (localWaistY + diff < localAnkleY + minLegLength) {
           const allowedDiff = (localAnkleY + minLegLength) - localWaistY;
           sinkOffset = diff - allowedDiff; // 다리를 한계까지 줄인 후 남은 차이는 땅으로 꺼지게 함
@@ -194,15 +193,15 @@
               const yFromBottom = y - box.min.y;
 
               if (yFromBottom > localWaistY) {
-                  // 허리 위 상체/얼굴: 형태를 100% 유지한 채 그대로 이동 (늘어남 X)
+                  // 허리 위 상체/얼굴: 형태를 100% 유지한 채 그대로 높이만 이동 (비율 왜곡 X)
                   pos.setY(i, y + diff);
               } else if (yFromBottom > localAnkleY) {
-                  // 발목 ~ 허리 사이 (다리): 부드럽게 보간하며 길어지거나 짧아짐
+                  // 발목 ~ 허리 사이 (다리): 단순 선형 보간(Linear)으로 늘림/줄임
+                  // ※ 이전의 곡선(Smooth) 보간은 다리 중간을 접히게 만들었으므로 선형으로 수정하여 찢어짐 완벽 해결
                   const t = (yFromBottom - localAnkleY) / (localWaistY - localAnkleY);
-                  const smoothT = t * t * (3 - 2 * t);
-                  pos.setY(i, y + diff * smoothT);
+                  pos.setY(i, y + diff * t);
               }
-              // 발목 아래(발): y 위치 변경 없음 (바닥에 고정)
+              // 발목 아래(발): y 위치 변경 없음 (바닥에 완벽히 고정)
           }
           child.geometry.computeVertexNormals();
         }
