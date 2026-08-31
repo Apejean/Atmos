@@ -136,121 +136,163 @@
       roomGroup.add(new THREE.Line(floorGeo, floorMat));
     }
 
-    // --- 5. Smart 3D Listener Mannequin System (FinalBaseMesh OBJ + Acoustic Ear Canal Alignment) ---
+    // --- 5. Studio Listener Mannequin Head (High-Gloss Porcelain Display Head & Stand) ---
     let currentEarLevel = 1.2;
-    let cachedOBJModel = null;
-    let mannequinScale = 1.2; // Multiplier (1.0 = standard 1.75m human body, 1.2 = prominent studio size)
+    let cachedBustModel = null;
+    let mannequinScale = 1.0; // 1.0 = Natural human proportions
 
-    function renderListenerOBJ(obj, earLevel) {
-      // 1. 로직 프로 스타일 무광 스튜디오 그레이 머티리얼 적용
-      const dummyMat = new THREE.MeshStandardMaterial({
-        color: 0x8a9ba8,
-        roughness: 0.55,
-        metalness: 0.05
+    function renderStudioStand(bustBottomY, earLevel) {
+      const standGroup = new THREE.Group();
+
+      // 1. Sleek Studio Mount Collar (Connects smooth curved neck base to stand tube)
+      const collarGeo = new THREE.CylinderGeometry(0.055 * mannequinScale, 0.028 * mannequinScale, 0.035, 32);
+      const collarMat = new THREE.MeshStandardMaterial({
+        color: 0x1e293b,
+        metalness: 0.85,
+        roughness: 0.25
+      });
+      const collarMesh = new THREE.Mesh(collarGeo, collarMat);
+      collarMesh.position.set(0, bustBottomY - 0.018, 0);
+      standGroup.add(collarMesh);
+
+      // 2. Telescoping Center Column (Brushed dark satin metal pole)
+      const baseTopY = 0.025;
+      const poleTopY = bustBottomY - 0.03;
+      const poleHeight = Math.max(0.06, poleTopY - baseTopY);
+      const poleGeo = new THREE.CylinderGeometry(0.024 * mannequinScale, 0.024 * mannequinScale, poleHeight, 32);
+      const poleMat = new THREE.MeshStandardMaterial({
+        color: 0x334155,
+        metalness: 0.9,
+        roughness: 0.2
+      });
+      const poleMesh = new THREE.Mesh(poleGeo, poleMat);
+      poleMesh.position.set(0, baseTopY + poleHeight / 2, 0);
+      standGroup.add(poleMesh);
+
+      // 3. Telescopic Height Adjustment Clamp
+      const clampGeo = new THREE.CylinderGeometry(0.032 * mannequinScale, 0.032 * mannequinScale, 0.022, 32);
+      const clampMat = new THREE.MeshStandardMaterial({
+        color: 0x0f172a,
+        metalness: 0.95,
+        roughness: 0.15
+      });
+      const clampMesh = new THREE.Mesh(clampGeo, clampMat);
+      clampMesh.position.set(0, baseTopY + poleHeight * 0.55, 0);
+      standGroup.add(clampMesh);
+
+      // 4. Weighted Studio Floor Base (Beveled metal disc on floor)
+      const baseGeo = new THREE.CylinderGeometry(0.20 * mannequinScale, 0.24 * mannequinScale, 0.02, 48);
+      const baseMat = new THREE.MeshStandardMaterial({
+        color: 0x1e293b,
+        metalness: 0.75,
+        roughness: 0.35
+      });
+      const baseMesh = new THREE.Mesh(baseGeo, baseMat);
+      baseMesh.position.set(0, 0.01, 0);
+      standGroup.add(baseMesh);
+
+      // 5. Sweet Spot Glowing Cyan Ring
+      const ringRadius = 0.34 * Math.max(1.0, mannequinScale);
+      const ringGeo = new THREE.RingGeometry(ringRadius * 0.92, ringRadius, 48);
+      ringGeo.rotateX(-Math.PI / 2);
+      const ringMat = new THREE.MeshBasicMaterial({
+        color: 0x38bdf8,
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: 0.7
+      });
+      const ringMesh = new THREE.Mesh(ringGeo, ringMat);
+      ringMesh.position.set(0, 0.005, 0);
+      standGroup.add(ringMesh);
+
+      listenerGroup.add(standGroup);
+    }
+
+    function renderListenerBust(obj, earLevel) {
+      // 1. High-Gloss Studio Porcelain White Material (Matching Image 2 Reference)
+      const bustMat = new THREE.MeshPhysicalMaterial({
+        color: 0xf3f4f6,
+        roughness: 0.18,
+        metalness: 0.04,
+        clearcoat: 1.0,
+        clearcoatRoughness: 0.06,
+        reflectivity: 0.8
+      });
+      obj.traverse((child) => {
+        if (child.isMesh) {
+          child.material = bustMat;
+          child.castShadow = true;
+          child.receiveShadow = true;
+        }
       });
 
-      // 2. 바운딩 박스 및 스케일 계산
+      // 2. Realistic Adult Human Proportions
       const box = new THREE.Box3().setFromObject(obj);
       const size = new THREE.Vector3();
       box.getSize(size);
       const center = new THREE.Vector3();
       box.getCenter(center);
 
-      // 머리/상체 비율은 표준 성인(1.75m) 기준으로 고정하여 거인이 되지 않도록 함
-      const baseHumanHeight = 1.75 * mannequinScale;
-      const scale = baseHumanHeight / (size.y || 1);
-
-      // 3. 하체 늘리기/줄이기 계산 (얼굴/상체 변형 완벽 방지)
-      const localEarYFromBottom = size.y * 0.927; // 귀 위치 (약 92.7%)
-      const localWaistY = size.y * 0.48;          // 허리/골반 위치 (48%)
-      const localAnkleY = size.y * 0.08;          // 발목 위치 (8%)
-
-      const targetLocalEarYFromBottom = earLevel / scale;
-      let diff = targetLocalEarYFromBottom - localEarYFromBottom;
-      let sinkOffset = 0;
-
-      // 극단적으로 귀 높이를 낮출 경우 다리가 역전(Invert)되지 않도록 최소 길이 보장
-      const minLegLength = size.y * 0.10;
-      if (localWaistY + diff < localAnkleY + minLegLength) {
-          const allowedDiff = (localAnkleY + minLegLength) - localWaistY;
-          sinkOffset = diff - allowedDiff; // 다리를 한계까지 줄인 후 남은 차이는 땅으로 꺼지게 함
-          diff = allowedDiff;
-      }
-
-      // 4. 버텍스(정점) 조작으로 하체만 동적 보정
-      obj.traverse((child) => {
-        if (child.isMesh) {
-          child.material = dummyMat;
-          child.castShadow = true;
-          child.receiveShadow = true;
-
-          // 원본 캐시 훼손 방지를 위해 Geometry 복제
-          child.geometry = child.geometry.clone();
-          const pos = child.geometry.attributes.position;
-
-          for (let i = 0; i < pos.count; i++) {
-              const y = pos.getY(i);
-              const yFromBottom = y - box.min.y;
-
-              if (yFromBottom > localWaistY) {
-                  // 허리 위 상체/얼굴: 형태를 100% 유지한 채 그대로 높이만 이동 (비율 왜곡 X)
-                  pos.setY(i, y + diff);
-              } else if (yFromBottom > localAnkleY) {
-                  // 발목 ~ 허리 사이 (다리): 단순 선형 보간(Linear)으로 늘림/줄임
-                  // ※ 이전의 곡선(Smooth) 보간은 다리 중간을 접히게 만들었으므로 선형으로 수정하여 찢어짐 완벽 해결
-                  const t = (yFromBottom - localAnkleY) / (localWaistY - localAnkleY);
-                  pos.setY(i, y + diff * t);
-              }
-              // 발목 아래(발): y 위치 변경 없음 (바닥에 완벽히 고정)
-          }
-          child.geometry.computeVertexNormals();
-        }
-      });
+      // Standard anatomical head scale (ear-to-head-top ~ 13cm)
+      const rawEarY = 19.232;
+      const rawTopY = box.max.y;
+      const rawHeadTopOffset = Math.max(0.5, rawTopY - rawEarY);
+      const targetHeadTopOffset = 0.13 * mannequinScale; // 13cm
+      const scale = (targetHeadTopOffset / rawHeadTopOffset);
 
       obj.scale.set(scale, scale, scale);
 
-      // 5. 최종 배치 (발을 정확히 Y=0 바닥에 고정)
-      obj.position.set(-center.x * scale, (-box.min.y + sinkOffset) * scale, -center.z * scale);
+      // 3. Exact Ear Canal Axis Alignment (Y = earLevel)
+      const earOffsetY = rawEarY * scale;
+      obj.position.set(-center.x * scale, earLevel - earOffsetY, -center.z * scale);
       listenerGroup.add(obj);
-      console.log(`[ATMOS 3D] Smart Mannequin Rendered: earLevel=${earLevel}m, scale=${mannequinScale}, diff=${diff.toFixed(2)}, sink=${sinkOffset.toFixed(2)}`);
+
+      // 4. Calculate bottom of bust and render matching telescopic stand
+      const bustBottomY = earLevel - (rawEarY - box.min.y) * scale;
+      renderStudioStand(bustBottomY, earLevel);
+
+      console.log(`[ATMOS 3D] Studio Bust Rendered: earLevel=${earLevel.toFixed(3)}m, bustBottom=${bustBottomY.toFixed(3)}m, totalBustHeight=${(size.y * scale).toFixed(3)}m`);
     }
 
     function buildListenerMannequin(earLevel = 1.2) {
       currentEarLevel = earLevel;
 
-      // 기존 메쉬 정리
+      // Clean existing objects
       while (listenerGroup.children.length > 0) {
         const obj = listenerGroup.children[0];
         if (obj.geometry) obj.geometry.dispose();
         listenerGroup.remove(obj);
       }
 
-      // 바닥 청록색 스윗스팟 링 고정 (Y = 0.02m)
-      const ringRadius = 0.45 * Math.max(1.0, mannequinScale);
-      const ringGeo = new THREE.RingGeometry(ringRadius * 0.9, ringRadius, 48);
-      ringGeo.rotateX(-Math.PI / 2);
-      const ringMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8, side: THREE.DoubleSide, transparent: true, opacity: 0.6 });
-      const ringMesh = new THREE.Mesh(ringGeo, ringMat);
-      ringMesh.position.set(0, 0.02, 0);
-      listenerGroup.add(ringMesh);
-
-      if (cachedOBJModel) {
-        renderListenerOBJ(cachedOBJModel.clone(true), currentEarLevel);
+      if (cachedBustModel) {
+        renderListenerBust(cachedBustModel.clone(true), currentEarLevel);
         return;
       }
 
-      // FinalBaseMesh.obj 3D 모델 로드
+      // Load listener_bust.obj (Option 1 Studio Model)
       if (typeof THREE.OBJLoader !== 'undefined') {
         const objLoader = new THREE.OBJLoader();
         objLoader.load(
-          '../models/listener_head.obj',
+          '../models/listener_bust.obj',
           function (obj) {
-            cachedOBJModel = obj;
-            renderListenerOBJ(obj.clone(true), currentEarLevel);
+            cachedBustModel = obj;
+            renderListenerBust(obj.clone(true), currentEarLevel);
           },
           undefined,
           function (err) {
-            console.warn('OBJ 로드 실패 또는 경로 오류:', err);
+            console.warn('listener_bust.obj 로드 실패, listener_head.obj 로드 시도:', err);
+            objLoader.load(
+              '../models/listener_head.obj',
+              function (fallbackObj) {
+                cachedBustModel = fallbackObj;
+                renderListenerBust(fallbackObj.clone(true), currentEarLevel);
+              },
+              undefined,
+              function (err2) {
+                console.error('3D 모델 로드 실패:', err2);
+                renderStudioStand(currentEarLevel - 0.45, currentEarLevel);
+              }
+            );
           }
         );
       }
@@ -382,6 +424,26 @@
       const dispCone = new THREE.Mesh(coneGeo, coneMat);
       dispCone.position.set(0, 0.0, frontZ);
       group.add(dispCone);
+
+      // --- 스마트 타겟팅 라인 (조준선 레이저) ---
+      // 룸의 대각선 길이를 대략적으로 구해서 넉넉한 레이저 길이 설정
+      const maxRoomDim = Math.max(currentRoom.width || 15, currentRoom.depth || 15, currentRoom.height || 5) * 1.5;
+      
+      const laserMat = new THREE.LineBasicMaterial({ 
+        color: 0xef4444, // 초기 색상: 빨강 (Miss)
+        transparent: true, 
+        opacity: 0.6,
+        linewidth: 2
+      });
+      const laserPoints = [];
+      laserPoints.push(new THREE.Vector3(0, 0, 0));
+      laserPoints.push(new THREE.Vector3(0, 0, maxRoomDim)); // 스피커 Z축(앞)으로 레이저 발사
+      const laserGeo = new THREE.BufferGeometry().setFromPoints(laserPoints);
+      const laserLine = new THREE.Line(laserGeo, laserMat);
+      // 위치를 콘(트위터 앞면)과 동일하게 맞춤
+      laserLine.position.set(0, 0.0, frontZ);
+      laserLine.userData.isTargetLaser = true;
+      group.add(laserLine);
 
       // --- 6.6 Position & 3D Rotation Transform ---
       const posX = speakerData.x - (currentRoom.width / 2);
