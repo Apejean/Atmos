@@ -30,6 +30,11 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
   }
 
   void _syncDefaultRooms() {
+    final roomState = ref.read(roomZoneProvider.notifier);
+    if (!roomState.isLoaded) {
+      Future.delayed(const Duration(milliseconds: 100), _syncDefaultRooms);
+      return;
+    }
     final rooms = ref.read(roomZoneProvider);
 
     if (rooms.isEmpty) {
@@ -50,9 +55,9 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
       setState(() {
         _selectedRoomId = defaultRoom.id;
       });
-    } else if (_selectedRoomId == null || !rooms.any((r) => r.id == _selectedRoomId)) {
+    } else if (_selectedRoomId == null || !ref.read(roomZoneProvider).any((r) => r.id == _selectedRoomId)) {
       setState(() {
-        _selectedRoomId = rooms.first.id;
+        _selectedRoomId = ref.read(roomZoneProvider).first.id;
       });
     }
   }

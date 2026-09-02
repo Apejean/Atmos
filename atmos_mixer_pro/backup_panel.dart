@@ -11,54 +11,6 @@ import 'package:atmos_mixer_pro/core/state/global_state.dart';
 import 'package:atmos_mixer_pro/features/exhibition/state/blueprint_state.dart';
 import 'package:atmos_mixer_pro/features/settings/widgets/reverb_settings_modal.dart';
 
-class CrossoverCurveIcon extends StatelessWidget {
-  final Color color;
-  final double size;
-  const CrossoverCurveIcon({
-    super.key,
-    this.color = const Color(0xFF00E5FF),
-    this.size = 18.0,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return CustomPaint(
-      size: Size(size, size),
-      painter: _CrossoverCurvePainter(color: color),
-    );
-  }
-}
-
-class _CrossoverCurvePainter extends CustomPainter {
-  final Color color;
-  _CrossoverCurvePainter({required this.color});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final basePaint = Paint()
-      ..color = Colors.white24
-      ..strokeWidth = 1.0
-      ..style = PaintingStyle.stroke;
-    canvas.drawLine(Offset(0, size.height * 0.7), Offset(size.width, size.height * 0.7), basePaint);
-
-    final curvePaint = Paint()
-      ..color = color
-      ..strokeWidth = 1.8
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
-
-    final path = Path()
-      ..moveTo(0, size.height * 0.3)
-      ..lineTo(size.width * 0.35, size.height * 0.3)
-      ..cubicTo(size.width * 0.65, size.height * 0.3, size.width * 0.7, size.height * 0.85, size.width, size.height * 0.85);
-
-    canvas.drawPath(path, curvePaint);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
-
 class SpeakerInspectorPanel extends ConsumerStatefulWidget {
   final String speakerId;
   final VoidCallback onClose;
@@ -274,101 +226,67 @@ class _SpeakerInspectorPanelState extends ConsumerState<SpeakerInspectorPanel> {
             child: ListView(
               padding: const EdgeInsets.all(16),
               children: [
-                // 1. Speaker Inspector Accordion
-                Theme(
-                  data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF1E2632).withValues(alpha: 0.8),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
-                    ),
-                    child: Material(
-                      color: Colors.transparent,
-                      child: ExpansionTile(
-                        initiallyExpanded: true,
-                        collapsedIconColor: Colors.white54,
-                        iconColor: Colors.white,
-                        leading: const Icon(Icons.speaker_outlined, size: 18, color: Colors.white70),
-                        title: const Text('Speaker Inspector', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
-                        children: [
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                            child: Column(
-                              children: [
-                                _buildControlBox('assets/3d_simulator/icons/icon_x.svg', 'X Position', speaker.x, 'm', 0.25, roomW - 0.25, speaker.isFixed ? null : (v) => _updateSpeaker(speaker, x: v)),
-                                _buildControlBox('assets/3d_simulator/icons/icon_y.svg', 'Y Position', speaker.y, 'm', 0.25, roomD - 0.25, speaker.isFixed ? null : (v) => _updateSpeaker(speaker, y: v)),
-                                _buildControlBox('assets/3d_simulator/icons/icon_height.svg', 'Z Height', speaker.heightZ, 'm', 0.25, roomH - 0.25, speaker.isFixed ? null : (v) => _updateSpeaker(speaker, z: v)),
-                                _buildControlBox('assets/3d_simulator/icons/icon_yaw.svg', 'Yaw (Rotation)', speaker.rotation, '°', -180.0, 180.0, speaker.isFixed ? null : (v) => _updateSpeaker(speaker, rot: v)),
-                                _buildControlBox('assets/3d_simulator/icons/icon_tilt.svg', 'Pitch (Tilt)', speaker.pitchTilt, '°', -90.0, 90.0, speaker.isFixed ? null : (v) => _updateSpeaker(speaker, tilt: v)),
-                                _buildControlBox('assets/3d_simulator/icons/icon_dispersion.svg', 'Dispersion', speaker.dispersionAngle, '°', 10.0, 180.0, speaker.isFixed ? null : (v) => _updateSpeaker(speaker, disp: v)),
-                                const SizedBox(height: 8),
-                                // Auto-Aim Button
-                                          if (!speaker.isFixed)
-                                            Padding(
-                                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                                              child: SizedBox(
-                                                width: double.infinity,
-                                                child: OutlinedButton.icon(
-                                                  onPressed: () {
-                                                    final bp = ref.read(blueprintProvider);
-                                                    final currentRoom = ref.read(roomZoneProvider).where((r) => r.id == speaker.roomId).firstOrNull;
-                                                    final roomW = currentRoom?.physicalWidth ?? bp.canvasWidthMeters;
-                                                    final roomD = currentRoom?.physicalHeight ?? bp.canvasHeightMeters;
-                                                    final earLevel = currentRoom?.earLevel ?? 1.2;
-                                
-                                                    // Speaker coordinates relative to center (0,0)
-                                                    final spkX = speaker.x - (roomW / 2);
-                                                    final spkZ = speaker.y - (roomD / 2);
-                                                    final spkY = speaker.heightZ;
-                                
-                                                    // Target (Mannequin Ear)
-                                                    final tarX = 0.0;
-                                                    final tarY = earLevel;
-                                                    final tarZ = 0.0;
-                                
-                                                    // Calculate direction
-                                                    final dx = tarX - spkX;
-                                                    final dy = tarY - spkY;
-                                                    final dz = tarZ - spkZ;
-                                
-                                                    // Yaw = atan2(dx, dz)
-                                                    final yawDeg = math.atan2(dx, dz) * 180 / math.pi;
-                                                    
-                                                    // Pitch = atan2(dy, distance_xz)
-                                                    final distXZ = math.sqrt(dx * dx + dz * dz);
-                                                    final pitchDeg = math.atan2(dy, distXZ) * 180 / math.pi;
-                                
-                                                    _updateSpeaker(speaker, rot: yawDeg, tilt: pitchDeg);
-                                                  },
-                                                  icon: const Icon(Icons.my_location_rounded, size: 18),
-                                                  label: const Text('Auto-Aim to Listener'),
-                                                  style: OutlinedButton.styleFrom(
-                                                    foregroundColor: const Color(0xFF22C55E),
-                                                    side: const BorderSide(color: Color(0xFF22C55E)),
-                                                    padding: const EdgeInsets.symmetric(vertical: 12),
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-                
+                _buildControlBox('assets/3d_simulator/icons/icon_x.svg', 'X Position', speaker.x, 'm', 0.25, roomW - 0.25, speaker.isFixed ? null : (v) => _updateSpeaker(speaker, x: v)),
+                _buildControlBox('assets/3d_simulator/icons/icon_y.svg', 'Y Position', speaker.y, 'm', 0.25, roomD - 0.25, speaker.isFixed ? null : (v) => _updateSpeaker(speaker, y: v)),
+                _buildControlBox('assets/3d_simulator/icons/icon_height.svg', 'Z Height', speaker.heightZ, 'm', 0.25, roomH - 0.25, speaker.isFixed ? null : (v) => _updateSpeaker(speaker, z: v)),
+                _buildControlBox('assets/3d_simulator/icons/icon_yaw.svg', 'Yaw (Rotation)', speaker.rotation, '°', -180.0, 180.0, speaker.isFixed ? null : (v) => _updateSpeaker(speaker, rot: v)),
+                _buildControlBox('assets/3d_simulator/icons/icon_tilt.svg', 'Pitch (Tilt)', speaker.pitchTilt, '°', -90.0, 90.0, speaker.isFixed ? null : (v) => _updateSpeaker(speaker, tilt: v)),
+                _buildControlBox('assets/3d_simulator/icons/icon_dispersion.svg', 'Dispersion', speaker.dispersionAngle, '°', 10.0, 180.0, speaker.isFixed ? null : (v) => _updateSpeaker(speaker, disp: v)),
                 const SizedBox(height: 8),
-                // 2. Spatial Reverb Card
                 _buildReverbSendCard(context, speaker),
-                
-                // 3. Bass Management Accordion
                 _buildBassManagementCard(context, speaker),
               ],
             ),
           ),
+          
+          // Auto-Aim Button
+          if (!speaker.isFixed)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () {
+                    final bp = ref.read(blueprintProvider);
+                    final currentRoom = ref.read(roomZoneProvider).where((r) => r.id == speaker.roomId).firstOrNull;
+                    final roomW = currentRoom?.physicalWidth ?? bp.canvasWidthMeters;
+                    final roomD = currentRoom?.physicalHeight ?? bp.canvasHeightMeters;
+                    final earLevel = currentRoom?.earLevel ?? 1.2;
+
+                    // Speaker coordinates relative to center (0,0)
+                    final spkX = speaker.x - (roomW / 2);
+                    final spkZ = speaker.y - (roomD / 2);
+                    final spkY = speaker.heightZ;
+
+                    // Target (Mannequin Ear)
+                    final tarX = 0.0;
+                    final tarY = earLevel;
+                    final tarZ = 0.0;
+
+                    // Calculate direction
+                    final dx = tarX - spkX;
+                    final dy = tarY - spkY;
+                    final dz = tarZ - spkZ;
+
+                    // Yaw = atan2(dx, dz)
+                    final yawDeg = math.atan2(dx, dz) * 180 / math.pi;
+                    
+                    // Pitch = atan2(dy, distance_xz)
+                    final distXZ = math.sqrt(dx * dx + dz * dz);
+                    final pitchDeg = math.atan2(dy, distXZ) * 180 / math.pi;
+
+                    _updateSpeaker(speaker, rot: yawDeg, tilt: pitchDeg);
+                  },
+                  icon: const Icon(Icons.my_location_rounded, size: 18),
+                  label: const Text('Auto-Aim to Listener'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF22C55E),
+                    side: const BorderSide(color: Color(0xFF22C55E)),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                ),
+              ),
+            ),
 
           // Footer
           Padding(
@@ -571,88 +489,102 @@ class _SpeakerInspectorPanelState extends ConsumerState<SpeakerInspectorPanel> {
         child: Material(
           color: Colors.transparent,
           child: ExpansionTile(
-            initiallyExpanded: false,
             collapsedIconColor: Colors.white54,
-            iconColor: Colors.white,
-            leading: const CrossoverCurveIcon(color: Color(0xFF00E5FF), size: 18),
-            title: Row(
-              children: [
-                const Expanded(child: Text('Bass Management', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis)),
-                if (isLfe) ...[
-                  const SizedBox(width: 4),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                    decoration: BoxDecoration(color: const Color(0xFF0E1219), borderRadius: BorderRadius.circular(4)),
-                    child: const Text('LFE', style: TextStyle(color: Color(0xFFFF5722), fontSize: 10, fontWeight: FontWeight.bold)),
-                  ),
-                ],
-                const SizedBox(width: 4),
-                if (isLfe)
-                  Transform.scale(
-                    scale: 0.8,
-                    child: Switch(
-                      value: bmState.isEnabled,
-                      activeThumbColor: const Color(0xFFFF5722),
-                      onChanged: (val) {
-                        ref.read(bassManagementProvider.notifier).setEnabled(val);
-                      },
-                    ),
-                  ),
-              ],
-            ),
+          iconColor: const Color(0xFFFF5722),
+          title: Row(
             children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                child: Column(
-                  children: [
+              Container(
+                width: 30,
+                height: 30,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFF5722).withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: const Icon(Icons.speaker_group_rounded, size: 16, color: Color(0xFFFF5722)),
+              ),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text(
+                  'BASS MANAGEMENT',
+                  style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+                ),
+              ),
+              if (bmState.isEnabled && isLfe)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(color: const Color(0xFF0E1219), borderRadius: BorderRadius.circular(4)),
+                  child: const Text('LFE', style: TextStyle(color: Color(0xFFFF5722), fontSize: 10, fontWeight: FontWeight.bold)),
+                ),
+            ],
+          ),
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('Set as LFE Subwoofer', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                      Switch(
+                        value: isLfe,
+                        activeColor: const Color(0xFFFF5722),
+                        onChanged: (val) {
+                          ref.read(bassManagementProvider.notifier).setLfeChannel(val ? speaker.channel : null);
+                        },
+                      ),
+                    ],
+                  ),
+                  if (isLfe) ...[
+                    const Divider(color: Colors.white10, height: 16),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text('Set as LFE Subwoofer', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                        const Text('Enable Bass Mgmt', style: TextStyle(color: Colors.white70, fontSize: 12)),
                         Switch(
-                          value: isLfe,
-                          activeThumbColor: const Color(0xFFFF5722),
+                          value: bmState.isEnabled,
+                          activeColor: const Color(0xFFFF5722),
                           onChanged: (val) {
-                            ref.read(bassManagementProvider.notifier).setLfeChannel(val ? speaker.channel : null);
+                            ref.read(bassManagementProvider.notifier).setEnabled(val);
                           },
                         ),
                       ],
                     ),
-                    if (isLfe) ...[
-                      const Divider(color: Colors.white10, height: 16),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text('Crossover Freq', style: TextStyle(color: Colors.white70, fontSize: 12)),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(color: const Color(0xFF0E1219), borderRadius: BorderRadius.circular(4)),
-                            child: Text('${bmState.crossoverFreq.toInt()} Hz', style: const TextStyle(color: Color(0xFFFF5722), fontSize: 12, fontWeight: FontWeight.bold)),
-                          ),
-                        ],
-                      ),
-                      SliderTheme(
-                        data: SliderTheme.of(context).copyWith(
-                          activeTrackColor: const Color(0xFFFF5722),
-                          thumbColor: const Color(0xFFFF5722),
-                          trackHeight: 2.0,
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('Crossover Freq', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(color: const Color(0xFF0E1219), borderRadius: BorderRadius.circular(4)),
+                          child: Text('${bmState.crossoverFreq.toInt()} Hz', style: const TextStyle(color: Color(0xFFFF5722), fontSize: 12, fontWeight: FontWeight.bold)),
                         ),
-                        child: Slider(
-                          value: bmState.crossoverFreq,
-                          min: 40.0,
-                          max: 200.0,
-                          divisions: 16,
-                          onChanged: (val) {
-                            ref.read(bassManagementProvider.notifier).setCrossoverFreq(val);
-                          },
-                        ),
+                      ],
+                    ),
+                    SliderTheme(
+                      data: SliderTheme.of(context).copyWith(
+                        activeTrackColor: const Color(0xFFFF5722),
+                        thumbColor: const Color(0xFFFF5722),
+                        trackHeight: 2.0,
                       ),
-                    ],
+                      child: Slider(
+                        value: bmState.crossoverFreq,
+                        min: 40.0,
+                        max: 120.0,
+                        divisions: 8,
+                        onChanged: (val) {
+                          ref.read(bassManagementProvider.notifier).setCrossoverFreq(val);
+                        },
+                      ),
+                    ),
                   ],
-                ),
+                ],
               ),
-            ],
-          ),
+            ),
+          ],
+        ),
         ),
       ),
     );

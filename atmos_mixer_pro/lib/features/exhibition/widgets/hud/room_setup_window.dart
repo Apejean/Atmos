@@ -14,8 +14,8 @@ class RoomSetupWindow extends StatefulWidget {
 
 class _RoomSetupWindowState extends State<RoomSetupWindow> {
   late TextEditingController _nameController;
-  double width = 6.0;
-  double depth = 4.5;
+  double width = 5.0;
+  double depth = 5.0;
   double ceilingHeight = 3.0;
   double earLevel = 1.2;
   String materialName = 'Drywall / Glass (Standard Indoor)';

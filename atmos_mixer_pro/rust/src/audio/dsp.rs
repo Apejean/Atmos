@@ -148,7 +148,10 @@ pub mod dsp_utils {
         pub air_absorption: crate::audio::dsp::acoustic_physics::AirAbsorptionFilter,
         pub phase_invert: bool,
         pub target_gain_linear: f32,
+        pub target_reverb_send: f32,
+        pub current_reverb_send: f32,
         pub current_gain_linear: f32,
+        pub reverb: crate::audio::reverb::VirtualRoomReverb,
     }
     
     impl Default for ChannelDspState {
@@ -180,7 +183,10 @@ pub mod dsp_utils {
                 air_absorption: crate::audio::dsp::acoustic_physics::AirAbsorptionFilter::new(),
                 phase_invert: false,
                 target_gain_linear: 1.0,
+                target_reverb_send: 0.0,
+                current_reverb_send: 0.0,
                 current_gain_linear: 1.0,
+                reverb: crate::audio::reverb::VirtualRoomReverb::new(48000.0),
             }
         }
     
@@ -285,6 +291,11 @@ pub mod dsp_utils {
             // Apply Phase Invert
             if self.phase_invert {
                 out *= -1.0;
+            }
+
+            // Apply Channel Independent Reverb
+            if self.reverb.is_enabled && self.reverb.mix > 0.0 {
+                out = self.reverb.process_mono(out);
             }
 
             out

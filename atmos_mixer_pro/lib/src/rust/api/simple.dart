@@ -294,6 +294,61 @@ void apiSetReverbParams({required double mix, required double decay}) => RustLib
     .api
     .crateApiSimpleApiSetReverbParams(mix: mix, decay: decay);
 
+void apiSetChannelReverbSend({required BigInt channel, required double send}) =>
+    RustLib.instance.api.crateApiSimpleApiSetChannelReverbSend(
+      channel: channel,
+      send: send,
+    );
+
+void apiSetSpatialReverb({
+  required bool isEnabled,
+  required double roomSize,
+  required double decayTime,
+  required double preDelayMs,
+  required double damp,
+  required double density,
+  required double dryWet,
+}) => RustLib.instance.api.crateApiSimpleApiSetSpatialReverb(
+  isEnabled: isEnabled,
+  roomSize: roomSize,
+  decayTime: decayTime,
+  preDelayMs: preDelayMs,
+  damp: damp,
+  density: density,
+  dryWet: dryWet,
+);
+
+void apiSetChannelSpatialReverb({
+  required BigInt channel,
+  required bool isEnabled,
+  required double roomSize,
+  required double decayTime,
+  required double preDelayMs,
+  required double damp,
+  required double density,
+  required double dryWet,
+}) => RustLib.instance.api.crateApiSimpleApiSetChannelSpatialReverb(
+  channel: channel,
+  isEnabled: isEnabled,
+  roomSize: roomSize,
+  decayTime: decayTime,
+  preDelayMs: preDelayMs,
+  damp: damp,
+  density: density,
+  dryWet: dryWet,
+);
+
+void apiSetBassManagementEnabled({required bool enabled}) => RustLib
+    .instance
+    .api
+    .crateApiSimpleApiSetBassManagementEnabled(enabled: enabled);
+
+void apiSetCrossoverFrequency({required double freq}) =>
+    RustLib.instance.api.crateApiSimpleApiSetCrossoverFrequency(freq: freq);
+
+void apiSetLfeChannel({BigInt? channel}) =>
+    RustLib.instance.api.crateApiSimpleApiSetLfeChannel(channel: channel);
+
 class ChannelTuningParams {
   final int channel;
   final double delayMs;

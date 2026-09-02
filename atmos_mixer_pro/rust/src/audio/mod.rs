@@ -14,3 +14,4 @@ pub mod analysis;
 pub mod reverb;
 pub mod binaural;
 pub mod offline;
+pub mod crossover;

@@ -61,6 +61,38 @@ pub enum AudioCommand {
         channel: usize,
         delay_ms: f32,
     },
+    SetSpatialReverb {
+        is_enabled: bool,
+        room_size: f32,
+        decay_time: f32,
+        pre_delay_ms: f32,
+        damp: f32,
+        density: f32,
+        dry_wet: f32,
+    },
+    SetChannelSpatialReverb {
+        channel: usize,
+        is_enabled: bool,
+        room_size: f32,
+        decay_time: f32,
+        pre_delay_ms: f32,
+        damp: f32,
+        density: f32,
+        dry_wet: f32,
+    },
+    SetChannelReverbSend {
+        channel: usize,
+        send: f32,
+    },
+    SetBassManagementEnabled {
+        enabled: bool,
+    },
+    SetCrossoverFrequency {
+        freq: f32,
+    },
+    SetLfeChannel {
+        channel: Option<usize>,
+    },
     SetChannelEq {
         channel: usize,
         bands: Vec<crate::common::config::EqBand>,

@@ -68,6 +68,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   Trajectory dco_decode_box_autoadd_trajectory(dynamic raw);
 
   @protected
+  BigInt dco_decode_box_autoadd_usize(dynamic raw);
+
+  @protected
   ChannelSetting dco_decode_channel_setting(dynamic raw);
 
   @protected
@@ -137,6 +140,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   Trajectory? dco_decode_opt_box_autoadd_trajectory(dynamic raw);
+
+  @protected
+  BigInt? dco_decode_opt_box_autoadd_usize(dynamic raw);
 
   @protected
   OscMetricsDto dco_decode_osc_metrics_dto(dynamic raw);
@@ -235,6 +241,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   Trajectory sse_decode_box_autoadd_trajectory(SseDeserializer deserializer);
 
   @protected
+  BigInt sse_decode_box_autoadd_usize(SseDeserializer deserializer);
+
+  @protected
   ChannelSetting sse_decode_channel_setting(SseDeserializer deserializer);
 
   @protected
@@ -318,6 +327,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   Trajectory? sse_decode_opt_box_autoadd_trajectory(
     SseDeserializer deserializer,
   );
+
+  @protected
+  BigInt? sse_decode_opt_box_autoadd_usize(SseDeserializer deserializer);
 
   @protected
   OscMetricsDto sse_decode_osc_metrics_dto(SseDeserializer deserializer);
@@ -437,6 +449,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_box_autoadd_usize(BigInt self, SseSerializer serializer);
+
+  @protected
   void sse_encode_channel_setting(
     ChannelSetting self,
     SseSerializer serializer,
@@ -546,6 +561,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
     Trajectory? self,
     SseSerializer serializer,
   );
+
+  @protected
+  void sse_encode_opt_box_autoadd_usize(BigInt? self, SseSerializer serializer);
 
   @protected
   void sse_encode_osc_metrics_dto(OscMetricsDto self, SseSerializer serializer);

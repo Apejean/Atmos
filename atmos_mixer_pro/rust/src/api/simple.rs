@@ -1830,3 +1830,68 @@ pub fn api_set_reverb_params(mix: f32, decay: f32) {
         .command_sender
         .send(crate::common::commands::AudioCommand::SetReverbParams { mix, decay });
 }
+
+#[flutter_rust_bridge::frb(sync)]
+pub fn api_set_channel_reverb_send(channel: usize, send: f32) {
+    let _ = crate::core::state::GLOBAL_STATE
+        .command_sender
+        .send(crate::common::commands::AudioCommand::SetChannelReverbSend { channel, send });
+}
+
+#[flutter_rust_bridge::frb(sync)]
+pub fn api_set_spatial_reverb(is_enabled: bool, room_size: f32, decay_time: f32, pre_delay_ms: f32, damp: f32, density: f32, dry_wet: f32) {
+    let _ = crate::core::state::GLOBAL_STATE
+        .command_sender
+        .send(crate::common::commands::AudioCommand::SetSpatialReverb {
+            is_enabled,
+            room_size,
+            decay_time,
+            pre_delay_ms,
+            damp,
+            density,
+            dry_wet,
+        });
+}
+
+#[flutter_rust_bridge::frb(sync)]
+pub fn api_set_channel_spatial_reverb(channel: usize, is_enabled: bool, room_size: f32, decay_time: f32, pre_delay_ms: f32, damp: f32, density: f32, dry_wet: f32) {
+    let _ = crate::core::state::GLOBAL_STATE
+        .command_sender
+        .send(crate::common::commands::AudioCommand::SetChannelSpatialReverb {
+            channel,
+            is_enabled,
+            room_size,
+            decay_time,
+            pre_delay_ms,
+            damp,
+            density,
+            dry_wet,
+        });
+}
+
+#[flutter_rust_bridge::frb(sync)]
+pub fn api_set_bass_management_enabled(enabled: bool) {
+    let _ = crate::core::state::GLOBAL_STATE
+        .command_sender
+        .send(crate::common::commands::AudioCommand::SetBassManagementEnabled {
+            enabled,
+        });
+}
+
+#[flutter_rust_bridge::frb(sync)]
+pub fn api_set_crossover_frequency(freq: f32) {
+    let _ = crate::core::state::GLOBAL_STATE
+        .command_sender
+        .send(crate::common::commands::AudioCommand::SetCrossoverFrequency {
+            freq,
+        });
+}
+
+#[flutter_rust_bridge::frb(sync)]
+pub fn api_set_lfe_channel(channel: Option<usize>) {
+    let _ = crate::core::state::GLOBAL_STATE
+        .command_sender
+        .send(crate::common::commands::AudioCommand::SetLfeChannel {
+            channel,
+        });
+}

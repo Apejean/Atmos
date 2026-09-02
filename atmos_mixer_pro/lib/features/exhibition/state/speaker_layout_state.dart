@@ -93,8 +93,8 @@ class SpeakerLayoutState extends Notifier<List<SpeakerNode>> {
           final node = nodes.where((n) => n.channel == index).firstOrNull;
           if (node == null) return null;
           return {
-            'x': node.x / ref.read(blueprintProvider).scale,
-            'y': node.y / ref.read(blueprintProvider).scale,
+            'x': node.x,
+            'y': node.y,
             'z': node.heightZ,
             'yaw_rotation': node.rotation,
             'pitch_tilt': node.pitchTilt,
@@ -159,6 +159,13 @@ class SpeakerLayoutState extends Notifier<List<SpeakerNode>> {
       for (final n in state)
         if (n.id == node.id) node else n,
     ];
+    
+    // Sync to Rust Backend (0-indexed channel, normalized 0.0 ~ 1.0 send)
+    try {
+      final chIdx = (node.channel > 0) ? (node.channel - 1) : (int.tryParse(node.id.replaceAll('spk_', '')) ?? 0);
+      final normalizedSend = (node.reverbSend > 1.0 ? (node.reverbSend / 100.0) : node.reverbSend).clamp(0.0, 1.0);
+      rust_api.apiSetChannelReverbSend(channel: BigInt.from(chIdx), send: normalizedSend);
+    } catch (_) {}
     if (immediate) {
       _saveToPrefsImmediate();
     } else {

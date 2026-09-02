@@ -1,10 +1,13 @@
 <svg width="64" height="64" viewBox="0 0 64 64" fill="none" stroke="#4FC3F7" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg">
-  <!-- Floor Grid -->
+  <!-- Floor Grid (Isometric Square) -->
   <polygon points="32,60 6,47 32,34 58,47" fill="#4FC3F7" fill-opacity="0.1" stroke-width="1.5" />
   <polygon points="32,54 14,45 32,36 50,45" stroke="#4FC3F7" stroke-width="0.8" stroke-opacity="0.5" />
-  
-  <!-- Solid Speaker (Center) -->
-  <g stroke-width="1.2" fill="#0F1722" fill-opacity="0.9">
+
+  <!-- Back arc of horizontal Yaw rotation circle (dashed) -->
+  <path d="M 54 35 C 54 27, 10 27, 10 35" stroke-width="1.2" stroke-dasharray="2 3" opacity="0.4" />
+
+  <!-- Solid 3D Speaker (Center) -->
+  <g stroke-width="1.2" fill="#0F1722" fill-opacity="0.95">
     <polygon points="32,24 42,29 32,34 22,29" />
     <polygon points="32,34 42,29 42,45 32,50" />
     <polygon points="22,29 32,34 32,50 22,45" />
@@ -15,10 +18,9 @@
     </g>
   </g>
 
-  <!-- X-Axis Double Arrow (Shifted along diagonal: (22, 9) -> (54, 25), Perfectly Centered over Right-axis) -->
-  <line x1="22" y1="9" x2="54" y2="25" stroke-width="1.8" />
-  <!-- Left Arrowhead -->
-  <path d="M 28 8 L 22 9 L 24 15" stroke-width="1.8" />
-  <!-- Right Arrowhead -->
-  <path d="M 48 26 L 54 25 L 52 19" stroke-width="1.8" />
+  <!-- Front arc of horizontal Yaw rotation circle (Seamlessly connected to right arrowhead tip at (54, 31)) -->
+  <path d="M 10 35 C 10 44, 54 44, 54 31" stroke-width="1.8" />
+  
+  <!-- Right Arrowhead (Single Arrow, seamlessly centered on arc endpoint) -->
+  <path d="M 49 36 L 54 31 L 58 36" stroke-width="1.8" />
 </svg>

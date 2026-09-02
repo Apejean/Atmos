@@ -15,10 +15,10 @@
     </g>
   </g>
 
-  <!-- Y-Axis Double Arrow (Bottom-Left to Top-Right -> 앞뒤 이동) -->
-  <line x1="16" y1="30" x2="48" y2="14" stroke-width="2" />
+  <!-- Y-Axis Double Arrow (Shifted along diagonal: (10, 25) -> (42, 9), Perfectly Centered over Left-axis) -->
+  <line x1="10" y1="25" x2="42" y2="9" stroke-width="1.8" />
   <!-- Left Arrowhead -->
-  <path d="M 22 31 L 16 30 L 17 24" stroke-width="2" />
+  <path d="M 16 26 L 10 25 L 12 19" stroke-width="1.8" />
   <!-- Right Arrowhead -->
-  <path d="M 42 13 L 48 14 L 47 20" stroke-width="2" />
+  <path d="M 36 8 L 42 9 L 40 15" stroke-width="1.8" />
 </svg>

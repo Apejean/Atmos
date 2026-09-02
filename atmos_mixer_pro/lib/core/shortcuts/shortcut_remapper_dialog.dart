@@ -37,7 +37,7 @@ class ShortcutRemapperDialog extends StatelessWidget {
               separatorBuilder: (context, index) => const Divider(color: Colors.white12),
               itemBuilder: (context, index) {
                 final item = items[index];
-                return ListTile(
+                return Material(color: Colors.transparent, child: ListTile(
                   dense: true,
                   title: Text(item.name, style: const TextStyle(color: Colors.white, fontSize: 13)),
                   subtitle: Text(item.category, style: const TextStyle(color: Colors.white38, fontSize: 11)),
@@ -53,7 +53,7 @@ class ShortcutRemapperDialog extends StatelessWidget {
                       style: const TextStyle(color: AppColors.primaryNeon, fontSize: 12, fontWeight: FontWeight.bold),
                     ),
                   ),
-                );
+                ),);
               },
             );
           },

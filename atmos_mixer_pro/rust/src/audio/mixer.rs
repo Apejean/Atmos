@@ -77,6 +77,10 @@ pub struct AudioMixer {
     pub reverb: crate::audio::reverb::VirtualRoomReverb,
     pub binaural: crate::audio::binaural::VirtualMixRoomBinaural,
     pub smoothed_trajectory_pos: Option<crate::common::config::Point3D>,
+    // Bass Management (LR24)
+    pub bass_management_enabled: bool,
+    pub lfe_channel_idx: Option<usize>,
+    pub crossovers: Vec<crate::audio::crossover::LinkwitzRiley24>,
 }
 
 impl AudioMixer {
@@ -212,7 +216,14 @@ impl AudioMixer {
             reverb: crate::audio::reverb::VirtualRoomReverb::new(sample_rate as f32),
             binaural: crate::audio::binaural::VirtualMixRoomBinaural::new(channels, 8192), // Using 1024 as default block size for now
             smoothed_trajectory_pos: trajectory.as_ref().map(|t| t.current_position.clone()),
+            bass_management_enabled: false,
+            lfe_channel_idx: Some(3),
+            crossovers: vec![crate::audio::crossover::LinkwitzRiley24::new(); channels],
         };
+        
+        for c in mixer.crossovers.iter_mut() {
+            c.set_crossover_freq(80.0, sample_rate as f32);
+        }
         
         mixer.recalculate_spatial_dsp();
         
@@ -688,6 +699,10 @@ impl AudioMixer {
         // Apply Channel DSP
         let fs = self.sample_rate as f32;
         let dsp_limit = self.channel_dsp.len().min(out_channels);
+        
+        let bm_enabled = self.bass_management_enabled;
+        let lfe_idx = self.lfe_channel_idx;
+        let mut lfe_sub_mix = vec![0.0; frames];
         for ch in 0..dsp_limit {
             let is_enabled = if ch < GLOBAL_STATE.enabled_channels.len() {
                 GLOBAL_STATE.enabled_channels[ch].load(Ordering::Relaxed)
@@ -701,6 +716,19 @@ impl AudioMixer {
                 if sample_idx < output.len() {
                     let mut val = output[sample_idx];
                     val = self.channel_dsp[ch].process(val, fs);
+                    
+                    // Bass Management Routing (LR24)
+                    if bm_enabled && ch < self.crossovers.len() {
+                        if Some(ch) == lfe_idx {
+                            // Subwoofer channel: skip HPF, it will receive the accumulated LPF mix later
+                        } else {
+                            // Satellite channels: Split into HPF (keeps in channel) and LPF (sends to sub)
+                            let low_val = self.crossovers[ch].process_low(val);
+                            val = self.crossovers[ch].process_high(val);
+                            lfe_sub_mix[frame] += low_val;
+                        }
+                    }
+                    
                     output[sample_idx] = val;
                 }
             }
@@ -718,6 +746,20 @@ impl AudioMixer {
                     let (rl, rr) = self.reverb.process_stereo(output[idx_l], output[idx_r]);
                     output[idx_l] = rl;
                     output[idx_r] = rr;
+                }
+            }
+        }
+
+        // Add accumulated bass to the LFE channel output
+        if bm_enabled {
+            if let Some(idx) = lfe_idx {
+                if idx < out_channels {
+                    for frame in 0..frames {
+                        let sample_idx = frame * out_channels + idx;
+                        if sample_idx < output.len() {
+                            output[sample_idx] += lfe_sub_mix[frame];
+                        }
+                    }
                 }
             }
         }

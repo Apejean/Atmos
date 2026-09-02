@@ -151,7 +151,7 @@ class _TrajectorySidebarWidgetState extends ConsumerState<TrajectorySidebarWidge
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
-                        room.name,
+                        room.label,
                         style: const TextStyle(color: Colors.white, fontSize: 14),
                       ),
                     ),

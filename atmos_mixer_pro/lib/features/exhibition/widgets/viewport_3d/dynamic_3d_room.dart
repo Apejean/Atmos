@@ -8,6 +8,7 @@ import "package:atmos_mixer_pro/features/exhibition/state/blueprint_state.dart";
 import "package:atmos_mixer_pro/features/exhibition/models/speaker_node.dart";
 import "package:atmos_mixer_pro/features/exhibition/models/room_zone.dart";
 import "package:atmos_mixer_pro/features/exhibition/state/three_js_engine_provider.dart";
+import "package:atmos_mixer_pro/features/exhibition/widgets/viewport_3d/environment_slider_widget.dart";
 import "dart:async";
 
 class Dynamic3DRoom extends ConsumerStatefulWidget {
@@ -210,6 +211,8 @@ class _Dynamic3DRoomState extends ConsumerState<Dynamic3DRoom> {
                     ),
                   ),
                   const SizedBox(width: 12),
+                  const EnvironmentSliderWidget(),
+                  const SizedBox(width: 12),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
                     height: 24,
@@ -256,7 +259,7 @@ class _Dynamic3DRoomState extends ConsumerState<Dynamic3DRoom> {
               onPressed: () {
                 final newId = "spk_${DateTime.now().millisecondsSinceEpoch}";
                 final nextChannel = speakers.isEmpty
-                    ? 1
+                    ? 0
                     : (speakers.map((s) => s.channel).reduce((a, b) => a > b ? a : b) + 1);
 
                 final newNode = SpeakerNode(

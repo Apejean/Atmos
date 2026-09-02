@@ -507,6 +507,49 @@ impl AudioEngine {
                         }
                     }
                 }
+                AudioCommand::SetChannelReverbSend { channel, send } => {
+                    if channel < mixer.channel_dsp.len() {
+                        mixer.channel_dsp[channel].target_reverb_send = send;
+                    }
+                }
+                AudioCommand::SetSpatialReverb { is_enabled, room_size, decay_time, pre_delay_ms, damp, density, dry_wet } => {
+                    mixer.reverb.is_enabled = is_enabled;
+                    mixer.reverb.room_size = room_size;
+                    mixer.reverb.decay = decay_time;
+                    mixer.reverb.pre_delay_ms = pre_delay_ms;
+                    mixer.reverb.damp = damp;
+                    mixer.reverb.density = density;
+                    mixer.reverb.mix = dry_wet;
+                }
+                AudioCommand::SetChannelSpatialReverb { channel, is_enabled, room_size, decay_time, pre_delay_ms, damp, density, dry_wet } => {
+                    if channel == 0 {
+                        mixer.reverb.is_enabled = is_enabled;
+                        mixer.reverb.room_size = room_size;
+                        mixer.reverb.decay = decay_time;
+                        mixer.reverb.pre_delay_ms = pre_delay_ms;
+                        mixer.reverb.damp = damp;
+                        mixer.reverb.density = density;
+                        mixer.reverb.mix = dry_wet;
+                        for dsp in &mut mixer.channel_dsp {
+                            dsp.reverb.is_enabled = is_enabled;
+                            dsp.reverb.room_size = room_size;
+                            dsp.reverb.decay = decay_time;
+                            dsp.reverb.pre_delay_ms = pre_delay_ms;
+                            dsp.reverb.damp = damp;
+                            dsp.reverb.density = density;
+                            dsp.reverb.mix = dry_wet;
+                        }
+                    } else if (channel - 1) < mixer.channel_dsp.len() {
+                        let ch = channel - 1;
+                        mixer.channel_dsp[ch].reverb.is_enabled = is_enabled;
+                        mixer.channel_dsp[ch].reverb.room_size = room_size;
+                        mixer.channel_dsp[ch].reverb.decay = decay_time;
+                        mixer.channel_dsp[ch].reverb.pre_delay_ms = pre_delay_ms;
+                        mixer.channel_dsp[ch].reverb.damp = damp;
+                        mixer.channel_dsp[ch].reverb.density = density;
+                        mixer.channel_dsp[ch].reverb.mix = dry_wet;
+                    }
+                }
                 AudioCommand::SetChannelDelay { channel, delay_ms } => {
                     if channel < mixer.channel_dsp.len() {
                         mixer.channel_dsp[channel].update_delay_target(delay_ms);
@@ -601,6 +644,18 @@ impl AudioEngine {
                 AudioCommand::ApplyGlobalTuning { master_headroom_db, peak_limiter_enabled } => {
                     mixer.master_headroom_db = master_headroom_db;
                     mixer.peak_limiter_enabled = peak_limiter_enabled;
+                }
+                AudioCommand::SetBassManagementEnabled { enabled } => {
+                    mixer.bass_management_enabled = enabled;
+                }
+                AudioCommand::SetLfeChannel { channel } => {
+                    mixer.lfe_channel_idx = channel;
+                }
+                AudioCommand::SetCrossoverFrequency { freq } => {
+                    let fs = mixer.sample_rate as f32;
+                    for c in mixer.crossovers.iter_mut() {
+                        c.set_crossover_freq(freq, fs);
+                    }
                 }
                 AudioCommand::ApplyAllChannelTunings { tunings } => {
                     for (channel, delay_ms, eq_bands, phase_invert, gain_db) in tunings {

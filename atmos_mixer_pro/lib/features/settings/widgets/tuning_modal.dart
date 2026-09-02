@@ -16,6 +16,7 @@ class ChannelTuningState {
   final double delay;
   final bool phaseInvert;
   final double gainDb;
+  final double reverbSend;
   final List<bool> bandEnabled;
   final List<EqType> bandTypes;
   final List<int> bandSlopes;
@@ -23,11 +24,15 @@ class ChannelTuningState {
   final List<double> gains;
   final List<double> qs;
   final bool isStereoLinked;
+  
+  // ⭐️ 튜닝 완료 후 3D 룸 조작에 의한 덮어쓰기 방지용 잠금 장치
+  final bool isTuningLocked;
 
   ChannelTuningState({
     required this.delay,
     required this.phaseInvert,
     required this.gainDb,
+    this.reverbSend = 0.0,
     required this.bandEnabled,
     required this.bandTypes,
     List<int>? bandSlopes,
@@ -35,6 +40,7 @@ class ChannelTuningState {
     required this.gains,
     required this.qs,
     required this.isStereoLinked,
+    this.isTuningLocked = false,
   }) : bandSlopes = bandSlopes ?? List.filled(8, 12);
 
   factory ChannelTuningState.initial() {
@@ -42,6 +48,7 @@ class ChannelTuningState {
       delay: 0.0,
       phaseInvert: false,
       gainDb: 0.0,
+      reverbSend: 0.0,
       bandEnabled: List.filled(8, false),
       bandTypes: List.filled(8, EqType.bell),
       bandSlopes: List.filled(8, 12),
@@ -52,6 +59,7 @@ class ChannelTuningState {
       gains: List.filled(8, 0.0),
       qs: List.filled(8, 0.707),
       isStereoLinked: true,
+      isTuningLocked: false,
     );
   }
 
@@ -59,6 +67,7 @@ class ChannelTuningState {
     double? delay,
     bool? phaseInvert,
     double? gainDb,
+    double? reverbSend,
     List<bool>? bandEnabled,
     List<EqType>? bandTypes,
     List<int>? bandSlopes,
@@ -66,11 +75,13 @@ class ChannelTuningState {
     List<double>? gains,
     List<double>? qs,
     bool? isStereoLinked,
+    bool? isTuningLocked,
   }) {
     return ChannelTuningState(
       delay: delay ?? this.delay,
       phaseInvert: phaseInvert ?? this.phaseInvert,
       gainDb: gainDb ?? this.gainDb,
+      reverbSend: reverbSend ?? this.reverbSend,
       bandEnabled: bandEnabled ?? this.bandEnabled,
       bandTypes: bandTypes ?? this.bandTypes,
       bandSlopes: bandSlopes ?? this.bandSlopes,
@@ -78,6 +89,7 @@ class ChannelTuningState {
       gains: gains ?? this.gains,
       qs: qs ?? this.qs,
       isStereoLinked: isStereoLinked ?? this.isStereoLinked,
+      isTuningLocked: isTuningLocked ?? this.isTuningLocked,
     );
   }
 
@@ -86,6 +98,7 @@ class ChannelTuningState {
       'delay': delay,
       'phaseInvert': phaseInvert,
       'gainDb': gainDb,
+      'reverbSend': reverbSend,
       'bandEnabled': bandEnabled,
       'bandTypes': bandTypes.map((e) => e.index).toList(),
       'bandSlopes': bandSlopes,
@@ -93,6 +106,7 @@ class ChannelTuningState {
       'gains': gains,
       'qs': qs,
       'isStereoLinked': isStereoLinked,
+      'isTuningLocked': isTuningLocked,
     };
   }
 
@@ -101,6 +115,7 @@ class ChannelTuningState {
       delay: (json['delay'] as num?)?.toDouble() ?? 0.0,
       phaseInvert: (json['phaseInvert'] as bool?) ?? false,
       gainDb: (json['gainDb'] as num?)?.toDouble() ?? 0.0,
+      reverbSend: (json['reverbSend'] as num?)?.toDouble() ?? 0.0,
       bandEnabled: json['bandEnabled'] != null
           ? (json['bandEnabled'] as List).cast<bool>()
           : List.filled(8, false),
@@ -125,6 +140,7 @@ class ChannelTuningState {
           ? (json['qs'] as List).map((e) => (e as num).toDouble()).toList()
           : List.filled(8, 0.707),
       isStereoLinked: (json['isStereoLinked'] as bool?) ?? true,
+      isTuningLocked: (json['isTuningLocked'] as bool?) ?? false,
     );
   }
 }
@@ -136,11 +152,19 @@ class TuningStateNotifier extends Notifier<Map<int, ChannelTuningState>>
 
   @override
   Map<int, ChannelTuningState> build() {
-    WidgetsBinding.instance.addObserver(this);
-    ref.onDispose(() {
-      WidgetsBinding.instance.removeObserver(this);
-      _saveTimer?.cancel();
-    });
+    try {
+      WidgetsBinding.instance.addObserver(this);
+      ref.onDispose(() {
+        try {
+          WidgetsBinding.instance.removeObserver(this);
+        } catch (_) {}
+        _saveTimer?.cancel();
+      });
+    } catch (_) {
+      ref.onDispose(() {
+        _saveTimer?.cancel();
+      });
+    }
     Future.microtask(ensureLoaded);
     return {};
   }
@@ -268,6 +292,7 @@ class TuningStateNotifier extends Notifier<Map<int, ChannelTuningState>>
     state = {...state, channel: tuning};
     _saveTimer?.cancel();
     _saveTimer = Timer(const Duration(milliseconds: 500), _saveToPrefs);
+    applyAllToBackend();
   }
 
   Future<void> _saveToPrefs() async {
@@ -295,11 +320,15 @@ class _TuningModalState extends ConsumerState<TuningModal>
     with SingleTickerProviderStateMixin {
   int _selectedChannel = 1;
   bool _isStereoLinked = true;
+  bool _isTuningLocked = false;
   bool _phaseInvert = false;
   final TextEditingController _delayController = TextEditingController(
     text: '0.0',
   );
   final TextEditingController _gainController = TextEditingController(
+    text: '0.0',
+  );
+  final TextEditingController _reverbSendController = TextEditingController(
     text: '0.0',
   );
 
@@ -420,25 +449,30 @@ class _TuningModalState extends ConsumerState<TuningModal>
     });
   }
 
+  void _safeSetText(TextEditingController ctrl, String val) {
+    if (ctrl.text != val) {
+      ctrl.text = val;
+    }
+  }
+
   void _loadStateForChannel(int channel) {
     final tuning = ref.read(tuningStateProvider.notifier).getTuning(channel);
-    _delayController.text = tuning.delay.toStringAsFixed(1);
-    _gainController.text = tuning.gainDb.toStringAsFixed(1);
+    _safeSetText(_delayController, tuning.delay.toStringAsFixed(1));
+    _safeSetText(_gainController, tuning.gainDb.toStringAsFixed(1));
+    _safeSetText(_reverbSendController, tuning.reverbSend.toStringAsFixed(0));
+    
     _phaseInvert = tuning.phaseInvert;
     _isStereoLinked = tuning.isStereoLinked;
-    _bandEnabled.setAll(0, tuning.bandEnabled);
-    _bandTypes.setAll(0, tuning.bandTypes);
-    _bandSlopes.setAll(
-      0,
-      tuning.bandSlopes.length == 8
-          ? tuning.bandSlopes
-          : List.filled(8, 12),
-    );
-
+    _isTuningLocked = tuning.isTuningLocked;
+    
     for (int i = 0; i < 8; i++) {
-      _freqControllers[i].text = tuning.freqs[i].toStringAsFixed(1);
-      _gainControllers[i].text = tuning.gains[i].toStringAsFixed(1);
-      _qControllers[i].text = tuning.qs[i].toStringAsFixed(3);
+       _bandEnabled[i] = tuning.bandEnabled[i];
+       _bandTypes[i] = tuning.bandTypes[i];
+       _bandSlopes[i] = tuning.bandSlopes.length == 8 ? tuning.bandSlopes[i] : 12;
+       
+       _safeSetText(_freqControllers[i], tuning.freqs[i].toStringAsFixed(1));
+       _safeSetText(_gainControllers[i], tuning.gains[i].toStringAsFixed(1));
+       _safeSetText(_qControllers[i], tuning.qs[i].toStringAsFixed(3));
     }
     _updateAutoScale(force: true);
     setState(() {});
@@ -449,6 +483,7 @@ class _TuningModalState extends ConsumerState<TuningModal>
       delay: double.tryParse(_delayController.text) ?? 0.0,
       phaseInvert: _phaseInvert,
       gainDb: double.tryParse(_gainController.text) ?? 0.0,
+      reverbSend: double.tryParse(_reverbSendController.text) ?? 0.0,
       bandEnabled: List.from(_bandEnabled),
       bandTypes: List.from(_bandTypes),
       bandSlopes: List.from(_bandSlopes),
@@ -460,6 +495,7 @@ class _TuningModalState extends ConsumerState<TuningModal>
           .toList(),
       qs: _qControllers.map((c) => double.tryParse(c.text) ?? 0.707).toList(),
       isStereoLinked: _isStereoLinked,
+      isTuningLocked: _isTuningLocked,
     );
     ref.read(tuningStateProvider.notifier).saveTuning(_selectedChannel, tuning);
 
@@ -493,6 +529,7 @@ class _TuningModalState extends ConsumerState<TuningModal>
     _throttleTimer?.cancel();
     _delayController.dispose();
     _gainController.dispose();
+    _reverbSendController.dispose();
     for (var c in _freqControllers) {
       c.dispose();
     }
@@ -518,6 +555,7 @@ class _TuningModalState extends ConsumerState<TuningModal>
 
       final double delay = double.tryParse(_delayController.text) ?? 0.0;
       final double gain = double.tryParse(_gainController.text) ?? 0.0;
+      final double revSend = (double.tryParse(_reverbSendController.text) ?? 0.0) / 100.0;
       final bool phaseInvert = _phaseInvert;
 
       final List<EqBand> bands = [];
@@ -546,6 +584,7 @@ class _TuningModalState extends ConsumerState<TuningModal>
           gainDb: gain,
         ),
       ];
+      apiSetChannelReverbSend(channel: BigInt.from(targetChannel1), send: revSend.clamp(0.0, 1.0));
 
       if (_isStereoLinked) {
         int targetChannel2 = _selectedChannel % 2 != 0
@@ -560,6 +599,7 @@ class _TuningModalState extends ConsumerState<TuningModal>
             gainDb: gain,
           ),
         );
+        apiSetChannelReverbSend(channel: BigInt.from(targetChannel2), send: revSend.clamp(0.0, 1.0));
       }
       apiApplyAllChannelTunings(tunings: tunings);
 
@@ -1437,6 +1477,15 @@ class _TuningModalState extends ConsumerState<TuningModal>
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(tuningStateProvider, (previous, next) {
+      if (!_isTuningLocked) {
+        final currentTuning = next[_selectedChannel];
+        if (currentTuning != null) {
+          _loadStateForChannel(_selectedChannel);
+        }
+      }
+    });
+
     final hwChannelsAsync = ref.watch(hardwareChannelsProvider);
     final hwChannels = hwChannelsAsync.value ?? [];
     final engineState = ref.watch(engineStateProvider);
@@ -1583,6 +1632,50 @@ class _TuningModalState extends ConsumerState<TuningModal>
                             color: Colors.white,
                             fontSize: 13,
                             fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 14),
+
+                // 2.5 Lock Tuning Toggle
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: InkWell(
+                    onTap: () {
+                      setState(() {
+                        _isTuningLocked = !_isTuningLocked;
+                        _saveCurrentState();
+                      });
+                    },
+                    borderRadius: BorderRadius.circular(4),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 18,
+                          height: 18,
+                          decoration: BoxDecoration(
+                            color: _isTuningLocked ? Colors.redAccent : _inputBg,
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(
+                              color: _isTuningLocked ? Colors.redAccent : _inputBorder,
+                              width: 1,
+                            ),
+                          ),
+                          child: _isTuningLocked
+                              ? const Icon(Icons.lock, size: 12, color: Colors.black)
+                              : const Icon(Icons.lock_open, size: 12, color: Colors.white70),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Lock Tuning',
+                          style: TextStyle(
+                            color: _isTuningLocked ? Colors.redAccent : Colors.white70,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                       ],
