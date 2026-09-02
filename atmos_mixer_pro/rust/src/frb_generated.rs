@@ -136,6 +136,8 @@ fn wire__crate__api__simple__api_apply_channel_tuning_impl(
             let api_channel = <u32>::sse_decode(&mut deserializer);
             let api_delay_ms = <f32>::sse_decode(&mut deserializer);
             let api_eq_bands = <Vec<crate::common::config::EqBand>>::sse_decode(&mut deserializer);
+            let api_phase_invert = <bool>::sse_decode(&mut deserializer);
+            let api_gain_db = <f32>::sse_decode(&mut deserializer);
             deserializer.end();
             move |context| {
                 transform_result_sse::<_, crate::api::error::AtmosError>((move || {
@@ -143,6 +145,8 @@ fn wire__crate__api__simple__api_apply_channel_tuning_impl(
                         api_channel,
                         api_delay_ms,
                         api_eq_bands,
+                        api_phase_invert,
+                        api_gain_db,
                     )?;
                     Ok(output_ok)
                 })())
@@ -2434,10 +2438,14 @@ impl SseDecode for crate::api::simple::ChannelTuningParams {
         let mut var_channel = <u32>::sse_decode(deserializer);
         let mut var_delayMs = <f32>::sse_decode(deserializer);
         let mut var_eqBands = <Vec<crate::common::config::EqBand>>::sse_decode(deserializer);
+        let mut var_phaseInvert = <bool>::sse_decode(deserializer);
+        let mut var_gainDb = <f32>::sse_decode(deserializer);
         return crate::api::simple::ChannelTuningParams {
             channel: var_channel,
             delay_ms: var_delayMs,
             eq_bands: var_eqBands,
+            phase_invert: var_phaseInvert,
+            gain_db: var_gainDb,
         };
     }
 }
@@ -3259,6 +3267,8 @@ impl flutter_rust_bridge::IntoDart for crate::api::simple::ChannelTuningParams {
             self.channel.into_into_dart().into_dart(),
             self.delay_ms.into_into_dart().into_dart(),
             self.eq_bands.into_into_dart().into_dart(),
+            self.phase_invert.into_into_dart().into_dart(),
+            self.gain_db.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
@@ -3668,6 +3678,8 @@ impl SseEncode for crate::api::simple::ChannelTuningParams {
         <u32>::sse_encode(self.channel, serializer);
         <f32>::sse_encode(self.delay_ms, serializer);
         <Vec<crate::common::config::EqBand>>::sse_encode(self.eq_bands, serializer);
+        <bool>::sse_encode(self.phase_invert, serializer);
+        <f32>::sse_encode(self.gain_db, serializer);
     }
 }
 

@@ -88,12 +88,17 @@ pub fn api_get_config(path: String) -> AppConfig {
     let mut tunings = Vec::new();
     for (&ch, setting) in &config.mono_configs {
         if setting.enabled {
-            tunings.push((ch as usize - 1, setting.delay_ms, setting.eq_bands.clone()));
+            tunings.push((ch as usize - 1, setting.delay_ms, setting.eq_bands.clone(), setting.phase_invert, setting.gain_db));
         }
     }
     for (&ch, setting) in &config.stereo_configs {
         if setting.enabled {
-            tunings.push((ch as usize - 1, setting.delay_ms, setting.eq_bands.clone()));
+            tunings.push((ch as usize - 1, setting.delay_ms, setting.eq_bands.clone(), setting.phase_invert, setting.gain_db));
+        }
+    }
+    for (&ch, setting) in &config.multi_configs {
+        if setting.enabled {
+            tunings.push((ch as usize - 1, setting.delay_ms, setting.eq_bands.clone(), setting.phase_invert, setting.gain_db));
         }
     }
     let _ = GLOBAL_STATE.command_sender.send(AudioCommand::ApplyAllChannelTunings { tunings });
@@ -1484,10 +1489,15 @@ pub struct ChannelTuningParams {
     pub channel: u32,
     pub delay_ms: f32,
     pub eq_bands: Vec<EqBand>,
+    pub phase_invert: bool,
+    pub gain_db: f32,
 }
 
 pub fn api_apply_all_channel_tunings(tunings: Vec<ChannelTuningParams>) -> Result<(), AtmosError> {
-    let cmd_tunings = tunings.iter().map(|t| (t.channel as usize, t.delay_ms, t.eq_bands.clone())).collect();
+    let cmd_tunings = tunings
+        .iter()
+        .map(|t| (t.channel as usize, t.delay_ms, t.eq_bands.clone(), t.phase_invert, t.gain_db))
+        .collect();
     GLOBAL_STATE
         .command_sender
         .send(AudioCommand::ApplyAllChannelTunings {
@@ -1498,19 +1508,25 @@ pub fn api_apply_all_channel_tunings(tunings: Vec<ChannelTuningParams>) -> Resul
         })?;
 
     if let Ok(mut config_guard) = GLOBAL_STATE.config.write() {
-    GLOBAL_STATE.config_version.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        GLOBAL_STATE.config_version.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         if let Some(config) = config_guard.as_mut() {
             for t in tunings {
                 let ch_key = t.channel + 1;
                 if let Some(setting) = config.mono_configs.get_mut(&ch_key) {
                     setting.delay_ms = t.delay_ms;
                     setting.eq_bands = t.eq_bands.clone();
+                    setting.phase_invert = t.phase_invert;
+                    setting.gain_db = t.gain_db;
                 } else if let Some(setting) = config.stereo_configs.get_mut(&ch_key) {
                     setting.delay_ms = t.delay_ms;
                     setting.eq_bands = t.eq_bands.clone();
+                    setting.phase_invert = t.phase_invert;
+                    setting.gain_db = t.gain_db;
                 } else if let Some(setting) = config.multi_configs.get_mut(&ch_key) {
                     setting.delay_ms = t.delay_ms;
                     setting.eq_bands = t.eq_bands.clone();
+                    setting.phase_invert = t.phase_invert;
+                    setting.gain_db = t.gain_db;
                 }
             }
         }
@@ -1519,14 +1535,25 @@ pub fn api_apply_all_channel_tunings(tunings: Vec<ChannelTuningParams>) -> Resul
     Ok(())
 }
 
-pub fn api_apply_channel_tuning(channel: u32, delay_ms: f32, eq_bands: Vec<EqBand>) -> Result<(), AtmosError> {
-    println!("🔥 [디버깅] api_apply_channel_tuning 호출됨. 채널: {}, 딜레이: {}ms", channel, delay_ms);
+pub fn api_apply_channel_tuning(
+    channel: u32,
+    delay_ms: f32,
+    eq_bands: Vec<EqBand>,
+    phase_invert: bool,
+    gain_db: f32,
+) -> Result<(), AtmosError> {
+    println!(
+        "🔥 [디버깅] api_apply_channel_tuning 호출됨. 채널: {}, 딜레이: {}ms, 위상반전: {}, 게인: {}dB",
+        channel, delay_ms, phase_invert, gain_db
+    );
     GLOBAL_STATE
         .command_sender
         .send(AudioCommand::ApplyChannelTuning {
             channel: channel as usize,
             delay_ms,
-            eq_bands: eq_bands.clone(), // Send the EqBands directly now
+            eq_bands: eq_bands.clone(),
+            phase_invert,
+            gain_db,
         })
         .map_err(|e| AtmosError {
             message: format!("Failed to apply channel tuning: {}", e),
@@ -1534,18 +1561,24 @@ pub fn api_apply_channel_tuning(channel: u32, delay_ms: f32, eq_bands: Vec<EqBan
 
     // 인메모리 Config 상태 업데이트 (믹서 재시작 시 복구용)
     if let Ok(mut config_guard) = GLOBAL_STATE.config.write() {
-    GLOBAL_STATE.config_version.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        GLOBAL_STATE.config_version.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         if let Some(config) = config_guard.as_mut() {
             let ch_key = channel + 1;
             if let Some(setting) = config.mono_configs.get_mut(&ch_key) {
                 setting.delay_ms = delay_ms;
                 setting.eq_bands = eq_bands.clone();
+                setting.phase_invert = phase_invert;
+                setting.gain_db = gain_db;
             } else if let Some(setting) = config.stereo_configs.get_mut(&ch_key) {
                 setting.delay_ms = delay_ms;
                 setting.eq_bands = eq_bands.clone();
+                setting.phase_invert = phase_invert;
+                setting.gain_db = gain_db;
             } else if let Some(setting) = config.multi_configs.get_mut(&ch_key) {
                 setting.delay_ms = delay_ms;
                 setting.eq_bands = eq_bands.clone();
+                setting.phase_invert = phase_invert;
+                setting.gain_db = gain_db;
             }
         }
     }

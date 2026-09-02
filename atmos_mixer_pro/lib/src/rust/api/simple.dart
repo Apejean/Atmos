@@ -220,10 +220,14 @@ Future<void> apiApplyChannelTuning({
   required int channel,
   required double delayMs,
   required List<EqBand> eqBands,
+  required bool phaseInvert,
+  required double gainDb,
 }) => RustLib.instance.api.crateApiSimpleApiApplyChannelTuning(
   channel: channel,
   delayMs: delayMs,
   eqBands: eqBands,
+  phaseInvert: phaseInvert,
+  gainDb: gainDb,
 );
 
 Future<void> apiApplyGlobalTuning({
@@ -294,15 +298,24 @@ class ChannelTuningParams {
   final int channel;
   final double delayMs;
   final List<EqBand> eqBands;
+  final bool phaseInvert;
+  final double gainDb;
 
   const ChannelTuningParams({
     required this.channel,
     required this.delayMs,
     required this.eqBands,
+    required this.phaseInvert,
+    required this.gainDb,
   });
 
   @override
-  int get hashCode => channel.hashCode ^ delayMs.hashCode ^ eqBands.hashCode;
+  int get hashCode =>
+      channel.hashCode ^
+      delayMs.hashCode ^
+      eqBands.hashCode ^
+      phaseInvert.hashCode ^
+      gainDb.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -311,7 +324,9 @@ class ChannelTuningParams {
           runtimeType == other.runtimeType &&
           channel == other.channel &&
           delayMs == other.delayMs &&
-          eqBands == other.eqBands;
+          eqBands == other.eqBands &&
+          phaseInvert == other.phaseInvert &&
+          gainDb == other.gainDb;
 }
 
 class EngineStateUpdate {

@@ -37,7 +37,7 @@ pub enum AudioCommand {
         channel: u32,
     },
     ApplyAllChannelTunings {
-        tunings: Vec<(usize, f32, Vec<crate::common::config::EqBand>)>,
+        tunings: Vec<(usize, f32, Vec<crate::common::config::EqBand>, bool, f32)>,
     },
     SetMasterVolume {
         room_id: u32,
@@ -69,6 +69,8 @@ pub enum AudioCommand {
         channel: usize,
         delay_ms: f32,
         eq_bands: Vec<crate::common::config::EqBand>,
+        phase_invert: bool,
+        gain_db: f32,
     },
     UpdateSpatialConfig {
         channel_positions: Vec<Option<crate::common::config::Point3D>>,

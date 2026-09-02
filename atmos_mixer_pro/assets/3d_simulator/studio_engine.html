@@ -111,9 +111,9 @@
       gridHelper.position.y = 0;
       roomGroup.add(gridHelper);
 
-      // 4.2 3D Room Bounding Box Wireframe
+      // 4.2 3D Room Bounding Box Wireframe (EdgesGeometry를 사용하여 대각선 제거)
       const boxGeo = new THREE.BoxGeometry(w, h, d);
-      const wireGeo = new THREE.WireframeGeometry(boxGeo);
+      const wireGeo = new THREE.EdgesGeometry(boxGeo);
       const wireMat = new THREE.LineBasicMaterial({
         color: 0x38bdf8,
         transparent: true,
@@ -381,30 +381,63 @@
       dustCap.position.set(0, -0.07, frontZ + 0.002);
       group.add(dustCap);
 
-      // 6.4 Floating 3D Channel Badge Text Sprite
+      // 6.4 Floating 3D Channel Badge Text Sprite (Updated for CH and Out CH)
       const badgeCanvas = document.createElement('canvas');
-      badgeCanvas.width = 128;
-      badgeCanvas.height = 64;
+      badgeCanvas.width = 160;
+      badgeCanvas.height = 80;
       const ctx = badgeCanvas.getContext('2d');
       ctx.fillStyle = isSelected ? '#0284c7' : '#0f172a';
       ctx.beginPath();
-      ctx.roundRect(4, 4, 120, 56, 12);
+      ctx.roundRect(4, 4, 152, 72, 12);
       ctx.fill();
       ctx.strokeStyle = isSelected ? '#38bdf8' : '#334155';
       ctx.lineWidth = 4;
       ctx.stroke();
+      
+      // SPK Index
       ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 26px -apple-system, sans-serif';
+      ctx.font = 'bold 28px -apple-system, sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(`CH ${(speakerData.channel !== undefined ? speakerData.channel + 1 : 1)}`, 64, 32);
+      ctx.fillText(`SPK ${speakerData.index || 1}`, 80, 28);
+      
+      // Output Channel
+      ctx.font = 'bold 16px -apple-system, sans-serif';
+      ctx.fillStyle = isSelected ? '#bae6fd' : '#94a3b8';
+      ctx.fillText(`Out CH: ${speakerData.channel !== undefined ? speakerData.channel + 1 : 1}`, 80, 56);
 
       const badgeTex = new THREE.CanvasTexture(badgeCanvas);
       const spriteMat = new THREE.SpriteMaterial({ map: badgeTex, depthTest: false });
       const sprite = new THREE.Sprite(spriteMat);
-      sprite.scale.set(0.4, 0.2, 1.0);
-      sprite.position.set(0, sh / 2 + 0.16, 0);
+      sprite.scale.set(0.6, 0.3, 1.0);
+      sprite.position.set(0, sh / 2 + 0.20, 0);
       group.add(sprite);
+      
+      // Distance/Delay HUD Sprite (Hidden by default, updated in animate)
+      const hudCanvas = document.createElement('canvas');
+      hudCanvas.width = 200;
+      hudCanvas.height = 40;
+      const hudCtx = hudCanvas.getContext('2d');
+      const hudTex = new THREE.CanvasTexture(hudCanvas);
+      const hudMat = new THREE.SpriteMaterial({ map: hudTex, depthTest: false, transparent: true });
+      const hudSprite = new THREE.Sprite(hudMat);
+      hudSprite.scale.set(0.8, 0.16, 1.0);
+      // It will float near the speaker
+      hudSprite.position.set(0, sh / 2 + 0.50, 0);
+      hudSprite.userData.isHud = true;
+      hudSprite.userData.hudCanvas = hudCanvas;
+      hudSprite.userData.hudCtx = hudCtx;
+      hudSprite.userData.hudTex = hudTex;
+      group.add(hudSprite);
+      
+      // Hit Dot (Laser collision point)
+      const dotGeo = new THREE.SphereGeometry(0.04, 16, 16);
+      const dotMat = new THREE.MeshBasicMaterial({ color: 0xef4444, transparent: true, opacity: 0.8 });
+      const hitDot = new THREE.Mesh(dotGeo, dotMat);
+      hitDot.visible = false;
+      hitDot.userData.isHitDot = true;
+      group.add(hitDot);
+
 
       // 6.5 3D Acoustic Dispersion Cone (Acoustic Beam from Tweeter face)
       const dispersionAngle = (speakerData.dispersionAngle || 90) * Math.PI / 180;
@@ -512,11 +545,28 @@
             // Update rotation
             const yawRad = ((sp.rotation || 0) * Math.PI) / 180;
             const pitchRad = ((sp.pitchTilt || 0) * Math.PI) / 180;
-            mesh.rotation.set(-pitchRad, -yawRad, 0);
+            mesh.rotation.order = 'YXZ';
+            mesh.rotation.y = yawRad;
+            mesh.rotation.x = -pitchRad;
 
             // Update isFixed
             mesh.userData.isFixed = sp.isFixed;
             
+            // Update dispersion cone radius dynamically
+            const dispCone = mesh.children.find(c => c.geometry && c.geometry.type === 'ConeGeometry');
+            if (dispCone && sp.dispersionAngle) {
+              const dispersionAngle = (sp.dispersionAngle || 90) * Math.PI / 180;
+              const beamLength = 1.8;
+              const newRadius = Math.tan(dispersionAngle / 2) * beamLength;
+              
+              if (dispCone.geometry) dispCone.geometry.dispose();
+              
+              const newGeo = new THREE.ConeGeometry(newRadius, beamLength, 16, 1, true);
+              newGeo.rotateX(-Math.PI / 2);
+              newGeo.translate(0, 0, beamLength / 2);
+              dispCone.geometry = newGeo;
+            }
+
             // Update selection colors
             const colorCabinet = isSelected ? 0x1e293b : 0x181e28;
             const colorWire = isSelected ? 0x38bdf8 : 0x475569;
@@ -622,6 +672,12 @@
     });
 
     window.addEventListener('pointermove', (e) => {
+      // 마우스 버튼이 안 눌려있는데 드래그 상태가 남아있다면 즉시 해제
+      if (draggedSpeakerNode && e.buttons === 0) {
+        controls.enabled = true;
+        draggedSpeakerNode = null;
+        return;
+      }
       if (!draggedSpeakerNode) return;
       mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
       mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
@@ -674,6 +730,20 @@
             y: finalY
           }));
         }
+        draggedSpeakerNode = null;
+      }
+    });
+
+    window.addEventListener('pointercancel', () => {
+      if (draggedSpeakerNode) {
+        controls.enabled = true;
+        draggedSpeakerNode = null;
+      }
+    });
+
+    window.addEventListener('blur', () => {
+      if (draggedSpeakerNode) {
+        controls.enabled = true;
         draggedSpeakerNode = null;
       }
     });
@@ -733,6 +803,151 @@
     function animate() {
       requestAnimationFrame(animate);
       controls.update();
+
+      // --- 스마트 타겟팅 조준선 색상 및 Raycast 업데이트 로직 ---
+      const laserRaycaster = new THREE.Raycaster();
+      let anyHit = false;
+      let crosshairSpkPos = null;
+      speakersGroup.children.forEach(spk => {
+        let laser = null, hud = null, hitDot = null;
+        spk.children.forEach(c => {
+          if (c.userData.isTargetLaser) laser = c;
+          if (c.userData.isHud) hud = c;
+          if (c.userData.isHitDot) hitDot = c;
+        });
+
+        if (laser) {
+          const spkWorldPos = new THREE.Vector3();
+          laser.getWorldPosition(spkWorldPos);
+          
+          const forwardDir = new THREE.Vector3(0, 0, 1);
+          forwardDir.applyQuaternion(spk.quaternion).normalize();
+
+          // Raycast for Wall Clipping (against roomGroup)
+          laserRaycaster.set(spkWorldPos, forwardDir);
+          // Only intersect room walls (children of roomGroup, skipping GridHelper which is LineSegments)
+          const roomMeshes = roomGroup.children.filter(c => c.type === 'LineSegments' || c.type === 'Mesh'); 
+          // Actually, room is just a Wireframe (LineSegments). Raycasting against lines is finicky.
+          // Wait, we need an invisible box for precise raycasting!
+          // Let's create it if it doesn't exist.
+          if (!roomGroup.userData.hitBox) {
+             const bGeo = new THREE.BoxGeometry(currentRoom.width, currentRoom.height, currentRoom.depth);
+             const bMat = new THREE.MeshBasicMaterial({visible: false, side: THREE.BackSide}); // back side so ray hits from inside
+             const hitBox = new THREE.Mesh(bGeo, bMat);
+             hitBox.position.y = currentRoom.height / 2; // room origin logic?
+             roomGroup.add(hitBox);
+             roomGroup.userData.hitBox = hitBox;
+          } else {
+             // update hitbox size if room changed
+             roomGroup.userData.hitBox.scale.set(
+               currentRoom.width / roomGroup.userData.hitBox.geometry.parameters.width,
+               currentRoom.height / roomGroup.userData.hitBox.geometry.parameters.height,
+               currentRoom.depth / roomGroup.userData.hitBox.geometry.parameters.depth
+             );
+             roomGroup.userData.hitBox.position.y = currentRoom.height / 2;
+          }
+
+          const intersects = laserRaycaster.intersectObject(roomGroup.userData.hitBox);
+          let laserLen = 15;
+          if (intersects.length > 0) {
+            laserLen = intersects[0].distance;
+            if (hitDot) {
+              hitDot.visible = true;
+              // move dot to local coordinate of the speaker
+              const localHit = spk.worldToLocal(intersects[0].point.clone());
+              hitDot.position.copy(localHit);
+            }
+          } else {
+            if (hitDot) hitDot.visible = false;
+          }
+
+          // Update laser line length
+          const posAttribute = laser.geometry.attributes.position;
+          posAttribute.setZ(1, laserLen);
+          posAttribute.needsUpdate = true;
+
+          // Target logic (Listener Ear)
+          const listenerPos = new THREE.Vector3();
+          listenerGroup.getWorldPosition(listenerPos);
+          const targetEarPos = new THREE.Vector3(listenerPos.x, currentEarLevel, listenerPos.z);
+          const distToEar = spkWorldPos.distanceTo(targetEarPos);
+          const dirToEar = new THREE.Vector3().subVectors(targetEarPos, spkWorldPos).normalize();
+          
+          const dot = forwardDir.dot(dirToEar);
+          const angleDeg = Math.acos(Math.max(-1, Math.min(1, dot))) * (180 / Math.PI);
+
+          let isHit = false;
+          // 반경 0.25m 안에 들어왔는지 추가 체크 (거리와 각도 계산)
+          const spreadAtEar = Math.tan(angleDeg * Math.PI / 180) * distToEar;
+          if (spreadAtEar <= 0.25 && angleDeg <= 15.0) {
+            isHit = true;
+          }
+
+
+          if (isHit) {
+
+            laser.material.color.setHex(0x22c55e); 
+            laser.material.opacity = 0.9;
+            if (hitDot) hitDot.material.color.setHex(0x22c55e);
+            
+            // Draw Crosshair on Mannequin (Global state managed elsewhere, let's create a ring)
+            if (!listenerGroup.userData.crosshair) {
+               const ringGeo = new THREE.RingGeometry(0.2, 0.25, 32);
+               const ringMat = new THREE.MeshBasicMaterial({ color: 0x22c55e, transparent: true, opacity: 0.8, side: THREE.DoubleSide });
+               const crosshair = new THREE.Mesh(ringGeo, ringMat);
+               crosshair.position.y = currentEarLevel;
+               listenerGroup.add(crosshair);
+               listenerGroup.userData.crosshair = crosshair;
+            }
+            listenerGroup.userData.crosshair.visible = true;
+            listenerGroup.userData.crosshair.lookAt(spkWorldPos); // face the speaker
+          } else {
+            laser.material.color.setHex(0xef4444); 
+            laser.material.opacity = 0.25;
+            if (hitDot) hitDot.material.color.setHex(0xef4444);
+            
+            if (listenerGroup.userData.crosshair) {
+               listenerGroup.userData.crosshair.visible = false;
+            }
+          }
+
+          // Update HUD
+          if (hud) {
+             const ctx = hud.userData.hudCtx;
+             ctx.clearRect(0, 0, 200, 40);
+             ctx.fillStyle = 'rgba(15, 23, 42, 0.8)';
+             ctx.beginPath();
+             ctx.roundRect(0, 0, 200, 40, 8);
+             ctx.fill();
+             ctx.fillStyle = '#ffffff';
+             ctx.font = 'bold 16px -apple-system, sans-serif';
+             ctx.textAlign = 'center';
+             ctx.textBaseline = 'middle';
+             const delayMs = (distToEar / 343 * 1000).toFixed(1);
+             ctx.fillText(`Dist: ${distToEar.toFixed(2)}m | ${delayMs}ms`, 100, 20);
+             hud.userData.hudTex.needsUpdate = true;
+          }
+        }
+      });
+
+      // Manage crosshair visibility globally
+      if (anyHit) {
+         if (!listenerGroup.userData.crosshair) {
+            const ringGeo = new THREE.RingGeometry(0.2, 0.25, 32);
+            const ringMat = new THREE.MeshBasicMaterial({ color: 0x22c55e, transparent: true, opacity: 0.8, side: THREE.DoubleSide });
+            const crosshair = new THREE.Mesh(ringGeo, ringMat);
+            crosshair.position.y = currentEarLevel;
+            listenerGroup.add(crosshair);
+            listenerGroup.userData.crosshair = crosshair;
+         }
+         listenerGroup.userData.crosshair.visible = true;
+         if (crosshairSpkPos) listenerGroup.userData.crosshair.lookAt(crosshairSpkPos);
+      } else {
+         if (listenerGroup.userData.crosshair) {
+            listenerGroup.userData.crosshair.visible = false;
+         }
+      }
+
       renderer.render(scene, camera);
     }
     animate();

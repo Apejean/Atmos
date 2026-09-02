@@ -518,10 +518,12 @@ impl AudioEngine {
                     }
                     let _ = mixer.spatial_gc_tx.try_send(crate::audio::mixer::SpatialGarbage::EqBands(bands));
                 }
-                AudioCommand::ApplyChannelTuning { channel, delay_ms, eq_bands } => {
+                AudioCommand::ApplyChannelTuning { channel, delay_ms, eq_bands, phase_invert, gain_db } => {
                     if channel < mixer.channel_dsp.len() {
                         mixer.channel_dsp[channel].update_delay_target(delay_ms);
                         mixer.channel_dsp[channel].update_eq_targets(&eq_bands, mixer.sample_rate as f32);
+                        mixer.channel_dsp[channel].phase_invert = phase_invert;
+                        mixer.channel_dsp[channel].set_gain_db(gain_db);
                     }
                     let _ = mixer.spatial_gc_tx.try_send(crate::audio::mixer::SpatialGarbage::EqBands(eq_bands));
                 }
@@ -601,10 +603,12 @@ impl AudioEngine {
                     mixer.peak_limiter_enabled = peak_limiter_enabled;
                 }
                 AudioCommand::ApplyAllChannelTunings { tunings } => {
-                    for (channel, delay_ms, eq_bands) in tunings {
+                    for (channel, delay_ms, eq_bands, phase_invert, gain_db) in tunings {
                         if channel < mixer.channel_dsp.len() {
                             mixer.channel_dsp[channel].update_delay_target(delay_ms);
                             mixer.channel_dsp[channel].update_eq_targets(&eq_bands, mixer.sample_rate as f32);
+                            mixer.channel_dsp[channel].phase_invert = phase_invert;
+                            mixer.channel_dsp[channel].set_gain_db(gain_db);
                         }
                     }
                 }

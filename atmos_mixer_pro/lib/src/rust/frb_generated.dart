@@ -93,6 +93,8 @@ abstract class RustLibApi extends BaseApi {
     required int channel,
     required double delayMs,
     required List<EqBand> eqBands,
+    required bool phaseInvert,
+    required double gainDb,
   });
 
   Future<void> crateApiSimpleApiApplyGlobalTuning({
@@ -370,6 +372,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     required int channel,
     required double delayMs,
     required List<EqBand> eqBands,
+    required bool phaseInvert,
+    required double gainDb,
   }) {
     return handler.executeNormal(
       NormalTask(
@@ -378,6 +382,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           sse_encode_u_32(channel, serializer);
           sse_encode_f_32(delayMs, serializer);
           sse_encode_list_eq_band(eqBands, serializer);
+          sse_encode_bool(phaseInvert, serializer);
+          sse_encode_f_32(gainDb, serializer);
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
@@ -390,7 +396,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           decodeErrorData: sse_decode_atmos_error,
         ),
         constMeta: kCrateApiSimpleApiApplyChannelTuningConstMeta,
-        argValues: [channel, delayMs, eqBands],
+        argValues: [channel, delayMs, eqBands, phaseInvert, gainDb],
         apiImpl: this,
       ),
     );
@@ -399,7 +405,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   TaskConstMeta get kCrateApiSimpleApiApplyChannelTuningConstMeta =>
       const TaskConstMeta(
         debugName: "api_apply_channel_tuning",
-        argNames: ["channel", "delayMs", "eqBands"],
+        argNames: ["channel", "delayMs", "eqBands", "phaseInvert", "gainDb"],
       );
 
   @override
@@ -2480,12 +2486,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   ChannelTuningParams dco_decode_channel_tuning_params(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 3)
-      throw Exception('unexpected arr length: expect 3 but see ${arr.length}');
+    if (arr.length != 5)
+      throw Exception('unexpected arr length: expect 5 but see ${arr.length}');
     return ChannelTuningParams(
       channel: dco_decode_u_32(arr[0]),
       delayMs: dco_decode_f_32(arr[1]),
       eqBands: dco_decode_list_eq_band(arr[2]),
+      phaseInvert: dco_decode_bool(arr[3]),
+      gainDb: dco_decode_f_32(arr[4]),
     );
   }
 
@@ -2993,10 +3001,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_channel = sse_decode_u_32(deserializer);
     var var_delayMs = sse_decode_f_32(deserializer);
     var var_eqBands = sse_decode_list_eq_band(deserializer);
+    var var_phaseInvert = sse_decode_bool(deserializer);
+    var var_gainDb = sse_decode_f_32(deserializer);
     return ChannelTuningParams(
       channel: var_channel,
       delayMs: var_delayMs,
       eqBands: var_eqBands,
+      phaseInvert: var_phaseInvert,
+      gainDb: var_gainDb,
     );
   }
 
@@ -3633,6 +3645,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_u_32(self.channel, serializer);
     sse_encode_f_32(self.delayMs, serializer);
     sse_encode_list_eq_band(self.eqBands, serializer);
+    sse_encode_bool(self.phaseInvert, serializer);
+    sse_encode_f_32(self.gainDb, serializer);
   }
 
   @protected
