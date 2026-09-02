@@ -271,7 +271,8 @@ impl AudioEngine {
         let (analysis_tx, analysis_rx) = rtrb::RingBuffer::new(65536);
         crate::audio::analysis::start_analysis_thread(analysis_rx, config.sample_rate.0, config.channels as usize);
 
-        let mut mixer = AudioMixer::new(config.sample_rate.0, config.channels as usize, gc_tx, Some(analysis_tx));
+        let virtual_channels = 16.max(config.channels as usize);
+        let mut mixer = AudioMixer::new(config.sample_rate.0, virtual_channels, gc_tx, Some(analysis_tx));
 
         let err_fn = |err: cpal::StreamError| {
             eprintln!("an error occurred on stream: {}", err);
@@ -288,39 +289,108 @@ impl AudioEngine {
         let mut cmd_receiver_f32 = cmd_receiver;
         
         let stream = match sample_format {
-            SampleFormat::F32 => device.build_output_stream(
+            SampleFormat::F32 => {
+                let virtual_channels = 16.max(config.channels as usize);
+                let mut temp_buf: Vec<f32> = vec![0.0; 65536];
+                let hw_channels = config.channels as usize;
+                device.build_output_stream(
                 &config,
                 move |data: &mut [f32], _: &OutputCallbackInfo| {
                     if !ENGINE_INIT_SIGNAL.load(Ordering::Acquire) {
                         ENGINE_INIT_SIGNAL.store(true, Ordering::Release);
                     }
-                    // Update watchdog
                     let now_ms = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or(std::time::Duration::from_secs(0)).as_millis() as u64;
                     crate::core::state::GLOBAL_STATE.watchdog_last_callback.store(now_ms, Ordering::Relaxed);
 
                     Self::process_commands(&mut mixer, &mut cmd_receiver_f32);
-                    mixer.process(data, config.channels as usize);
+                    
+                    let frames = data.len() / hw_channels;
+                    let temp_len = frames * virtual_channels;
+                    if temp_buf.len() < temp_len { temp_buf.resize(temp_len, 0.0); }
+                    let temp = &mut temp_buf[..temp_len];
+                    temp.fill(0.0);
+                    
+                    mixer.process(temp, virtual_channels);
+                    
+                    for frame in 0..frames {
+                        if hw_channels == 2 {
+                            let mut mix_l = temp[frame * virtual_channels + 0];
+                            let mut mix_r = temp[frame * virtual_channels + 1];
+                            
+                            if !mixer.binaural.enabled {
+                                let c = temp.get(frame * virtual_channels + 2).copied().unwrap_or(0.0);
+                                let ls = temp.get(frame * virtual_channels + 4).copied().unwrap_or(0.0);
+                                let rs = temp.get(frame * virtual_channels + 5).copied().unwrap_or(0.0);
+                                mix_l += 0.707*c + 0.707*ls;
+                                mix_r += 0.707*c + 0.707*rs;
+                            }
+                            
+                            // LFE channel is index 3. If hardware is 2.0, fold LFE into L/R.
+                            // Handle dynamically assigned LFE index if it's different in the future,
+                            // but for now, atmos_mixer_pro uses idx 3.
+                            let lfe = temp.get(frame * virtual_channels + 3).copied().unwrap_or(0.0);
+                            mix_l += 0.707*lfe;
+                            mix_r += 0.707*lfe;
+                            
+                            data[frame * hw_channels + 0] = mix_l;
+                            data[frame * hw_channels + 1] = mix_r;
+                        } else {
+                            for ch in 0..hw_channels {
+                                data[frame * hw_channels + ch] = temp[frame * virtual_channels + ch];
+                            }
+                        }
+                    }
                 },
                 err_fn,
                 None,
-            ),
+            )},
             SampleFormat::I16 => {
+                let virtual_channels = 16.max(config.channels as usize);
                 let mut temp_buf: Vec<f32> = vec![0.0; 65536];
+                let hw_channels = config.channels as usize;
                 device.build_output_stream(
                     &config,
                     move |data: &mut [i16], _: &OutputCallbackInfo| {
                         if !ENGINE_INIT_SIGNAL.load(Ordering::Acquire) {
                             ENGINE_INIT_SIGNAL.store(true, Ordering::Release);
                         }
-                        // Update watchdog
                         let now_ms = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or(std::time::Duration::from_secs(0)).as_millis() as u64;
                         crate::core::state::GLOBAL_STATE.watchdog_last_callback.store(now_ms, Ordering::Relaxed);
 
                         Self::process_commands(&mut mixer, &mut cmd_receiver_f32);
-                        let len = data.len().min(temp_buf.len()); let temp = &mut temp_buf[..len];
-                        mixer.process(temp, config.channels as usize);
-                        for (dst, src) in data.iter_mut().zip(temp.iter()) {
-                            *dst = cpal::Sample::from_sample(*src);
+                        
+                        let frames = data.len() / hw_channels;
+                        let temp_len = frames * virtual_channels;
+                        if temp_buf.len() < temp_len { temp_buf.resize(temp_len, 0.0); }
+                        let temp = &mut temp_buf[..temp_len];
+                        temp.fill(0.0);
+                        
+                        mixer.process(temp, virtual_channels);
+                        
+                        for frame in 0..frames {
+                            if hw_channels == 2 {
+                                let mut mix_l = temp[frame * virtual_channels + 0];
+                                let mut mix_r = temp[frame * virtual_channels + 1];
+                                
+                                if !mixer.binaural.enabled {
+                                    let c = temp.get(frame * virtual_channels + 2).copied().unwrap_or(0.0);
+                                    let ls = temp.get(frame * virtual_channels + 4).copied().unwrap_or(0.0);
+                                    let rs = temp.get(frame * virtual_channels + 5).copied().unwrap_or(0.0);
+                                    mix_l += 0.707*c + 0.707*ls;
+                                    mix_r += 0.707*c + 0.707*rs;
+                                }
+                                
+                                let lfe = temp.get(frame * virtual_channels + 3).copied().unwrap_or(0.0);
+                                mix_l += 0.707*lfe;
+                                mix_r += 0.707*lfe;
+                                
+                                data[frame * hw_channels + 0] = cpal::Sample::from_sample(mix_l);
+                                data[frame * hw_channels + 1] = cpal::Sample::from_sample(mix_r);
+                            } else {
+                                for ch in 0..hw_channels {
+                                    data[frame * hw_channels + ch] = cpal::Sample::from_sample(temp[frame * virtual_channels + ch]);
+                                }
+                            }
                         }
                     },
                     err_fn,
@@ -328,22 +398,52 @@ impl AudioEngine {
                 )
             }
             SampleFormat::I32 => {
+                let virtual_channels = 16.max(config.channels as usize);
                 let mut temp_buf: Vec<f32> = vec![0.0; 65536];
+                let hw_channels = config.channels as usize;
                 device.build_output_stream(
                     &config,
                     move |data: &mut [i32], _: &OutputCallbackInfo| {
                         if !ENGINE_INIT_SIGNAL.load(Ordering::Acquire) {
                             ENGINE_INIT_SIGNAL.store(true, Ordering::Release);
                         }
-                        // Update watchdog
                         let now_ms = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or(std::time::Duration::from_secs(0)).as_millis() as u64;
                         crate::core::state::GLOBAL_STATE.watchdog_last_callback.store(now_ms, Ordering::Relaxed);
 
                         Self::process_commands(&mut mixer, &mut cmd_receiver_f32);
-                        let len = data.len().min(temp_buf.len()); let temp = &mut temp_buf[..len];
-                        mixer.process(temp, config.channels as usize);
-                        for (dst, src) in data.iter_mut().zip(temp.iter()) {
-                            *dst = cpal::Sample::from_sample(*src);
+                        
+                        let frames = data.len() / hw_channels;
+                        let temp_len = frames * virtual_channels;
+                        if temp_buf.len() < temp_len { temp_buf.resize(temp_len, 0.0); }
+                        let temp = &mut temp_buf[..temp_len];
+                        temp.fill(0.0);
+                        
+                        mixer.process(temp, virtual_channels);
+                        
+                        for frame in 0..frames {
+                            if hw_channels == 2 {
+                                let mut mix_l = temp[frame * virtual_channels + 0];
+                                let mut mix_r = temp[frame * virtual_channels + 1];
+                                
+                                if !mixer.binaural.enabled {
+                                    let c = temp.get(frame * virtual_channels + 2).copied().unwrap_or(0.0);
+                                    let ls = temp.get(frame * virtual_channels + 4).copied().unwrap_or(0.0);
+                                    let rs = temp.get(frame * virtual_channels + 5).copied().unwrap_or(0.0);
+                                    mix_l += 0.707*c + 0.707*ls;
+                                    mix_r += 0.707*c + 0.707*rs;
+                                }
+                                
+                                let lfe = temp.get(frame * virtual_channels + 3).copied().unwrap_or(0.0);
+                                mix_l += 0.707*lfe;
+                                mix_r += 0.707*lfe;
+                                
+                                data[frame * hw_channels + 0] = cpal::Sample::from_sample(mix_l);
+                                data[frame * hw_channels + 1] = cpal::Sample::from_sample(mix_r);
+                            } else {
+                                for ch in 0..hw_channels {
+                                    data[frame * hw_channels + ch] = cpal::Sample::from_sample(temp[frame * virtual_channels + ch]);
+                                }
+                            }
                         }
                     },
                     err_fn,
@@ -351,22 +451,52 @@ impl AudioEngine {
                 )
             }
             SampleFormat::U16 => {
+                let virtual_channels = 16.max(config.channels as usize);
                 let mut temp_buf: Vec<f32> = vec![0.0; 65536];
+                let hw_channels = config.channels as usize;
                 device.build_output_stream(
                     &config,
                     move |data: &mut [u16], _: &OutputCallbackInfo| {
                         if !ENGINE_INIT_SIGNAL.load(Ordering::Acquire) {
                             ENGINE_INIT_SIGNAL.store(true, Ordering::Release);
                         }
-                        // Update watchdog
                         let now_ms = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or(std::time::Duration::from_secs(0)).as_millis() as u64;
                         crate::core::state::GLOBAL_STATE.watchdog_last_callback.store(now_ms, Ordering::Relaxed);
 
                         Self::process_commands(&mut mixer, &mut cmd_receiver_f32);
-                        let len = data.len().min(temp_buf.len()); let temp = &mut temp_buf[..len];
-                        mixer.process(temp, config.channels as usize);
-                        for (dst, src) in data.iter_mut().zip(temp.iter()) {
-                            *dst = cpal::Sample::from_sample(*src);
+                        
+                        let frames = data.len() / hw_channels;
+                        let temp_len = frames * virtual_channels;
+                        if temp_buf.len() < temp_len { temp_buf.resize(temp_len, 0.0); }
+                        let temp = &mut temp_buf[..temp_len];
+                        temp.fill(0.0);
+                        
+                        mixer.process(temp, virtual_channels);
+                        
+                        for frame in 0..frames {
+                            if hw_channels == 2 {
+                                let mut mix_l = temp[frame * virtual_channels + 0];
+                                let mut mix_r = temp[frame * virtual_channels + 1];
+                                
+                                if !mixer.binaural.enabled {
+                                    let c = temp.get(frame * virtual_channels + 2).copied().unwrap_or(0.0);
+                                    let ls = temp.get(frame * virtual_channels + 4).copied().unwrap_or(0.0);
+                                    let rs = temp.get(frame * virtual_channels + 5).copied().unwrap_or(0.0);
+                                    mix_l += 0.707*c + 0.707*ls;
+                                    mix_r += 0.707*c + 0.707*rs;
+                                }
+                                
+                                let lfe = temp.get(frame * virtual_channels + 3).copied().unwrap_or(0.0);
+                                mix_l += 0.707*lfe;
+                                mix_r += 0.707*lfe;
+                                
+                                data[frame * hw_channels + 0] = cpal::Sample::from_sample(mix_l);
+                                data[frame * hw_channels + 1] = cpal::Sample::from_sample(mix_r);
+                            } else {
+                                for ch in 0..hw_channels {
+                                    data[frame * hw_channels + ch] = cpal::Sample::from_sample(temp[frame * virtual_channels + ch]);
+                                }
+                            }
                         }
                     },
                     err_fn,

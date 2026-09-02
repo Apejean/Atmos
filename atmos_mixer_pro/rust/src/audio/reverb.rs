@@ -42,6 +42,8 @@ pub struct VirtualRoomReverb {
     base_lengths: [f32; 4],
     lpf_states: [f32; 4],
     allpass_delays: Vec<DelayLine>,
+    pre_delay_line: DelayLine,
+    sample_rate: f32,
 }
 
 impl VirtualRoomReverb {
@@ -93,6 +95,8 @@ impl VirtualRoomReverb {
             base_lengths,
             lpf_states: [0.0; 4],
             allpass_delays,
+            pre_delay_line: DelayLine::new((sample_rate * 0.5) as usize),
+            sample_rate,
         }
     }
 
@@ -102,6 +106,8 @@ impl VirtualRoomReverb {
     }
 
     fn update_dsp_params(&mut self) {
+        let pd_samples = ((self.pre_delay_ms / 1000.0) * self.sample_rate).max(1.0) as usize;
+        self.pre_delay_line.set_delay(pd_samples);
         let size_mult = self.room_size.clamp(0.1, 3.0);
         for i in 0..4 {
             let samples = (self.base_lengths[i] * size_mult) as usize;
@@ -142,7 +148,8 @@ impl VirtualRoomReverb {
 
         self.update_dsp_params();
 
-        let mut input = (in_l + in_r) * 0.5;
+        let input_mono = (in_l + in_r) * 0.5;
+        let mut input = self.pre_delay_line.process(input_mono);
         
         // Apply diffusion (density)
         for i in 0..4 {
@@ -196,7 +203,8 @@ impl VirtualRoomReverb {
 
         self.update_dsp_params();
         
-        let mut diffused_input = input;
+        let delayed_input = self.pre_delay_line.process(input);
+        let mut diffused_input = delayed_input;
         for i in 0..4 {
             diffused_input = self.process_allpass(diffused_input, i);
         }

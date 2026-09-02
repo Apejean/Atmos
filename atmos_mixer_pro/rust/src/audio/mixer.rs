@@ -750,7 +750,7 @@ impl AudioMixer {
             }
         }
 
-        // Add accumulated bass to the LFE channel output
+                // Add accumulated bass to the LFE channel output
         if bm_enabled {
             if let Some(idx) = lfe_idx {
                 if idx < out_channels {
@@ -758,6 +758,18 @@ impl AudioMixer {
                         let sample_idx = frame * out_channels + idx;
                         if sample_idx < output.len() {
                             output[sample_idx] += lfe_sub_mix[frame];
+                        }
+                    }
+                } else if out_channels >= 2 {
+                    for frame in 0..frames {
+                        let sample_idx_l = frame * out_channels + 0;
+                        let sample_idx_r = frame * out_channels + 1;
+                        let bass_val = lfe_sub_mix[frame] * 0.707;
+                        if sample_idx_l < output.len() {
+                            output[sample_idx_l] += bass_val;
+                        }
+                        if sample_idx_r < output.len() {
+                            output[sample_idx_r] += bass_val;
                         }
                     }
                 }
