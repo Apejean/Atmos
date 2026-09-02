@@ -707,7 +707,7 @@ oscWhitelist: config.oscWhitelist,
         runSpacing: 12,
         children: [
           const Text(
-            '🎛 Atmos Mixer Pro',
+            'Atmos Mixer Pro',
             style: TextStyle(
               color: AppColors.textPrimary,
               fontSize: 18,
@@ -825,7 +825,7 @@ oscWhitelist: config.oscWhitelist,
                   }
                 },
                 child: const Text(
-                  '테마 시작',
+                  'Start',
                   style: TextStyle(color: Colors.white),
                 ),
               ),
@@ -838,7 +838,7 @@ oscWhitelist: config.oscWhitelist,
                 ),
                 icon: const Icon(Icons.volume_off, color: Colors.white),
                 label: const Text(
-                  '마스터 음소거',
+                  'All Mute',
                   style: TextStyle(color: Colors.white),
                 ),
                 onPressed: () async {
@@ -874,7 +874,7 @@ oscWhitelist: config.oscWhitelist,
                   }
                 },
                 child: const Text(
-                  '비상 정지',
+                  'Emergency',
                   style: TextStyle(color: Colors.white),
                 ),
               ),
@@ -902,56 +902,9 @@ oscWhitelist: config.oscWhitelist,
                   }
                 },
                 child: const Text(
-                  '시스템 리셋',
+                  'Reset',
                   style: TextStyle(color: Colors.white),
                 ),
-              ),
-              IconButton(
-                icon: const Icon(Icons.graphic_eq, color: AppColors.primaryNeon),
-                tooltip: '24ch RTA Spectrum & Multitrack Timeline Analyzer',
-                onPressed: () {
-                  showDialog(
-                    context: context,
-                    builder: (context) => AlertDialog(
-                      backgroundColor: const Color(0xFF1E1E2C),
-                      title: const Text(
-                        '24ch Real-Time Analyzer & Multitrack Timeline',
-                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                      ),
-                      content: const SizedBox(
-                        width: 720,
-                        height: 500,
-                        child: Column(
-                          children: [
-                            Expanded(child: RtaSpectrumOverlayWidget()),
-                            SizedBox(height: 12),
-                            Expanded(child: MultitrackTimelineWidget()),
-                          ],
-                        ),
-                      ),
-                      actions: [
-                        ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.primaryNeon,
-                            foregroundColor: Colors.black,
-                          ),
-                          onPressed: () => Navigator.of(context).pop(),
-                          child: const Text('Close'),
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              ),
-              IconButton(
-                icon: const Icon(Icons.science, color: Colors.greenAccent),
-                tooltip: 'Advanced Physical Acoustics Panel (Doppler, Air HF, Directivity)',
-                onPressed: () {
-                  showDialog(
-                    context: context,
-                    builder: (context) => const AdvancedPhysicsPanel(),
-                  );
-                },
               ),
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
@@ -1022,7 +975,7 @@ oscWhitelist: config.oscWhitelist,
                   }
                 },
                 child: const Text(
-                  '➕ 룸 추가',
+                  '+ Room',
                   style: TextStyle(color: Colors.white),
                 ),
               ),
@@ -1043,13 +996,18 @@ oscWhitelist: config.oscWhitelist,
                   }
                 },
                 child: const Text(
-                  '⚙️ Mixer',
+                  'FX',
                   style: TextStyle(color: Colors.white),
                 ),
               ),
-              IconButton(
-                icon: const Icon(Icons.grid_on, color: Colors.white),
-                tooltip: 'Speaker Layout',
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.background,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(4),
+                    side: const BorderSide(color: Colors.white24, width: 1),
+                  ),
+                ),
                 onPressed: () {
                   Navigator.of(context).push(
                     MaterialPageRoute(
@@ -1058,6 +1016,10 @@ oscWhitelist: config.oscWhitelist,
                     ),
                   );
                 },
+                child: const Text(
+                  'Speaker Layout',
+                  style: TextStyle(color: Colors.white),
+                ),
               ),
             ],
           ),
@@ -1083,7 +1045,7 @@ oscWhitelist: config.oscWhitelist,
                         border: Border.all(color: AppColors.accentOrange),
                       ),
                       child: const Text(
-                        '🦆 스마트 더킹 작동중',
+                        '스마트 더킹 작동중',
                         style: TextStyle(
                           color: AppColors.accentOrange,
                           fontSize: 12,

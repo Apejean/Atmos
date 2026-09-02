@@ -75,7 +75,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
           onPressed: () => Navigator.of(context).pop(),
         ),
         title: const Text(
-          'Exhibition Canvas (3D Space)',
+          '스피커 레이아웃',
           style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
         ),
         actions: [

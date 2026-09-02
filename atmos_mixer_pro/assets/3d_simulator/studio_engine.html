@@ -671,13 +671,55 @@
       }
     });
 
+    // 1. 최우선 캡처 단계에서 마우스 버튼 해제 여부 감지
     window.addEventListener('pointermove', (e) => {
-      // 마우스 버튼이 안 눌려있는데 드래그 상태가 남아있다면 즉시 해제
-      if (draggedSpeakerNode && e.buttons === 0) {
+      // 마우스 버튼이 완전히 떨어진 상태(0)라면
+      if (e.buttons === 0) {
+        if (draggedSpeakerNode) {
+          controls.enabled = true;
+          draggedSpeakerNode = null;
+        }
+        
+        // 빈 공간 회전 중에 마우스가 UI로 나갔을 경우 처리
+        // pointerup을 document에 발송해서 Three.js 내부 마우스 상태를 초기화합니다.
+        document.dispatchEvent(new PointerEvent('pointerup', {
+          pointerId: e.pointerId,
+          pointerType: e.pointerType || 'mouse',
+          bubbles: true,
+          cancelable: true,
+          clientX: e.clientX,
+          clientY: e.clientY
+        }));
+        
+        // 확실하게 상태를 끊어주기 위해 추가 조치
+        if (controls && controls.state !== -1) {
+            document.dispatchEvent(new PointerEvent('pointercancel', {
+              pointerId: e.pointerId,
+              pointerType: e.pointerType || 'mouse',
+              bubbles: true,
+              cancelable: true,
+            }));
+        }
+      }
+    }, true);
+
+    // 2. 마우스 포인터가 웹뷰 영역(3D 화면) 바깥(UI 패널)으로 나가는 즉시 회전/패닝 상태 강제 초기화
+    window.addEventListener('pointerout', (e) => {
+      if (draggedSpeakerNode) {
         controls.enabled = true;
         draggedSpeakerNode = null;
-        return;
       }
+      
+      // 마우스가 웹뷰 밖으로 나가면 즉시 눌림 상태를 해제한 것으로 간주합니다.
+      document.dispatchEvent(new PointerEvent('pointerup', {
+        pointerId: e.pointerId,
+        pointerType: e.pointerType || 'mouse',
+        bubbles: true,
+        cancelable: true
+      }));
+    });
+
+    window.addEventListener('pointermove', (e) => {
       if (!draggedSpeakerNode) return;
       mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
       mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
@@ -734,11 +776,13 @@
       }
     });
 
+    // 3. 브라우저 포커스 아웃 / 드래그 취소 시 완전 초기화
     window.addEventListener('pointercancel', () => {
       if (draggedSpeakerNode) {
         controls.enabled = true;
         draggedSpeakerNode = null;
       }
+      if (controls) controls.state = -1;
     });
 
     window.addEventListener('blur', () => {
@@ -746,6 +790,7 @@
         controls.enabled = true;
         draggedSpeakerNode = null;
       }
+      if (controls) controls.state = -1;
     });
 
     

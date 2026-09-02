@@ -283,6 +283,13 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                 roomZones: config.roomZones,
               ),
             );
+            
+        final roomZones = ref.read(roomZoneProvider);
+        final zoneIdx = roomZones.indexWhere((z) => z.id == widget.room.id);
+        if (zoneIdx != -1) {
+          final updatedZone = roomZones[zoneIdx].copyWith(label: newName);
+          ref.read(roomZoneProvider.notifier).updateRoomZone(updatedZone, immediate: true);
+        }
       }
     }
   }
@@ -575,7 +582,7 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                                 color: Colors.white,
                               ),
                               label: const Text(
-                                '오디오 파일 추가',
+                                'Add Audio File',
                                 style: TextStyle(
                                   fontSize: 11,
                                   color: Colors.white,

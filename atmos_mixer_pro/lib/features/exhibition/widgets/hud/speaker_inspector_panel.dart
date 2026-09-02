@@ -586,18 +586,6 @@ class _SpeakerInspectorPanelState extends ConsumerState<SpeakerInspectorPanel> {
                     child: const Text('LFE', style: TextStyle(color: Color(0xFFFF5722), fontSize: 10, fontWeight: FontWeight.bold)),
                   ),
                 ],
-                const SizedBox(width: 4),
-                if (isLfe)
-                  Transform.scale(
-                    scale: 0.8,
-                    child: Switch(
-                      value: bmState.isEnabled,
-                      activeThumbColor: const Color(0xFFFF5722),
-                      onChanged: (val) {
-                        ref.read(bassManagementProvider.notifier).setEnabled(val);
-                      },
-                    ),
-                  ),
               ],
             ),
             children: [
