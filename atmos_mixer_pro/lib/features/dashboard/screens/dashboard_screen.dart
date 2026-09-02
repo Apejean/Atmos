@@ -18,6 +18,8 @@ import 'package:atmos_mixer_pro/features/exhibition/screens/speaker_canvas_scree
     as atmos_exhibition;
 import 'package:atmos_mixer_pro/features/dashboard/widgets/safety_alert_border.dart';
 import 'package:atmos_mixer_pro/src/rust/api/simple.dart' as rust_api;
+import 'package:atmos_mixer_pro/features/exhibition/state/room_zone_state.dart';
+import 'package:atmos_mixer_pro/features/exhibition/models/room_zone.dart' as exhibition_model;
 import 'package:atmos_mixer_pro/src/rust/common/config.dart';
 import 'package:file_picker/file_picker.dart';
 
@@ -997,6 +999,26 @@ oscWhitelist: config.oscWhitelist,
                       peakLimiterEnabled: config.peakLimiterEnabled,
                     );
                     ref.read(configProvider.notifier).saveConfig(updated);
+
+                    // Sync to exhibition canvas room zones
+                    int parsedColor;
+                    try {
+                      parsedColor = int.parse(colorHex.replaceFirst('#', '0xFF'));
+                    } catch (_) {
+                      parsedColor = 0xFF3B82F6;
+                    }
+                    final newRoomZone = exhibition_model.RoomZone(
+                      id: newRoom.id,
+                      label: newRoom.name,
+                      x: 200.0 + (config.rooms.length * 50.0), // staggered spawn
+                      y: 200.0,
+                      width: 5.0,
+                      height: 5.0,
+                      physicalWidth: 5.0,
+                      physicalHeight: 5.0,
+                      color: parsedColor,
+                    );
+                    ref.read(roomZoneProvider.notifier).addRoomZone(newRoomZone);
                   }
                 },
                 child: const Text(

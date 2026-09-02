@@ -46,20 +46,20 @@ class ThreeJsEngineService {
             contentType = "application/javascript; charset=utf-8";
           } else if (path.startsWith("/models/")) {
             assetPath = "assets$path";
-            if (path.endsWith(".glb")) contentType = "model/gltf-binary";
-            else if (path.endsWith(".gltf")) contentType = "model/gltf+json";
+            if (path.endsWith(".glb")) { contentType = "model/gltf-binary"; }
+            else if (path.endsWith(".gltf")) { contentType = "model/gltf+json"; }
           } else if (path.startsWith("/assets/")) {
             assetPath = path.substring(1);
-            if (path.endsWith(".html")) contentType = "text/html; charset=utf-8";
-            else if (path.endsWith(".js")) contentType = "application/javascript; charset=utf-8";
-            else if (path.endsWith(".glb")) contentType = "model/gltf-binary";
-            else if (path.endsWith(".gltf")) contentType = "model/gltf+json";
-            else if (path.endsWith(".svg")) contentType = "image/svg+xml";
-            else if (path.endsWith(".png")) contentType = "image/png";
+            if (path.endsWith(".html")) { contentType = "text/html; charset=utf-8"; }
+            else if (path.endsWith(".js")) { contentType = "application/javascript; charset=utf-8"; }
+            else if (path.endsWith(".glb")) { contentType = "model/gltf-binary"; }
+            else if (path.endsWith(".gltf")) { contentType = "model/gltf+json"; }
+            else if (path.endsWith(".svg")) { contentType = "image/svg+xml"; }
+            else if (path.endsWith(".png")) { contentType = "image/png"; }
           } else {
             assetPath = "assets/3d_simulator$path";
-            if (path.endsWith(".svg")) contentType = "image/svg+xml";
-            else if (path.endsWith(".png")) contentType = "image/png";
+            if (path.endsWith(".svg")) { contentType = "image/svg+xml"; }
+            else if (path.endsWith(".png")) { contentType = "image/png"; }
           }
 
           final data = await rootBundle.load(assetPath);

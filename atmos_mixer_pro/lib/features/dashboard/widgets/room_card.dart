@@ -9,6 +9,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:atmos_mixer_pro/core/state/global_state.dart';
 import 'package:atmos_mixer_pro/src/rust/api/simple.dart' as rust_api;
 import 'package:desktop_drop/desktop_drop.dart';
+import 'package:atmos_mixer_pro/features/exhibition/state/room_zone_state.dart';
 import 'track_card.dart';
 
 Future<bool?> _showDeleteConfirmDialog(
@@ -550,6 +551,7 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                                           roomZones: currentConfig.roomZones,
                                         ),
                                       );
+                                  ref.read(roomZoneProvider.notifier).removeRoomZone(room.id);
                                 }
                               }
                             },

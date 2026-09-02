@@ -344,7 +344,6 @@ class _SpeakerInspectorPanelState extends ConsumerState<SpeakerInspectorPanel> {
   }
 
   void _updateSpeaker(SpeakerNode speaker, {double? x, double? y, double? z, double? pan, double? tilt, double? rot, double? disp, double? rev, bool? isFixed}) {
-    print('[DEBUG] _updateSpeaker called: ${speaker.id}');
     ref.read(speakerLayoutProvider.notifier).updateSpeaker(speaker.copyWith(
       x: x ?? speaker.x,
       y: y ?? speaker.y,

@@ -108,23 +108,44 @@ pub struct ChannelStrip {
 ```
 
 ### 3.2 피드백 딜레이 네트워크 리버브 코어 (`reverb_engine.rs`)
-전시장 공간의 자연스러운 잔향을 생성하기 위한 8-Line FDN (Feedback Delay Network) 구조체입니다.
+전시장 공간의 자연스러운 잔향을 생성하기 위한 8-Line FDN (Feedback Delay Network) 기반의 글로벌 리버브 버스입니다. (Aux Return 역할)
 
 ```rust
 // rust/src/audio/reverb_engine.rs
 
+pub enum ReverbShape {
+    Room,
+    Hall,
+    Plate,
+    Chamber,
+}
+
 pub struct SpatialReverbEngine {
-    // 룸 어쿠스틱 파라미터
-    pub room_size: f32,       // 0.1 ~ 1.0 (가상 룸 체적)
-    pub decay_time: f32,      // 0.2s ~ 10.0s (RT60 잔향 시간)
-    pub diffusion: f32,       // 0.0 ~ 1.0 (벽면 난반사 밀도)
-    pub high_damping: f32,    // 0.0 ~ 1.0 (고음역 공기/벽면 흡음률)
+    // 1. 공간의 크기와 형태 (Size & Shape)
+    pub shape: ReverbShape,   // 공간 형태에 따른 초기 반사음 및 딜레이 비율 프리셋
+    pub room_size: f32,       // 0.1 ~ 1.0 (가상 공간 체적, 반사음 간격 조절)
+    pub diffusion: f32,       // 0.0 ~ 1.0 (반사음 밀도: 높으면 부드러운 잔향, 낮으면 팅팅거리는 분리감)
     
-    // 8-Line FDN 딜레이 라인 및 직교 피드백 행렬
+    // 2. 시간 및 길이 조절 (Time & Length)
+    pub decay_time: f32,      // 0.2s ~ 20.0s (RT60: 소리가 60dB 감소하는 시간)
+    pub pre_delay_ms: f32,    // 0.0 ~ 100.0ms (원음 이후 첫 잔향까지의 지연, 원음 명료도 확보)
+    
+    // 3. 음색 및 톤 조절 (Tone & Damping)
+    pub low_cut_hz: f32,      // 20Hz ~ 1000Hz (저음역 먹먹함 방지 필터)
+    pub high_cut_hz: f32,     // 2000Hz ~ 20000Hz (고음역 쇳소리 방지 필터)
+    pub damping: f32,         // 0.0 ~ 1.0 (고음역 흡수율: 벽면 재질 시뮬레이션)
+    
+    // 4. 밸런스 조절 (Balance)
+    pub width: f32,           // 0.0(Mono) ~ 1.0(Stereo Width) (리버브의 좌우 퍼짐)
+    pub wet_level: f32,       // Send 버스이므로 보통 100% (1.0) 고정 사용
+    
+    // 8-Line FDN 내부 구조 (DSP 코어)
+    pre_delay_buffer: Vec<f32>,
     delay_lines: [Vec<f32>; 8],
     write_indices: [usize; 8],
-    damping_filters: [OnePoleLowPass; 8],
-    feedback_matrix: [[f32; 8]; 8], // Householder Matrix (에너지 보존)
+    eq_filters: [Biquad; 8],        // Low/High cut 복합 필터
+    damping_filters: [OnePole; 8],
+    feedback_matrix: [[f32; 8]; 8], // Householder Matrix
 }
 
 impl SpatialReverbEngine {
