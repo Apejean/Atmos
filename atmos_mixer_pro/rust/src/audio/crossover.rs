@@ -1,6 +1,9 @@
 use crate::audio::svf::SvfFilter;
 use crate::common::config::EqType;
 
+// 프로덕션 베이스 매니지먼트(서브우퍼 크로스오버)에서 실제로 사용되는 LR24 구현.
+// (`AudioMixer::crossovers`, mixer.rs process()). `audio::svf::LinkwitzRiley24`는
+// 별개의 범용 테스트용 구현이므로 혼동하지 말 것.
 #[derive(Clone)]
 pub struct LinkwitzRiley24 {
     hpf1: SvfFilter,
@@ -26,10 +29,12 @@ impl LinkwitzRiley24 {
         // Butterworth Q is 0.707. Cascading two of them forms an LR4 filter.
         let q = std::f32::consts::FRAC_1_SQRT_2; 
         
-        self.hpf1.update_coefficients(&EqType::HighCut, fs, freq, q, 0.0);
-        self.hpf2.update_coefficients(&EqType::HighCut, fs, freq, q, 0.0);
-        self.lpf1.update_coefficients(&EqType::LowCut, fs, freq, q, 0.0);
-        self.lpf2.update_coefficients(&EqType::LowCut, fs, freq, q, 0.0);
+        // svf.rs 규약: EqType::LowCut = HighPass(저역 컷), EqType::HighCut = LowPass(고역 컷)
+        // hpf*는 하이패스여야 하므로 LowCut을, lpf*는 로우패스여야 하므로 HighCut을 사용한다.
+        self.hpf1.update_coefficients(&EqType::LowCut, fs, freq, q, 0.0);
+        self.hpf2.update_coefficients(&EqType::LowCut, fs, freq, q, 0.0);
+        self.lpf1.update_coefficients(&EqType::HighCut, fs, freq, q, 0.0);
+        self.lpf2.update_coefficients(&EqType::HighCut, fs, freq, q, 0.0);
     }
 
     #[inline(always)]

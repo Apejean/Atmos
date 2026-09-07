@@ -123,6 +123,10 @@ impl SvfFilter {
     }
 }
 
+// 주의: 이 타입은 프로덕션 베이스 매니지먼트 경로에서 사용되지 않는다.
+// 실제 믹서(AudioMixer)의 서브우퍼 크로스오버는 `audio::crossover::LinkwitzRiley24`를 사용하며,
+// 이 구조체는 단일 filter_type만 받는 범용 LR24 유틸리티로 tests/test_zero_defect_e2e.rs의
+// 물리 검증용으로만 쓰인다. 이름이 같은 두 구현이 존재하므로 수정 시 반드시 사용처를 확인할 것.
 #[derive(Clone, Default)]
 pub struct LinkwitzRiley24 {
     stage1: SvfFilter,
