@@ -1,7 +1,3 @@
-use rosc::{OscPacket, OscType, OscMessage};
-use tokio::net::UdpSocket;
-use std::sync::Arc;
-
 #[flutter_rust_bridge::frb(ignore)]
 pub fn validate_osc_packet(sender_addr: &std::net::SocketAddr, whitelist: &[std::net::IpAddr], raw_bytes: &[u8]) -> bool {
     if !whitelist.is_empty() && !whitelist.contains(&sender_addr.ip()) {
@@ -28,29 +24,3 @@ pub fn create_high_capacity_osc_socket(port: u16) -> std::io::Result<std::net::U
 
 // Removed secondary start_osc_server to prevent port 8000/8001 conflict
 // The main OSC listener handles everything now.
-
-fn handle_osc_packet(packet: OscPacket) {
-    match packet {
-        OscPacket::Message(msg) => {
-            // println!("OSC message received: {} {:?}", msg.addr, msg.args);
-            
-            // Handle Head Tracking for HRTF
-            if msg.addr == "/hrtf/tracking" && msg.args.len() == 3 {
-                if let (Some(yaw), Some(pitch), Some(roll)) = (msg.args[0].clone().float(), msg.args[1].clone().float(), msg.args[2].clone().float()) {
-                    let yaw_bits = yaw.to_bits();
-                    let pitch_bits = pitch.to_bits();
-                    let roll_bits = roll.to_bits();
-                    
-                    crate::core::state::GLOBAL_STATE.hrtf_yaw.store(yaw_bits, std::sync::atomic::Ordering::Relaxed);
-                    crate::core::state::GLOBAL_STATE.hrtf_pitch.store(pitch_bits, std::sync::atomic::Ordering::Relaxed);
-                    crate::core::state::GLOBAL_STATE.hrtf_roll.store(roll_bits, std::sync::atomic::Ordering::Relaxed);
-                }
-            }
-        }
-        OscPacket::Bundle(bundle) => {
-            for packet in bundle.content {
-                handle_osc_packet(packet);
-            }
-        }
-    }
-}

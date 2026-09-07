@@ -967,7 +967,9 @@ impl AudioMixer {
                 }
 
                 // 4. Apply Time Alignment & Dynamic Off-axis EQ
-                for ch_idx in 0..self.channel_dsp.len() {
+                // channel_positions는 UpdateSpatialConfig 커맨드로 프론트엔드가 통째로 교체하므로
+                // channel_dsp(가상 채널 고정 길이)와 길이가 다를 수 있음 -> max_pos로 하한 클램프
+                for ch_idx in 0..max_ch.min(max_pos) {
                     let dist = channel_dists[ch_idx];
                     if dist < 0.0 {
                         continue; // Not participating in spatial DSP (isolated)
