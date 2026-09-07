@@ -81,6 +81,9 @@ pub struct AudioMixer {
     pub bass_management_enabled: bool,
     pub lfe_channel_idx: Option<usize>,
     pub crossovers: Vec<crate::audio::crossover::LinkwitzRiley24>,
+    // 서브우퍼로 보낼 저역 합산용 사전 할당 버퍼 (Law 1: 콜백 내 힙 할당 금지).
+    // binaural.rs의 8192 프레임 관례를 그대로 따른다.
+    pub lfe_sub_mix: Vec<f32>,
 }
 
 impl AudioMixer {
@@ -219,6 +222,7 @@ impl AudioMixer {
             bass_management_enabled: false,
             lfe_channel_idx: Some(3),
             crossovers: vec![crate::audio::crossover::LinkwitzRiley24::new(); channels],
+            lfe_sub_mix: vec![0.0; 8192],
         };
         
         for c in mixer.crossovers.iter_mut() {
@@ -702,7 +706,9 @@ impl AudioMixer {
         
         let bm_enabled = self.bass_management_enabled;
         let lfe_idx = self.lfe_channel_idx;
-        let mut lfe_sub_mix = vec![0.0; frames];
+        // Law 1: 콜백 내 힙 할당 금지 - new()에서 사전 할당한 버퍼를 재사용하고 사용 구간만 초기화
+        let lfe_frames = frames.min(self.lfe_sub_mix.len());
+        self.lfe_sub_mix[..lfe_frames].fill(0.0);
         for ch in 0..dsp_limit {
             let is_enabled = if ch < GLOBAL_STATE.enabled_channels.len() {
                 GLOBAL_STATE.enabled_channels[ch].load(Ordering::Relaxed)
@@ -725,7 +731,9 @@ impl AudioMixer {
                             // Satellite channels: Split into HPF (keeps in channel) and LPF (sends to sub)
                             let low_val = self.crossovers[ch].process_low(val);
                             val = self.crossovers[ch].process_high(val);
-                            lfe_sub_mix[frame] += low_val;
+                            if frame < lfe_frames {
+                                self.lfe_sub_mix[frame] += low_val;
+                            }
                         }
                     }
                     
@@ -754,17 +762,17 @@ impl AudioMixer {
         if bm_enabled {
             if let Some(idx) = lfe_idx {
                 if idx < out_channels {
-                    for frame in 0..frames {
+                    for frame in 0..lfe_frames {
                         let sample_idx = frame * out_channels + idx;
                         if sample_idx < output.len() {
-                            output[sample_idx] += lfe_sub_mix[frame];
+                            output[sample_idx] += self.lfe_sub_mix[frame];
                         }
                     }
                 } else if out_channels >= 2 {
-                    for frame in 0..frames {
+                    for frame in 0..lfe_frames {
                         let sample_idx_l = frame * out_channels + 0;
                         let sample_idx_r = frame * out_channels + 1;
-                        let bass_val = lfe_sub_mix[frame] * 0.707;
+                        let bass_val = self.lfe_sub_mix[frame] * 0.707;
                         if sample_idx_l < output.len() {
                             output[sample_idx_l] += bass_val;
                         }
