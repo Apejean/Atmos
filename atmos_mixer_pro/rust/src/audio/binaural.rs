@@ -1,5 +1,6 @@
 use realfft::RealFftPlanner;
 use rustfft::num_complex::Complex;
+use sofa_reader::{SofaFile, SourcePosition};
 
 pub struct BinauralChannel {
     ir_left_freq: Vec<Complex<f32>>,
@@ -21,6 +22,11 @@ pub struct BinauralChannel {
     out_right_time_target: Vec<f32>,
     crossfade_phase: f32,
     is_switching: bool,
+
+    // update_hrtf()에서 재사용하는 임시 패딩 버퍼. 오디오 콜백(process_interleaved)에서
+    // 호출될 수 있으므로 매번 vec![]로 새로 할당하지 않고 사전 할당된 버퍼를 덮어쓴다(Law1 준수).
+    scratch_pad_left: Vec<f32>,
+    scratch_pad_right: Vec<f32>,
 }
 
 impl BinauralChannel {
@@ -74,20 +80,23 @@ impl BinauralChannel {
             out_right_time_target,
             crossfade_phase: 1.0,
             is_switching: false,
+
+            scratch_pad_left: vec![0.0; fft_size],
+            scratch_pad_right: vec![0.0; fft_size],
         }
     }
-    
-    pub fn update_hrtf(&mut self, new_ir_left: &[f32], new_ir_right: &[f32]) {
-        
-        
-        let mut ir_left_padded = vec![0.0; self.fft_size];
-        ir_left_padded[..new_ir_left.len().min(self.fft_size)].copy_from_slice(&new_ir_left[..new_ir_left.len().min(self.fft_size)]);
-        let _ = self.r2c.process(&mut ir_left_padded, &mut self.target_ir_left_freq);
 
-        let mut ir_right_padded = vec![0.0; self.fft_size];
-        ir_right_padded[..new_ir_right.len().min(self.fft_size)].copy_from_slice(&new_ir_right[..new_ir_right.len().min(self.fft_size)]);
-        let _ = self.r2c.process(&mut ir_right_padded, &mut self.target_ir_right_freq);
-        
+    pub fn update_hrtf(&mut self, new_ir_left: &[f32], new_ir_right: &[f32]) {
+        let len_l = new_ir_left.len().min(self.fft_size);
+        self.scratch_pad_left.fill(0.0);
+        self.scratch_pad_left[..len_l].copy_from_slice(&new_ir_left[..len_l]);
+        let _ = self.r2c.process(&mut self.scratch_pad_left, &mut self.target_ir_left_freq);
+
+        let len_r = new_ir_right.len().min(self.fft_size);
+        self.scratch_pad_right.fill(0.0);
+        self.scratch_pad_right[..len_r].copy_from_slice(&new_ir_right[..len_r]);
+        let _ = self.r2c.process(&mut self.scratch_pad_right, &mut self.target_ir_right_freq);
+
         self.is_switching = true;
         self.crossfade_phase = 0.0;
     }
@@ -175,18 +184,59 @@ pub struct VirtualMixRoomBinaural {
     current_yaw: f32,
     current_pitch: f32,
     current_roll: f32,
+
+    // MIT KEMAR SOFA HRTF 데이터셋. new()에서 1회만 로드하며, 오디오 콜백에서는
+    // 이 데이터를 읽기만 한다(신규 할당/파일 I/O 절대 금지, Law1 준수).
+    hrtf_db: Option<SofaFile>,
+    // 데이터셋 측정 거리(m). 방위각 보간 시 타깃 위치의 반경 성분으로 사용.
+    nominal_distance: f32,
+    // 방위각 보간 결과를 저장하는 사전 할당 스크래치 버퍼(Law1 준수).
+    interp_ir_left: Vec<f32>,
+    interp_ir_right: Vec<f32>,
 }
 
 impl VirtualMixRoomBinaural {
     pub fn new(num_channels: usize, block_size: usize) -> Self {
-        // Dummy HRTF for now
-        let dummy_ir_left = [1.0, 0.0];
-        let dummy_ir_right = [0.0, 1.0];
-        
+        // SOFA HRTF 파일은 엔진 초기화 시점(new())에서 1회만 로드한다.
+        let sofa_path = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/assets/hrtf/mit_kemar_normal_pinna.sofa"
+        );
+        let hrtf_db = match SofaFile::strict_load(sofa_path) {
+            Ok(db) => Some(db),
+            Err(e) => {
+                eprintln!(
+                    "[Binaural] SOFA HRTF 로드 실패({}): {}. 무필터 폴백 IR을 사용합니다.",
+                    sofa_path, e
+                );
+                None
+            }
+        };
+
+        let nominal_distance = hrtf_db
+            .as_ref()
+            .and_then(|db| db.positions.first())
+            .map(|p| p.distance)
+            .unwrap_or(1.0);
+        let ir_len = hrtf_db.as_ref().map(|db| db.ir_length).unwrap_or(2);
+
+        // 정면(0° azimuth, 0° elevation) 실측 HRIR로 초기 채널을 구성한다. 로드 실패 시 무필터 폴백.
+        let (init_ir_left, init_ir_right): (Vec<f32>, Vec<f32>) = match &hrtf_db {
+            Some(db) => {
+                let target = SourcePosition::new(0.0, 0.0, nominal_distance);
+                let (idx, _dist) = db.find_nearest(&target);
+                match db.get_hrtf_slices(idx) {
+                    Some((_pos, left, right)) => (left.to_vec(), right.to_vec()),
+                    None => (vec![1.0, 0.0], vec![0.0, 1.0]),
+                }
+            }
+            None => (vec![1.0, 0.0], vec![0.0, 1.0]),
+        };
+
         let mut channels = Vec::new();
         let mut temp_channel_buffers = Vec::new();
         for _ in 0..num_channels {
-            channels.push(BinauralChannel::new(&dummy_ir_left, &dummy_ir_right, block_size));
+            channels.push(BinauralChannel::new(&init_ir_left, &init_ir_right, block_size));
             temp_channel_buffers.push(vec![0.0; 8192]);
         }
 
@@ -199,6 +249,10 @@ impl VirtualMixRoomBinaural {
             current_yaw: 0.0,
             current_pitch: 0.0,
             current_roll: 0.0,
+            hrtf_db,
+            nominal_distance,
+            interp_ir_left: vec![0.0; ir_len],
+            interp_ir_right: vec![0.0; ir_len],
         }
     }
 
@@ -215,14 +269,52 @@ impl VirtualMixRoomBinaural {
             self.current_pitch = pitch;
             self.current_roll = roll;
             
-            // Generate synthetic HRTF shift based on yaw for demonstration
-            // In a real SOFA implementation, we would look up the closest IRs based on (yaw, pitch, roll)
-            let shift = yaw.sin() * 0.5; // -0.5 to 0.5
-            let dummy_ir_left = [(0.5 - shift).max(0.0), 0.0];
-            let dummy_ir_right = [(0.5 + shift).max(0.0), 1.0];
-            
-            for ch in &mut self.channels {
-                ch.update_hrtf(&dummy_ir_left, &dummy_ir_right);
+            if let Some(db) = &self.hrtf_db {
+                // 실측 SOFA HRIR 룩업: 머리 yaw 회전을 음원의 상대 방위각으로 환산하고
+                // 최근접 3개 실측 위치를 역거리 가중 삼선형 보간한다(무할당, 사전 할당 스크래치 버퍼 사용).
+                let azimuth_deg = -yaw.to_degrees();
+                let target = SourcePosition::new(azimuth_deg, 0.0, self.nominal_distance);
+                let nbrs = db.find_three_nearest(&target);
+
+                const EPS: f32 = 1e-4;
+                let mut weights = [0.0f32; 3];
+                let mut total = 0.0f32;
+                for (slot, (_idx, dist)) in weights.iter_mut().zip(nbrs.iter()) {
+                    let w = 1.0 / (*dist + EPS);
+                    *slot = w;
+                    total += w;
+                }
+                if total > 0.0 {
+                    for w in weights.iter_mut() {
+                        *w /= total;
+                    }
+                }
+
+                self.interp_ir_left.fill(0.0);
+                self.interp_ir_right.fill(0.0);
+                for ((idx, _dist), w) in nbrs.iter().zip(weights.iter()) {
+                    if let Some((_pos, left, right)) = db.get_hrtf_slices(*idx) {
+                        for (dst, src) in self.interp_ir_left.iter_mut().zip(left.iter()) {
+                            *dst += src * (*w);
+                        }
+                        for (dst, src) in self.interp_ir_right.iter_mut().zip(right.iter()) {
+                            *dst += src * (*w);
+                        }
+                    }
+                }
+
+                for ch in &mut self.channels {
+                    ch.update_hrtf(&self.interp_ir_left, &self.interp_ir_right);
+                }
+            } else {
+                // SOFA 데이터셋 로드 실패 시 폴백: 기존 합성 시프트 유지
+                let shift = yaw.sin() * 0.5; // -0.5 to 0.5
+                let dummy_ir_left = [(0.5 - shift).max(0.0), 0.0];
+                let dummy_ir_right = [(0.5 + shift).max(0.0), 1.0];
+
+                for ch in &mut self.channels {
+                    ch.update_hrtf(&dummy_ir_left, &dummy_ir_right);
+                }
             }
         }
         
