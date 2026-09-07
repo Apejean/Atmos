@@ -193,25 +193,27 @@ pub struct VirtualMixRoomBinaural {
     // 방위각 보간 결과를 저장하는 사전 할당 스크래치 버퍼(Law1 준수).
     interp_ir_left: Vec<f32>,
     interp_ir_right: Vec<f32>,
+
+    // SOFA 측정치(M≈710개)를 방위각 1° 단위 버킷으로 미리 분류한 공간 인덱스.
+    // new()에서 1회만 구축하며, 오디오 콜백은 이 인덱스를 읽기만 하므로 매 버퍼마다
+    // 전체 측정치를 선형 스캔하지 않는다(Law1/예측 가능한 CPU 사용량 준수).
+    azimuth_buckets: Vec<Vec<usize>>,
 }
 
 impl VirtualMixRoomBinaural {
     pub fn new(num_channels: usize, block_size: usize) -> Self {
-        // SOFA HRTF 파일은 엔진 초기화 시점(new())에서 1회만 로드한다.
-        let sofa_path = concat!(
+        // SOFA HRTF 파일은 빌드 머신의 절대경로(CARGO_MANIFEST_DIR)에 의존하면 배포된
+        // 실행 파일에서 경로를 찾지 못해 조용히 폴백된다. 이를 막기 위해 컴파일 타임에
+        // 파일 바이트를 바이너리 내부에 직접 임베드(include_bytes!)하여 배포 머신의
+        // 파일시스템 경로 존재 여부와 무관하게 항상 로드되도록 한다.
+        // sofa-reader 크레이트는 바이트 슬라이스 기반 strict 로더를 제공하지 않으므로,
+        // 임베드된 바이트를 엔진 초기화 시점(new(), 오디오 스레드 아님)에 임시 파일로
+        // 1회 기록한 뒤 strict_load()로 읽는다.
+        const SOFA_BYTES: &[u8] = include_bytes!(concat!(
             env!("CARGO_MANIFEST_DIR"),
             "/assets/hrtf/mit_kemar_normal_pinna.sofa"
-        );
-        let hrtf_db = match SofaFile::strict_load(sofa_path) {
-            Ok(db) => Some(db),
-            Err(e) => {
-                eprintln!(
-                    "[Binaural] SOFA HRTF 로드 실패({}): {}. 무필터 폴백 IR을 사용합니다.",
-                    sofa_path, e
-                );
-                None
-            }
-        };
+        ));
+        let hrtf_db = Self::load_embedded_sofa(SOFA_BYTES);
 
         let nominal_distance = hrtf_db
             .as_ref()
@@ -240,6 +242,14 @@ impl VirtualMixRoomBinaural {
             temp_channel_buffers.push(vec![0.0; 8192]);
         }
 
+        // 방위각 공간 인덱스를 초기화 시점에 1회 구축(오디오 콜백에서는 조회만 함).
+        let mut azimuth_buckets: Vec<Vec<usize>> = vec![Vec::new(); 360];
+        if let Some(db) = &hrtf_db {
+            for (i, pos) in db.positions.iter().enumerate() {
+                azimuth_buckets[Self::azimuth_bucket(pos.azimuth)].push(i);
+            }
+        }
+
         Self {
             channels,
             enabled: false,
@@ -253,7 +263,132 @@ impl VirtualMixRoomBinaural {
             nominal_distance,
             interp_ir_left: vec![0.0; ir_len],
             interp_ir_right: vec![0.0; ir_len],
+            azimuth_buckets,
         }
+    }
+
+    /// 바이너리에 임베드된 SOFA 바이트를 임시 파일에 1회 기록한 뒤 strict_load로 읽는다.
+    /// 엔진 초기화 시점(new())에서만 호출되며 오디오 콜백 경로가 아니므로 파일 I/O가 허용된다.
+    /// 동일 프로세스 내에서 VirtualMixRoomBinaural 인스턴스가 여러 스레드(테스트 등)에서
+    /// 동시에 생성될 수 있으므로, PID만으로는 경로가 충돌한다. 프로세스 전역 원자 카운터를
+    /// 더해 인스턴스마다 고유한 임시 경로를 보장한다.
+    fn load_embedded_sofa(bytes: &[u8]) -> Option<SofaFile> {
+        static INSTANCE_COUNTER: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+        let instance_id = INSTANCE_COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let temp_path = std::env::temp_dir().join(format!(
+            "atmos_mixer_pro_hrtf_{}_{}.sofa",
+            std::process::id(),
+            instance_id
+        ));
+        if let Err(e) = std::fs::write(&temp_path, bytes) {
+            eprintln!(
+                "[Binaural] 임베드된 SOFA 데이터를 임시 파일에 쓰지 못했습니다({}): {}. 무필터 폴백 IR을 사용합니다.",
+                temp_path.display(),
+                e
+            );
+            return None;
+        }
+
+        let result = SofaFile::strict_load(&temp_path);
+        let _ = std::fs::remove_file(&temp_path);
+
+        match result {
+            Ok(db) => Some(db),
+            Err(e) => {
+                eprintln!(
+                    "[Binaural] 임베드된 SOFA HRTF 파싱 실패: {}. 무필터 폴백 IR을 사용합니다.",
+                    e
+                );
+                None
+            }
+        }
+    }
+
+    /// 방위각(도)을 [0, 360) 정수 버킷 인덱스로 정규화한다.
+    fn azimuth_bucket(azimuth_deg: f32) -> usize {
+        let normalized = ((azimuth_deg % 360.0) + 360.0) % 360.0;
+        (normalized as i32).clamp(0, 359) as usize
+    }
+
+    /// SofaFile::find_three_nearest와 동일한 거리 공식(방위각+거리 가중)을 사용하되,
+    /// new()에서 구축한 방위각 버킷 인덱스로 후보를 좁혀 조회한다.
+    /// 오디오 콜백에서 호출되며 힙 할당이 전혀 없다(고정 크기 스택 배열만 사용, Law1 준수).
+    fn find_three_nearest_indexed(
+        db: &SofaFile,
+        azimuth_buckets: &[Vec<usize>],
+        target: &SourcePosition,
+    ) -> [(usize, f32); 3] {
+        const CANDIDATE_CAP: usize = 24;
+        const MAX_RADIUS_DEG: i32 = 60;
+
+        let positions = &db.positions;
+        if positions.is_empty() {
+            return [(0, f32::INFINITY); 3];
+        }
+
+        let center = Self::azimuth_bucket(target.azimuth) as i32;
+        let mut candidates = [0usize; CANDIDATE_CAP];
+        let mut candidate_count = 0usize;
+
+        let mut radius = 0i32;
+        while radius <= MAX_RADIUS_DEG && candidate_count < CANDIDATE_CAP {
+            let bucket_pos = (((center + radius) % 360) + 360) % 360;
+            for &idx in &azimuth_buckets[bucket_pos as usize] {
+                if candidate_count >= CANDIDATE_CAP {
+                    break;
+                }
+                candidates[candidate_count] = idx;
+                candidate_count += 1;
+            }
+            if radius != 0 {
+                let bucket_neg = (((center - radius) % 360) + 360) % 360;
+                for &idx in &azimuth_buckets[bucket_neg as usize] {
+                    if candidate_count >= CANDIDATE_CAP {
+                        break;
+                    }
+                    candidates[candidate_count] = idx;
+                    candidate_count += 1;
+                }
+            }
+            radius += 1;
+        }
+
+        let mut best = [(0usize, f32::INFINITY); 3];
+        for &idx in &candidates[..candidate_count] {
+            let dist = Self::lookup_distance(&positions[idx], target);
+            if dist < best[0].1 {
+                best[2] = best[1];
+                best[1] = best[0];
+                best[0] = (idx, dist);
+            } else if dist < best[1].1 {
+                best[2] = best[1];
+                best[1] = (idx, dist);
+            } else if dist < best[2].1 {
+                best[2] = (idx, dist);
+            }
+        }
+        if candidate_count == 1 {
+            best[1] = best[0];
+            best[2] = best[0];
+        } else if candidate_count == 2 {
+            best[2] = best[1];
+        }
+        best
+    }
+
+    /// sofa-reader crate 내부의 private `lookup_distance`와 동일한 방위각+거리 가중 공식.
+    fn lookup_distance(a: &SourcePosition, b: &SourcePosition) -> f32 {
+        let angular_deg = a.angular_distance(b);
+        if !angular_deg.is_finite() {
+            return f32::INFINITY;
+        }
+        let radial = (a.distance - b.distance).abs();
+        if !radial.is_finite() {
+            return f32::INFINITY;
+        }
+        let mean_r = ((a.distance.abs() + b.distance.abs()) * 0.5).max(1e-3);
+        let tangential = mean_r * angular_deg.to_radians();
+        (tangential * tangential + radial * radial).sqrt()
     }
 
     pub fn process_interleaved(&mut self, output: &mut [f32], out_channels: usize) {
@@ -274,7 +409,7 @@ impl VirtualMixRoomBinaural {
                 // 최근접 3개 실측 위치를 역거리 가중 삼선형 보간한다(무할당, 사전 할당 스크래치 버퍼 사용).
                 let azimuth_deg = -yaw.to_degrees();
                 let target = SourcePosition::new(azimuth_deg, 0.0, self.nominal_distance);
-                let nbrs = db.find_three_nearest(&target);
+                let nbrs = Self::find_three_nearest_indexed(db, &self.azimuth_buckets, &target);
 
                 const EPS: f32 = 1e-4;
                 let mut weights = [0.0f32; 3];

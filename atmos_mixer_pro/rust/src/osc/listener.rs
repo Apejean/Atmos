@@ -156,7 +156,29 @@ fn handle_packet(packet: OscPacket, debouncer: &OscDebouncer) {
                 }
                 return;
             }
-            
+
+            // Hardcoded head-tracking input: /hrtf/tracking {yaw} {pitch} {roll} (라디안 단위,
+            // VirtualMixRoomBinaural::process_interleaved에서 yaw.to_degrees()로 소비하는
+            // 기존 규약과 동일). 바이노럴 렌더러가 오디오 콜백에서 읽는 GLOBAL_STATE 원자값을
+            // 갱신한다. 오디오 스레드가 아니므로 락 없는 원자적 store만 사용.
+            if msg.addr == "/hrtf/tracking" {
+                if msg.args.len() >= 3 {
+                    let mut ypr = [0.0f32; 3];
+                    for (i, arg) in msg.args.iter().take(3).enumerate() {
+                        ypr[i] = match arg {
+                            rosc::OscType::Float(f) => *f,
+                            rosc::OscType::Double(d) => *d as f32,
+                            rosc::OscType::Int(v) => *v as f32,
+                            _ => ypr[i],
+                        };
+                    }
+                    crate::core::state::GLOBAL_STATE.hrtf_yaw.store(ypr[0].to_bits(), Ordering::Relaxed);
+                    crate::core::state::GLOBAL_STATE.hrtf_pitch.store(ypr[1].to_bits(), Ordering::Relaxed);
+                    crate::core::state::GLOBAL_STATE.hrtf_roll.store(ypr[2].to_bits(), Ordering::Relaxed);
+                }
+                return;
+            }
+
             // Dynamic path: /atmos/track/{ch}/volume
             if msg.addr.starts_with("/atmos/track/") && msg.addr.ends_with("/volume") {
                 let parts: Vec<&str> = msg.addr.split('/').collect();
