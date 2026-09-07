@@ -285,7 +285,9 @@ impl AudioMixer {
                     }
                     
                     if inst.output_channel == usize::MAX && inst.current_position.is_some() {
-                        let active_ch = out_channels.min(self.channel_positions.len());
+                        // inst.spatial_gains는 SoundInstance 생성 시 고정 크기로 사전 할당되므로
+                        // (Dante/MADI 등 128채널 초과 인터페이스에서도) OOB panic 방지를 위해 하한 클램프.
+                        let active_ch = out_channels.min(self.channel_positions.len()).min(inst.spatial_gains.len());
                         // if inst.spatial_gains.len() != active_ch {
                             // inst.spatial_gains.resize(active_ch, 0.0);
                             // inst.spatial_gains_target.resize(active_ch, 0.0);
@@ -484,7 +486,8 @@ impl AudioMixer {
                 }
                 
                 if instance.output_channel == usize::MAX {
-                    let active_ch = out_channels.min(self.channel_positions.len());
+                    // OOB panic 방지: spatial_gains 고정 배열 크기로 하한 클램프 (b4a9293 패턴).
+                    let active_ch = out_channels.min(self.channel_positions.len()).min(instance.spatial_gains.len());
                     for ch in 0..active_ch {
                         instance.spatial_gains[ch] += 0.005 * (instance.spatial_gains_target[ch] - instance.spatial_gains[ch]);
                     }
@@ -625,8 +628,9 @@ impl AudioMixer {
                             sum += *val;
                         }
                         let mono_val = sum / ch_limit as f32;
-                        
-                        let active_ch = out_channels.min(self.channel_positions.len());
+
+                        // OOB panic 방지: spatial_gains 고정 배열 크기로 하한 클램프 (b4a9293 패턴).
+                        let active_ch = out_channels.min(self.channel_positions.len()).min(instance.spatial_gains.len());
                         for hw_ch in 0..active_ch {
                             let is_enabled = if hw_ch < GLOBAL_STATE.enabled_channels.len() {
                                 GLOBAL_STATE.enabled_channels[hw_ch].load(Ordering::Relaxed)
