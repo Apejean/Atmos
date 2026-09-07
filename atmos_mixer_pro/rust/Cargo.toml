@@ -26,6 +26,10 @@ serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.150"
 socket2 = "0.6.5"
 sofa-reader = "0.1.6"
+# sofa-reader가 rusqlite를 끌어오는데, 기본 설정은 시스템 libsqlite3 링크를 전제한다.
+# Flutter macOS 앱은 Xcode가 최종 링크를 수행해 cargo의 link-lib 지시가 전달되지 않으므로
+# undefined symbol로 앱 빌드가 실패한다. bundled로 sqlite3를 정적 내장해 배포 머신 의존성을 없앤다.
+rusqlite = { version = "0.38", features = ["bundled"] }
 symphonia = { version = "0.5.3", features = ["all"] }
 tokio = { version = "1.40.0", features = ["rt-multi-thread", "net", "macros", "time"] }
 tracing = "0.1.44"
