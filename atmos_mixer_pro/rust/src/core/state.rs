@@ -39,6 +39,7 @@ pub struct GlobalEngineState {
     pub config: RwLock<Option<AppConfig>>,
     pub config_version: std::sync::atomic::AtomicU64,
     pub current_master_lufs: AtomicU32,
+    pub current_gain_reduction_db: AtomicU32,
     pub hrtf_yaw: AtomicU32,
     pub hrtf_pitch: AtomicU32,
     pub hrtf_roll: AtomicU32,
@@ -95,6 +96,7 @@ impl GlobalEngineState {
             config: RwLock::new(None),
             config_version: std::sync::atomic::AtomicU64::new(0),
             current_master_lufs: AtomicU32::new(0),
+            current_gain_reduction_db: AtomicU32::new(0),
             hrtf_yaw: AtomicU32::new(0),
             hrtf_pitch: AtomicU32::new(0),
             hrtf_roll: AtomicU32::new(0),
@@ -130,6 +132,7 @@ impl GlobalEngineState {
             engine_error: self.engine_error.read().unwrap_or_else(|e| e.into_inner()).clone(),
             output_channel_count: self.active_device_channels.load(Ordering::Relaxed),
             short_term_lufs: f32::from_bits(self.current_master_lufs.load(Ordering::Relaxed)),
+            gain_reduction_db: f32::from_bits(self.current_gain_reduction_db.load(Ordering::Relaxed)),
         };
 
         if let Some(sink) = self.state_sink.read().unwrap_or_else(|e| e.into_inner()).as_ref() {

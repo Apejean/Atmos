@@ -823,6 +823,16 @@ impl AudioMixer {
         if out_channels > 0 && !self.limiters.is_empty() {
             let lufs = self.limiters[0].short_term_lufs;
             GLOBAL_STATE.current_master_lufs.store(lufs.to_bits(), Ordering::Relaxed);
+
+            // 마스터 게인 리덕션(dB): 활성 리미터들 중 최댓값을 대표값으로 사용.
+            let mut max_gr_db = 0.0f32;
+            for limiter in self.limiters.iter().take(out_channels) {
+                let gr = limiter.current_gain_reduction_db();
+                if gr > max_gr_db {
+                    max_gr_db = gr;
+                }
+            }
+            GLOBAL_STATE.current_gain_reduction_db.store(max_gr_db.to_bits(), Ordering::Relaxed);
         }
         
         // Send to Analysis Thread (Lock-free)

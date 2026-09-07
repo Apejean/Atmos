@@ -85,6 +85,43 @@ fn test_zero_defect_peak_limiter_true_peak_margin() {
 }
 
 #[test]
+fn test_zero_defect_peak_limiter_gain_reduction_telemetry() {
+    // 2b. Verify PeakLimiter::current_gain_reduction_db() 락프리 텔레메트리가
+    // 무음 입력 시 0dB, 임계치 초과 사인파 입력 시 양수(>0dB)를 보고하는지 검증.
+    let sample_rate = 48000.0;
+    let mut limiter = PeakLimiter::new(sample_rate, 5.0, 100.0, 1.0);
+
+    // 무음 입력: GR은 0dB로 수렴해야 한다.
+    for _ in 0..4800 {
+        limiter.process(0.0);
+    }
+    let silence_gr = limiter.current_gain_reduction_db();
+    println!("Gain Reduction (Silence): {:.4} dB", silence_gr);
+    assert!(
+        silence_gr.abs() < 1e-3,
+        "Digital silence should report 0dB gain reduction, got {}",
+        silence_gr
+    );
+
+    // 임계치를 초과하는 1kHz 사인파 주입: GR은 양수여야 한다.
+    let mut max_gr = 0.0f32;
+    for i in 0..48000 {
+        let t = i as f32 / sample_rate;
+        let input_sample = 2.0 * (2.0 * std::f32::consts::PI * 1000.0 * t).sin();
+        limiter.process(input_sample);
+        if i > 480 {
+            max_gr = max_gr.max(limiter.current_gain_reduction_db());
+        }
+    }
+    println!("Gain Reduction (Overload Sine): {:.4} dB", max_gr);
+    assert!(
+        max_gr > 0.0,
+        "Overloaded sine wave should trigger gain reduction > 0dB, got {}",
+        max_gr
+    );
+}
+
+#[test]
 fn test_zero_defect_digital_silence_no_denormal_explosion() {
     // 3. Verify SVF Filter handles Digital Silence without Denormal Float CPU/NaN explosion
     let mut svf = SvfFilter::new();

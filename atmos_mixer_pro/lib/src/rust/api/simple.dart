@@ -391,6 +391,7 @@ class EngineStateUpdate {
   final String? engineError;
   final int outputChannelCount;
   final double shortTermLufs;
+  final double gainReductionDb;
 
   const EngineStateUpdate({
     this.activeRoomId,
@@ -399,6 +400,7 @@ class EngineStateUpdate {
     this.engineError,
     required this.outputChannelCount,
     required this.shortTermLufs,
+    required this.gainReductionDb,
   });
 
   @override
@@ -408,7 +410,8 @@ class EngineStateUpdate {
       playingTrackIds.hashCode ^
       engineError.hashCode ^
       outputChannelCount.hashCode ^
-      shortTermLufs.hashCode;
+      shortTermLufs.hashCode ^
+      gainReductionDb.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -420,7 +423,8 @@ class EngineStateUpdate {
           playingTrackIds == other.playingTrackIds &&
           engineError == other.engineError &&
           outputChannelCount == other.outputChannelCount &&
-          shortTermLufs == other.shortTermLufs;
+          shortTermLufs == other.shortTermLufs &&
+          gainReductionDb == other.gainReductionDb;
 }
 
 class OutputDeviceInfo {

@@ -1,21 +1,23 @@
+use std::sync::atomic::{AtomicU32, Ordering};
+
 pub struct PeakLimiter {
     fast_attack_coef: f32,
     fast_release_coef: f32,
     slow_attack_coef: f32,
     slow_release_coef: f32,
-    
+
     fast_envelope: f32,
     slow_envelope: f32,
-    
+
     threshold: f32,
     knee_width: f32,
-    
+
     delay_buffer: Vec<f32>,
     delay_index: usize,
-    
+
     hold_counter: usize,
     hold_samples: usize,
-    
+
     history: [f32; 3],
 
     // R128 Autoguard
@@ -26,6 +28,10 @@ pub struct PeakLimiter {
     lufs_index: usize,
     sum_sq: f32,
     lufs_decimation_counter: usize,
+
+    // 현재 게인 리덕션(dB)을 f32 bits로 저장하는 락프리 텔레메트리 값.
+    // 오디오 스레드(process)가 쓰고, UI/엔진 상태 스레드가 락 없이 읽는다(Law2 준수).
+    gain_reduction_db_bits: AtomicU32,
 }
 
 impl PeakLimiter {
@@ -80,7 +86,15 @@ impl PeakLimiter {
             lufs_index: 0,
             sum_sq: 0.0,
             lufs_decimation_counter: 0,
+
+            gain_reduction_db_bits: AtomicU32::new(0.0f32.to_bits()),
         }
+    }
+
+    /// 현재 게인 리덕션(dB, 항상 0 이상의 양수)을 락 없이 읽는다.
+    /// 오디오 콜백이 아닌 스레드(엔진 상태 스트림 등)에서 호출해도 안전하다.
+    pub fn current_gain_reduction_db(&self) -> f32 {
+        f32::from_bits(self.gain_reduction_db_bits.load(Ordering::Relaxed))
     }
 
     pub fn process(&mut self, sample: f32) -> f32 {
@@ -146,7 +160,11 @@ impl PeakLimiter {
                 gain = self.threshold / envelope;
             }
         }
-        
+
+        // 게인 리덕션(dB) 텔레메트리 갱신: gain(0~1) -> dB로 환산해 락프리 저장.
+        let gr_db = if gain < 1.0 { -20.0 * gain.log10() } else { 0.0 };
+        self.gain_reduction_db_bits.store(gr_db.to_bits(), Ordering::Relaxed);
+
         let delayed_sample = self.delay_buffer[self.delay_index];
         self.delay_buffer[self.delay_index] = sample; // Need to store gain? No, store raw, apply gain to delayed
         

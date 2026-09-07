@@ -848,6 +848,7 @@ pub struct EngineStateUpdate {
     pub engine_error: Option<String>,
     pub output_channel_count: u32,
     pub short_term_lufs: f32,
+    pub gain_reduction_db: f32,
 }
 
 pub fn api_create_engine_state_stream(sink: StreamSink<EngineStateUpdate>) {
@@ -868,6 +869,7 @@ pub fn api_create_engine_state_stream(sink: StreamSink<EngineStateUpdate>) {
         engine_error: GLOBAL_STATE.engine_error.read().unwrap_or_else(|e| e.into_inner()).clone(),
         output_channel_count: GLOBAL_STATE.active_device_channels.load(std::sync::atomic::Ordering::Relaxed),
         short_term_lufs: f32::from_bits(GLOBAL_STATE.current_master_lufs.load(std::sync::atomic::Ordering::Relaxed)),
+        gain_reduction_db: f32::from_bits(GLOBAL_STATE.current_gain_reduction_db.load(std::sync::atomic::Ordering::Relaxed)),
     };
     let _ = sink.add(initial_state);
     *GLOBAL_STATE.state_sink.write().unwrap_or_else(|e| e.into_inner()) = Some(sink);
