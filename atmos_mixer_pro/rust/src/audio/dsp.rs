@@ -5,6 +5,9 @@ pub mod dsp_utils {
     pub const MAX_DSP_CHANNELS: usize = 128;
     pub const MAX_EQ_BANDS: usize = 8;
     pub const DELAY_BUFFER_SIZE: usize = 48000; // 1 second at 48kHz
+    // 초기반사음 전용 링버퍼 크기: 48kHz 기준 200ms. DELAY_BUFFER_SIZE(1초, 메인 시간정렬용) 관례를
+    // 그대로 따르되 용도(1차 반사만)에 맞게 축소. acoustic::EARLY_REFLECTION_MAX_DELAY_MS와 정합.
+    pub const EARLY_REFLECTION_BUFFER_SIZE: usize = 9600;
     
     #[derive(Clone)]
     pub struct EqFilterState {
@@ -131,18 +134,27 @@ pub mod dsp_utils {
         }
     }
     
+    /// 초기반사음 탭 1개의 스무딩 상태(target/current 쌍). Law 3: 즉시 스냅 금지.
+    #[derive(Clone, Copy, Default)]
+    pub struct EarlyReflectionTapState {
+        pub target_delay_ms: f32,
+        pub current_delay_ms: f32,
+        pub target_gain: f32,
+        pub current_gain: f32,
+    }
+
     #[derive(Clone)]
     pub struct ChannelDspState {
         pub delay_buffer: Vec<f32>,
         pub delay_write_idx: usize,
         pub target_delay_ms: f32,
         pub current_delay_ms: f32,
-        
+
         pub target_bands: Vec<EqBand>,
         pub current_bands: Vec<EqBand>,
         pub eq_filters: Vec<EqFilterState>,
         pub dc_blocker: DcBlocker,
-        
+
         pub target_distance_meters: f32,
         pub current_distance_meters: f32,
         pub air_absorption: crate::audio::dsp::acoustic_physics::AirAbsorptionFilter,
@@ -152,6 +164,13 @@ pub mod dsp_utils {
         pub current_reverb_send: f32,
         pub current_gain_linear: f32,
         pub reverb: crate::audio::reverb::VirtualRoomReverb,
+
+        // 초기반사음(Image-Source 1차 반사) - 채널 고정 6슬롯, 사전 할당된 링버퍼만 사용(Law 1).
+        pub early_ref_buffer: Vec<f32>,
+        pub early_ref_write_idx: usize,
+        pub taps: [EarlyReflectionTapState; crate::audio::acoustic::MAX_EARLY_REFLECTION_TAPS],
+        pub target_early_ref_mix: f32,
+        pub current_early_ref_mix: f32,
     }
     
     impl Default for ChannelDspState {
@@ -187,6 +206,11 @@ pub mod dsp_utils {
                 current_reverb_send: 0.0,
                 current_gain_linear: 1.0,
                 reverb: crate::audio::reverb::VirtualRoomReverb::new(48000.0),
+                early_ref_buffer: vec![0.0; EARLY_REFLECTION_BUFFER_SIZE],
+                early_ref_write_idx: 0,
+                taps: [EarlyReflectionTapState::default(); crate::audio::acoustic::MAX_EARLY_REFLECTION_TAPS],
+                target_early_ref_mix: 0.0,
+                current_early_ref_mix: 0.0,
             }
         }
     
@@ -293,6 +317,39 @@ pub mod dsp_utils {
                 out *= -1.0;
             }
 
+            // Apply Early Reflections (Image-Source 1차 반사, 채널 고정 6탭)
+            // Law 1: 사전 할당된 early_ref_buffer/taps만 사용, 힙 할당 없음.
+            self.early_ref_buffer[self.early_ref_write_idx] = out;
+            let mut er_sum = 0.0;
+            for tap in self.taps.iter_mut() {
+                // Law 3: target/current 1-pole 스무딩. current_delay_ms 스무딩과 동일 계수(0.005) 재사용.
+                if (tap.target_delay_ms - tap.current_delay_ms).abs() > 0.001 {
+                    tap.current_delay_ms += (tap.target_delay_ms - tap.current_delay_ms) * 0.005;
+                } else {
+                    tap.current_delay_ms = tap.target_delay_ms;
+                }
+                if (tap.target_gain - tap.current_gain).abs() > 0.0001 {
+                    tap.current_gain += (tap.target_gain - tap.current_gain) * 0.005;
+                } else {
+                    tap.current_gain = tap.target_gain;
+                }
+
+                let delay_samples = (tap.current_delay_ms / 1000.0 * fs)
+                    .clamp(0.0, (EARLY_REFLECTION_BUFFER_SIZE - 1) as f32) as usize;
+                let read_idx = (self.early_ref_write_idx + EARLY_REFLECTION_BUFFER_SIZE - delay_samples)
+                    % EARLY_REFLECTION_BUFFER_SIZE;
+                er_sum += self.early_ref_buffer[read_idx] * tap.current_gain;
+            }
+            self.early_ref_write_idx = (self.early_ref_write_idx + 1) % EARLY_REFLECTION_BUFFER_SIZE;
+
+            if (self.current_early_ref_mix - self.target_early_ref_mix).abs() > 0.0001 {
+                self.current_early_ref_mix += (self.target_early_ref_mix - self.current_early_ref_mix) * 0.005;
+            } else {
+                self.current_early_ref_mix = self.target_early_ref_mix;
+            }
+
+            out += er_sum * self.current_early_ref_mix;
+
             // Apply Channel Independent Reverb
             if self.reverb.is_enabled && self.reverb.mix > 0.0 {
                 out = self.reverb.process_mono(out);
@@ -336,6 +393,86 @@ pub mod dsp_utils {
         let abs = val.abs();
         if abs > 0.0 && abs < 1e-15 {
             *val = 0.0;
+        }
+    }
+
+    #[cfg(test)]
+    mod early_reflection_dsp_tests {
+        use super::*;
+
+        const FS: f32 = 48000.0;
+
+        /// 목표 target/current 값을 즉시 스냅시켜 스무딩 수렴 대기 없이 정상상태를 만든다(테스트 전용).
+        fn snap_early_ref(state: &mut ChannelDspState, tap_idx: usize, delay_ms: f32, gain: f32, mix: f32) {
+            state.taps[tap_idx].target_delay_ms = delay_ms;
+            state.taps[tap_idx].current_delay_ms = delay_ms;
+            state.taps[tap_idx].target_gain = gain;
+            state.taps[tap_idx].current_gain = gain;
+            state.target_early_ref_mix = mix;
+            state.current_early_ref_mix = mix;
+        }
+
+        /// B-4 완료 기준: 1kHz 사인파 입력 + 단일 tap(delay_ms=10, gain=0.5) 설정 시,
+        /// 출력에 정확히 10ms(±1 샘플) 지연된 진폭 0.5의 사본이 합산되는지 오프라인 버퍼 처리로 검증.
+        #[test]
+        fn single_tap_produces_delayed_scaled_copy() {
+            let mut state = ChannelDspState::new();
+            snap_early_ref(&mut state, 0, 10.0, 0.5, 1.0);
+
+            let delay_samples = (10.0 / 1000.0 * FS).round() as usize; // 480 samples @ 48kHz
+            let total_len = delay_samples + 800;
+            let freq = 1000.0_f32;
+
+            let mut sine_in = vec![0.0f32; total_len];
+            for (n, s) in sine_in.iter_mut().enumerate() {
+                *s = (2.0 * std::f32::consts::PI * freq * n as f32 / FS).sin();
+            }
+
+            let mut output = vec![0.0f32; total_len];
+            for n in 0..total_len {
+                output[n] = state.process(sine_in[n], FS);
+            }
+
+            // 초반(딜레이 이전) 구간: tap이 아직 무음 이력을 읽으므로 dry 신호와 거의 동일해야 함.
+            for n in 0..delay_samples.min(total_len) {
+                assert!(
+                    (output[n] - sine_in[n]).abs() < 1e-3,
+                    "tap 도달 이전 샘플 {n}에서 dry 신호와 불일치: out={}, dry={}", output[n], sine_in[n]
+                );
+            }
+
+            // 딜레이 이후: out[n] ≈ dry(n) + 0.5 * dry(n - delay_samples)
+            // 허용오차 5e-3: DC 블로커(0.5Hz HPF)가 dry 경로에 미세한 위상/진폭 편차를 남기므로
+            // bit-exact가 아닌 -46dB 상당의 근사치 검증으로 충분(딜레이/게인 자체의 정확성이 검증 목적).
+            for n in delay_samples..total_len {
+                let expected = sine_in[n] + 0.5 * sine_in[n - delay_samples];
+                assert!(
+                    (output[n] - expected).abs() < 5e-3,
+                    "샘플 {n}에서 지연/게인 불일치: out={}, expected={}", output[n], expected
+                );
+            }
+        }
+
+        /// early_ref_mix=0일 때(디지털 무음 주입 관례) tap 파라미터가 무엇이든 출력이
+        /// tap이 아예 없는 기준 상태와 완전히 동일(bit-exact)해야 한다 - Law 준수 회귀 방지.
+        #[test]
+        fn zero_mix_produces_bit_exact_output_regardless_of_tap_settings() {
+            let mut baseline = ChannelDspState::new(); // taps/mix 전부 기본값(0)
+            let mut with_taps = ChannelDspState::new();
+            for i in 0..crate::audio::acoustic::MAX_EARLY_REFLECTION_TAPS {
+                snap_early_ref(&mut with_taps, i, 5.0 + i as f32, 0.8, 0.0); // mix=0으로 고정
+            }
+
+            let total_len = 1000;
+            for n in 0..total_len {
+                let sample = (2.0 * std::f32::consts::PI * 1000.0 * n as f32 / FS).sin();
+                let out_baseline = baseline.process(sample, FS);
+                let out_with_taps = with_taps.process(sample, FS);
+                assert_eq!(
+                    out_baseline, out_with_taps,
+                    "샘플 {n}에서 early_ref_mix=0인데도 출력이 달라짐(Law 회귀)"
+                );
+            }
         }
     }
 }

@@ -705,13 +705,25 @@ impl AudioEngine {
                     }
                     let _ = mixer.spatial_gc_tx.try_send(crate::audio::mixer::SpatialGarbage::EqBands(eq_bands));
                 }
-                AudioCommand::UpdateSpatialConfig { channel_positions, room_zones, trajectory, track_positions } => {
+                AudioCommand::UpdateSpatialConfig { channel_positions, room_zones, trajectory, track_positions, early_reflection_taps } => {
                     let old_positions = std::mem::replace(&mut mixer.channel_positions, channel_positions);
                     let old_zones = std::mem::replace(&mut mixer.room_zones, room_zones);
                     let old_traj = std::mem::replace(&mut mixer.trajectory, trajectory);
+                    let old_taps = std::mem::replace(&mut mixer.channel_early_ref_taps, early_reflection_taps);
                     let _ = mixer.spatial_gc_tx.try_send(crate::audio::mixer::SpatialGarbage::ChannelPositions(old_positions));
                     let _ = mixer.spatial_gc_tx.try_send(crate::audio::mixer::SpatialGarbage::RoomZones(old_zones));
                     let _ = mixer.spatial_gc_tx.try_send(crate::audio::mixer::SpatialGarbage::Trajectory(old_traj));
+                    let _ = mixer.spatial_gc_tx.try_send(crate::audio::mixer::SpatialGarbage::EarlyReflectionTaps(old_taps));
+
+                    // 새 초기반사 탭을 채널별 DSP 스무딩 타겟으로 이관(Law 1: 고정 배열 대입만, 힙 할당 없음)
+                    let n_ch = mixer.channel_dsp.len().min(mixer.channel_early_ref_taps.len());
+                    for ch in 0..n_ch {
+                        for i in 0..crate::audio::acoustic::MAX_EARLY_REFLECTION_TAPS {
+                            let tap = mixer.channel_early_ref_taps[ch][i];
+                            mixer.channel_dsp[ch].taps[i].target_delay_ms = tap.delay_ms;
+                            mixer.channel_dsp[ch].taps[i].target_gain = tap.gain;
+                        }
+                    }
 
                     for inst in mixer.instances.iter_mut().flatten() {
                         if let Some(pos) = track_positions.get(&inst.track_id_str) {
@@ -724,6 +736,11 @@ impl AudioEngine {
                 AudioCommand::SetChannelPanDeg { channel, pan_deg } => {
                     if channel < mixer.channel_pan_deg.len() {
                         mixer.channel_pan_deg[channel] = pan_deg;
+                    }
+                }
+                AudioCommand::SetChannelEarlyRefMix { channel, mix } => {
+                    if channel < mixer.channel_dsp.len() {
+                        mixer.channel_dsp[channel].target_early_ref_mix = mix;
                     }
                 }
                 AudioCommand::UpdateTrajectoryPosition { position } => {

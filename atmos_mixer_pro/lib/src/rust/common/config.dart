@@ -267,6 +267,12 @@ class RoomZone {
   final List<EqBand> boundaryEqBands;
   final double transmissionLossDb;
 
+  /// 브로드밴드 흡음계수(0.0~1.0). 초기반사음 게인 계산(reflect_r = sqrt(1 - absorption_coeff))에 사용.
+  final double absorptionCoeff;
+
+  /// 수음점(리스너) 높이(m). 초기반사음 image-source 계산의 리스너 Z좌표로 사용. 기본 1.2m(프로젝트 표준).
+  final double earLevel;
+
   const RoomZone({
     required this.roomId,
     required this.boundaryMin,
@@ -274,6 +280,8 @@ class RoomZone {
     required this.boundaryDelayMs,
     required this.boundaryEqBands,
     required this.transmissionLossDb,
+    required this.absorptionCoeff,
+    required this.earLevel,
   });
 
   @override
@@ -283,7 +291,9 @@ class RoomZone {
       boundaryMax.hashCode ^
       boundaryDelayMs.hashCode ^
       boundaryEqBands.hashCode ^
-      transmissionLossDb.hashCode;
+      transmissionLossDb.hashCode ^
+      absorptionCoeff.hashCode ^
+      earLevel.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -295,7 +305,9 @@ class RoomZone {
           boundaryMax == other.boundaryMax &&
           boundaryDelayMs == other.boundaryDelayMs &&
           boundaryEqBands == other.boundaryEqBands &&
-          transmissionLossDb == other.transmissionLossDb;
+          transmissionLossDb == other.transmissionLossDb &&
+          absorptionCoeff == other.absorptionCoeff &&
+          earLevel == other.earLevel;
 }
 
 class TrackConfig {

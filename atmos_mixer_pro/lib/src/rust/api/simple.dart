@@ -249,6 +249,12 @@ void apiSetChannelPanDeg({required BigInt channel, required double panDeg}) =>
       panDeg: panDeg,
     );
 
+void apiSetChannelEarlyRefMix({required BigInt channel, required double mix}) =>
+    RustLib.instance.api.crateApiSimpleApiSetChannelEarlyRefMix(
+      channel: channel,
+      mix: mix,
+    );
+
 Future<Point3D> apiCalculateBezierPoint({
   required double t,
   required Point3D p0,

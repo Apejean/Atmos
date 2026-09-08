@@ -10,6 +10,7 @@ pub enum SpatialGarbage {
     RoomZones(Vec<crate::common::config::RoomZone>),
     Trajectory(Option<crate::common::config::Trajectory>),
     ChannelPositions(Vec<Option<crate::common::config::Point3D>>),
+    EarlyReflectionTaps(Vec<[crate::audio::acoustic::EarlyReflectionTap; crate::audio::acoustic::MAX_EARLY_REFLECTION_TAPS]>),
 }
 
 pub struct DuckingState {
@@ -53,6 +54,9 @@ pub struct AudioMixer {
     // pan_deg 방위 트림(도 단위). 채널 하드웨어 고정 길이(= channels). DBAP 계산의 가중치 입력(dx/dy)에만
     // 적용되며 물리적 channel_positions/시간정렬은 건드리지 않는다.
     pub channel_pan_deg: Vec<f32>,
+    // 채널별 초기반사음 원시 탭(6슬롯). UpdateSpatialConfig로 통째 교체되며 channel_positions와 길이가
+    // 다를 수 있음(프론트엔드가 통째로 교체). engine.rs 핸들러가 channel_dsp[ch].taps로 값만 이관한다.
+    pub channel_early_ref_taps: Vec<[crate::audio::acoustic::EarlyReflectionTap; crate::audio::acoustic::MAX_EARLY_REFLECTION_TAPS]>,
     pub room_zones: Vec<crate::common::config::RoomZone>,
     pub trajectory: Option<crate::common::config::Trajectory>,
     pub master_headroom_db: f32,
@@ -199,6 +203,7 @@ impl AudioMixer {
             channel_dsp,
             channel_positions,
             channel_pan_deg: vec![0.0; channels],
+            channel_early_ref_taps: vec![[crate::audio::acoustic::EarlyReflectionTap::default(); crate::audio::acoustic::MAX_EARLY_REFLECTION_TAPS]; channels],
             room_zones,
             trajectory: trajectory.clone(),
             master_headroom_db,

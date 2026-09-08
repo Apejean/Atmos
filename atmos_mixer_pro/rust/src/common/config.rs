@@ -30,6 +30,16 @@ pub struct RoomZone {
     pub boundary_eq_bands: Vec<EqBand>,
     #[serde(default)]
     pub transmission_loss_db: f32,
+    /// 브로드밴드 흡음계수(0.0~1.0). 초기반사음 게인 계산(reflect_r = sqrt(1 - absorption_coeff))에 사용.
+    #[serde(default)]
+    pub absorption_coeff: f32,
+    /// 수음점(리스너) 높이(m). 초기반사음 image-source 계산의 리스너 Z좌표로 사용. 기본 1.2m(프로젝트 표준).
+    #[serde(default = "default_ear_level")]
+    pub ear_level: f32,
+}
+
+fn default_ear_level() -> f32 {
+    1.2
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
@@ -229,5 +239,19 @@ impl AppConfig {
         fs::rename(&tmp_path, path_ref)?;
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::RoomZone;
+
+    /// B-1 완료 기준: 빈 JSON `{}`을 RoomZone으로 역직렬화했을 때
+    /// absorption_coeff=0.0(암묵적 f32 기본값), ear_level=1.2(명시적 기본 함수)가 채워지는지 검증.
+    #[test]
+    fn room_zone_defaults_absorption_and_ear_level() {
+        let zone: RoomZone = serde_json::from_str("{}").expect("empty RoomZone JSON must parse");
+        assert_eq!(zone.absorption_coeff, 0.0);
+        assert_eq!(zone.ear_level, 1.2);
     }
 }

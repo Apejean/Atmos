@@ -1624,6 +1624,30 @@ pub fn api_update_spatial_config_json(json_payload: String) -> Result<(), AtmosE
         message: format!("Failed to parse spatial config JSON: {}", e),
     })?;
 
+    // 초기반사음(1차 반사) 탭을 비-오디오 스레드(FRB 워커 풀)에서 미리 계산한다.
+    // api_calculate_eq_response_curve와 달리 #[frb(sync)]가 없어 오디오 렌더 콜백과 무관한
+    // 워커 스레드에서 실행되므로, 여기서의 힙 할당/삼각함수 반복 계산은 Law 1/2 위반이 아니다.
+    // 스피커가 어떤 RoomZone에도 바인딩되지 않으면 해당 채널은 6슬롯 모두 gain=0(무음)으로 채운다.
+    // pan_deg로 트림되지 않은 원본(raw) 물리적 스피커 위치(payload.channel_positions)를 그대로 사용한다.
+    let mut early_reflection_taps: Vec<[crate::audio::acoustic::EarlyReflectionTap; crate::audio::acoustic::MAX_EARLY_REFLECTION_TAPS]> =
+        Vec::with_capacity(payload.channel_positions.len());
+    for pos_opt in &payload.channel_positions {
+        let taps = match pos_opt {
+            Some(pos) => {
+                let bound_zone = payload.room_zones.iter().find(|zone| {
+                    pos.x >= zone.boundary_min.x && pos.x <= zone.boundary_max.x &&
+                    pos.y >= zone.boundary_min.y && pos.y <= zone.boundary_max.y
+                });
+                match bound_zone {
+                    Some(zone) => crate::audio::acoustic::compute_early_reflection_taps(pos, zone),
+                    None => Default::default(),
+                }
+            }
+            None => Default::default(),
+        };
+        early_reflection_taps.push(taps);
+    }
+
     GLOBAL_STATE
         .command_sender
         .send(AudioCommand::UpdateSpatialConfig {
@@ -1631,6 +1655,7 @@ pub fn api_update_spatial_config_json(json_payload: String) -> Result<(), AtmosE
             room_zones: payload.room_zones,
             trajectory: payload.trajectory,
             track_positions: payload.track_positions,
+            early_reflection_taps,
         })
         .map_err(|e| AtmosError {
             message: format!("Failed to send UpdateSpatialConfig: {}", e),
@@ -1644,6 +1669,13 @@ pub fn api_set_channel_pan_deg(channel: usize, pan_deg: f32) {
     let _ = crate::core::state::GLOBAL_STATE
         .command_sender
         .send(crate::common::commands::AudioCommand::SetChannelPanDeg { channel, pan_deg });
+}
+
+#[flutter_rust_bridge::frb(sync)]
+pub fn api_set_channel_early_ref_mix(channel: usize, mix: f32) {
+    let _ = crate::core::state::GLOBAL_STATE
+        .command_sender
+        .send(crate::common::commands::AudioCommand::SetChannelEarlyRefMix { channel, mix });
 }
 
 use crate::common::config::Point3D;
