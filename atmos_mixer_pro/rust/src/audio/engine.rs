@@ -268,10 +268,15 @@ impl AudioEngine {
             }
         });
 
-        let (analysis_tx, analysis_rx) = rtrb::RingBuffer::new(65536);
-        crate::audio::analysis::start_analysis_thread(analysis_rx, config.sample_rate.0, config.channels as usize);
-
+        // 분석 스레드(analysis_thread)는 프로듀서(mixer.process)가 실제로 링버퍼에 쓰는
+        // 인터리빙 폭인 virtual_channels(16채널 확장 버스) 기준으로 프레임 경계를 계산해야 한다.
+        // config.channels(하드웨어 채널 수)를 넘기면 EBU R128/RTA가 잘못된 프레임 경계로
+        // 데이터를 재해석하여 미터가 실제 오디오와 무관한 값을 표시한다.
         let virtual_channels = 16.max(config.channels as usize);
+
+        let (analysis_tx, analysis_rx) = rtrb::RingBuffer::new(65536);
+        crate::audio::analysis::start_analysis_thread(analysis_rx, config.sample_rate.0, virtual_channels);
+
         let mut mixer = AudioMixer::new(config.sample_rate.0, virtual_channels, gc_tx, Some(analysis_tx));
 
         let err_fn = |err: cpal::StreamError| {
