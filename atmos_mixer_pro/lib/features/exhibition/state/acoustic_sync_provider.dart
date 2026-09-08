@@ -3,8 +3,10 @@ import 'dart:math' as math;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/foundation.dart';
 import 'package:atmos_mixer_pro/src/rust/common/config.dart';
+import 'package:atmos_mixer_pro/features/exhibition/models/speaker_node.dart';
 import 'package:atmos_mixer_pro/features/exhibition/state/speaker_layout_state.dart';
 import 'package:atmos_mixer_pro/features/exhibition/state/room_zone_state.dart';
+import 'package:atmos_mixer_pro/features/exhibition/state/blueprint_state.dart';
 import 'package:atmos_mixer_pro/features/exhibition/state/environment_state_provider.dart';
 import 'package:atmos_mixer_pro/features/settings/widgets/tuning_modal.dart';
 
@@ -42,6 +44,13 @@ class AcousticSyncProvider extends Notifier<void> {
     final rooms = ref.read(roomZoneProvider);
     final tuningNotifier = ref.read(tuningStateProvider.notifier);
 
+    // SpeakerNode.x/y는 캔버스 픽셀이고 RoomZone.physical*/earLevel은 미터이므로,
+    // 두 값을 섞어 쓰기 전에 스피커 좌표를 미터로 환산해야 한다.
+    final double pxPerMeter = ref.read(blueprintProvider).scale;
+    final double safeScale = pxPerMeter.abs() < 0.0001 ? 0.0001 : pxPerMeter;
+    double xMeters(SpeakerNode n) => n.x / safeScale;
+    double yMeters(SpeakerNode n) => n.y / safeScale;
+
     bool changed = false;
 
     for (final speaker in speakers) {
@@ -63,8 +72,8 @@ class AcousticSyncProvider extends Notifier<void> {
       final double zEar = room.earLevel;
 
       // 현재 스피커와 리스너 간의 거리 계산
-      final double dx = speaker.x - xEar;
-      final double dy = speaker.y - yEar;
+      final double dx = xMeters(speaker) - xEar;
+      final double dy = yMeters(speaker) - yEar;
       final double dz = speaker.heightZ - zEar;
       final double distance = math.sqrt(dx * dx + dy * dy + dz * dz);
 
@@ -74,8 +83,8 @@ class AcousticSyncProvider extends Notifier<void> {
       
       for (final spk in speakers) {
          if (spk.roomId == room.id) {
-             final sdx = spk.x - xEar;
-             final sdy = spk.y - yEar;
+             final sdx = xMeters(spk) - xEar;
+             final sdy = yMeters(spk) - yEar;
              final sdz = spk.heightZ - zEar;
              final dist = math.sqrt(sdx * sdx + sdy * sdy + sdz * sdz);
              if (dist > maxDistance) maxDistance = dist;
@@ -102,8 +111,8 @@ class AcousticSyncProvider extends Notifier<void> {
       gainDb = gainDb.clamp(-24.0, 12.0); // +10dB 부스트를 수용하기 위해 상한선을 12.0dB로 확장
 
       // 3. SBIR (Speaker Boundary Interference Response) 보정 EQ
-      final double wallDistX = math.min(speaker.x, room.physicalWidth - speaker.x);
-      final double wallDistY = math.min(speaker.y, room.physicalHeight - speaker.y);
+      final double wallDistX = math.min(xMeters(speaker), room.physicalWidth - xMeters(speaker));
+      final double wallDistY = math.min(yMeters(speaker), room.physicalHeight - yMeters(speaker));
       final double dWall = math.min(wallDistX, wallDistY);
 
       List<bool> bandEnabled = List.from(currentTuning.bandEnabled);
@@ -170,7 +179,7 @@ class AcousticSyncProvider extends Notifier<void> {
       
       // 청취자 기준 뒤쪽으로 1.0m 이상 배치된 스피커는 서라운드(후면) 스피커로 간주하여 
       // 메인 스피커와의 저음역대 상쇄 간섭(Cancellation)을 막기 위해 위상을 180도 반전시킵니다.
-      if (speaker.y > yEar + 1.0) {
+      if (yMeters(speaker) > yEar + 1.0) {
          phaseInvert = true;
       } else {
          // 청취자 앞쪽(Front) 또는 중앙에 위치한 경우 정상 위상(Normal) 유지

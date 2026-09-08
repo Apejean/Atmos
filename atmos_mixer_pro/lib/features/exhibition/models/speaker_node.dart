@@ -158,16 +158,24 @@ class SpeakerNode {
 /// 모두 동일한 전역 배열을 통째로 덮어쓰기 때문에, 이 헬퍼를 공유해서
 /// 서로 다른 스키마로 z/yaw_rotation/pitch_tilt/dispersion_angle이
 /// 조용히 0으로 리셋되는 것을 방지한다.
+///
+/// [node.x]/[node.y]는 캔버스 픽셀 좌표이므로 [pixelsPerMeter]로 나눠 미터로 변환한다.
+/// Rust 엔진은 이 좌표로 `SPEED_OF_SOUND_M_S`(343m/s) 기반 시간 정렬 딜레이를 계산하고
+/// 미터 단위인 `room_zones` 경계와 직접 비교하므로, 픽셀을 그대로 넘기면 거리가
+/// scale배(기본 50배) 부풀려져 딜레이가 수백 ms로 잘못 산출된다.
+/// [node.heightZ]는 이미 미터 단위라 변환하지 않는다.
 List<Map<String, dynamic>?> buildChannelPositionsPayload(
   List<SpeakerNode> nodes,
   int channelCount,
+  double pixelsPerMeter,
 ) {
+  final safeScale = pixelsPerMeter.abs() < 0.0001 ? 0.0001 : pixelsPerMeter;
   return List.generate(channelCount, (index) {
     final node = nodes.where((n) => n.channel == index).firstOrNull;
     if (node == null) return null;
     return {
-      'x': node.x,
-      'y': node.y,
+      'x': node.x / safeScale,
+      'y': node.y / safeScale,
       'z': node.heightZ,
       'yaw_rotation': node.rotation,
       'pitch_tilt': node.pitchTilt,

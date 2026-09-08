@@ -90,6 +90,7 @@ class SpeakerLayoutState extends Notifier<List<SpeakerNode>> {
       'channel_positions': buildChannelPositionsPayload(
         nodes,
         ref.read(engineStateProvider).outputChannelCount,
+        ref.read(blueprintProvider).scale,
       ),
       'room_zones': rooms.map((r) {
         return {

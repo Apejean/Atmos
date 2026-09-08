@@ -61,6 +61,7 @@ class TrajectoryState extends Notifier<List<TrajectoryModel>> {
       'channel_positions': buildChannelPositionsPayload(
         nodes,
         ref.read(engineStateProvider).outputChannelCount,
+        ref.read(blueprintProvider).scale,
       ),
       'room_zones': rooms.map((r) {
         return {
