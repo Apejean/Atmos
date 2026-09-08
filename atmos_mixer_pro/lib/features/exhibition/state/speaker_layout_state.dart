@@ -87,23 +87,9 @@ class SpeakerLayoutState extends Notifier<List<SpeakerNode>> {
     final trajectories = ref.read(trajectoryProvider);
     
     final payload = {
-      'channel_positions': List.generate(
+      'channel_positions': buildChannelPositionsPayload(
+        nodes,
         ref.read(engineStateProvider).outputChannelCount,
-        (index) {
-          final node = nodes.where((n) => n.channel == index).firstOrNull;
-          if (node == null) return null;
-          return {
-            'x': node.x,
-            'y': node.y,
-            'z': node.heightZ,
-            'yaw_rotation': node.rotation,
-            'pitch_tilt': node.pitchTilt,
-            'dispersion_angle': node.dispersionAngle,
-            'pan_deg': node.panDeg,
-            'reverb_send': node.reverbSend,
-            'early_ref_mix': node.earlyRefMix,
-          };
-        },
       ),
       'room_zones': rooms.map((r) {
         return {

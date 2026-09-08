@@ -150,3 +150,31 @@ class SpeakerNode {
     );
   }
 }
+
+/// Rust `AudioMixer.channel_positions` (FFI `apiUpdateSpatialConfigJson`)로 보낼
+/// `channel_positions` payload를 [nodes]로부터 완전한 필드셋으로 구성한다.
+///
+/// speaker_layout_state / room_zone_state / trajectory_state 세 Notifier가
+/// 모두 동일한 전역 배열을 통째로 덮어쓰기 때문에, 이 헬퍼를 공유해서
+/// 서로 다른 스키마로 z/yaw_rotation/pitch_tilt/dispersion_angle이
+/// 조용히 0으로 리셋되는 것을 방지한다.
+List<Map<String, dynamic>?> buildChannelPositionsPayload(
+  List<SpeakerNode> nodes,
+  int channelCount,
+) {
+  return List.generate(channelCount, (index) {
+    final node = nodes.where((n) => n.channel == index).firstOrNull;
+    if (node == null) return null;
+    return {
+      'x': node.x,
+      'y': node.y,
+      'z': node.heightZ,
+      'yaw_rotation': node.rotation,
+      'pitch_tilt': node.pitchTilt,
+      'dispersion_angle': node.dispersionAngle,
+      'pan_deg': node.panDeg,
+      'reverb_send': node.reverbSend,
+      'early_ref_mix': node.earlyRefMix,
+    };
+  });
+}

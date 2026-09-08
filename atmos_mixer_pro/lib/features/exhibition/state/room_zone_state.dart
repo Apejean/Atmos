@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/foundation.dart';
 import 'package:atmos_mixer_pro/features/exhibition/models/room_zone.dart';
+import 'package:atmos_mixer_pro/features/exhibition/models/speaker_node.dart';
 import 'package:atmos_mixer_pro/src/rust/api/simple.dart' as rust_api;
 import 'package:atmos_mixer_pro/features/exhibition/state/speaker_layout_state.dart';
 import 'package:atmos_mixer_pro/features/exhibition/state/trajectory_state.dart';
@@ -87,17 +88,9 @@ class RoomZoneState extends Notifier<List<RoomZone>> {
     final trajectories = ref.read(trajectoryProvider);
     
     final payload = {
-      'channel_positions': List.generate(
+      'channel_positions': buildChannelPositionsPayload(
+        nodes,
         ref.read(engineStateProvider).outputChannelCount,
-        (index) {
-          final node = nodes.where((n) => n.channel == index).firstOrNull;
-          if (node == null) return null;
-          return {
-            'x': node.x / ref.read(blueprintProvider).scale,
-            'y': node.y / ref.read(blueprintProvider).scale,
-            'z': 0.0,
-          };
-        },
       ),
       'room_zones': rooms.map((r) {
         return {
