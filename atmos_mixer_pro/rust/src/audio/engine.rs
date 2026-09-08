@@ -712,7 +712,7 @@ impl AudioEngine {
                     let _ = mixer.spatial_gc_tx.try_send(crate::audio::mixer::SpatialGarbage::ChannelPositions(old_positions));
                     let _ = mixer.spatial_gc_tx.try_send(crate::audio::mixer::SpatialGarbage::RoomZones(old_zones));
                     let _ = mixer.spatial_gc_tx.try_send(crate::audio::mixer::SpatialGarbage::Trajectory(old_traj));
-                    
+
                     for inst in mixer.instances.iter_mut().flatten() {
                         if let Some(pos) = track_positions.get(&inst.track_id_str) {
                             inst.current_position = Some(pos.clone());
@@ -720,6 +720,11 @@ impl AudioEngine {
                     }
                     mixer.recalculate_spatial_dsp();
                     let _ = mixer.spatial_gc_tx.try_send(crate::audio::mixer::SpatialGarbage::TrackPositions(track_positions));
+                }
+                AudioCommand::SetChannelPanDeg { channel, pan_deg } => {
+                    if channel < mixer.channel_pan_deg.len() {
+                        mixer.channel_pan_deg[channel] = pan_deg;
+                    }
                 }
                 AudioCommand::UpdateTrajectoryPosition { position } => {
                     if let Some(traj) = &mut mixer.trajectory {

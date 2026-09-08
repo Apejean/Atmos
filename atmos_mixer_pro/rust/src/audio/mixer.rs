@@ -50,6 +50,9 @@ pub struct AudioMixer {
     pub master_mute: bool,
     pub channel_dsp: Vec<ChannelDspState>,
     pub channel_positions: Vec<Option<crate::common::config::Point3D>>,
+    // pan_deg 방위 트림(도 단위). 채널 하드웨어 고정 길이(= channels). DBAP 계산의 가중치 입력(dx/dy)에만
+    // 적용되며 물리적 channel_positions/시간정렬은 건드리지 않는다.
+    pub channel_pan_deg: Vec<f32>,
     pub room_zones: Vec<crate::common::config::RoomZone>,
     pub trajectory: Option<crate::common::config::Trajectory>,
     pub master_headroom_db: f32,
@@ -195,6 +198,7 @@ impl AudioMixer {
             master_mute: false,
             channel_dsp,
             channel_positions,
+            channel_pan_deg: vec![0.0; channels],
             room_zones,
             trajectory: trajectory.clone(),
             master_headroom_db,
@@ -383,8 +387,30 @@ impl AudioMixer {
 
                         if in_target_room {
                             let smoothed_pos = self.smoothed_trajectory_pos.as_ref().unwrap_or(&traj.current_position);
-                            let dx = pos.x - smoothed_pos.x;
-                            let dy = pos.y - smoothed_pos.y;
+
+                            // pan_deg 방위 트림: 바인딩된 RoomZone 수평 중심을 피벗으로 DBAP 가중치 계산용
+                            // 유효 위치(eff_x/eff_y)만 회전시킨다. 물리적 pos.x/pos.y 자체는 불변(시간정렬/
+                            // off-axis EQ는 recalculate_spatial_dsp()에서 원본 좌표를 그대로 사용).
+                            let pan_deg = self.channel_pan_deg.get(ch).copied().unwrap_or(0.0);
+                            let (eff_x, eff_y) = if pan_deg != 0.0 {
+                                match bound_room_id.and_then(|rid| self.room_zones.iter().find(|z| z.room_id == rid)) {
+                                    Some(zone) => {
+                                        let pivot_x = (zone.boundary_min.x + zone.boundary_max.x) * 0.5;
+                                        let pivot_y = (zone.boundary_min.y + zone.boundary_max.y) * 0.5;
+                                        let theta = pan_deg.to_radians();
+                                        let (sin_t, cos_t) = theta.sin_cos();
+                                        let dx0 = pos.x - pivot_x;
+                                        let dy0 = pos.y - pivot_y;
+                                        (pivot_x + dx0 * cos_t - dy0 * sin_t, pivot_y + dx0 * sin_t + dy0 * cos_t)
+                                    }
+                                    None => (pos.x, pos.y), // 미바인딩 시 무동작
+                                }
+                            } else {
+                                (pos.x, pos.y)
+                            };
+
+                            let dx = eff_x - smoothed_pos.x;
+                            let dy = eff_y - smoothed_pos.y;
                             let dz = pos.z - smoothed_pos.z;
                             let dist = (dx*dx + dy*dy + dz*dz).sqrt();
                             

@@ -110,6 +110,10 @@ pub enum AudioCommand {
         trajectory: Option<crate::common::config::Trajectory>,
         track_positions: std::collections::HashMap<String, crate::common::config::Point3D>,
     },
+    SetChannelPanDeg {
+        channel: usize,
+        pan_deg: f32,
+    },
     UpdateTrajectoryPosition {
         position: crate::common::config::Point3D,
     },

@@ -243,6 +243,12 @@ Future<void> apiUpdateSpatialConfigJson({required String jsonPayload}) =>
       jsonPayload: jsonPayload,
     );
 
+void apiSetChannelPanDeg({required BigInt channel, required double panDeg}) =>
+    RustLib.instance.api.crateApiSimpleApiSetChannelPanDeg(
+      channel: channel,
+      panDeg: panDeg,
+    );
+
 Future<Point3D> apiCalculateBezierPoint({
   required double t,
   required Point3D p0,

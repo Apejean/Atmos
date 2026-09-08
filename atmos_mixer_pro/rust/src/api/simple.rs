@@ -1639,6 +1639,13 @@ pub fn api_update_spatial_config_json(json_payload: String) -> Result<(), AtmosE
     Ok(())
 }
 
+#[flutter_rust_bridge::frb(sync)]
+pub fn api_set_channel_pan_deg(channel: usize, pan_deg: f32) {
+    let _ = crate::core::state::GLOBAL_STATE
+        .command_sender
+        .send(crate::common::commands::AudioCommand::SetChannelPanDeg { channel, pan_deg });
+}
+
 use crate::common::config::Point3D;
 
 pub fn api_calculate_bezier_point(t: f32, p0: Point3D, p1: Point3D, p2: Point3D, p3: Point3D) -> Point3D {
