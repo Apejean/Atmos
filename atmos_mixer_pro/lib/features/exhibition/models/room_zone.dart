@@ -68,15 +68,19 @@ class RoomZone {
     final surfaceArea = 2 * (physicalWidth * physicalHeight + physicalWidth * heightM + physicalHeight * heightM);
     final avgAlpha = absorptionCoeff.clamp(0.01, 0.99);
 
+    // 공기 흡음(4mV 근사). 큰 반사성 공간일수록 소리가 공기 중을 오래 이동하므로
+    // 이 항의 비중이 커진다 — 따라서 Sabine(라이브 룸) 분기에 특히 필요하다.
+    // 이 항을 빼면 대형 콘크리트 공간의 RT60이 20% 이상 과대평가된다.
+    final airAbsorption = 0.002 * volume;
+
     if (avgAlpha >= 0.20) {
       // Eyring Formula for absorptive / dead acoustic rooms
-      final airAbsorption = 0.002 * volume; // 4*m*V approximation
       final denominator = -surfaceArea * math.log(1.0 - avgAlpha) + airAbsorption;
       if (denominator <= 0) return 0.2;
       return (0.161 * volume) / denominator;
     } else {
       // Sabine Formula for reflective / live rooms
-      final totalAbsorption = surfaceArea * avgAlpha;
+      final totalAbsorption = surfaceArea * avgAlpha + airAbsorption;
       if (totalAbsorption <= 0) return 0.5;
       return (0.161 * volume) / totalAbsorption;
     }
