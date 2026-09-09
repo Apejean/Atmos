@@ -302,6 +302,7 @@ class _SpeakerInspectorPanelState extends ConsumerState<SpeakerInspectorPanel> {
                                 _buildControlBox('assets/3d_simulator/icons/icon_yaw.svg', 'Yaw (Rotation)', speaker.rotation, '°', -180.0, 180.0, speaker.isFixed ? null : (v) => _updateSpeaker(speaker, rot: v)),
                                 _buildControlBox('assets/3d_simulator/icons/icon_tilt.svg', 'Pitch (Tilt)', speaker.pitchTilt, '°', -90.0, 90.0, speaker.isFixed ? null : (v) => _updateSpeaker(speaker, tilt: v)),
                                 _buildControlBox('assets/3d_simulator/icons/icon_dispersion.svg', 'Dispersion', speaker.dispersionAngle, '°', 10.0, 180.0, speaker.isFixed ? null : (v) => _updateSpeaker(speaker, disp: v)),
+                                _buildControlBox('assets/3d_simulator/icons/icon_pan.svg', 'Pan Trim (DBAP)', speaker.panDeg, '°', -45.0, 45.0, speaker.isFixed ? null : (v) => _updateSpeaker(speaker, pan: v)),
                                 const SizedBox(height: 8),
                                 // Auto-Aim Button
                                           if (!speaker.isFixed)
@@ -531,12 +532,39 @@ class _SpeakerInspectorPanelState extends ConsumerState<SpeakerInspectorPanel> {
               ),
             ),
           ),
+          const SizedBox(height: 10),
+
+          // Early Reflections Mix (image-source, feeds serially into the late reverb above)
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text('Early Reflections', style: TextStyle(color: Colors.white70, fontSize: 12)),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(color: const Color(0xFF0E1219), borderRadius: BorderRadius.circular(4)),
+                child: Text('${(speaker.earlyRefMix * 100).toInt()}%', style: const TextStyle(color: Color(0xFFFFA000), fontSize: 11, fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ),
+          SliderTheme(
+            data: SliderTheme.of(context).copyWith(
+              activeTrackColor: const Color(0xFFFFA000),
+              thumbColor: const Color(0xFFFFA000),
+              trackHeight: 2.0,
+            ),
+            child: Slider(
+              value: speaker.earlyRefMix.clamp(0.0, 1.0),
+              min: 0.0,
+              max: 1.0,
+              onChanged: (v) => _updateSpeaker(speaker, earlyRef: v),
+            ),
+          ),
         ],
       ),
     );
   }
 
-  void _updateSpeaker(SpeakerNode speaker, {double? x, double? y, double? z, double? pan, double? tilt, double? rot, double? disp, double? rev, bool? isFixed}) {
+  void _updateSpeaker(SpeakerNode speaker, {double? x, double? y, double? z, double? pan, double? tilt, double? rot, double? disp, double? rev, double? earlyRef, bool? isFixed}) {
     ref.read(speakerLayoutProvider.notifier).updateSpeaker(speaker.copyWith(
       x: x ?? speaker.x,
       y: y ?? speaker.y,
@@ -546,6 +574,7 @@ class _SpeakerInspectorPanelState extends ConsumerState<SpeakerInspectorPanel> {
       panDeg: pan ?? speaker.panDeg,
       dispersionAngle: disp ?? speaker.dispersionAngle,
       reverbSend: rev ?? speaker.reverbSend,
+      earlyRefMix: earlyRef ?? speaker.earlyRefMix,
       isFixed: isFixed ?? speaker.isFixed,
     ));
     // Trigger real-time sync via global state or similar if needed.

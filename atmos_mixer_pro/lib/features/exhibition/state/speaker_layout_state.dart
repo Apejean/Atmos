@@ -152,6 +152,8 @@ class SpeakerLayoutState extends Notifier<List<SpeakerNode>> {
       final chIdx = (node.channel > 0) ? (node.channel - 1) : (int.tryParse(node.id.replaceAll('spk_', '')) ?? 0);
       final normalizedSend = (node.reverbSend > 1.0 ? (node.reverbSend / 100.0) : node.reverbSend).clamp(0.0, 1.0);
       rust_api.apiSetChannelReverbSend(channel: BigInt.from(chIdx), send: normalizedSend);
+      rust_api.apiSetChannelPanDeg(channel: BigInt.from(chIdx), panDeg: node.panDeg);
+      rust_api.apiSetChannelEarlyRefMix(channel: BigInt.from(chIdx), mix: node.earlyRefMix.clamp(0.0, 1.0));
     } catch (_) {}
     if (immediate) {
       _saveToPrefsImmediate();
