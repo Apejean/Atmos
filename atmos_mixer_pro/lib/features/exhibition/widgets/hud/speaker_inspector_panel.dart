@@ -302,7 +302,7 @@ class _SpeakerInspectorPanelState extends ConsumerState<SpeakerInspectorPanel> {
                                 _buildControlBox('assets/3d_simulator/icons/icon_yaw.svg', 'Yaw (Rotation)', speaker.rotation, '°', -180.0, 180.0, speaker.isFixed ? null : (v) => _updateSpeaker(speaker, rot: v)),
                                 _buildControlBox('assets/3d_simulator/icons/icon_tilt.svg', 'Pitch (Tilt)', speaker.pitchTilt, '°', -90.0, 90.0, speaker.isFixed ? null : (v) => _updateSpeaker(speaker, tilt: v)),
                                 _buildControlBox('assets/3d_simulator/icons/icon_dispersion.svg', 'Dispersion', speaker.dispersionAngle, '°', 10.0, 180.0, speaker.isFixed ? null : (v) => _updateSpeaker(speaker, disp: v)),
-                                _buildControlBox('assets/3d_simulator/icons/icon_pan.svg', 'Pan Trim (DBAP)', speaker.panDeg, '°', -45.0, 45.0, speaker.isFixed ? null : (v) => _updateSpeaker(speaker, pan: v)),
+                                _buildControlBox('assets/3d_simulator/icons/icon_pan.svg', 'Pan Trim', speaker.panDeg, '°', -45.0, 45.0, speaker.isFixed ? null : (v) => _updateSpeaker(speaker, pan: v)),
                                 const SizedBox(height: 8),
                                 // Auto-Aim Button
                                           if (!speaker.isFixed)
