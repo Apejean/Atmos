@@ -93,24 +93,7 @@ class RoomZoneState extends Notifier<List<RoomZone>> {
         ref.read(engineStateProvider).outputChannelCount,
         ref.read(blueprintProvider).scale,
       ),
-      'room_zones': rooms.map((r) {
-        return {
-          'room_id': r.id.hashCode.abs(),
-          'boundary_min': {
-            'x': r.x / ref.read(blueprintProvider).scale,
-            'y': r.y / ref.read(blueprintProvider).scale,
-            'z': 0.0,
-          },
-          'boundary_max': {
-            'x': (r.x + r.width) / ref.read(blueprintProvider).scale,
-            'y': (r.y + r.height) / ref.read(blueprintProvider).scale,
-            'z': 2.0,
-          },
-          'absorption_coeff': r.absorptionCoeff,
-          'material_name': r.materialName,
-          'transmission_loss': r.wallTransmissionLoss,
-        };
-      }).toList(),
+      'room_zones': buildRoomZonesPayload(rooms, ref.read(blueprintProvider).scale),
       'trajectory':
           trajectories.isNotEmpty && trajectories.first.waypoints.isNotEmpty
           ? {

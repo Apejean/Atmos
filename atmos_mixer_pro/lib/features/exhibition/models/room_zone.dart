@@ -202,3 +202,33 @@ class RoomZone {
     );
   }
 }
+
+/// Rust `AudioMixer` (FFI `apiUpdateSpatialConfigJson`)로 보낼 `room_zones` payload를
+/// [rooms]로부터 구성한다. [pixelsPerMeter]는 캔버스 픽셀 좌표를 미터로 변환하는 스케일이다.
+///
+/// `boundary_max.z`는 반드시 [RoomZone.ceilingHeight]를 사용해야 한다 — 하드코딩된
+/// 값을 쓰면 천장 반사(early reflection) 탭이 항상 잘못된 높이로 계산된다.
+List<Map<String, dynamic>> buildRoomZonesPayload(
+  List<RoomZone> rooms,
+  double pixelsPerMeter,
+) {
+  return rooms.map((r) {
+    return {
+      'room_id': r.id.hashCode.abs(),
+      'boundary_min': {
+        'x': r.x / pixelsPerMeter,
+        'y': r.y / pixelsPerMeter,
+        'z': 0.0,
+      },
+      'boundary_max': {
+        'x': (r.x + r.width) / pixelsPerMeter,
+        'y': (r.y + r.height) / pixelsPerMeter,
+        'z': r.ceilingHeight,
+      },
+      'absorption_coeff': r.absorptionCoeff,
+      'ear_level': r.earLevel,
+      'material_name': r.materialName,
+      'transmission_loss': r.wallTransmissionLoss,
+    };
+  }).toList();
+}
