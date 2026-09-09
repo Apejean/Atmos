@@ -636,8 +636,6 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                                 onPressed: isActive
                                     ? () async {
                                         try {
-                                          // TODO: Call rust_api.apiClearRoom when Backend is ready,
-                                          // for now we update frontend state directly to simulate
                                           try {
                                             await rust_api.apiClearRoom(
                                               roomId: room.id,
