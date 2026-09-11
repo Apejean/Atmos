@@ -309,10 +309,14 @@ class _TrackCardState extends ConsumerState<TrackCard> {
                               side: BorderSide(color: widget.accentColor.withValues(alpha: 0.5)),
                             ),
                             onSelectionChanged: (Set<bool> newSelection) {
+                              // BED <-> 3D OBJECT 전환 시 사용자가 고른 모노/스테레오
+                              // 선택은 유지한다. 예전에는 양쪽 모두 false를 넘겨서
+                              // BED로 돌아올 때마다 스테레오 설정이 모노로 리셋됐다.
+                              final bool keepStereo = widget.track.outputStereo;
                               if (newSelection.first) {
-                                widget.onOutputChanged?.call(4294967295, false);
+                                widget.onOutputChanged?.call(4294967295, keepStereo);
                               } else {
-                                widget.onOutputChanged?.call(0, false);
+                                widget.onOutputChanged?.call(0, keepStereo);
                               }
                             },
                           ),
