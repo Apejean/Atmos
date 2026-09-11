@@ -33,33 +33,36 @@ fn test_room_clear_spam_no_duplicate() {
                 .unwrap()
                 .as_nanos() as u64;
             GLOBAL_STATE.add_playing_track(instance_id, next_track_id.clone());
-            let _ = GLOBAL_STATE
-                .command_sender
-                .send(AudioCommand::PlayTrack {
+            let _ = GLOBAL_STATE.command_sender.send(
+                rust_lib_atmos_mixer_pro::api::simple::build_play_track_command(
                     instance_id,
-                    room_id: rust_lib_atmos_mixer_pro::common::utils::hash_id("next_room"),
-                    track_id: rust_lib_atmos_mixer_pro::common::utils::hash_id(&next_track_id),
-                    track_id_str: next_track_id,
-                    data: None,
-                    stream_sample_rate: 44100,
-                    stream_channels: 2,
-                    is_loop: true,
-                    volume: 1.0,
-                    output_channel: 0,
-                    output_stereo: true,
-                    current_position: None,
-                    streamer: None,
-                    room_volume: 1.0,
-                });
+                    rust_lib_atmos_mixer_pro::common::utils::hash_id("next_room"),
+                    rust_lib_atmos_mixer_pro::common::utils::hash_id(&next_track_id),
+                    next_track_id,
+                    None,
+                    None,
+                    44100,
+                    2,
+                    true,
+                    1.0,
+                    1.0,
+                    0,
+                    true,
+                    None,
+                ),
+            );
         }
     }
 
-    // Since we don't have direct access to rx here, we rely on the internal state playing count 
+    // Since we don't have direct access to rx here, we rely on the internal state playing count
     // or we verify the global state. In this case, we just check GLOBAL_STATE.playing_track_ids.
     // Wait slightly to let the engine process.
     std::thread::sleep(std::time::Duration::from_millis(50));
     let playing = GLOBAL_STATE.playing_track_ids.read().unwrap();
-    let count = playing.values().filter(|id| id == &"next_bgm_track").count();
+    let count = playing
+        .values()
+        .filter(|id| id == &"next_bgm_track")
+        .count();
 
     println!("BGM Play Track count after 10 clear room spams: {}", count);
     assert_eq!(
@@ -84,24 +87,24 @@ fn test_system_reset_theme_start_glitch() {
             let _ = api_set_active_room(Some("room_1".to_string()));
             let instance_id = i as u64;
             GLOBAL_STATE.add_playing_track(instance_id, "theme_bgm".to_string());
-            let _ = GLOBAL_STATE
-                .command_sender
-                .send(AudioCommand::PlayTrack {
+            let _ = GLOBAL_STATE.command_sender.send(
+                rust_lib_atmos_mixer_pro::api::simple::build_play_track_command(
                     instance_id,
-                    room_id: rust_lib_atmos_mixer_pro::common::utils::hash_id("room_1"),
-                    track_id: rust_lib_atmos_mixer_pro::common::utils::hash_id("theme_bgm"),
-                    track_id_str: "theme_bgm".to_string(),
-                    data: None,
-                    stream_sample_rate: 44100,
-                    stream_channels: 2,
-                    is_loop: true,
-                    volume: 1.0,
-                    output_channel: 0,
-                    output_stereo: true,
-                    current_position: None,
-                    streamer: None,
-                    room_volume: 1.0,
-                });
+                    rust_lib_atmos_mixer_pro::common::utils::hash_id("room_1"),
+                    rust_lib_atmos_mixer_pro::common::utils::hash_id("theme_bgm"),
+                    "theme_bgm".to_string(),
+                    None,
+                    None,
+                    44100,
+                    2,
+                    true,
+                    1.0,
+                    1.0,
+                    0,
+                    true,
+                    None,
+                ),
+            );
         }
     });
 

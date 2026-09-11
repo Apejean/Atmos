@@ -20,23 +20,22 @@ pub fn api_update_single_band_eq(
     q_factor: f32,
     filter_type_idx: u8,
 ) {
-    let _ = GLOBAL_STATE.command_sender.send(AudioCommand::UpdateSingleBandEq {
-        channel: channel_index,
-        band: band_index,
-        freq: frequency,
-        gain_db,
-        q_factor,
-        filter_type_idx,
-    });
+    let _ = GLOBAL_STATE
+        .command_sender
+        .send(AudioCommand::UpdateSingleBandEq {
+            channel: channel_index,
+            band: band_index,
+            freq: frequency,
+            gain_db,
+            q_factor,
+            filter_type_idx,
+        });
 }
 
 pub fn api_update_sound_source_position(sound_id: String, x: f32, y: f32, z: f32) {
-    let _ = GLOBAL_STATE.command_sender.send(AudioCommand::UpdateSoundSourcePosition {
-        sound_id,
-        x,
-        y,
-        z,
-    });
+    let _ = GLOBAL_STATE
+        .command_sender
+        .send(AudioCommand::UpdateSoundSourcePosition { sound_id, x, y, z });
 }
 
 pub fn api_get_config(path: String) -> AppConfig {
@@ -78,30 +77,58 @@ pub fn api_get_config(path: String) -> AppConfig {
         }
     }
     {
-        let mut global_config = GLOBAL_STATE.config.write().unwrap_or_else(|e| e.into_inner());
-    GLOBAL_STATE.config_version.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let mut global_config = GLOBAL_STATE
+            .config
+            .write()
+            .unwrap_or_else(|e| e.into_inner());
+        GLOBAL_STATE
+            .config_version
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         *global_config = Some(config.clone());
     }
-    GLOBAL_STATE.is_exhibition_mode.store(config.is_exhibition_mode, std::sync::atomic::Ordering::Relaxed);
+    GLOBAL_STATE.is_exhibition_mode.store(
+        config.is_exhibition_mode,
+        std::sync::atomic::Ordering::Relaxed,
+    );
 
     // Apply tunings on boot immediately
     let mut tunings = Vec::new();
     for (&ch, setting) in &config.mono_configs {
         if setting.enabled {
-            tunings.push((ch as usize - 1, setting.delay_ms, setting.eq_bands.clone(), setting.phase_invert, setting.gain_db));
+            tunings.push((
+                ch as usize - 1,
+                setting.delay_ms,
+                setting.eq_bands.clone(),
+                setting.phase_invert,
+                setting.gain_db,
+            ));
         }
     }
     for (&ch, setting) in &config.stereo_configs {
         if setting.enabled {
-            tunings.push((ch as usize - 1, setting.delay_ms, setting.eq_bands.clone(), setting.phase_invert, setting.gain_db));
+            tunings.push((
+                ch as usize - 1,
+                setting.delay_ms,
+                setting.eq_bands.clone(),
+                setting.phase_invert,
+                setting.gain_db,
+            ));
         }
     }
     for (&ch, setting) in &config.multi_configs {
         if setting.enabled {
-            tunings.push((ch as usize - 1, setting.delay_ms, setting.eq_bands.clone(), setting.phase_invert, setting.gain_db));
+            tunings.push((
+                ch as usize - 1,
+                setting.delay_ms,
+                setting.eq_bands.clone(),
+                setting.phase_invert,
+                setting.gain_db,
+            ));
         }
     }
-    let _ = GLOBAL_STATE.command_sender.send(AudioCommand::ApplyAllChannelTunings { tunings });
+    let _ = GLOBAL_STATE
+        .command_sender
+        .send(AudioCommand::ApplyAllChannelTunings { tunings });
 
     config
 }
@@ -144,11 +171,19 @@ pub fn api_save_config(path: String, config: AppConfig) -> Result<(), AtmosError
         }
     }
     {
-        let mut global_config = GLOBAL_STATE.config.write().unwrap_or_else(|e| e.into_inner());
-    GLOBAL_STATE.config_version.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let mut global_config = GLOBAL_STATE
+            .config
+            .write()
+            .unwrap_or_else(|e| e.into_inner());
+        GLOBAL_STATE
+            .config_version
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         *global_config = Some(config.clone());
     }
-    GLOBAL_STATE.is_exhibition_mode.store(config.is_exhibition_mode, std::sync::atomic::Ordering::Relaxed);
+    GLOBAL_STATE.is_exhibition_mode.store(
+        config.is_exhibition_mode,
+        std::sync::atomic::Ordering::Relaxed,
+    );
     Ok(())
 }
 
@@ -164,18 +199,26 @@ pub fn api_play_test_noise(channel: u32) -> Result<(), AtmosError> {
 
 pub fn api_preload_sound(file_path: String) -> Result<(), AtmosError> {
     let path = std::path::Path::new(&file_path);
-    let target_sr = GLOBAL_STATE.engine_sample_rate.load(std::sync::atomic::Ordering::Relaxed);
+    let target_sr = GLOBAL_STATE
+        .engine_sample_rate
+        .load(std::sync::atomic::Ordering::Relaxed);
     match crate::audio::player::SoundData::load_from_file(path, target_sr) {
         Ok(data) => {
             // 100MB limit check (samples * 4 bytes per f32)
             if data.samples.len() > 25_000_000 {
-                println!("[TELEMETRY] OOM Protection triggered: File {} exceeds 100MB limit.", file_path);
+                println!(
+                    "[TELEMETRY] OOM Protection triggered: File {} exceeds 100MB limit.",
+                    file_path
+                );
                 return Err(AtmosError {
                     message: "File is too large for preload (exceeds 100MB).".to_string(),
                 });
             }
             let arc_data = std::sync::Arc::new(data);
-            let mut preloaded = GLOBAL_STATE.preloaded_sounds.write().unwrap_or_else(|e| e.into_inner());
+            let mut preloaded = GLOBAL_STATE
+                .preloaded_sounds
+                .write()
+                .unwrap_or_else(|e| e.into_inner());
             preloaded.insert(file_path, arc_data);
             Ok(())
         }
@@ -186,7 +229,10 @@ pub fn api_preload_sound(file_path: String) -> Result<(), AtmosError> {
 }
 
 pub fn api_clear_preloaded_sounds() -> Result<(), AtmosError> {
-    let mut preloaded = GLOBAL_STATE.preloaded_sounds.write().unwrap_or_else(|e| e.into_inner());
+    let mut preloaded = GLOBAL_STATE
+        .preloaded_sounds
+        .write()
+        .unwrap_or_else(|e| e.into_inner());
     preloaded.clear();
     Ok(())
 }
@@ -202,11 +248,15 @@ pub fn api_get_rta_magnitudes() -> Vec<f32> {
 }
 
 pub fn api_get_spatial_gains() -> Vec<f32> {
-    let out_channels = GLOBAL_STATE.active_device_channels.load(std::sync::atomic::Ordering::Relaxed) as usize;
+    let out_channels = GLOBAL_STATE
+        .active_device_channels
+        .load(std::sync::atomic::Ordering::Relaxed) as usize;
     let limit = out_channels.min(GLOBAL_STATE.spatial_gains.len());
     let mut gains = Vec::with_capacity(limit);
     for i in 0..limit {
-        gains.push(f32::from_bits(GLOBAL_STATE.spatial_gains[i].load(std::sync::atomic::Ordering::Relaxed)));
+        gains.push(f32::from_bits(
+            GLOBAL_STATE.spatial_gains[i].load(std::sync::atomic::Ordering::Relaxed),
+        ));
     }
     gains
 }
@@ -216,8 +266,60 @@ pub fn api_calculate_eq_response(bands: Vec<crate::common::config::EqBand>) -> V
     crate::audio::eq_response::calculate_total_eq_curve(&bands, 48000.0, &freqs)
 }
 
+/// PlayTrack 커맨드를 만든다.
+///
+/// SoundInstance 생성은 스트림 버퍼(약 512KB) 등 여러 힙 할당을 동반하므로
+/// 반드시 오디오 스레드 밖에서 수행해야 한다. 이 함수는 FRB 워커 스레드에서
+/// 실행되는 api_play_track 계열에서만 호출된다. 오디오 스레드는 완성된
+/// 인스턴스를 풀 슬롯에 옮겨 담기만 한다(Law 1).
+#[allow(clippy::too_many_arguments)]
+pub fn build_play_track_command(
+    instance_id: u64,
+    room_id: u32,
+    track_id: u32,
+    track_id_str: String,
+    data: Option<std::sync::Arc<crate::audio::player::SoundData>>,
+    streamer: Option<crate::audio::streaming::DiskStreamer>,
+    stream_sample_rate: u32,
+    stream_channels: u16,
+    is_loop: bool,
+    volume: f32,
+    room_volume: f32,
+    output_channel: usize,
+    output_stereo: bool,
+    current_position: Option<crate::common::config::Point3D>,
+) -> AudioCommand {
+    // 믹서가 경계 검사에 쓰는 배열과 동일한 길이로 잡아 인덱스 불일치를 없앤다.
+    let spatial_channel_capacity = GLOBAL_STATE.enabled_channels.len();
+
+    let instance = crate::audio::player::SoundInstance::new(
+        instance_id,
+        track_id,
+        room_id,
+        track_id_str,
+        data,
+        streamer,
+        stream_sample_rate,
+        stream_channels,
+        is_loop,
+        volume,
+        output_channel,
+        output_stereo,
+        current_position,
+        spatial_channel_capacity,
+    );
+
+    AudioCommand::PlayTrack {
+        instance: Box::new(instance),
+        room_volume,
+    }
+}
+
 pub fn api_play_track(room_id: String, track_id: String) -> Result<(), AtmosError> {
-    let config_guard = GLOBAL_STATE.config.read().unwrap_or_else(|e| e.into_inner());
+    let config_guard = GLOBAL_STATE
+        .config
+        .read()
+        .unwrap_or_else(|e| e.into_inner());
     if let Some(config) = config_guard.as_ref() {
         if let Some(room) = config.rooms.iter().find(|r| r.id == room_id) {
             if let Some(track) = room.tracks.iter().find(|t| t.id == track_id) {
@@ -236,7 +338,10 @@ pub fn api_play_track(room_id: String, track_id: String) -> Result<(), AtmosErro
                     // Prevent duplicate playback of the same looping track if it is a BGM
                     if track.is_loop {
                         let is_playing = {
-                            let guard = GLOBAL_STATE.playing_track_ids.read().unwrap_or_else(|e| e.into_inner());
+                            let guard = GLOBAL_STATE
+                                .playing_track_ids
+                                .read()
+                                .unwrap_or_else(|e| e.into_inner());
                             guard.values().any(|id| id == &track_id)
                         };
                         if is_playing {
@@ -244,31 +349,37 @@ pub fn api_play_track(room_id: String, track_id: String) -> Result<(), AtmosErro
                         }
                     }
 
-                    let target_sr = GLOBAL_STATE.engine_sample_rate.load(std::sync::atomic::Ordering::Relaxed);
+                    let target_sr = GLOBAL_STATE
+                        .engine_sample_rate
+                        .load(std::sync::atomic::Ordering::Relaxed);
                     // Start DiskStreamer for BGM or streaming tracks
-                    match crate::audio::streaming::DiskStreamer::new(track.file_path.clone(), track.is_loop, target_sr) {
+                    match crate::audio::streaming::DiskStreamer::new(
+                        track.file_path.clone(),
+                        track.is_loop,
+                        target_sr,
+                    ) {
                         Ok(streamer) => {
                             let sample_rate = streamer.sample_rate;
                             let channels = streamer.channels;
                             GLOBAL_STATE.add_playing_track(instance_id, track_id.clone());
                             GLOBAL_STATE
                                 .command_sender
-                                .send(AudioCommand::PlayTrack {
+                                .send(build_play_track_command(
                                     instance_id,
-                                    room_id: hash_id(&room_id),
-                                    track_id: hash_id(&track_id),
-                                    track_id_str: track_id.clone(),
-                                    data: None,
-                                    streamer: Some(streamer),
-                                    stream_sample_rate: sample_rate,
-                                    stream_channels: channels,
-                                    is_loop: track.is_loop,
-                                    volume: track.volume,
-                                    room_volume: room.volume,
-                                    output_channel: track.output_channel as usize,
-                                    output_stereo: track.output_stereo,
-                                    current_position: None,
-                                })
+                                    hash_id(&room_id),
+                                    hash_id(&track_id),
+                                    track_id.clone(),
+                                    None,
+                                    Some(streamer),
+                                    sample_rate,
+                                    channels,
+                                    track.is_loop,
+                                    track.volume,
+                                    room.volume,
+                                    track.output_channel as usize,
+                                    track.output_stereo,
+                                    None,
+                                ))
                                 .map_err(|e| AtmosError {
                                     message: e.to_string(),
                                 })?;
@@ -282,7 +393,10 @@ pub fn api_play_track(room_id: String, track_id: String) -> Result<(), AtmosErro
                     }
                 } else {
                     let preloaded_data = {
-                        let preloaded_guard = GLOBAL_STATE.preloaded_sounds.read().unwrap_or_else(|e| e.into_inner());
+                        let preloaded_guard = GLOBAL_STATE
+                            .preloaded_sounds
+                            .read()
+                            .unwrap_or_else(|e| e.into_inner());
                         preloaded_guard.get(&track.file_path).cloned()
                     };
 
@@ -290,7 +404,10 @@ pub fn api_play_track(room_id: String, track_id: String) -> Result<(), AtmosErro
                         // Protect against multiple rapid clicks for looping tracks
                         if track.is_loop {
                             let is_playing = {
-                                let guard = GLOBAL_STATE.playing_track_ids.read().unwrap_or_else(|e| e.into_inner());
+                                let guard = GLOBAL_STATE
+                                    .playing_track_ids
+                                    .read()
+                                    .unwrap_or_else(|e| e.into_inner());
                                 guard.values().any(|id| id == &track_id)
                             };
                             if is_playing {
@@ -301,49 +418,52 @@ pub fn api_play_track(room_id: String, track_id: String) -> Result<(), AtmosErro
                         GLOBAL_STATE.add_playing_track(instance_id, track_id.clone());
                         GLOBAL_STATE
                             .command_sender
-                            .send(AudioCommand::PlayTrack {
+                            .send(build_play_track_command(
                                 instance_id,
-                                room_id: hash_id(&room_id),
-                                track_id: hash_id(&track_id),
-                                track_id_str: track_id.clone(),
-                                data: Some(data.clone()),
-                                streamer: None,
-                                stream_sample_rate: data.sample_rate,
-                                stream_channels: data.channels,
-                                is_loop: false,
-                                volume: track.volume,
-                                room_volume: room.volume,
-                                output_channel: track.output_channel as usize,
-                                output_stereo: track.output_stereo,
-                                current_position: None,
-                            })
+                                hash_id(&room_id),
+                                hash_id(&track_id),
+                                track_id.clone(),
+                                Some(data.clone()),
+                                None,
+                                data.sample_rate,
+                                data.channels,
+                                false,
+                                track.volume,
+                                room.volume,
+                                track.output_channel as usize,
+                                track.output_stereo,
+                                None,
+                            ))
                             .map_err(|e| AtmosError {
                                 message: e.to_string(),
                             })?;
                         return Ok(());
                     }
 
-                    let cache_guard = GLOBAL_STATE.sound_cache.read().unwrap_or_else(|e| e.into_inner());
+                    let cache_guard = GLOBAL_STATE
+                        .sound_cache
+                        .read()
+                        .unwrap_or_else(|e| e.into_inner());
                     if let Some(data) = cache_guard.get(&track.file_path) {
                         GLOBAL_STATE.add_playing_track(instance_id, track_id.clone());
                         GLOBAL_STATE
                             .command_sender
-                            .send(AudioCommand::PlayTrack {
+                            .send(build_play_track_command(
                                 instance_id,
-                                room_id: hash_id(&room_id),
-                                track_id: hash_id(&track_id),
-                                track_id_str: track_id.clone(),
-                                data: Some(data.clone()),
-                                streamer: None,
-                                stream_sample_rate: data.sample_rate,
-                                stream_channels: data.channels,
-                                is_loop: false,
-                                volume: track.volume,
-                                room_volume: room.volume,
-                                output_channel: track.output_channel as usize,
-                                output_stereo: track.output_stereo,
-                                current_position: None,
-                            })
+                                hash_id(&room_id),
+                                hash_id(&track_id),
+                                track_id.clone(),
+                                Some(data.clone()),
+                                None,
+                                data.sample_rate,
+                                data.channels,
+                                false,
+                                track.volume,
+                                room.volume,
+                                track.output_channel as usize,
+                                track.output_stereo,
+                                None,
+                            ))
                             .map_err(|e| AtmosError {
                                 message: e.to_string(),
                             })?;
@@ -358,33 +478,38 @@ pub fn api_play_track(room_id: String, track_id: String) -> Result<(), AtmosErro
                                 });
                             }
                         }
-                        let target_sr = GLOBAL_STATE.engine_sample_rate.load(std::sync::atomic::Ordering::Relaxed);
+                        let target_sr = GLOBAL_STATE
+                            .engine_sample_rate
+                            .load(std::sync::atomic::Ordering::Relaxed);
                         match crate::audio::player::SoundData::load_from_file(path, target_sr) {
                             Ok(data) => {
                                 let arc_data = std::sync::Arc::new(data);
                                 {
-                                    let mut cache = GLOBAL_STATE.sound_cache.write().unwrap_or_else(|e| e.into_inner());
+                                    let mut cache = GLOBAL_STATE
+                                        .sound_cache
+                                        .write()
+                                        .unwrap_or_else(|e| e.into_inner());
                                     cache.insert(track.file_path.clone(), arc_data.clone());
                                 }
                                 GLOBAL_STATE.add_playing_track(instance_id, track_id.clone());
                                 GLOBAL_STATE
                                     .command_sender
-                                    .send(AudioCommand::PlayTrack {
+                                    .send(build_play_track_command(
                                         instance_id,
-                                        room_id: hash_id(&room_id),
-                                        track_id: hash_id(&track_id),
-                                        track_id_str: track_id.clone(),
-                                        data: Some(arc_data.clone()),
-                                        streamer: None,
-                                        stream_sample_rate: arc_data.sample_rate,
-                                        stream_channels: arc_data.channels,
-                                        is_loop: false,
-                                        volume: track.volume,
-                                        room_volume: room.volume,
-                                        output_channel: track.output_channel as usize,
-                                        output_stereo: track.output_stereo,
-                                        current_position: None,
-                                    })
+                                        hash_id(&room_id),
+                                        hash_id(&track_id),
+                                        track_id.clone(),
+                                        Some(arc_data.clone()),
+                                        None,
+                                        arc_data.sample_rate,
+                                        arc_data.channels,
+                                        false,
+                                        track.volume,
+                                        room.volume,
+                                        track.output_channel as usize,
+                                        track.output_stereo,
+                                        None,
+                                    ))
                                     .map_err(|e| AtmosError {
                                         message: e.to_string(),
                                     })?;
@@ -392,7 +517,10 @@ pub fn api_play_track(room_id: String, track_id: String) -> Result<(), AtmosErro
                             }
                             Err(e) => {
                                 return Err(AtmosError {
-                                    message: format!("Cache miss and dynamic RAM loading failed for {}: {}", track.file_path, e),
+                                    message: format!(
+                                        "Cache miss and dynamic RAM loading failed for {}: {}",
+                                        track.file_path, e
+                                    ),
                                 });
                             }
                         }
@@ -421,13 +549,22 @@ pub fn api_stop_track(room_id: String, track_id: String) -> Result<(), AtmosErro
 }
 
 pub fn api_stop_all() -> Result<(), AtmosError> {
-    let _lock = GLOBAL_STATE.broadcast_lock.lock().unwrap_or_else(|e| e.into_inner());
+    let _lock = GLOBAL_STATE
+        .broadcast_lock
+        .lock()
+        .unwrap_or_else(|e| e.into_inner());
     {
-        let mut guard = GLOBAL_STATE.playing_track_ids.write().unwrap_or_else(|e| e.into_inner());
+        let mut guard = GLOBAL_STATE
+            .playing_track_ids
+            .write()
+            .unwrap_or_else(|e| e.into_inner());
         guard.clear();
     }
     {
-        let mut guard = GLOBAL_STATE.active_room_id.write().unwrap_or_else(|e| e.into_inner());
+        let mut guard = GLOBAL_STATE
+            .active_room_id
+            .write()
+            .unwrap_or_else(|e| e.into_inner());
         *guard = None;
     }
     GLOBAL_STATE.broadcast_state();
@@ -447,7 +584,10 @@ pub fn api_set_active_room(room_id: Option<String>) -> Result<(), AtmosError> {
 
 pub fn api_clear_room(room_id: String) -> Result<(), AtmosError> {
     {
-        let mut guard = GLOBAL_STATE.active_room_id.write().unwrap_or_else(|e| e.into_inner());
+        let mut guard = GLOBAL_STATE
+            .active_room_id
+            .write()
+            .unwrap_or_else(|e| e.into_inner());
         if guard.as_ref() != Some(&room_id) {
             return Err(AtmosError {
                 message: "Room is not active or already cleared".to_string(),
@@ -456,12 +596,18 @@ pub fn api_clear_room(room_id: String) -> Result<(), AtmosError> {
         *guard = None;
     }
     {
-        let mut guard = GLOBAL_STATE.playing_track_ids.write().unwrap_or_else(|e| e.into_inner());
+        let mut guard = GLOBAL_STATE
+            .playing_track_ids
+            .write()
+            .unwrap_or_else(|e| e.into_inner());
         guard.clear();
     }
     GLOBAL_STATE.broadcast_state();
 
-    let _lock = GLOBAL_STATE.broadcast_lock.lock().unwrap_or_else(|e| e.into_inner());
+    let _lock = GLOBAL_STATE
+        .broadcast_lock
+        .lock()
+        .unwrap_or_else(|e| e.into_inner());
     GLOBAL_STATE
         .command_sender
         .send(AudioCommand::ClearRoom {
@@ -476,9 +622,7 @@ pub fn api_clear_room(room_id: String) -> Result<(), AtmosError> {
 pub fn api_set_master_mute(muted: bool) -> Result<(), AtmosError> {
     GLOBAL_STATE
         .command_sender
-        .send(AudioCommand::SetMasterMute {
-            muted,
-        })
+        .send(AudioCommand::SetMasterMute { muted })
         .map_err(|e| AtmosError {
             message: e.to_string(),
         })?;
@@ -540,23 +684,20 @@ pub fn api_set_track_output(
 pub fn api_set_channel_delay(channel: usize, delay_ms: f32) -> Result<(), AtmosError> {
     GLOBAL_STATE
         .command_sender
-        .send(AudioCommand::SetChannelDelay {
-            channel,
-            delay_ms,
-        })
+        .send(AudioCommand::SetChannelDelay { channel, delay_ms })
         .map_err(|e| AtmosError {
             message: e.to_string(),
         })?;
     Ok(())
 }
 
-pub fn api_set_channel_eq(channel: usize, bands: Vec<crate::common::config::EqBand>) -> Result<(), AtmosError> {
+pub fn api_set_channel_eq(
+    channel: usize,
+    bands: Vec<crate::common::config::EqBand>,
+) -> Result<(), AtmosError> {
     GLOBAL_STATE
         .command_sender
-        .send(AudioCommand::SetChannelEq {
-            channel,
-            bands,
-        })
+        .send(AudioCommand::SetChannelEq { channel, bands })
         .map_err(|e| AtmosError {
             message: e.to_string(),
         })?;
@@ -579,7 +720,9 @@ pub fn api_create_vu_stream(sink: StreamSink<Vec<f32>>) {
         if VU_THREAD_RUNNING.load(std::sync::atomic::Ordering::Relaxed) != session_id {
             break;
         }
-        let max_channels = GLOBAL_STATE.active_device_channels.load(std::sync::atomic::Ordering::Relaxed) as usize;
+        let max_channels = GLOBAL_STATE
+            .active_device_channels
+            .load(std::sync::atomic::Ordering::Relaxed) as usize;
         let limit = if max_channels > 0 { max_channels } else { 64 };
         let mut levels: Vec<f32> = GLOBAL_STATE
             .vu_levels
@@ -587,9 +730,11 @@ pub fn api_create_vu_stream(sink: StreamSink<Vec<f32>>) {
             .take(limit)
             .map(|v| f32::from_bits(v.load(std::sync::atomic::Ordering::Relaxed)))
             .collect();
-            
+
         for lufs in &GLOBAL_STATE.lufs_master {
-            levels.push(f32::from_bits(lufs.load(std::sync::atomic::Ordering::Relaxed)));
+            levels.push(f32::from_bits(
+                lufs.load(std::sync::atomic::Ordering::Relaxed),
+            ));
         }
         if sink.add(levels).is_err() {
             break; // Stop thread if port is closed
@@ -606,19 +751,28 @@ lazy_static::lazy_static! {
 }
 
 pub fn broadcast_stream_status(status: String) {
-    if let Some(sink) = STREAM_STATUS_SINK.read().unwrap_or_else(|e| e.into_inner()).as_ref() {
+    if let Some(sink) = STREAM_STATUS_SINK
+        .read()
+        .unwrap_or_else(|e| e.into_inner())
+        .as_ref()
+    {
         let _ = sink.add(status);
     }
 }
 
 pub fn api_create_stream_status_stream(sink: StreamSink<String>) {
-    let mut guard = STREAM_STATUS_SINK.write().unwrap_or_else(|e| e.into_inner());
+    let mut guard = STREAM_STATUS_SINK
+        .write()
+        .unwrap_or_else(|e| e.into_inner());
     *guard = Some(sink.clone());
     drop(guard);
-    
+
     // Initial status
     if ENGINE_ACTIVE.load(std::sync::atomic::Ordering::SeqCst) {
-        if crate::core::state::GLOBAL_STATE.is_failover_mode.load(std::sync::atomic::Ordering::Relaxed) {
+        if crate::core::state::GLOBAL_STATE
+            .is_failover_mode
+            .load(std::sync::atomic::Ordering::Relaxed)
+        {
             let _ = sink.add("Failover".to_string());
         } else {
             let _ = sink.add("Running".to_string());
@@ -632,10 +786,10 @@ pub fn api_init_audio_system(device_name: Option<String>) -> Result<(), AtmosErr
     api_stop_audio_engine();
 
     let rx = crate::core::state::GLOBAL_STATE.command_receiver.clone();
-    
+
     let gen = ENGINE_GENERATION.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1;
     let (tx, rx_init) = std::sync::mpsc::channel();
-    
+
     let prev_handle = {
         if let Ok(mut guard) = ENGINE_THREAD.lock() {
             guard.take()
@@ -643,7 +797,7 @@ pub fn api_init_audio_system(device_name: Option<String>) -> Result<(), AtmosErr
             None
         }
     };
-    
+
     let handle = std::thread::spawn(move || {
         // 백그라운드 스레드 내에서 이전 스레드가 완전히 종료될 때까지 대기 (UI 프리징 방지)
         if let Some(h) = prev_handle {
@@ -651,7 +805,7 @@ pub fn api_init_audio_system(device_name: Option<String>) -> Result<(), AtmosErr
         }
 
         std::thread::sleep(std::time::Duration::from_millis(100)); // safe margin
-        
+
         #[cfg(target_os = "windows")]
         {
             use windows::Win32::System::Com::{CoInitializeEx, COINIT_APARTMENTTHREADED};
@@ -659,16 +813,25 @@ pub fn api_init_audio_system(device_name: Option<String>) -> Result<(), AtmosErr
                 let _ = CoInitializeEx(None, COINIT_APARTMENTTHREADED);
             }
         }
-        
+
         let mut engine = crate::audio::engine::AudioEngine::new();
         crate::audio::engine::ENGINE_INIT_SIGNAL.store(false, std::sync::atomic::Ordering::SeqCst);
         let device_name_clone = device_name.clone();
-        
+
         let is_asio = if let Some(ref name) = device_name_clone {
             name.starts_with("[ASIO]")
         } else {
-            if let Some(config) = crate::core::state::GLOBAL_STATE.config.read().unwrap_or_else(|e| e.into_inner()).as_ref() {
-                config.device_name.as_ref().map(|n| n.starts_with("[ASIO]")).unwrap_or(false)
+            if let Some(config) = crate::core::state::GLOBAL_STATE
+                .config
+                .read()
+                .unwrap_or_else(|e| e.into_inner())
+                .as_ref()
+            {
+                config
+                    .device_name
+                    .as_ref()
+                    .map(|n| n.starts_with("[ASIO]"))
+                    .unwrap_or(false)
             } else {
                 false
             }
@@ -677,22 +840,29 @@ pub fn api_init_audio_system(device_name: Option<String>) -> Result<(), AtmosErr
         match engine.start(device_name_clone, rx) {
             Ok(_) => {
                 ENGINE_ACTIVE.store(true, std::sync::atomic::Ordering::SeqCst);
-                
+
                 // Wait for callback to actually fire (Atomic spin-wait)
                 let start = std::time::Instant::now();
-                while !crate::audio::engine::ENGINE_INIT_SIGNAL.load(std::sync::atomic::Ordering::Acquire) {
-                    if start.elapsed().as_millis() > 2000 { break; }
+                while !crate::audio::engine::ENGINE_INIT_SIGNAL
+                    .load(std::sync::atomic::Ordering::Acquire)
+                {
+                    if start.elapsed().as_millis() > 2000 {
+                        break;
+                    }
                     std::thread::sleep(std::time::Duration::from_millis(10));
                 }
-                
+
                 let _ = tx.send(Ok(()));
-                
-                if crate::core::state::GLOBAL_STATE.is_failover_mode.load(std::sync::atomic::Ordering::Relaxed) {
+
+                if crate::core::state::GLOBAL_STATE
+                    .is_failover_mode
+                    .load(std::sync::atomic::Ordering::Relaxed)
+                {
                     broadcast_stream_status("Failover".to_string());
                 } else {
                     broadcast_stream_status("Running".to_string());
                 }
-                
+
                 // Keep thread alive until next generation, and watch for DeviceNotAvailable
                 let mut last_device_count: Option<usize> = None;
                 let mut last_device_names: Vec<String> = Vec::new();
@@ -703,22 +873,39 @@ pub fn api_init_audio_system(device_name: Option<String>) -> Result<(), AtmosErr
                         break;
                     }
 
-                    if crate::core::state::GLOBAL_STATE.device_needs_reset.load(std::sync::atomic::Ordering::Acquire) {
+                    if crate::core::state::GLOBAL_STATE
+                        .device_needs_reset
+                        .load(std::sync::atomic::Ordering::Acquire)
+                    {
                         println!("⚠️ [디버깅] ASIO 장치 핫리로드 요청 수신 (kAsioResetRequest)");
-                        crate::core::state::GLOBAL_STATE.device_needs_reset.store(false, std::sync::atomic::Ordering::Release);
+                        crate::core::state::GLOBAL_STATE
+                            .device_needs_reset
+                            .store(false, std::sync::atomic::Ordering::Release);
                         break;
                     }
 
-                    if let Some(err) = crate::core::state::GLOBAL_STATE.engine_error.read().unwrap_or_else(|e| e.into_inner()).as_ref() {
+                    if let Some(err) = crate::core::state::GLOBAL_STATE
+                        .engine_error
+                        .read()
+                        .unwrap_or_else(|e| e.into_inner())
+                        .as_ref()
+                    {
                         if err == "DeviceNotAvailable" {
-                            println!("⚠️ [디버깅] 오디오 장치 유실 감지! (rtrb SPSC 환경, 큐 대기 상태)");
+                            println!(
+                                "⚠️ [디버깅] 오디오 장치 유실 감지! (rtrb SPSC 환경, 큐 대기 상태)"
+                            );
                             break;
                         }
                     }
 
                     // Watchdog: Check if callback hasn't fired in >1000ms
-                    let now_ms = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or(std::time::Duration::from_secs(0)).as_millis() as u64;
-                    let last_cb = crate::core::state::GLOBAL_STATE.watchdog_last_callback.load(std::sync::atomic::Ordering::Relaxed);
+                    let now_ms = std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .unwrap_or(std::time::Duration::from_secs(0))
+                        .as_millis() as u64;
+                    let last_cb = crate::core::state::GLOBAL_STATE
+                        .watchdog_last_callback
+                        .load(std::sync::atomic::Ordering::Relaxed);
                     if last_cb > 0 && (now_ms > last_cb + 1000) {
                         println!("🚨 [Watchdog] 오디오 스레드 콜백 응답 없음 (1000ms 초과)! 엔진 강제 재기동...");
                         break;
@@ -730,11 +917,17 @@ pub fn api_init_audio_system(device_name: Option<String>) -> Result<(), AtmosErr
                         monitor_timer = 0;
                         if !is_asio {
                             if let Ok(devices) = api_get_output_devices() {
-                                let current_names: Vec<String> = devices.into_iter().map(|d| d.name).collect();
+                                let current_names: Vec<String> =
+                                    devices.into_iter().map(|d| d.name).collect();
                                 if let Some(last_count) = last_device_count {
-                                    if last_count != current_names.len() || last_device_names != current_names {
+                                    if last_count != current_names.len()
+                                        || last_device_names != current_names
+                                    {
                                         println!("🔄 [Device Monitor] Detected devicelist change! (Topology changed)");
-                                        let mut err_guard = crate::core::state::GLOBAL_STATE.engine_error.write().unwrap_or_else(|e| e.into_inner());
+                                        let mut err_guard = crate::core::state::GLOBAL_STATE
+                                            .engine_error
+                                            .write()
+                                            .unwrap_or_else(|e| e.into_inner());
                                         *err_guard = Some("DeviceListChanged".to_string());
                                         // Trigger auto-recovery by breaking the loop (similar to Ableton's behavior)
                                         break;
@@ -748,11 +941,11 @@ pub fn api_init_audio_system(device_name: Option<String>) -> Result<(), AtmosErr
 
                     std::thread::sleep(std::time::Duration::from_millis(100));
                 }
-                
+
                 drop(engine);
                 ENGINE_ACTIVE.store(false, std::sync::atomic::Ordering::SeqCst);
                 broadcast_stream_status("Stopped".to_string());
-                
+
                 // If it wasn't a manual stop, auto restart
                 if ENGINE_GENERATION.load(std::sync::atomic::Ordering::SeqCst) == gen {
                     std::thread::sleep(std::time::Duration::from_millis(100)); // Fast auto hot-reload
@@ -762,7 +955,9 @@ pub fn api_init_audio_system(device_name: Option<String>) -> Result<(), AtmosErr
                         if let Err(_e) = api_init_audio_system(device_name.clone()) {
                             // Emergency Failover
                             println!("🚨 [Failover] 장치 재연결 실패. WASAPI 기본 장치로 강제 비상 전환!");
-                            crate::core::state::GLOBAL_STATE.is_failover_mode.store(true, std::sync::atomic::Ordering::Relaxed);
+                            crate::core::state::GLOBAL_STATE
+                                .is_failover_mode
+                                .store(true, std::sync::atomic::Ordering::Relaxed);
                             let _ = api_init_audio_system(None); // None forces default OS device
                         }
                     }
@@ -770,20 +965,23 @@ pub fn api_init_audio_system(device_name: Option<String>) -> Result<(), AtmosErr
             }
             Err(e) => {
                 let _ = tx.send(Err(e));
-                
+
                 // Auto reconnect on initial boot failure if it was DeviceNotAvailable
                 // Wait, boot failures are returned immediately. So we don't block here.
             }
         }
     });
-    
+
     if let Ok(mut guard) = ENGINE_THREAD.lock() {
         *guard = Some(handle);
     }
-    
-    rx_init.recv().unwrap_or_else(|_| Err("Failed to communicate with audio thread".to_string())).map_err(|e| AtmosError {
-        message: format!("Failed to start audio engine: {}", e),
-    })
+
+    rx_init
+        .recv()
+        .unwrap_or_else(|_| Err("Failed to communicate with audio thread".to_string()))
+        .map_err(|e| AtmosError {
+            message: format!("Failed to start audio engine: {}", e),
+        })
 }
 
 pub fn api_start_audio_engine(device_name: Option<String>) {
@@ -814,10 +1012,16 @@ pub fn api_create_device_event_stream(sink: StreamSink<String>) {
     std::thread::spawn(move || {
         let mut last_err: Option<String> = None;
         loop {
-            let current_err = GLOBAL_STATE.engine_error.read().unwrap_or_else(|e| e.into_inner()).clone();
+            let current_err = GLOBAL_STATE
+                .engine_error
+                .read()
+                .unwrap_or_else(|e| e.into_inner())
+                .clone();
             if current_err != last_err {
                 if let Some(ref err) = current_err {
-                    if (err == "DeviceNotAvailable" || err.contains("Disconnected")) && sink.add(err.clone()).is_err() {
+                    if (err == "DeviceNotAvailable" || err.contains("Disconnected"))
+                        && sink.add(err.clone()).is_err()
+                    {
                         break; // Stop thread if port is closed
                     }
                 }
@@ -853,7 +1057,10 @@ pub struct EngineStateUpdate {
 
 pub fn api_create_engine_state_stream(sink: StreamSink<EngineStateUpdate>) {
     let playing_track_ids = {
-        let guard = GLOBAL_STATE.playing_track_ids.read().unwrap_or_else(|e| e.into_inner());
+        let guard = GLOBAL_STATE
+            .playing_track_ids
+            .read()
+            .unwrap_or_else(|e| e.into_inner());
         let mut unique_ids: Vec<String> = guard.values().cloned().collect();
         unique_ids.sort();
         unique_ids.dedup();
@@ -861,18 +1068,39 @@ pub fn api_create_engine_state_stream(sink: StreamSink<EngineStateUpdate>) {
     };
 
     let initial_state = EngineStateUpdate {
-        active_room_id: GLOBAL_STATE.active_room_id.read().unwrap_or_else(|e| e.into_inner()).clone(),
+        active_room_id: GLOBAL_STATE
+            .active_room_id
+            .read()
+            .unwrap_or_else(|e| e.into_inner())
+            .clone(),
         ducking_active: GLOBAL_STATE
             .is_ducking
             .load(std::sync::atomic::Ordering::Relaxed),
         playing_track_ids,
-        engine_error: GLOBAL_STATE.engine_error.read().unwrap_or_else(|e| e.into_inner()).clone(),
-        output_channel_count: GLOBAL_STATE.active_device_channels.load(std::sync::atomic::Ordering::Relaxed),
-        short_term_lufs: f32::from_bits(GLOBAL_STATE.current_master_lufs.load(std::sync::atomic::Ordering::Relaxed)),
-        gain_reduction_db: f32::from_bits(GLOBAL_STATE.current_gain_reduction_db.load(std::sync::atomic::Ordering::Relaxed)),
+        engine_error: GLOBAL_STATE
+            .engine_error
+            .read()
+            .unwrap_or_else(|e| e.into_inner())
+            .clone(),
+        output_channel_count: GLOBAL_STATE
+            .active_device_channels
+            .load(std::sync::atomic::Ordering::Relaxed),
+        short_term_lufs: f32::from_bits(
+            GLOBAL_STATE
+                .current_master_lufs
+                .load(std::sync::atomic::Ordering::Relaxed),
+        ),
+        gain_reduction_db: f32::from_bits(
+            GLOBAL_STATE
+                .current_gain_reduction_db
+                .load(std::sync::atomic::Ordering::Relaxed),
+        ),
     };
     let _ = sink.add(initial_state);
-    *GLOBAL_STATE.state_sink.write().unwrap_or_else(|e| e.into_inner()) = Some(sink);
+    *GLOBAL_STATE
+        .state_sink
+        .write()
+        .unwrap_or_else(|e| e.into_inner()) = Some(sink);
 }
 
 pub fn api_preload_all_sounds(config: AppConfig) -> Result<(), AtmosError> {
@@ -887,7 +1115,10 @@ pub fn api_preload_all_sounds(config: AppConfig) -> Result<(), AtmosError> {
 
     let mut missing_files = Vec::new();
     {
-        let cache = GLOBAL_STATE.sound_cache.read().unwrap_or_else(|e| e.into_inner());
+        let cache = GLOBAL_STATE
+            .sound_cache
+            .read()
+            .unwrap_or_else(|e| e.into_inner());
         for file in &needed_files {
             if !cache.contains_key(file) {
                 missing_files.push(file.clone());
@@ -899,7 +1130,7 @@ pub fn api_preload_all_sounds(config: AppConfig) -> Result<(), AtmosError> {
     let mut errors = Vec::new();
     for file in missing_files {
         let path = std::path::Path::new(&file);
-        
+
         if let Ok(metadata) = std::fs::metadata(path) {
             if metadata.len() > 500 * 1024 * 1024 {
                 let err_msg = format!("파일 용량이 너무 큽니다 (500MB 초과). BGM(Loop)으로 설정하거나 용량을 줄이세요: {}", file);
@@ -908,9 +1139,11 @@ pub fn api_preload_all_sounds(config: AppConfig) -> Result<(), AtmosError> {
                 continue;
             }
         }
-        
+
         // Load into RAM regardless of size (SFX only, loop=false)
-        let target_sr = GLOBAL_STATE.engine_sample_rate.load(std::sync::atomic::Ordering::Relaxed);
+        let target_sr = GLOBAL_STATE
+            .engine_sample_rate
+            .load(std::sync::atomic::Ordering::Relaxed);
         match crate::audio::player::SoundData::load_from_file(path, target_sr) {
             Ok(data) => {
                 GLOBAL_STATE.log(format!("Loaded sound file: {}", file));
@@ -933,7 +1166,10 @@ pub fn api_preload_all_sounds(config: AppConfig) -> Result<(), AtmosError> {
     }
 
     {
-        let mut cache = GLOBAL_STATE.sound_cache.write().unwrap_or_else(|e| e.into_inner());
+        let mut cache = GLOBAL_STATE
+            .sound_cache
+            .write()
+            .unwrap_or_else(|e| e.into_inner());
         cache.retain(|path, _| needed_files.contains(path));
         for (path, data) in newly_loaded {
             cache.insert(path, data);
@@ -976,14 +1212,22 @@ pub fn api_preload_all_sounds(config: AppConfig) -> Result<(), AtmosError> {
         }
     }
 
-    let mut global_config = GLOBAL_STATE.config.write().unwrap_or_else(|e| e.into_inner());
-    GLOBAL_STATE.config_version.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    let mut global_config = GLOBAL_STATE
+        .config
+        .write()
+        .unwrap_or_else(|e| e.into_inner());
+    GLOBAL_STATE
+        .config_version
+        .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
     *global_config = Some(config.clone());
     drop(global_config);
 
     // Check if active_room_id exists in the new config
     let active_room_id = {
-        let guard = GLOBAL_STATE.active_room_id.read().unwrap_or_else(|e| e.into_inner());
+        let guard = GLOBAL_STATE
+            .active_room_id
+            .read()
+            .unwrap_or_else(|e| e.into_inner());
         guard.clone()
     };
 
@@ -1048,7 +1292,8 @@ pub fn api_get_output_devices() -> Result<Vec<OutputDeviceInfo>, AtmosError> {
         } else {
             None
         };
-        let hosts = crate::audio::engine::get_hosts(target_prefix).map_err(|e| AtmosError { message: e })?;
+        let hosts = crate::audio::engine::get_hosts(target_prefix)
+            .map_err(|e| AtmosError { message: e })?;
 
         let mut device_info_list = Vec::new();
 
@@ -1090,14 +1335,23 @@ pub fn api_get_output_devices() -> Result<Vec<OutputDeviceInfo>, AtmosError> {
                 {
                     let (tx, rx) = std::sync::mpsc::channel();
                     std::thread::spawn(move || {
-                        let res = cpal::host_from_id(cpal::HostId::Asio).map(|h| h.output_devices());
+                        let res =
+                            cpal::host_from_id(cpal::HostId::Asio).map(|h| h.output_devices());
                         let _ = tx.send(res);
                     });
                     match rx.recv_timeout(std::time::Duration::from_secs(2)) {
                         Ok(Ok(Ok(d))) => Ok(d),
                         Ok(Ok(Err(e))) => Err(e),
-                        Ok(Err(_e)) => Err(cpal::DevicesError::BackendSpecific { err: cpal::BackendSpecificError { description: "ASIO host init failed".to_string() } }),
-                        Err(_) => Err(cpal::DevicesError::BackendSpecific { err: cpal::BackendSpecificError { description: "ASIO scan timed out (buggy driver?)".to_string() } }),
+                        Ok(Err(_e)) => Err(cpal::DevicesError::BackendSpecific {
+                            err: cpal::BackendSpecificError {
+                                description: "ASIO host init failed".to_string(),
+                            },
+                        }),
+                        Err(_) => Err(cpal::DevicesError::BackendSpecific {
+                            err: cpal::BackendSpecificError {
+                                description: "ASIO scan timed out (buggy driver?)".to_string(),
+                            },
+                        }),
                     }
                 }
                 #[cfg(not(target_os = "windows"))]
@@ -1117,11 +1371,15 @@ pub fn api_get_output_devices() -> Result<Vec<OutputDeviceInfo>, AtmosError> {
                     {
                         let (tx, rx) = std::sync::mpsc::channel();
                         std::thread::spawn(move || {
-                            let res = cpal::host_from_id(cpal::HostId::Asio).map(|h| h.output_devices());
+                            let res =
+                                cpal::host_from_id(cpal::HostId::Asio).map(|h| h.output_devices());
                             let _ = tx.send(res);
                         });
                         match rx.recv_timeout(std::time::Duration::from_secs(2)) {
-                            Ok(Ok(Ok(d))) => { devices_result = Ok(d); break; }
+                            Ok(Ok(Ok(d))) => {
+                                devices_result = Ok(d);
+                                break;
+                            }
                             _ => {}
                         }
                     }
@@ -1138,18 +1396,39 @@ pub fn api_get_output_devices() -> Result<Vec<OutputDeviceInfo>, AtmosError> {
                     );
                     // If ASIO fails completely but we have a saved ASIO device, inject it manually to prevent UI reset
                     if is_asio_host {
-                        if let Some(config) = crate::core::state::GLOBAL_STATE.config.read().unwrap_or_else(|e| e.into_inner()).as_ref() {
+                        if let Some(config) = crate::core::state::GLOBAL_STATE
+                            .config
+                            .read()
+                            .unwrap_or_else(|e| e.into_inner())
+                            .as_ref()
+                        {
                             if let Some(ref saved_name) = config.device_name {
                                 if saved_name.starts_with("[ASIO]") {
-                                    let actual_name = saved_name.replace("[ASIO] ", "").trim().to_string();
-                                    let max_channels = if crate::core::state::GLOBAL_STATE.active_device_channels.load(std::sync::atomic::Ordering::SeqCst) > 0 {
-                                        crate::core::state::GLOBAL_STATE.active_device_channels.load(std::sync::atomic::Ordering::SeqCst)
-                                    } else { 2 };
-                                    
+                                    let actual_name =
+                                        saved_name.replace("[ASIO] ", "").trim().to_string();
+                                    let max_channels = if crate::core::state::GLOBAL_STATE
+                                        .active_device_channels
+                                        .load(std::sync::atomic::Ordering::SeqCst)
+                                        > 0
+                                    {
+                                        crate::core::state::GLOBAL_STATE
+                                            .active_device_channels
+                                            .load(std::sync::atomic::Ordering::SeqCst)
+                                    } else {
+                                        2
+                                    };
+
                                     #[cfg(target_os = "windows")]
-                                    let channel_names = crate::audio::channel_names::get_channel_names_win(&actual_name, max_channels);
+                                    let channel_names =
+                                        crate::audio::channel_names::get_channel_names_win(
+                                            &actual_name,
+                                            max_channels,
+                                        );
                                     #[cfg(not(target_os = "windows"))]
-                                    let channel_names = { let _ = actual_name; vec![] };
+                                    let channel_names = {
+                                        let _ = actual_name;
+                                        vec![]
+                                    };
 
                                     device_info_list.push(OutputDeviceInfo {
                                         name: saved_name.clone(),
@@ -1197,15 +1476,18 @@ pub fn api_get_output_devices() -> Result<Vec<OutputDeviceInfo>, AtmosError> {
                     } else {
                         // Skip capability probing for known buggy generic ASIO drivers to prevent app hangs
                         let actual_name_lower = actual_name.to_lowercase();
-                        let is_buggy_generic_asio = is_asio_host && (
-                            actual_name_lower.contains("generic low latency") ||
-                            actual_name_lower.contains("fl studio") ||
-                            actual_name_lower.contains("asio4all") ||
-                            actual_name_lower.contains("realtek asio")
-                        );
+                        let is_buggy_generic_asio = is_asio_host
+                            && (actual_name_lower.contains("generic low latency")
+                                || actual_name_lower.contains("fl studio")
+                                || actual_name_lower.contains("asio4all")
+                                || actual_name_lower.contains("realtek asio"));
 
                         let mut configs_result = if is_buggy_generic_asio {
-                            Err(cpal::SupportedStreamConfigsError::BackendSpecific { err: cpal::BackendSpecificError { description: "Skipped buggy driver".to_string() } })
+                            Err(cpal::SupportedStreamConfigsError::BackendSpecific {
+                                err: cpal::BackendSpecificError {
+                                    description: "Skipped buggy driver".to_string(),
+                                },
+                            })
                         } else {
                             device.supported_output_configs()
                         };
@@ -1237,10 +1519,17 @@ pub fn api_get_output_devices() -> Result<Vec<OutputDeviceInfo>, AtmosError> {
 
                         // Fallback: If ASIO max_channels is still 2 after query fails or returns only 2, and it matches the saved active ASIO device, reuse the active channel count
                         if is_asio_host && max_channels <= 2 {
-                            if let Some(config) = crate::core::state::GLOBAL_STATE.config.read().unwrap_or_else(|e| e.into_inner()).as_ref() {
+                            if let Some(config) = crate::core::state::GLOBAL_STATE
+                                .config
+                                .read()
+                                .unwrap_or_else(|e| e.into_inner())
+                                .as_ref()
+                            {
                                 if let Some(ref saved_name) = config.device_name {
                                     if saved_name.trim() == name.trim() {
-                                        let active_ch = crate::core::state::GLOBAL_STATE.active_device_channels.load(std::sync::atomic::Ordering::SeqCst);
+                                        let active_ch = crate::core::state::GLOBAL_STATE
+                                            .active_device_channels
+                                            .load(std::sync::atomic::Ordering::SeqCst);
                                         if active_ch > max_channels {
                                             max_channels = active_ch;
                                         }
@@ -1443,10 +1732,13 @@ pub fn api_export_logs(destination_dir: String) -> Result<(), AtmosError> {
 
 pub fn api_play_all_loop_tracks() -> Result<(), AtmosError> {
     let config = {
-        let guard = GLOBAL_STATE.config.read().unwrap_or_else(|e| e.into_inner());
+        let guard = GLOBAL_STATE
+            .config
+            .read()
+            .unwrap_or_else(|e| e.into_inner());
         guard.as_ref().cloned()
     };
-    
+
     if let Some(config) = config {
         for room in config.rooms {
             for track in room.tracks {
@@ -1461,16 +1753,22 @@ pub fn api_play_all_loop_tracks() -> Result<(), AtmosError> {
 
 pub fn api_load_preset(config: AppConfig) -> Result<(), AtmosError> {
     api_stop_all()?;
-    
-    GLOBAL_STATE.is_exhibition_mode.store(config.is_exhibition_mode, std::sync::atomic::Ordering::Relaxed);
-    
+
+    GLOBAL_STATE.is_exhibition_mode.store(
+        config.is_exhibition_mode,
+        std::sync::atomic::Ordering::Relaxed,
+    );
+
     // This will sync GLOBAL_STATE config, enabled_channels, and manage the cache
     api_preload_all_sounds(config)?;
     Ok(())
 }
 
 pub fn api_trigger_test_error(message: String) -> Result<(), AtmosError> {
-    *GLOBAL_STATE.engine_error.write().unwrap_or_else(|e| e.into_inner()) = Some(message);
+    *GLOBAL_STATE
+        .engine_error
+        .write()
+        .unwrap_or_else(|e| e.into_inner()) = Some(message);
     GLOBAL_STATE.broadcast_state();
     Ok(())
 }
@@ -1498,7 +1796,15 @@ pub struct ChannelTuningParams {
 pub fn api_apply_all_channel_tunings(tunings: Vec<ChannelTuningParams>) -> Result<(), AtmosError> {
     let cmd_tunings = tunings
         .iter()
-        .map(|t| (t.channel as usize, t.delay_ms, t.eq_bands.clone(), t.phase_invert, t.gain_db))
+        .map(|t| {
+            (
+                t.channel as usize,
+                t.delay_ms,
+                t.eq_bands.clone(),
+                t.phase_invert,
+                t.gain_db,
+            )
+        })
         .collect();
     GLOBAL_STATE
         .command_sender
@@ -1510,7 +1816,9 @@ pub fn api_apply_all_channel_tunings(tunings: Vec<ChannelTuningParams>) -> Resul
         })?;
 
     if let Ok(mut config_guard) = GLOBAL_STATE.config.write() {
-        GLOBAL_STATE.config_version.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        GLOBAL_STATE
+            .config_version
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         if let Some(config) = config_guard.as_mut() {
             for t in tunings {
                 let ch_key = t.channel + 1;
@@ -1563,7 +1871,9 @@ pub fn api_apply_channel_tuning(
 
     // 인메모리 Config 상태 업데이트 (믹서 재시작 시 복구용)
     if let Ok(mut config_guard) = GLOBAL_STATE.config.write() {
-        GLOBAL_STATE.config_version.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        GLOBAL_STATE
+            .config_version
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         if let Some(config) = config_guard.as_mut() {
             let ch_key = channel + 1;
             if let Some(setting) = config.mono_configs.get_mut(&ch_key) {
@@ -1588,8 +1898,10 @@ pub fn api_apply_channel_tuning(
     Ok(())
 }
 
-
-pub fn api_apply_global_tuning(master_headroom_db: f32, peak_limiter_enabled: bool) -> Result<(), AtmosError> {
+pub fn api_apply_global_tuning(
+    master_headroom_db: f32,
+    peak_limiter_enabled: bool,
+) -> Result<(), AtmosError> {
     GLOBAL_STATE
         .command_sender
         .send(AudioCommand::ApplyGlobalTuning {
@@ -1601,7 +1913,9 @@ pub fn api_apply_global_tuning(master_headroom_db: f32, peak_limiter_enabled: bo
         })?;
 
     if let Ok(mut config_guard) = GLOBAL_STATE.config.write() {
-    GLOBAL_STATE.config_version.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        GLOBAL_STATE
+            .config_version
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         if let Some(config) = config_guard.as_mut() {
             config.master_headroom_db = master_headroom_db;
             config.peak_limiter_enabled = peak_limiter_enabled;
@@ -1620,23 +1934,28 @@ pub struct SpatialConfigPayload {
 }
 
 pub fn api_update_spatial_config_json(json_payload: String) -> Result<(), AtmosError> {
-    let payload: SpatialConfigPayload = serde_json::from_str(&json_payload).map_err(|e| AtmosError {
-        message: format!("Failed to parse spatial config JSON: {}", e),
-    })?;
+    let payload: SpatialConfigPayload =
+        serde_json::from_str(&json_payload).map_err(|e| AtmosError {
+            message: format!("Failed to parse spatial config JSON: {}", e),
+        })?;
 
     // 초기반사음(1차 반사) 탭을 비-오디오 스레드(FRB 워커 풀)에서 미리 계산한다.
     // api_calculate_eq_response_curve와 달리 #[frb(sync)]가 없어 오디오 렌더 콜백과 무관한
     // 워커 스레드에서 실행되므로, 여기서의 힙 할당/삼각함수 반복 계산은 Law 1/2 위반이 아니다.
     // 스피커가 어떤 RoomZone에도 바인딩되지 않으면 해당 채널은 6슬롯 모두 gain=0(무음)으로 채운다.
     // pan_deg로 트림되지 않은 원본(raw) 물리적 스피커 위치(payload.channel_positions)를 그대로 사용한다.
-    let mut early_reflection_taps: Vec<[crate::audio::acoustic::EarlyReflectionTap; crate::audio::acoustic::MAX_EARLY_REFLECTION_TAPS]> =
-        Vec::with_capacity(payload.channel_positions.len());
+    let mut early_reflection_taps: Vec<
+        [crate::audio::acoustic::EarlyReflectionTap;
+            crate::audio::acoustic::MAX_EARLY_REFLECTION_TAPS],
+    > = Vec::with_capacity(payload.channel_positions.len());
     for pos_opt in &payload.channel_positions {
         let taps = match pos_opt {
             Some(pos) => {
                 let bound_zone = payload.room_zones.iter().find(|zone| {
-                    pos.x >= zone.boundary_min.x && pos.x <= zone.boundary_max.x &&
-                    pos.y >= zone.boundary_min.y && pos.y <= zone.boundary_max.y
+                    pos.x >= zone.boundary_min.x
+                        && pos.x <= zone.boundary_max.x
+                        && pos.y >= zone.boundary_min.y
+                        && pos.y <= zone.boundary_max.y
                 });
                 match bound_zone {
                     Some(zone) => crate::audio::acoustic::compute_early_reflection_taps(pos, zone),
@@ -1680,15 +1999,26 @@ pub fn api_set_channel_early_ref_mix(channel: usize, mix: f32) {
 
 use crate::common::config::Point3D;
 
-pub fn api_calculate_bezier_point(t: f32, p0: Point3D, p1: Point3D, p2: Point3D, p3: Point3D) -> Point3D {
+pub fn api_calculate_bezier_point(
+    t: f32,
+    p0: Point3D,
+    p1: Point3D,
+    p2: Point3D,
+    p3: Point3D,
+) -> Point3D {
     let u = 1.0 - t;
     let tt = t * t;
     let uu = u * u;
     let uuu = uu * u;
     let ttt = tt * t;
 
-    let mut p = Point3D { x: 0.0, y: 0.0, z: 0.0, ..Default::default() };
-    
+    let mut p = Point3D {
+        x: 0.0,
+        y: 0.0,
+        z: 0.0,
+        ..Default::default()
+    };
+
     p.x = uuu * p0.x;
     p.x += 3.0 * uu * t * p1.x;
     p.x += 3.0 * u * tt * p2.x;
@@ -1707,7 +2037,10 @@ pub fn api_calculate_bezier_point(t: f32, p0: Point3D, p1: Point3D, p2: Point3D,
     p
 }
 
-pub fn api_calculate_dbap_heatmap(listener_pos: Point3D, channel_positions: Vec<Point3D>) -> Vec<f32> {
+pub fn api_calculate_dbap_heatmap(
+    listener_pos: Point3D,
+    channel_positions: Vec<Point3D>,
+) -> Vec<f32> {
     let blur_radius = 2.0f32;
     let mut weights = Vec::with_capacity(channel_positions.len());
     let mut sum_sq = 0.0;
@@ -1722,8 +2055,12 @@ pub fn api_calculate_dbap_heatmap(listener_pos: Point3D, channel_positions: Vec<
         sum_sq += weight * weight;
     }
 
-    let norm_factor = if sum_sq > 0.0 { 1.0 / sum_sq.sqrt() } else { 0.0 };
-    
+    let norm_factor = if sum_sq > 0.0 {
+        1.0 / sum_sq.sqrt()
+    } else {
+        0.0
+    };
+
     for w in &mut weights {
         *w *= norm_factor;
     }
@@ -1738,7 +2075,11 @@ pub fn api_calculate_eq_response_curve(
     sample_rate: f32,
 ) -> Vec<f32> {
     let n_pts = if num_points == 0 { 300 } else { num_points };
-    let fs = if sample_rate <= 0.0 { 48000.0 } else { sample_rate };
+    let fs = if sample_rate <= 0.0 {
+        48000.0
+    } else {
+        sample_rate
+    };
     let mut response_db = vec![0.0f32; n_pts];
 
     for i in 0..n_pts {
@@ -1844,8 +2185,9 @@ pub fn api_calculate_eq_response_curve(
     response_db
 }
 
-
-pub fn api_get_active_output_channels(device_name: Option<String>) -> Result<Vec<String>, AtmosError> {
+pub fn api_get_active_output_channels(
+    device_name: Option<String>,
+) -> Result<Vec<String>, AtmosError> {
     api_get_device_channel_names(device_name)
 }
 
@@ -1856,7 +2198,6 @@ pub fn api_get_osc_metrics() -> crate::osc::metrics::OscMetricsDto {
 pub fn api_reset_osc_metrics() {
     crate::osc::metrics::GLOBAL_OSC_METRICS.reset();
 }
-
 
 #[flutter_rust_bridge::frb(sync)]
 pub fn api_set_binaural_enabled(enabled: bool) {
@@ -1880,10 +2221,17 @@ pub fn api_set_channel_reverb_send(channel: usize, send: f32) {
 }
 
 #[flutter_rust_bridge::frb(sync)]
-pub fn api_set_spatial_reverb(is_enabled: bool, room_size: f32, decay_time: f32, pre_delay_ms: f32, damp: f32, density: f32, dry_wet: f32) {
-    let _ = crate::core::state::GLOBAL_STATE
-        .command_sender
-        .send(crate::common::commands::AudioCommand::SetSpatialReverb {
+pub fn api_set_spatial_reverb(
+    is_enabled: bool,
+    room_size: f32,
+    decay_time: f32,
+    pre_delay_ms: f32,
+    damp: f32,
+    density: f32,
+    dry_wet: f32,
+) {
+    let _ = crate::core::state::GLOBAL_STATE.command_sender.send(
+        crate::common::commands::AudioCommand::SetSpatialReverb {
             is_enabled,
             room_size,
             decay_time,
@@ -1891,14 +2239,23 @@ pub fn api_set_spatial_reverb(is_enabled: bool, room_size: f32, decay_time: f32,
             damp,
             density,
             dry_wet,
-        });
+        },
+    );
 }
 
 #[flutter_rust_bridge::frb(sync)]
-pub fn api_set_channel_spatial_reverb(channel: usize, is_enabled: bool, room_size: f32, decay_time: f32, pre_delay_ms: f32, damp: f32, density: f32, dry_wet: f32) {
-    let _ = crate::core::state::GLOBAL_STATE
-        .command_sender
-        .send(crate::common::commands::AudioCommand::SetChannelSpatialReverb {
+pub fn api_set_channel_spatial_reverb(
+    channel: usize,
+    is_enabled: bool,
+    room_size: f32,
+    decay_time: f32,
+    pre_delay_ms: f32,
+    damp: f32,
+    density: f32,
+    dry_wet: f32,
+) {
+    let _ = crate::core::state::GLOBAL_STATE.command_sender.send(
+        crate::common::commands::AudioCommand::SetChannelSpatialReverb {
             channel,
             is_enabled,
             room_size,
@@ -1907,32 +2264,27 @@ pub fn api_set_channel_spatial_reverb(channel: usize, is_enabled: bool, room_siz
             damp,
             density,
             dry_wet,
-        });
+        },
+    );
 }
 
 #[flutter_rust_bridge::frb(sync)]
 pub fn api_set_bass_management_enabled(enabled: bool) {
     let _ = crate::core::state::GLOBAL_STATE
         .command_sender
-        .send(crate::common::commands::AudioCommand::SetBassManagementEnabled {
-            enabled,
-        });
+        .send(crate::common::commands::AudioCommand::SetBassManagementEnabled { enabled });
 }
 
 #[flutter_rust_bridge::frb(sync)]
 pub fn api_set_crossover_frequency(freq: f32) {
     let _ = crate::core::state::GLOBAL_STATE
         .command_sender
-        .send(crate::common::commands::AudioCommand::SetCrossoverFrequency {
-            freq,
-        });
+        .send(crate::common::commands::AudioCommand::SetCrossoverFrequency { freq });
 }
 
 #[flutter_rust_bridge::frb(sync)]
 pub fn api_set_lfe_channel(channel: Option<usize>) {
     let _ = crate::core::state::GLOBAL_STATE
         .command_sender
-        .send(crate::common::commands::AudioCommand::SetLfeChannel {
-            channel,
-        });
+        .send(crate::common::commands::AudioCommand::SetLfeChannel { channel });
 }

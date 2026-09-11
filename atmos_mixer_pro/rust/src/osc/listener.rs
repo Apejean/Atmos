@@ -42,7 +42,9 @@ impl OscListener {
         };
 
         for p in ports_to_listen {
-            if p == 0 { continue; }
+            if p == 0 {
+                continue;
+            }
             let debouncer = self.debouncer.clone();
             let running_flag = OSC_RUNNING_FLAG.clone();
             thread::spawn(move || {
@@ -56,7 +58,8 @@ impl OscListener {
                         return;
                     }
                 };
-                if let Err(e) = socket.set_read_timeout(Some(std::time::Duration::from_millis(500))) {
+                if let Err(e) = socket.set_read_timeout(Some(std::time::Duration::from_millis(500)))
+                {
                     println!("Warning: Failed to set read timeout on OSC socket: {}", e);
                 }
                 crate::core::state::GLOBAL_STATE.log(format!("OSC Listener started on {}", addr));
@@ -64,25 +67,26 @@ impl OscListener {
                 let mut buf = [0u8; rosc::decoder::MTU];
                 loop {
                     if !running_flag.load(Ordering::Relaxed) {
-                        crate::core::state::GLOBAL_STATE.log("OSC Listener stopping...".to_string());
+                        crate::core::state::GLOBAL_STATE
+                            .log("OSC Listener stopping...".to_string());
                         break;
                     }
                     match socket.recv_from(&mut buf) {
-                        Ok((size, _addr)) => {
-                            match rosc::decoder::decode_udp(&buf[..size]) {
-                                Ok((_, packet)) => {
-                                    let addr = match &packet {
-                                        OscPacket::Message(m) => Some(m.addr.as_str()),
-                                        OscPacket::Bundle(_) => Some("#bundle"),
-                                    };
-                                    crate::osc::metrics::GLOBAL_OSC_METRICS.record_packet(size, true, addr);
-                                    handle_packet(packet, &debouncer);
-                                }
-                                Err(_) => {
-                                    crate::osc::metrics::GLOBAL_OSC_METRICS.record_packet(size, false, None);
-                                }
+                        Ok((size, _addr)) => match rosc::decoder::decode_udp(&buf[..size]) {
+                            Ok((_, packet)) => {
+                                let addr = match &packet {
+                                    OscPacket::Message(m) => Some(m.addr.as_str()),
+                                    OscPacket::Bundle(_) => Some("#bundle"),
+                                };
+                                crate::osc::metrics::GLOBAL_OSC_METRICS
+                                    .record_packet(size, true, addr);
+                                handle_packet(packet, &debouncer);
                             }
-                        }
+                            Err(_) => {
+                                crate::osc::metrics::GLOBAL_OSC_METRICS
+                                    .record_packet(size, false, None);
+                            }
+                        },
                         Err(_e) => {
                             // Timeout or other error
                             continue;
@@ -95,8 +99,13 @@ impl OscListener {
 }
 
 fn check_gating(room_id: &str, is_exhibition: bool) -> bool {
-    if is_exhibition { return true; }
-    let active = crate::core::state::GLOBAL_STATE.active_room_id.read().unwrap_or_else(|e| e.into_inner());
+    if is_exhibition {
+        return true;
+    }
+    let active = crate::core::state::GLOBAL_STATE
+        .active_room_id
+        .read()
+        .unwrap_or_else(|e| e.into_inner());
     if let Some(ref active_id) = *active {
         return active_id == room_id;
     }
@@ -106,8 +115,13 @@ fn check_gating(room_id: &str, is_exhibition: bool) -> bool {
 fn handle_packet(packet: OscPacket, debouncer: &OscDebouncer) {
     match packet {
         OscPacket::Message(msg) => {
-            let config_version = crate::core::state::GLOBAL_STATE.config_version.load(Ordering::Relaxed);
-            let config_guard = crate::core::state::GLOBAL_STATE.config.read().unwrap_or_else(|e| e.into_inner());
+            let config_version = crate::core::state::GLOBAL_STATE
+                .config_version
+                .load(Ordering::Relaxed);
+            let config_guard = crate::core::state::GLOBAL_STATE
+                .config
+                .read()
+                .unwrap_or_else(|e| e.into_inner());
             let config = match *config_guard {
                 Some(ref c) => c.clone(),
                 None => return,
@@ -132,7 +146,7 @@ fn handle_packet(packet: OscPacket, debouncer: &OscDebouncer) {
                                     z: coords[2],
                                     ..Default::default()
                                 },
-                            }
+                            },
                         );
                     }
                     return;
@@ -145,13 +159,24 @@ fn handle_packet(packet: OscPacket, debouncer: &OscDebouncer) {
                     let mut x = 0.0;
                     let mut y = 0.0;
                     let mut z = 0.0;
-                    if let rosc::OscType::Float(f) = msg.args[0] { x = f; }
-                    if let rosc::OscType::Float(f) = msg.args[1] { y = f; }
-                    if let rosc::OscType::Float(f) = msg.args[2] { z = f; }
+                    if let rosc::OscType::Float(f) = msg.args[0] {
+                        x = f;
+                    }
+                    if let rosc::OscType::Float(f) = msg.args[1] {
+                        y = f;
+                    }
+                    if let rosc::OscType::Float(f) = msg.args[2] {
+                        z = f;
+                    }
                     let _ = crate::core::state::GLOBAL_STATE.command_sender.send(
                         crate::common::commands::AudioCommand::UpdateTrajectoryPosition {
-                            position: crate::common::config::Point3D { x, y, z, ..Default::default() },
-                        }
+                            position: crate::common::config::Point3D {
+                                x,
+                                y,
+                                z,
+                                ..Default::default()
+                            },
+                        },
                     );
                 }
                 return;
@@ -172,9 +197,15 @@ fn handle_packet(packet: OscPacket, debouncer: &OscDebouncer) {
                             _ => ypr[i],
                         };
                     }
-                    crate::core::state::GLOBAL_STATE.hrtf_yaw.store(ypr[0].to_bits(), Ordering::Relaxed);
-                    crate::core::state::GLOBAL_STATE.hrtf_pitch.store(ypr[1].to_bits(), Ordering::Relaxed);
-                    crate::core::state::GLOBAL_STATE.hrtf_roll.store(ypr[2].to_bits(), Ordering::Relaxed);
+                    crate::core::state::GLOBAL_STATE
+                        .hrtf_yaw
+                        .store(ypr[0].to_bits(), Ordering::Relaxed);
+                    crate::core::state::GLOBAL_STATE
+                        .hrtf_pitch
+                        .store(ypr[1].to_bits(), Ordering::Relaxed);
+                    crate::core::state::GLOBAL_STATE
+                        .hrtf_roll
+                        .store(ypr[2].to_bits(), Ordering::Relaxed);
                 }
                 return;
             }
@@ -182,7 +213,8 @@ fn handle_packet(packet: OscPacket, debouncer: &OscDebouncer) {
             // Dynamic path: /atmos/track/{ch}/volume
             if msg.addr.starts_with("/atmos/track/") && msg.addr.ends_with("/volume") {
                 let parts: Vec<&str> = msg.addr.split('/').collect();
-                if parts.len() == 5 { // "", "atmos", "track", "{ch}", "volume"
+                if parts.len() == 5 {
+                    // "", "atmos", "track", "{ch}", "volume"
                     if let Ok(ch) = parts[3].parse::<usize>() {
                         if let Some(arg) = msg.args.get(0) {
                             let vol = match arg {
@@ -193,10 +225,10 @@ fn handle_packet(packet: OscPacket, debouncer: &OscDebouncer) {
                             };
                             let _ = crate::core::state::GLOBAL_STATE.command_sender.send(
                                 crate::common::commands::AudioCommand::SetTrackVolume {
-                                    room_id: 0, // Not room specific
+                                    room_id: 0,          // Not room specific
                                     track_id: ch as u32, // Just a placeholder or needs actual mapping
                                     volume: vol.clamp(0.0, 1.0),
-                                }
+                                },
                             );
                             return;
                         }
@@ -210,7 +242,7 @@ fn handle_packet(packet: OscPacket, debouncer: &OscDebouncer) {
                 rosc::OscType::Int(i) => *i > 0,
                 _ => true,
             });
-            
+
             if !is_trigger || !debouncer.should_process(&msg.addr) {
                 return;
             }
@@ -221,20 +253,27 @@ fn handle_packet(packet: OscPacket, debouncer: &OscDebouncer) {
                 match action {
                     OscAction::SystemReset => {
                         let _ = crate::api::simple::api_stop_all();
-                        crate::core::state::GLOBAL_STATE.log("OSC Triggered: System Reset".to_string());
-                    },
+                        crate::core::state::GLOBAL_STATE
+                            .log("OSC Triggered: System Reset".to_string());
+                    }
                     OscAction::ThemeStart(first_room, track_ids) => {
                         let _ = crate::api::simple::api_stop_all();
                         if !first_room.is_empty() {
-                            let _ = crate::api::simple::api_set_active_room(Some(first_room.clone()));
+                            let _ =
+                                crate::api::simple::api_set_active_room(Some(first_room.clone()));
                             for track_id in track_ids {
-                                let _ = crate::api::simple::api_play_track(first_room.clone(), track_id);
+                                let _ = crate::api::simple::api_play_track(
+                                    first_room.clone(),
+                                    track_id,
+                                );
                             }
                         }
-                    },
+                    }
                     OscAction::ClearRoom(room_id) => {
-                        if !check_gating(&room_id, config.is_exhibition_mode) { return; }
-                        
+                        if !check_gating(&room_id, config.is_exhibition_mode) {
+                            return;
+                        }
+
                         crate::core::state::GLOBAL_STATE.clear_playing_tracks();
                         let _ = crate::core::state::GLOBAL_STATE.command_sender.send(
                             crate::common::commands::AudioCommand::ClearRoom {
@@ -250,44 +289,65 @@ fn handle_packet(packet: OscPacket, debouncer: &OscDebouncer) {
                                 next_room_id = Some(r.id.clone());
                                 break;
                             }
-                            if r.id == room_id { found_current = true; }
+                            if r.id == room_id {
+                                found_current = true;
+                            }
                         }
-                        
+
                         if let Some(next_id) = next_room_id {
                             crate::core::state::GLOBAL_STATE.set_active_room(Some(next_id.clone()));
-                            crate::core::state::GLOBAL_STATE.log(format!("Interlock: Auto-promoted room {} to active", next_id));
-                            
+                            crate::core::state::GLOBAL_STATE.log(format!(
+                                "Interlock: Auto-promoted room {} to active",
+                                next_id
+                            ));
+
                             // Auto-play bgm
                             if let Some(next_r) = config.rooms.iter().find(|r| r.id == next_id) {
                                 for next_t in next_r.tracks.iter().filter(|t| t.is_loop) {
                                     let data_opt = {
-                                        let cache_guard = crate::core::state::GLOBAL_STATE.sound_cache.read().unwrap_or_else(|e| e.into_inner());
+                                        let cache_guard = crate::core::state::GLOBAL_STATE
+                                            .sound_cache
+                                            .read()
+                                            .unwrap_or_else(|e| e.into_inner());
                                         cache_guard.get(&next_t.file_path).cloned()
                                     };
                                     if let Some(data) = data_opt {
-                                        let playing = crate::core::state::GLOBAL_STATE.playing_track_ids.read().unwrap_or_else(|e| e.into_inner());
-                                        let is_playing = playing.values().any(|id| id == &next_t.id);
+                                        let playing = crate::core::state::GLOBAL_STATE
+                                            .playing_track_ids
+                                            .read()
+                                            .unwrap_or_else(|e| e.into_inner());
+                                        let is_playing =
+                                            playing.values().any(|id| id == &next_t.id);
                                         drop(playing);
 
                                         if !is_playing {
-                                            let instance_id = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos() as u64;
-                                            crate::core::state::GLOBAL_STATE.add_playing_track(instance_id, next_t.id.clone());
-                                            let _ = crate::core::state::GLOBAL_STATE.command_sender.send(crate::common::commands::AudioCommand::PlayTrack {
-                                                instance_id,
-                                                room_id: hash_id(&next_id),
-                                                track_id: hash_id(&next_t.id),
-                                                track_id_str: next_t.id.clone(),
-                                                data: Some(data.clone()),
-                                                streamer: None,
-                                                stream_sample_rate: data.sample_rate,
-                                                stream_channels: data.channels,
-                                                is_loop: next_t.is_loop,
-                                                volume: next_t.volume,
-                                                room_volume: next_r.volume,
-                                                output_channel: next_t.output_channel as usize,
-                                                output_stereo: next_t.output_stereo,
-                                                current_position: None,
-                                            });
+                                            let instance_id = std::time::SystemTime::now()
+                                                .duration_since(std::time::UNIX_EPOCH)
+                                                .unwrap()
+                                                .as_nanos()
+                                                as u64;
+                                            crate::core::state::GLOBAL_STATE
+                                                .add_playing_track(instance_id, next_t.id.clone());
+                                            let _ = crate::core::state::GLOBAL_STATE
+                                                .command_sender
+                                                .send(
+                                                    crate::api::simple::build_play_track_command(
+                                                        instance_id,
+                                                        hash_id(&next_id),
+                                                        hash_id(&next_t.id),
+                                                        next_t.id.clone(),
+                                                        Some(data.clone()),
+                                                        None,
+                                                        data.sample_rate,
+                                                        data.channels,
+                                                        next_t.is_loop,
+                                                        next_t.volume,
+                                                        next_r.volume,
+                                                        next_t.output_channel as usize,
+                                                        next_t.output_stereo,
+                                                        None,
+                                                    ),
+                                                );
                                         }
                                     }
                                 }
@@ -295,7 +355,7 @@ fn handle_packet(packet: OscPacket, debouncer: &OscDebouncer) {
                         } else {
                             crate::core::state::GLOBAL_STATE.set_active_room(None);
                         }
-                    },
+                    }
                     OscAction::SetMasterVolume(room_id) => {
                         if let Some(arg) = msg.args.get(0) {
                             let vol = match arg {
@@ -311,41 +371,55 @@ fn handle_packet(packet: OscPacket, debouncer: &OscDebouncer) {
                                 },
                             );
                         }
-                    },
+                    }
                     OscAction::PlayTrack(room_id, track_id) => {
-                        if !check_gating(&room_id, config.is_exhibition_mode) { return; }
-                        
+                        if !check_gating(&room_id, config.is_exhibition_mode) {
+                            return;
+                        }
+
                         if let Some(r) = config.rooms.iter().find(|x| x.id == room_id) {
                             if let Some(t) = r.tracks.iter().find(|x| x.id == track_id) {
                                 let data_opt = {
-                                    let cache = crate::core::state::GLOBAL_STATE.sound_cache.read().unwrap_or_else(|e| e.into_inner());
+                                    let cache = crate::core::state::GLOBAL_STATE
+                                        .sound_cache
+                                        .read()
+                                        .unwrap_or_else(|e| e.into_inner());
                                     cache.get(&t.file_path).cloned()
                                 };
                                 if let Some(data) = data_opt {
-                                    let instance_id = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos() as u64;
-                                    crate::core::state::GLOBAL_STATE.add_playing_track(instance_id, t.id.clone());
-                                    let _ = crate::core::state::GLOBAL_STATE.command_sender.send(crate::common::commands::AudioCommand::PlayTrack {
-                                        instance_id,
-                                        room_id: hash_id(&room_id),
-                                        track_id: hash_id(&track_id),
-                                        track_id_str: t.id.clone(),
-                                        data: Some(data.clone()),
-                                        streamer: None,
-                                        stream_sample_rate: data.sample_rate,
-                                        stream_channels: data.channels,
-                                        is_loop: t.is_loop,
-                                        volume: t.volume,
-                                        room_volume: r.volume,
-                                        output_channel: t.output_channel as usize,
-                                        output_stereo: t.output_stereo,
-                                        current_position: None,
-                                    });
+                                    let instance_id = std::time::SystemTime::now()
+                                        .duration_since(std::time::UNIX_EPOCH)
+                                        .unwrap()
+                                        .as_nanos()
+                                        as u64;
+                                    crate::core::state::GLOBAL_STATE
+                                        .add_playing_track(instance_id, t.id.clone());
+                                    let _ = crate::core::state::GLOBAL_STATE.command_sender.send(
+                                        crate::api::simple::build_play_track_command(
+                                            instance_id,
+                                            hash_id(&room_id),
+                                            hash_id(&track_id),
+                                            t.id.clone(),
+                                            Some(data.clone()),
+                                            None,
+                                            data.sample_rate,
+                                            data.channels,
+                                            t.is_loop,
+                                            t.volume,
+                                            r.volume,
+                                            t.output_channel as usize,
+                                            t.output_stereo,
+                                            None,
+                                        ),
+                                    );
                                 }
                             }
                         }
-                    },
+                    }
                     OscAction::StopTrack(room_id, track_id) => {
-                        if !check_gating(&room_id, config.is_exhibition_mode) { return; }
+                        if !check_gating(&room_id, config.is_exhibition_mode) {
+                            return;
+                        }
                         let _ = crate::core::state::GLOBAL_STATE.command_sender.send(
                             crate::common::commands::AudioCommand::StopTrack {
                                 room_id: hash_id(&room_id),
@@ -355,7 +429,10 @@ fn handle_packet(packet: OscPacket, debouncer: &OscDebouncer) {
                     }
                 }
             } else {
-                crate::core::state::GLOBAL_STATE.log(format!("No matching track found for OSC address: {}", msg.addr));
+                crate::core::state::GLOBAL_STATE.log(format!(
+                    "No matching track found for OSC address: {}",
+                    msg.addr
+                ));
             }
         }
         OscPacket::Bundle(bundle) => {

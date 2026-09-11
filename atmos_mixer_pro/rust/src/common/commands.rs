@@ -1,22 +1,12 @@
-use crate::audio::player::SoundData;
-use std::sync::Arc;
+use crate::audio::player::SoundInstance;
 
 pub enum AudioCommand {
+    /// 재생할 인스턴스는 오디오 스레드 밖(api_play_track, FRB 워커 스레드)에서
+    /// 미리 생성해 보낸다. 오디오 스레드는 풀 슬롯에 옮겨 담기만 하므로
+    /// 콜백 내 힙 할당이 발생하지 않는다(Law 1).
     PlayTrack {
-        instance_id: u64,
-        room_id: u32,
-        track_id: u32,
-        track_id_str: String,
-        data: Option<Arc<SoundData>>,
-        streamer: Option<crate::audio::streaming::DiskStreamer>,
-        stream_sample_rate: u32,
-        stream_channels: u16,
-        is_loop: bool,
-        volume: f32,
+        instance: Box<SoundInstance>,
         room_volume: f32,
-        output_channel: usize,
-        output_stereo: bool,
-        current_position: Option<crate::common::config::Point3D>,
     },
     StopTrack {
         room_id: u32,

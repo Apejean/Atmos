@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use rubato::{InterpolationParameters, InterpolationType, Resampler, SincFixedOut, WindowFunction};
 use std::fs::File;
 use symphonia::core::audio::SampleBuffer;
 use symphonia::core::codecs::DecoderOptions;
@@ -7,7 +8,6 @@ use symphonia::core::formats::FormatOptions;
 use symphonia::core::io::MediaSourceStream;
 use symphonia::core::meta::MetadataOptions;
 use symphonia::core::probe::Hint;
-use rubato::{Resampler, SincFixedOut, InterpolationType, InterpolationParameters, WindowFunction};
 
 pub struct SoundData {
     pub samples: Vec<f32>,
@@ -15,7 +15,11 @@ pub struct SoundData {
     pub sample_rate: u32,
 }
 
-pub fn downsample_hi_res_if_needed(in_sample_rate: u32, samples: Vec<f32>, channels: usize) -> (Vec<f32>, u32) {
+pub fn downsample_hi_res_if_needed(
+    in_sample_rate: u32,
+    samples: Vec<f32>,
+    channels: usize,
+) -> (Vec<f32>, u32) {
     if in_sample_rate > 96000 {
         let target_rate = 48000;
         let step = (in_sample_rate as f32 / target_rate as f32) as usize;
@@ -51,9 +55,15 @@ impl SoundData {
             }
             let format_opts = FormatOptions::default();
             let metadata_opts = MetadataOptions::default();
-            if let Ok(probed) = symphonia::default::get_probe().format(&hint, mss, &format_opts, &metadata_opts) {
+            if let Ok(probed) =
+                symphonia::default::get_probe().format(&hint, mss, &format_opts, &metadata_opts)
+            {
                 if let Some(track) = probed.format.default_track() {
-                    return track.codec_params.channels.map(|c| c.count() as u32).unwrap_or(2);
+                    return track
+                        .codec_params
+                        .channels
+                        .map(|c| c.count() as u32)
+                        .unwrap_or(2);
                 }
             }
         }
@@ -132,7 +142,7 @@ impl SoundData {
         }
 
         let needs_resampling = src_sample_rate != target_sample_rate && target_sample_rate > 0;
-        
+
         if needs_resampling && !all_samples.is_empty() {
             let frames = all_samples.len() / channels as usize;
             let mut deinterleaved = vec![vec![0.0; frames]; channels as usize];
@@ -141,7 +151,7 @@ impl SoundData {
                     deinterleaved[ch][frame] = all_samples[frame * channels as usize + ch];
                 }
             }
-            
+
             let params = InterpolationParameters {
                 sinc_len: 256,
                 f_cutoff: 0.95,
@@ -149,39 +159,42 @@ impl SoundData {
                 oversampling_factor: 256,
                 window: WindowFunction::BlackmanHarris2,
             };
-            
+
             let mut resampler = SincFixedOut::<f32>::new(
                 target_sample_rate as f64 / src_sample_rate as f64,
                 2.0,
                 params,
                 1024,
                 channels as usize,
-            ).expect("Failed to create resampler");
-            
+            )
+            .expect("Failed to create resampler");
+
             let mut resampled_samples = Vec::new();
             let mut input_idx = 0;
-            
+
             // Pre-allocate buffer outside the loop to avoid allocations
             let mut process_buf = vec![vec![0.0; 2048]; channels as usize];
-            
+
             while input_idx < frames {
                 let required = resampler.input_frames_next();
                 if input_idx + required > frames {
                     break;
                 }
-                
+
                 if required > process_buf[0].len() {
                     for ch in 0..channels as usize {
                         process_buf[ch].resize(required, 0.0);
                     }
                 }
-                
+
                 for ch in 0..channels as usize {
-                    process_buf[ch][..required].copy_from_slice(&deinterleaved[ch][input_idx..input_idx + required]);
+                    process_buf[ch][..required]
+                        .copy_from_slice(&deinterleaved[ch][input_idx..input_idx + required]);
                 }
-                
+
                 // Create a slice view of the exact required length
-                let process_slice: Vec<&[f32]> = process_buf.iter().map(|v| &v[..required]).collect();
+                let process_slice: Vec<&[f32]> =
+                    process_buf.iter().map(|v| &v[..required]).collect();
                 if let Ok(resampled) = resampler.process(&process_slice, None) {
                     let out_frames = resampled[0].len();
                     for frame in 0..out_frames {
@@ -192,14 +205,18 @@ impl SoundData {
                 }
                 input_idx += required;
             }
-            
+
             all_samples = resampled_samples;
         }
 
         Ok(Self {
             samples: all_samples,
             channels: actual_channels,
-            sample_rate: if needs_resampling && target_sample_rate > 0 { target_sample_rate } else { src_sample_rate },
+            sample_rate: if needs_resampling && target_sample_rate > 0 {
+                target_sample_rate
+            } else {
+                src_sample_rate
+            },
         })
     }
 }
@@ -247,6 +264,11 @@ impl SoundInstance {
         output_channel: usize,
         output_stereo: bool,
         current_position: Option<crate::common::config::Point3D>,
+        // spatial_channel_capacity: 오브젝트 모드 DBAP 게인 배열 길이.
+        // 믹서가 경계 검사에 쓰는 GLOBAL_STATE.enabled_channels와 같은 크기를
+        // 넘겨 인덱스 불일치를 없앤다. 예전에는 128로 하드코딩되어 그 이상
+        // 채널에서 오브젝트 모드가 동작하지 않았다.
+        spatial_channel_capacity: usize,
     ) -> Self {
         let mut smoother = crate::audio::dsp::dsp_utils::GainSmoother::new(1.0, 0.01);
         smoother.set_target(volume);
@@ -276,8 +298,8 @@ impl SoundInstance {
             last_samples: vec![0.0; stream_channels as usize],
             anti_click_multiplier: 1.0,
             current_position,
-            spatial_gains: vec![0.0; 128],
-            spatial_gains_target: vec![0.0; 128],
+            spatial_gains: vec![0.0; spatial_channel_capacity],
+            spatial_gains_target: vec![0.0; spatial_channel_capacity],
         }
     }
 }

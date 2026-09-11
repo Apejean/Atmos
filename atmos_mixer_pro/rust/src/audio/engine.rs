@@ -69,7 +69,7 @@ pub fn get_hosts(_target_prefix: Option<&str>) -> Result<Vec<cpal::Host>, String
 #[cfg(target_os = "windows")]
 pub fn apply_windows_admin_optimizations() {
     use windows::Win32::UI::Shell::IsUserAnAdmin;
-    
+
     unsafe {
         if IsUserAnAdmin().as_bool() {
             println!("🔥 [디버깅] 관리자 권한 확인됨. MMCSS 스레드 승격 & RAM 고정 시도.");
@@ -80,7 +80,7 @@ pub fn apply_windows_admin_optimizations() {
                 windows::core::PCWSTR(class_name.as_ptr()),
                 &mut task_index,
             );
-            
+
             // 2. RAM Working Set 고정
             let process = windows::Win32::System::Threading::GetCurrentProcess();
             // 최소 500MB, 최대 2GB Working Set
@@ -158,14 +158,20 @@ impl AudioEngine {
                 }
 
                 if found_device.is_some() {
-                    println!("✅ [디버깅] ASIO 오디오 인터페이스 인식 성공: {}", target_name);
+                    println!(
+                        "✅ [디버깅] ASIO 오디오 인터페이스 인식 성공: {}",
+                        target_name
+                    );
                     break;
                 }
 
                 if start_time.elapsed().as_secs() >= timeout_secs {
                     break;
                 }
-                println!("⚠️ 장치를 찾는 중... ({} / 30초)", start_time.elapsed().as_secs());
+                println!(
+                    "⚠️ 장치를 찾는 중... ({} / 30초)",
+                    start_time.elapsed().as_secs()
+                );
                 std::thread::sleep(std::time::Duration::from_millis(500));
             }
 
@@ -237,7 +243,10 @@ impl AudioEngine {
             cpal::SupportedBufferSize::Range { min, max } => {
                 let clamped = target_buffer_size.clamp(*min, *max);
                 config.buffer_size = cpal::BufferSize::Fixed(clamped);
-                println!("🔥 [디버깅] Buffer size clamped to {} (Range: {} - {})", clamped, min, max);
+                println!(
+                    "🔥 [디버깅] Buffer size clamped to {} (Range: {} - {})",
+                    clamped, min, max
+                );
             }
             cpal::SupportedBufferSize::Unknown => {
                 config.buffer_size = cpal::BufferSize::Default;
@@ -252,12 +261,15 @@ impl AudioEngine {
         crate::core::state::GLOBAL_STATE
             .active_device_channels
             .store(config.channels as u32, std::sync::atomic::Ordering::SeqCst);
-            
+
         crate::core::state::GLOBAL_STATE
             .engine_sample_rate
             .store(config.sample_rate.0, std::sync::atomic::Ordering::SeqCst);
-        
-        *crate::core::state::GLOBAL_STATE.engine_error.write().unwrap_or_else(|e| e.into_inner()) = None;
+
+        *crate::core::state::GLOBAL_STATE
+            .engine_error
+            .write()
+            .unwrap_or_else(|e| e.into_inner()) = None;
 
         let (gc_tx, gc_rx) =
             crossbeam_channel::bounded::<crate::audio::player::SoundInstance>(8192);
@@ -275,80 +287,89 @@ impl AudioEngine {
         let virtual_channels = 16.max(config.channels as usize);
 
         let (analysis_tx, analysis_rx) = rtrb::RingBuffer::new(65536);
-        crate::audio::analysis::start_analysis_thread(analysis_rx, config.sample_rate.0, virtual_channels);
+        crate::audio::analysis::start_analysis_thread(
+            analysis_rx,
+            config.sample_rate.0,
+            virtual_channels,
+        );
 
-        let mut mixer = AudioMixer::new(config.sample_rate.0, virtual_channels, gc_tx, Some(analysis_tx));
+        let mut mixer = AudioMixer::new(
+            config.sample_rate.0,
+            virtual_channels,
+            gc_tx,
+            Some(analysis_tx),
+        );
 
         let err_fn = |err: cpal::StreamError| {
             eprintln!("an error occurred on stream: {}", err);
             let err_str = err.to_string();
-            let is_disconnect = err_str.contains("DeviceNotAvailable") || err_str.contains("kAsioResetRequest");
+            let is_disconnect =
+                err_str.contains("DeviceNotAvailable") || err_str.contains("kAsioResetRequest");
             if is_disconnect {
-                crate::core::state::GLOBAL_STATE.device_needs_reset.store(true, Ordering::Release);
+                crate::core::state::GLOBAL_STATE
+                    .device_needs_reset
+                    .store(true, Ordering::Release);
             } else {
-                *crate::core::state::GLOBAL_STATE.engine_error.write().unwrap_or_else(|e| e.into_inner()) = Some(err_str);
+                *crate::core::state::GLOBAL_STATE
+                    .engine_error
+                    .write()
+                    .unwrap_or_else(|e| e.into_inner()) = Some(err_str);
                 crate::core::state::GLOBAL_STATE.broadcast_state();
             }
         };
 
         let mut cmd_receiver_f32 = cmd_receiver;
-        
+
         let stream = match sample_format {
             SampleFormat::F32 => {
                 let virtual_channels = 16.max(config.channels as usize);
                 let mut temp_buf: Vec<f32> = vec![0.0; 65536];
                 let hw_channels = config.channels as usize;
                 device.build_output_stream(
-                &config,
-                move |data: &mut [f32], _: &OutputCallbackInfo| {
-                    if !ENGINE_INIT_SIGNAL.load(Ordering::Acquire) {
-                        ENGINE_INIT_SIGNAL.store(true, Ordering::Release);
-                    }
-                    let now_ms = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or(std::time::Duration::from_secs(0)).as_millis() as u64;
-                    crate::core::state::GLOBAL_STATE.watchdog_last_callback.store(now_ms, Ordering::Relaxed);
+                    &config,
+                    move |data: &mut [f32], _: &OutputCallbackInfo| {
+                        if !ENGINE_INIT_SIGNAL.load(Ordering::Acquire) {
+                            ENGINE_INIT_SIGNAL.store(true, Ordering::Release);
+                        }
+                        let now_ms = std::time::SystemTime::now()
+                            .duration_since(std::time::UNIX_EPOCH)
+                            .unwrap_or(std::time::Duration::from_secs(0))
+                            .as_millis() as u64;
+                        crate::core::state::GLOBAL_STATE
+                            .watchdog_last_callback
+                            .store(now_ms, Ordering::Relaxed);
 
-                    Self::process_commands(&mut mixer, &mut cmd_receiver_f32);
-                    
-                    let frames = data.len() / hw_channels;
-                    let temp_len = frames * virtual_channels;
-                    if temp_buf.len() < temp_len { temp_buf.resize(temp_len, 0.0); }
-                    let temp = &mut temp_buf[..temp_len];
-                    temp.fill(0.0);
-                    
-                    mixer.process(temp, virtual_channels);
-                    
-                    for frame in 0..frames {
-                        if hw_channels == 2 {
-                            let mut mix_l = temp[frame * virtual_channels + 0];
-                            let mut mix_r = temp[frame * virtual_channels + 1];
-                            
-                            if !mixer.binaural.enabled {
-                                let c = temp.get(frame * virtual_channels + 2).copied().unwrap_or(0.0);
-                                let ls = temp.get(frame * virtual_channels + 4).copied().unwrap_or(0.0);
-                                let rs = temp.get(frame * virtual_channels + 5).copied().unwrap_or(0.0);
-                                mix_l += 0.707*c + 0.707*ls;
-                                mix_r += 0.707*c + 0.707*rs;
-                            }
-                            
-                            // LFE channel is index 3. If hardware is 2.0, fold LFE into L/R.
-                            // Handle dynamically assigned LFE index if it's different in the future,
-                            // but for now, atmos_mixer_pro uses idx 3.
-                            let lfe = temp.get(frame * virtual_channels + 3).copied().unwrap_or(0.0);
-                            mix_l += 0.707*lfe;
-                            mix_r += 0.707*lfe;
-                            
-                            data[frame * hw_channels + 0] = mix_l;
-                            data[frame * hw_channels + 1] = mix_r;
-                        } else {
+                        Self::process_commands(&mut mixer, &mut cmd_receiver_f32);
+
+                        let frames = data.len() / hw_channels;
+                        let temp_len = frames * virtual_channels;
+                        if temp_buf.len() < temp_len {
+                            temp_buf.resize(temp_len, 0.0);
+                        }
+                        let temp = &mut temp_buf[..temp_len];
+                        temp.fill(0.0);
+
+                        mixer.process(temp, virtual_channels);
+
+                        for frame in 0..frames {
+                            // 디스크리트 라우팅: 가상 채널 N -> 물리 출력 N.
+                            // 예전에는 hw_channels == 2일 때 가상 채널에 5.1 역할
+                            // (2=센터, 3=LFE, 4/5=서라운드)을 가정해 L/R로 접었다.
+                            // 이 앱은 "채널 = 물리 스피커" 모델이라 그 가정이 라우팅을
+                            // 왜곡했다(Ch-3을 고르면 양쪽에서 나는 등). 폴드다운을 제거해
+                            // 장치에 실재하는 채널만 그대로 내보낸다. 2채널 장치에서
+                            // 3번 이상 채널은 들리지 않으며, 다채널 청음은 실기로 하거나
+                            // 추후 바이노럴 모니터링(binaural)을 켜서 확인한다.
                             for ch in 0..hw_channels {
-                                data[frame * hw_channels + ch] = temp[frame * virtual_channels + ch];
+                                data[frame * hw_channels + ch] =
+                                    temp[frame * virtual_channels + ch];
                             }
                         }
-                    }
-                },
-                err_fn,
-                None,
-            )},
+                    },
+                    err_fn,
+                    None,
+                )
+            }
             SampleFormat::I16 => {
                 let virtual_channels = 16.max(config.channels as usize);
                 let mut temp_buf: Vec<f32> = vec![0.0; 65536];
@@ -359,42 +380,38 @@ impl AudioEngine {
                         if !ENGINE_INIT_SIGNAL.load(Ordering::Acquire) {
                             ENGINE_INIT_SIGNAL.store(true, Ordering::Release);
                         }
-                        let now_ms = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or(std::time::Duration::from_secs(0)).as_millis() as u64;
-                        crate::core::state::GLOBAL_STATE.watchdog_last_callback.store(now_ms, Ordering::Relaxed);
+                        let now_ms = std::time::SystemTime::now()
+                            .duration_since(std::time::UNIX_EPOCH)
+                            .unwrap_or(std::time::Duration::from_secs(0))
+                            .as_millis() as u64;
+                        crate::core::state::GLOBAL_STATE
+                            .watchdog_last_callback
+                            .store(now_ms, Ordering::Relaxed);
 
                         Self::process_commands(&mut mixer, &mut cmd_receiver_f32);
-                        
+
                         let frames = data.len() / hw_channels;
                         let temp_len = frames * virtual_channels;
-                        if temp_buf.len() < temp_len { temp_buf.resize(temp_len, 0.0); }
+                        if temp_buf.len() < temp_len {
+                            temp_buf.resize(temp_len, 0.0);
+                        }
                         let temp = &mut temp_buf[..temp_len];
                         temp.fill(0.0);
-                        
+
                         mixer.process(temp, virtual_channels);
-                        
+
                         for frame in 0..frames {
-                            if hw_channels == 2 {
-                                let mut mix_l = temp[frame * virtual_channels + 0];
-                                let mut mix_r = temp[frame * virtual_channels + 1];
-                                
-                                if !mixer.binaural.enabled {
-                                    let c = temp.get(frame * virtual_channels + 2).copied().unwrap_or(0.0);
-                                    let ls = temp.get(frame * virtual_channels + 4).copied().unwrap_or(0.0);
-                                    let rs = temp.get(frame * virtual_channels + 5).copied().unwrap_or(0.0);
-                                    mix_l += 0.707*c + 0.707*ls;
-                                    mix_r += 0.707*c + 0.707*rs;
-                                }
-                                
-                                let lfe = temp.get(frame * virtual_channels + 3).copied().unwrap_or(0.0);
-                                mix_l += 0.707*lfe;
-                                mix_r += 0.707*lfe;
-                                
-                                data[frame * hw_channels + 0] = cpal::Sample::from_sample(mix_l);
-                                data[frame * hw_channels + 1] = cpal::Sample::from_sample(mix_r);
-                            } else {
-                                for ch in 0..hw_channels {
-                                    data[frame * hw_channels + ch] = cpal::Sample::from_sample(temp[frame * virtual_channels + ch]);
-                                }
+                            // 디스크리트 라우팅: 가상 채널 N -> 물리 출력 N.
+                            // 예전에는 hw_channels == 2일 때 가상 채널에 5.1 역할
+                            // (2=센터, 3=LFE, 4/5=서라운드)을 가정해 L/R로 접었다.
+                            // 이 앱은 "채널 = 물리 스피커" 모델이라 그 가정이 라우팅을
+                            // 왜곡했다(Ch-3을 고르면 양쪽에서 나는 등). 폴드다운을 제거해
+                            // 장치에 실재하는 채널만 그대로 내보낸다. 2채널 장치에서
+                            // 3번 이상 채널은 들리지 않으며, 다채널 청음은 실기로 하거나
+                            // 추후 바이노럴 모니터링(binaural)을 켜서 확인한다.
+                            for ch in 0..hw_channels {
+                                data[frame * hw_channels + ch] =
+                                    cpal::Sample::from_sample(temp[frame * virtual_channels + ch]);
                             }
                         }
                     },
@@ -412,42 +429,38 @@ impl AudioEngine {
                         if !ENGINE_INIT_SIGNAL.load(Ordering::Acquire) {
                             ENGINE_INIT_SIGNAL.store(true, Ordering::Release);
                         }
-                        let now_ms = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or(std::time::Duration::from_secs(0)).as_millis() as u64;
-                        crate::core::state::GLOBAL_STATE.watchdog_last_callback.store(now_ms, Ordering::Relaxed);
+                        let now_ms = std::time::SystemTime::now()
+                            .duration_since(std::time::UNIX_EPOCH)
+                            .unwrap_or(std::time::Duration::from_secs(0))
+                            .as_millis() as u64;
+                        crate::core::state::GLOBAL_STATE
+                            .watchdog_last_callback
+                            .store(now_ms, Ordering::Relaxed);
 
                         Self::process_commands(&mut mixer, &mut cmd_receiver_f32);
-                        
+
                         let frames = data.len() / hw_channels;
                         let temp_len = frames * virtual_channels;
-                        if temp_buf.len() < temp_len { temp_buf.resize(temp_len, 0.0); }
+                        if temp_buf.len() < temp_len {
+                            temp_buf.resize(temp_len, 0.0);
+                        }
                         let temp = &mut temp_buf[..temp_len];
                         temp.fill(0.0);
-                        
+
                         mixer.process(temp, virtual_channels);
-                        
+
                         for frame in 0..frames {
-                            if hw_channels == 2 {
-                                let mut mix_l = temp[frame * virtual_channels + 0];
-                                let mut mix_r = temp[frame * virtual_channels + 1];
-                                
-                                if !mixer.binaural.enabled {
-                                    let c = temp.get(frame * virtual_channels + 2).copied().unwrap_or(0.0);
-                                    let ls = temp.get(frame * virtual_channels + 4).copied().unwrap_or(0.0);
-                                    let rs = temp.get(frame * virtual_channels + 5).copied().unwrap_or(0.0);
-                                    mix_l += 0.707*c + 0.707*ls;
-                                    mix_r += 0.707*c + 0.707*rs;
-                                }
-                                
-                                let lfe = temp.get(frame * virtual_channels + 3).copied().unwrap_or(0.0);
-                                mix_l += 0.707*lfe;
-                                mix_r += 0.707*lfe;
-                                
-                                data[frame * hw_channels + 0] = cpal::Sample::from_sample(mix_l);
-                                data[frame * hw_channels + 1] = cpal::Sample::from_sample(mix_r);
-                            } else {
-                                for ch in 0..hw_channels {
-                                    data[frame * hw_channels + ch] = cpal::Sample::from_sample(temp[frame * virtual_channels + ch]);
-                                }
+                            // 디스크리트 라우팅: 가상 채널 N -> 물리 출력 N.
+                            // 예전에는 hw_channels == 2일 때 가상 채널에 5.1 역할
+                            // (2=센터, 3=LFE, 4/5=서라운드)을 가정해 L/R로 접었다.
+                            // 이 앱은 "채널 = 물리 스피커" 모델이라 그 가정이 라우팅을
+                            // 왜곡했다(Ch-3을 고르면 양쪽에서 나는 등). 폴드다운을 제거해
+                            // 장치에 실재하는 채널만 그대로 내보낸다. 2채널 장치에서
+                            // 3번 이상 채널은 들리지 않으며, 다채널 청음은 실기로 하거나
+                            // 추후 바이노럴 모니터링(binaural)을 켜서 확인한다.
+                            for ch in 0..hw_channels {
+                                data[frame * hw_channels + ch] =
+                                    cpal::Sample::from_sample(temp[frame * virtual_channels + ch]);
                             }
                         }
                     },
@@ -465,42 +478,38 @@ impl AudioEngine {
                         if !ENGINE_INIT_SIGNAL.load(Ordering::Acquire) {
                             ENGINE_INIT_SIGNAL.store(true, Ordering::Release);
                         }
-                        let now_ms = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or(std::time::Duration::from_secs(0)).as_millis() as u64;
-                        crate::core::state::GLOBAL_STATE.watchdog_last_callback.store(now_ms, Ordering::Relaxed);
+                        let now_ms = std::time::SystemTime::now()
+                            .duration_since(std::time::UNIX_EPOCH)
+                            .unwrap_or(std::time::Duration::from_secs(0))
+                            .as_millis() as u64;
+                        crate::core::state::GLOBAL_STATE
+                            .watchdog_last_callback
+                            .store(now_ms, Ordering::Relaxed);
 
                         Self::process_commands(&mut mixer, &mut cmd_receiver_f32);
-                        
+
                         let frames = data.len() / hw_channels;
                         let temp_len = frames * virtual_channels;
-                        if temp_buf.len() < temp_len { temp_buf.resize(temp_len, 0.0); }
+                        if temp_buf.len() < temp_len {
+                            temp_buf.resize(temp_len, 0.0);
+                        }
                         let temp = &mut temp_buf[..temp_len];
                         temp.fill(0.0);
-                        
+
                         mixer.process(temp, virtual_channels);
-                        
+
                         for frame in 0..frames {
-                            if hw_channels == 2 {
-                                let mut mix_l = temp[frame * virtual_channels + 0];
-                                let mut mix_r = temp[frame * virtual_channels + 1];
-                                
-                                if !mixer.binaural.enabled {
-                                    let c = temp.get(frame * virtual_channels + 2).copied().unwrap_or(0.0);
-                                    let ls = temp.get(frame * virtual_channels + 4).copied().unwrap_or(0.0);
-                                    let rs = temp.get(frame * virtual_channels + 5).copied().unwrap_or(0.0);
-                                    mix_l += 0.707*c + 0.707*ls;
-                                    mix_r += 0.707*c + 0.707*rs;
-                                }
-                                
-                                let lfe = temp.get(frame * virtual_channels + 3).copied().unwrap_or(0.0);
-                                mix_l += 0.707*lfe;
-                                mix_r += 0.707*lfe;
-                                
-                                data[frame * hw_channels + 0] = cpal::Sample::from_sample(mix_l);
-                                data[frame * hw_channels + 1] = cpal::Sample::from_sample(mix_r);
-                            } else {
-                                for ch in 0..hw_channels {
-                                    data[frame * hw_channels + ch] = cpal::Sample::from_sample(temp[frame * virtual_channels + ch]);
-                                }
+                            // 디스크리트 라우팅: 가상 채널 N -> 물리 출력 N.
+                            // 예전에는 hw_channels == 2일 때 가상 채널에 5.1 역할
+                            // (2=센터, 3=LFE, 4/5=서라운드)을 가정해 L/R로 접었다.
+                            // 이 앱은 "채널 = 물리 스피커" 모델이라 그 가정이 라우팅을
+                            // 왜곡했다(Ch-3을 고르면 양쪽에서 나는 등). 폴드다운을 제거해
+                            // 장치에 실재하는 채널만 그대로 내보낸다. 2채널 장치에서
+                            // 3번 이상 채널은 들리지 않으며, 다채널 청음은 실기로 하거나
+                            // 추후 바이노럴 모니터링(binaural)을 켜서 확인한다.
+                            for ch in 0..hw_channels {
+                                data[frame * hw_channels + ch] =
+                                    cpal::Sample::from_sample(temp[frame * virtual_channels + ch]);
                             }
                         }
                     },
@@ -510,7 +519,7 @@ impl AudioEngine {
             }
             _ => return Err("Unsupported format".to_string()),
         };
-        
+
         let stream = match stream {
             Ok(s) => s,
             Err(e) => {
@@ -521,9 +530,9 @@ impl AudioEngine {
         };
 
         stream.play().map_err(|e| e.to_string())?;
-        
+
         self.stream = Some(stream);
-        
+
         Ok(())
     }
 
@@ -532,37 +541,13 @@ impl AudioEngine {
         while let Ok(cmd) = rx.try_recv() {
             match cmd {
                 AudioCommand::PlayTrack {
-                    instance_id,
-                    room_id,
-                    track_id,
-                    track_id_str,
-                    data,
-                    streamer,
-                    stream_sample_rate,
-                    stream_channels,
-                    is_loop,
-                    volume,
+                    instance,
                     room_volume,
-                    output_channel,
-                    output_stereo,
-                    current_position,
                 } => {
-                    let instance = crate::audio::player::SoundInstance::new(
-                        instance_id,
-                        track_id,
-                        room_id,
-                        track_id_str,
-                        data,
-                        streamer,
-                        stream_sample_rate,
-                        stream_channels,
-                        is_loop,
-                        volume,
-                        output_channel,
-                        output_stereo,
-                        current_position,
-                    );
-                    
+                    // 인스턴스는 api_play_track(비-오디오 스레드)에서 이미 생성되어
+                    // 왔다. 여기서는 풀 슬롯에 옮겨 담기만 한다(할당 없음).
+                    let instance = *instance;
+
                     let mut found_idx = None;
                     for (i, slot) in mixer.instances.iter_mut().enumerate() {
                         if slot.is_none() {
@@ -609,11 +594,17 @@ impl AudioEngine {
                     }
                 }
                 AudioCommand::SetMasterVolume { room_id, volume } => {
-                    if let Some(slot) = mixer.room_volumes.iter_mut().find(|s| s.as_ref().is_some_and(|(id, _)| *id == room_id)) {
+                    if let Some(slot) = mixer
+                        .room_volumes
+                        .iter_mut()
+                        .find(|s| s.as_ref().is_some_and(|(id, _)| *id == room_id))
+                    {
                         if let Some((_, v)) = slot.as_mut() {
                             *v = volume;
                         }
-                    } else if let Some(empty_slot) = mixer.room_volumes.iter_mut().find(|s| s.is_none()) {
+                    } else if let Some(empty_slot) =
+                        mixer.room_volumes.iter_mut().find(|s| s.is_none())
+                    {
                         *empty_slot = Some((room_id, volume));
                     }
                 }
@@ -647,7 +638,15 @@ impl AudioEngine {
                         mixer.channel_dsp[channel].target_reverb_send = send;
                     }
                 }
-                AudioCommand::SetSpatialReverb { is_enabled, room_size, decay_time, pre_delay_ms, damp, density, dry_wet } => {
+                AudioCommand::SetSpatialReverb {
+                    is_enabled,
+                    room_size,
+                    decay_time,
+                    pre_delay_ms,
+                    damp,
+                    density,
+                    dry_wet,
+                } => {
                     mixer.reverb.is_enabled = is_enabled;
                     mixer.reverb.room_size = room_size;
                     mixer.reverb.decay = decay_time;
@@ -656,7 +655,16 @@ impl AudioEngine {
                     mixer.reverb.density = density;
                     mixer.reverb.mix = dry_wet;
                 }
-                AudioCommand::SetChannelSpatialReverb { channel, is_enabled, room_size, decay_time, pre_delay_ms, damp, density, dry_wet } => {
+                AudioCommand::SetChannelSpatialReverb {
+                    channel,
+                    is_enabled,
+                    room_size,
+                    decay_time,
+                    pre_delay_ms,
+                    damp,
+                    density,
+                    dry_wet,
+                } => {
                     if channel == 0 {
                         mixer.reverb.is_enabled = is_enabled;
                         mixer.reverb.room_size = room_size;
@@ -692,31 +700,62 @@ impl AudioEngine {
                 }
                 AudioCommand::SetChannelEq { channel, bands } => {
                     if channel < mixer.channel_dsp.len() {
-                        mixer.channel_dsp[channel].update_eq_targets(&bands, mixer.sample_rate as f32);
+                        mixer.channel_dsp[channel]
+                            .update_eq_targets(&bands, mixer.sample_rate as f32);
                     }
-                    let _ = mixer.spatial_gc_tx.try_send(crate::audio::mixer::SpatialGarbage::EqBands(bands));
+                    let _ = mixer
+                        .spatial_gc_tx
+                        .try_send(crate::audio::mixer::SpatialGarbage::EqBands(bands));
                 }
-                AudioCommand::ApplyChannelTuning { channel, delay_ms, eq_bands, phase_invert, gain_db } => {
+                AudioCommand::ApplyChannelTuning {
+                    channel,
+                    delay_ms,
+                    eq_bands,
+                    phase_invert,
+                    gain_db,
+                } => {
                     if channel < mixer.channel_dsp.len() {
                         mixer.channel_dsp[channel].update_delay_target(delay_ms);
-                        mixer.channel_dsp[channel].update_eq_targets(&eq_bands, mixer.sample_rate as f32);
+                        mixer.channel_dsp[channel]
+                            .update_eq_targets(&eq_bands, mixer.sample_rate as f32);
                         mixer.channel_dsp[channel].phase_invert = phase_invert;
                         mixer.channel_dsp[channel].set_gain_db(gain_db);
                     }
-                    let _ = mixer.spatial_gc_tx.try_send(crate::audio::mixer::SpatialGarbage::EqBands(eq_bands));
+                    let _ = mixer
+                        .spatial_gc_tx
+                        .try_send(crate::audio::mixer::SpatialGarbage::EqBands(eq_bands));
                 }
-                AudioCommand::UpdateSpatialConfig { channel_positions, room_zones, trajectory, track_positions, early_reflection_taps } => {
-                    let old_positions = std::mem::replace(&mut mixer.channel_positions, channel_positions);
+                AudioCommand::UpdateSpatialConfig {
+                    channel_positions,
+                    room_zones,
+                    trajectory,
+                    track_positions,
+                    early_reflection_taps,
+                } => {
+                    let old_positions =
+                        std::mem::replace(&mut mixer.channel_positions, channel_positions);
                     let old_zones = std::mem::replace(&mut mixer.room_zones, room_zones);
                     let old_traj = std::mem::replace(&mut mixer.trajectory, trajectory);
-                    let old_taps = std::mem::replace(&mut mixer.channel_early_ref_taps, early_reflection_taps);
-                    let _ = mixer.spatial_gc_tx.try_send(crate::audio::mixer::SpatialGarbage::ChannelPositions(old_positions));
-                    let _ = mixer.spatial_gc_tx.try_send(crate::audio::mixer::SpatialGarbage::RoomZones(old_zones));
-                    let _ = mixer.spatial_gc_tx.try_send(crate::audio::mixer::SpatialGarbage::Trajectory(old_traj));
-                    let _ = mixer.spatial_gc_tx.try_send(crate::audio::mixer::SpatialGarbage::EarlyReflectionTaps(old_taps));
+                    let old_taps =
+                        std::mem::replace(&mut mixer.channel_early_ref_taps, early_reflection_taps);
+                    let _ = mixer.spatial_gc_tx.try_send(
+                        crate::audio::mixer::SpatialGarbage::ChannelPositions(old_positions),
+                    );
+                    let _ = mixer
+                        .spatial_gc_tx
+                        .try_send(crate::audio::mixer::SpatialGarbage::RoomZones(old_zones));
+                    let _ = mixer
+                        .spatial_gc_tx
+                        .try_send(crate::audio::mixer::SpatialGarbage::Trajectory(old_traj));
+                    let _ = mixer.spatial_gc_tx.try_send(
+                        crate::audio::mixer::SpatialGarbage::EarlyReflectionTaps(old_taps),
+                    );
 
                     // 새 초기반사 탭을 채널별 DSP 스무딩 타겟으로 이관(Law 1: 고정 배열 대입만, 힙 할당 없음)
-                    let n_ch = mixer.channel_dsp.len().min(mixer.channel_early_ref_taps.len());
+                    let n_ch = mixer
+                        .channel_dsp
+                        .len()
+                        .min(mixer.channel_early_ref_taps.len());
                     for ch in 0..n_ch {
                         for i in 0..crate::audio::acoustic::MAX_EARLY_REFLECTION_TAPS {
                             let tap = mixer.channel_early_ref_taps[ch][i];
@@ -731,7 +770,9 @@ impl AudioEngine {
                         }
                     }
                     mixer.recalculate_spatial_dsp();
-                    let _ = mixer.spatial_gc_tx.try_send(crate::audio::mixer::SpatialGarbage::TrackPositions(track_positions));
+                    let _ = mixer.spatial_gc_tx.try_send(
+                        crate::audio::mixer::SpatialGarbage::TrackPositions(track_positions),
+                    );
                 }
                 AudioCommand::SetChannelPanDeg { channel, pan_deg } => {
                     if channel < mixer.channel_pan_deg.len() {
@@ -755,8 +796,17 @@ impl AudioEngine {
                     }
                     mixer.recalculate_spatial_dsp();
                 }
-                AudioCommand::UpdateSingleBandEq { channel, band, freq, gain_db, q_factor, filter_type_idx } => {
-                    if channel < mixer.channel_dsp.len() && band < mixer.channel_dsp[channel].target_bands.len() {
+                AudioCommand::UpdateSingleBandEq {
+                    channel,
+                    band,
+                    freq,
+                    gain_db,
+                    q_factor,
+                    filter_type_idx,
+                } => {
+                    if channel < mixer.channel_dsp.len()
+                        && band < mixer.channel_dsp[channel].target_bands.len()
+                    {
                         let filter_type = match filter_type_idx {
                             0 => crate::common::config::EqType::LowCut,
                             1 => crate::common::config::EqType::LowShelf,
@@ -773,11 +823,17 @@ impl AudioEngine {
                         b.filter_type = filter_type;
                         // trigger recount/rebuild
                         let all_bands = mixer.channel_dsp[channel].target_bands.clone();
-                        mixer.channel_dsp[channel].update_eq_targets(&all_bands, mixer.sample_rate as f32);
+                        mixer.channel_dsp[channel]
+                            .update_eq_targets(&all_bands, mixer.sample_rate as f32);
                     }
                 }
                 AudioCommand::UpdateSoundSourcePosition { sound_id, x, y, z } => {
-                    let point = crate::common::config::Point3D { x, y, z, ..Default::default() };
+                    let point = crate::common::config::Point3D {
+                        x,
+                        y,
+                        z,
+                        ..Default::default()
+                    };
                     // If it's the global trajectory ID we update it
                     if sound_id == "global_trajectory" || sound_id == "trajectory" {
                         if let Some(traj) = &mut mixer.trajectory {
@@ -798,7 +854,10 @@ impl AudioEngine {
                     }
                     mixer.recalculate_spatial_dsp();
                 }
-                AudioCommand::ApplyGlobalTuning { master_headroom_db, peak_limiter_enabled } => {
+                AudioCommand::ApplyGlobalTuning {
+                    master_headroom_db,
+                    peak_limiter_enabled,
+                } => {
                     mixer.master_headroom_db = master_headroom_db;
                     mixer.peak_limiter_enabled = peak_limiter_enabled;
                 }
@@ -818,7 +877,8 @@ impl AudioEngine {
                     for (channel, delay_ms, eq_bands, phase_invert, gain_db) in tunings {
                         if channel < mixer.channel_dsp.len() {
                             mixer.channel_dsp[channel].update_delay_target(delay_ms);
-                            mixer.channel_dsp[channel].update_eq_targets(&eq_bands, mixer.sample_rate as f32);
+                            mixer.channel_dsp[channel]
+                                .update_eq_targets(&eq_bands, mixer.sample_rate as f32);
                             mixer.channel_dsp[channel].phase_invert = phase_invert;
                             mixer.channel_dsp[channel].set_gain_db(gain_db);
                         }
