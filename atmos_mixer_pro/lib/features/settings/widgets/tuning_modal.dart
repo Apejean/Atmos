@@ -332,6 +332,13 @@ class _TuningModalState extends ConsumerState<TuningModal>
     text: '0.0',
   );
 
+  /// 스테퍼 입력 필드별 포커스 노드. 사용자가 타이핑 중인 필드를 provider 상태로
+  /// 되쓰지 않기 위해 사용한다(_safeSetText 참고).
+  final Map<TextEditingController, FocusNode> _stepperFocusNodes = {};
+
+  FocusNode _focusNodeFor(TextEditingController controller) =>
+      _stepperFocusNodes.putIfAbsent(controller, FocusNode.new);
+
   int _activeBandIndex = 0;
   int _hoverIndex = -1;
   bool _isDragging = false;
@@ -450,6 +457,15 @@ class _TuningModalState extends ConsumerState<TuningModal>
   }
 
   void _safeSetText(TextEditingController ctrl, String val) {
+    // 사용자가 입력 중인 필드는 건드리지 않는다.
+    // onChanged -> _saveCurrentState -> provider 갱신 -> ref.listen ->
+    // _loadStateForChannel -> 여기 순으로 왕복하는데, 입력 중에 되쓰면
+    // 타이핑한 글자가 지워지고 커서가 맨 앞으로 돌아간다.
+    // 특히 '-'만 입력한 시점에는 파싱이 실패해 0.0으로 덮어써지므로
+    // 음수 입력 자체가 불가능했다.
+    final node = _stepperFocusNodes[ctrl];
+    if (node != null && node.hasFocus) return;
+
     if (ctrl.text != val) {
       ctrl.text = val;
     }
@@ -538,6 +554,9 @@ class _TuningModalState extends ConsumerState<TuningModal>
     }
     for (var c in _qControllers) {
       c.dispose();
+    }
+    for (final node in _stepperFocusNodes.values) {
+      node.dispose();
     }
     super.dispose();
   }
@@ -723,6 +742,7 @@ class _TuningModalState extends ConsumerState<TuningModal>
           Expanded(
             child: TextField(
               controller: controller,
+              focusNode: _focusNodeFor(controller),
               textAlign: TextAlign.center,
               style: const TextStyle(
                 color: Colors.white,
