@@ -114,45 +114,73 @@ class _TrackCardState extends ConsumerState<TrackCard> {
     final hwChannelsAsync = ref.watch(hardwareChannelsProvider);
     
     final hwChannels = hwChannelsAsync.value ?? [];
-    int maxChannels = hwChannels.isNotEmpty ? hwChannels.length : 64;
+    // 하드웨어 채널 이름 목록을 아직 못 받았으면(FutureProvider 로딩/실패) 엔진이 보고한
+    // 실제 출력 채널 수를 쓴다. 예전에는 64로 폴백해서 2채널 장치에서도 64개 항목이 생성됐다.
+    final int maxChannels = hwChannels.isNotEmpty
+        ? hwChannels.length
+        : (engineState.outputChannelCount > 0 ? engineState.outputChannelCount : 2);
 
     final List<DropdownMenuItem<String>> outputItems = [];
     final isMulti = _fileChannels != null && _fileChannels! > 2;
     final isMono = _fileChannels == 1;
 
-    for (int i = 0; i < maxChannels; i++) {
-      String hwName = i < hwChannels.length ? hwChannels[i] : 'Out ${i + 1}';
-      
-      if (isMono) {
+    // 멀티채널 파일이 아니면(모노/스테레오) 각 하드웨어 채널을 모노 목적지로 제공한다.
+    // 스테레오 파일을 모노 채널 하나로 보내면 엔진이 다운믹스해서 출력한다
+    // (mixer.rs: `!output_stereo && ch_limit > 1` 분기).
+    if (!isMulti) {
+      for (int i = 0; i < maxChannels; i++) {
         outputItems.add(
           DropdownMenuItem(
             value: ChannelDropdownValueHelper.getMonoValue(i),
             child: Text(
-              'Ch ${i + 1} ($hwName)',
+              'Mono (Ch-${i + 1})',
               style: const TextStyle(fontSize: 12, color: Colors.white),
             ),
           ),
         );
-      } else if (!isMulti) {
-        // Stereo
-        String nextName = (i + 1) < hwChannels.length ? hwChannels[i+1] : 'Out ${i + 2}';
+      }
+    }
+
+    // 스테레오 파일은 위의 모노 선택지에 더해 스테레오 쌍 선택지도 제공한다.
+    // 쌍의 두 채널이 모두 실재해야 하므로 i + 1 < maxChannels 범위만 생성한다.
+    if (!isMono && !isMulti) {
+      for (int i = 0; i + 1 < maxChannels; i++) {
         outputItems.add(
           DropdownMenuItem(
             value: ChannelDropdownValueHelper.getStereoValue(i),
             child: Text(
-              'Ch ${i + 1}-${i + 2} ($hwName / $nextName)',
+              'Stereo (Ch-${i + 1}/Ch-${i + 2})',
               style: const TextStyle(fontSize: 12, color: Colors.white),
             ),
           ),
         );
+      }
+    }
+
+    // 멀티채널은 파일 채널 수가 전부 들어갈 수 있는 시작 위치만 생성한다.
+    // 하드웨어 채널이 파일 채널 수보다 적어 들어갈 자리가 없으면, 트랙이 아예
+    // 선택 불가가 되지 않도록 Ch-1 시작 항목 하나는 남긴다(엔진이 다운믹스한다).
+    if (isMulti) {
+      final int fileCh = _fileChannels!;
+      final int lastStart = maxChannels - fileCh;
+      if (lastStart >= 0) {
+        for (int i = 0; i <= lastStart; i++) {
+          outputItems.add(
+            DropdownMenuItem(
+              value: ChannelDropdownValueHelper.getMultiValue(i),
+              child: Text(
+                'N-Ch (Ch-${i + 1}~${i + fileCh})',
+                style: const TextStyle(fontSize: 12, color: Colors.white),
+              ),
+            ),
+          );
+        }
       } else {
-        // Multi
-        int endCh = i + _fileChannels! - 1;
         outputItems.add(
           DropdownMenuItem(
-            value: ChannelDropdownValueHelper.getMultiValue(i),
+            value: ChannelDropdownValueHelper.getMultiValue(0),
             child: Text(
-              'Ch ${i + 1}-${endCh + 1} (Multi)',
+              'N-Ch (Ch-1~$fileCh)',
               style: const TextStyle(fontSize: 12, color: Colors.white),
             ),
           ),
