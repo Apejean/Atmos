@@ -117,6 +117,11 @@ void main() {
         overrides: [
           configProvider.overrideWith(() => MockConfigNotifier(config)),
           engineStateProvider.overrideWith(() => MockEngineStateNotifier()),
+          // 드롭다운 항목 개수는 실제 인식된 하드웨어 출력 채널 수를 따른다.
+          // 테스트는 Ch-3/Ch-4 쌍을 선택하므로 4채널 장치를 가정한다.
+          hardwareChannelsProvider.overrideWith(
+            (ref) async => const ['Out 1', 'Out 2', 'Out 3', 'Out 4'],
+          ),
         ],
         child: MaterialApp(
           home: Scaffold(
@@ -139,8 +144,8 @@ void main() {
     await tester.tap(find.byType(DropdownButton<String>));
     await tester.pumpAndSettle();
 
-    // The stereo option should be "Ch 3-4 (Out 3 / Out 4)"
-    await tester.tap(find.text('Ch 3-4 (Out 3 / Out 4)').last);
+    // 스테레오 쌍 항목 라벨은 'Stereo (Ch-3/Ch-4)' 형식이다.
+    await tester.tap(find.text('Stereo (Ch-3/Ch-4)').last);
     await tester.pumpAndSettle();
 
     expect(parsedChannel, 2); // 3 - 1 = 2
