@@ -543,7 +543,12 @@ oscWhitelist: _tempConfig.oscWhitelist,
   bool _isLoadingPreview = false;
 
   /// 장치 선택이 바뀔 때 그 장치의 채널 목록을 미리 조회한다.
+  ///
+  /// `_rescanDevices()`처럼 여러 `await`를 거친 뒤 호출되는 경로가 있어서
+  /// 진입 시점에도 위젯이 이미 dispose되었을 수 있다. 그래서 첫 `setState`도
+  /// `mounted`로 감싼다.
   Future<void> _loadChannelPreview(String? deviceName) async {
+    if (!mounted) return;
     setState(() {
       _previewDeviceName = deviceName;
       _previewChannelNames = null;
@@ -556,10 +561,13 @@ oscWhitelist: _tempConfig.oscWhitelist,
       if (!mounted) return;
       setState(() {
         // 그 사이 사용자가 또 다른 장치를 골랐으면 이 응답은 버린다.
+        // 로딩 표시도 최신 요청일 때만 내린다. 그러지 않으면 먼저 시작한
+        // 요청이 늦게 도착해 스피너를 끄고, 아직 목록이 없는 상태에서
+        // 이전 장치 기준 채널 수가 잠깐 노출된다.
         if (_previewDeviceName == deviceName) {
           _previewChannelNames = names;
+          _isLoadingPreview = false;
         }
-        _isLoadingPreview = false;
       });
     } catch (e) {
       if (!mounted) return;
@@ -568,8 +576,8 @@ oscWhitelist: _tempConfig.oscWhitelist,
         if (_previewDeviceName == deviceName) {
           _previewDeviceName = null;
           _previewChannelNames = null;
+          _isLoadingPreview = false;
         }
-        _isLoadingPreview = false;
       });
     }
   }
@@ -1269,7 +1277,11 @@ oscWhitelist: _tempConfig.oscWhitelist,
                 // 라우팅 항목 생성은 track_card.dart와 동일한 순수 함수를
                 // 공유해 두 화면의 라벨/값이 항상 일치하도록 한다.
                 final trackDropdownItems = buildChannelRoutingItems(
-                  channelNames: outputChannels.channelNames,
+                  // 상단 요약과 같은 목록을 써야 한다. provider의 저장된
+                  // 값을 직접 쓰면 장치를 바꿨을 때 요약은 2채널인데 트랙
+                  // 매핑은 옛 장치의 8채널 옵션을 계속 제시해, 존재하지 않는
+                  // 채널이 저장될 수 있다.
+                  channelNames: channelNames,
                   config: _tempConfig,
                   fileChannels: _trackChannels[track.id],
                 ).map((item) {

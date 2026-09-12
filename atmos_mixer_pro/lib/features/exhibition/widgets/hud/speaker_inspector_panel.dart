@@ -194,6 +194,20 @@ class _SpeakerInspectorPanelState extends ConsumerState<SpeakerInspectorPanel> {
     );
   }
 
+  /// 채널 목록을 아직 신뢰할 수 없을 때 채널 번호 뒤에 붙일 짧은 상태 문구.
+  String _channelStatusNote(OutputChannelsState channels) {
+    switch (channels.status) {
+      case OutputChannelsStatus.loading:
+        return '채널 조회 중';
+      case OutputChannelsStatus.noDevice:
+        return '출력 장치 없음';
+      case OutputChannelsStatus.error:
+        return '채널 조회 실패';
+      case OutputChannelsStatus.ready:
+        return '현재 장치에 없음';
+    }
+  }
+
   /// 개별 출력 채널 1개의 드롭다운 항목. 스피커 레이아웃과 FX는 스테레오/멀티
   /// 그룹핑 없이 개별 채널만 잡으므로 `buildChannelRoutingItems`(트랙 라우팅용)
   /// 를 쓰지 않고 평면 목록을 만든다.
@@ -299,7 +313,15 @@ class _SpeakerInspectorPanelState extends ConsumerState<SpeakerInspectorPanel> {
                           DropdownMenuItem(
                             value: speaker.channel,
                             child: Text(
-                              channelOutOfRangeName(speaker.channel),
+                              // 채널 목록을 아직 못 받은 상태(조회 중/장치
+                              // 미인식/조회 실패)에서 "현재 장치에 없음"이라고
+                              // 하면 거짓이다. 그 채널이 없는 게 아니라 목록을
+                              // 모르는 것이므로 상태를 그대로 알린다.
+                              outputChannels.status ==
+                                      OutputChannelsStatus.ready
+                                  ? channelOutOfRangeName(speaker.channel)
+                                  : 'Ch-${speaker.channel + 1} '
+                                        '(${_channelStatusNote(outputChannels)})',
                               style: const TextStyle(color: Colors.orangeAccent),
                             ),
                           ),
