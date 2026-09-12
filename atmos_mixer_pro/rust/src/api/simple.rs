@@ -1542,6 +1542,19 @@ pub fn api_get_output_devices() -> Result<Vec<OutputDeviceInfo>, AtmosError> {
     })
 }
 
+/// 출력 장치 부재를 뜻하는 오류 메시지 접두사.
+///
+/// Dart 쪽 `OutputChannelsNotifier._refresh()`
+/// (lib/core/state/global_state.dart)가 이 문자열을 부분 일치로 검사해서
+/// `OutputChannelsStatus.noDevice`와 일반 오류를 구분한다. AtmosError에는
+/// 종류를 구분하는 필드가 없어 메시지가 유일한 단서이므로, 여기 값을 바꾸면
+/// Dart 매처도 함께 바꿔야 한다. 아래 테스트가 그 계약을 잠근다.
+pub const ERR_NO_DEFAULT_OUTPUT_DEVICE: &str = "No default output device";
+
+/// 저장된 장치가 시스템에서 사라졌을 때의 오류 메시지 접두사.
+/// 자세한 내용은 [`ERR_NO_DEFAULT_OUTPUT_DEVICE`] 참고.
+pub const ERR_DEVICE_NOT_FOUND: &str = "Device not found";
+
 pub fn api_get_device_channel_count(device_name: Option<String>) -> Result<u32, AtmosError> {
     std::thread::spawn(move || {
         #[cfg(target_os = "windows")]
@@ -1619,13 +1632,13 @@ pub fn api_get_device_channel_count(device_name: Option<String>) -> Result<u32, 
                 }
             }
             found_device.ok_or_else(|| AtmosError {
-                message: format!("Device not found: {}", name),
+                message: format!("{}: {}", ERR_DEVICE_NOT_FOUND, name),
             })?
         } else {
             cpal::default_host()
                 .default_output_device()
                 .ok_or_else(|| AtmosError {
-                    message: "No default output device".to_string(),
+                    message: ERR_NO_DEFAULT_OUTPUT_DEVICE.to_string(),
                 })?
         };
 
