@@ -38,44 +38,82 @@ pub fn api_update_sound_source_position(sound_id: String, x: f32, y: f32, z: f32
         .send(AudioCommand::UpdateSoundSourcePosition { sound_id, x, y, z });
 }
 
+/// Output Config(`mono_configs`/`stereo_configs`/`multi_configs`)로부터 믹서 출력 게이트
+/// (`GLOBAL_STATE.enabled_channels`)에 쓸 0-based 활성화 벡터를 계산하는 순수 함수.
+///
+/// ## 0/1-based 규약 (OUTPUT_CHANNEL_MAPPING_UNIFICATION_SPEC.md 3절)
+/// `config.json`의 세 맵은 키가 **1-based**(사용자에게 보이는 채널 번호)이고,
+/// 반환하는 `Vec<bool>`과 `GLOBAL_STATE.enabled_channels`는 **0-based**(CPAL `hw_ch` 인덱스)이다.
+/// 이 변환(`ch as usize - 1`)은 이 함수 안에서만 일어난다 — 호출부에서 다시 변환하지 말 것.
+///
+/// ## 그룹별 채널 개방 규칙
+/// - Mono: `ch-1`, `ch`(1-based 페어) 두 채널을 연다 — 기존 "모노 1개가 L/R 페어를 연다" 설계 유지.
+/// - Stereo: 위와 동일한 페어 개방(기존 동작 유지, 이번 수정 범위 아님).
+/// - Multi: 시작 채널(`ch-1`, 0-based)부터 하드웨어 마지막 채널까지 전체 구간을 연다.
+///   `ChannelSetting`에는 그룹이 몇 채널짜리인지(N) 저장되지 않고, 실제로 몇 채널을 쓸지는
+///   재생되는 파일의 채널 수에 따라 트랙별 라우팅(믹서 쓰기 단계)에서 결정되므로, 이 게이트는
+///   "시작 채널 이후로는 무엇이 와도 막지 않는다"는 상한만 담당한다(SPEC 3.1절).
+///
+/// 세 맵이 모두 비어 있으면(사용자가 Output Config를 아직 건드리지 않음) 하위호환을 위해
+/// 전 채널을 개방한다.
+pub fn compute_enabled_channels(config: &AppConfig, hw_len: usize) -> Vec<bool> {
+    let mut enabled = vec![false; hw_len];
+
+    if config.mono_configs.is_empty()
+        && config.stereo_configs.is_empty()
+        && config.multi_configs.is_empty()
+    {
+        return vec![true; hw_len];
+    }
+
+    for (&ch, setting) in &config.mono_configs {
+        if setting.enabled && ch > 0 {
+            let real_ch = (ch - 1) as usize;
+            if real_ch < hw_len {
+                enabled[real_ch] = true;
+            }
+            if real_ch + 1 < hw_len {
+                enabled[real_ch + 1] = true;
+            }
+        }
+    }
+    for (&ch, setting) in &config.stereo_configs {
+        if setting.enabled && ch > 0 {
+            let real_ch = (ch - 1) as usize;
+            if real_ch < hw_len {
+                enabled[real_ch] = true;
+            }
+            if real_ch + 1 < hw_len {
+                enabled[real_ch + 1] = true;
+            }
+        }
+    }
+    for (&ch, setting) in &config.multi_configs {
+        if setting.enabled && ch > 0 {
+            let real_ch = (ch - 1) as usize;
+            if real_ch < hw_len {
+                for slot in enabled.iter_mut().skip(real_ch) {
+                    *slot = true;
+                }
+            }
+        }
+    }
+
+    enabled
+}
+
+/// `compute_enabled_channels()` 결과를 `GLOBAL_STATE.enabled_channels` 원자 배열에 반영한다.
+fn apply_enabled_channels(config: &AppConfig) {
+    let enabled = compute_enabled_channels(config, GLOBAL_STATE.enabled_channels.len());
+    for (slot, &value) in GLOBAL_STATE.enabled_channels.iter().zip(enabled.iter()) {
+        slot.store(value, std::sync::atomic::Ordering::Relaxed);
+    }
+}
+
 pub fn api_get_config(path: String) -> AppConfig {
     let config = AppConfig::load_from_file(path).unwrap_or_default();
 
-    for b in &GLOBAL_STATE.enabled_channels {
-        b.store(false, std::sync::atomic::Ordering::Relaxed);
-    }
-    if config.mono_configs.is_empty() && config.stereo_configs.is_empty() {
-        for b in &GLOBAL_STATE.enabled_channels {
-            b.store(true, std::sync::atomic::Ordering::Relaxed);
-        }
-    } else {
-        for (&ch, setting) in &config.mono_configs {
-            if setting.enabled && ch > 0 {
-                let real_ch = (ch - 1) as usize;
-                if real_ch < GLOBAL_STATE.enabled_channels.len() {
-                    GLOBAL_STATE.enabled_channels[real_ch]
-                        .store(true, std::sync::atomic::Ordering::Relaxed);
-                }
-                if real_ch + 1 < GLOBAL_STATE.enabled_channels.len() {
-                    GLOBAL_STATE.enabled_channels[real_ch + 1]
-                        .store(true, std::sync::atomic::Ordering::Relaxed);
-                }
-            }
-        }
-        for (&ch, setting) in &config.stereo_configs {
-            if setting.enabled && ch > 0 {
-                let real_ch = (ch - 1) as usize;
-                if real_ch < GLOBAL_STATE.enabled_channels.len() {
-                    GLOBAL_STATE.enabled_channels[real_ch]
-                        .store(true, std::sync::atomic::Ordering::Relaxed);
-                }
-                if real_ch + 1 < GLOBAL_STATE.enabled_channels.len() {
-                    GLOBAL_STATE.enabled_channels[real_ch + 1]
-                        .store(true, std::sync::atomic::Ordering::Relaxed);
-                }
-            }
-        }
-    }
+    apply_enabled_channels(&config);
     {
         let mut global_config = GLOBAL_STATE
             .config
@@ -135,41 +173,7 @@ pub fn api_get_config(path: String) -> AppConfig {
 
 pub fn api_save_config(path: String, config: AppConfig) -> Result<(), AtmosError> {
     config.save_to_file(path)?;
-    for b in &GLOBAL_STATE.enabled_channels {
-        b.store(false, std::sync::atomic::Ordering::Relaxed);
-    }
-    if config.mono_configs.is_empty() && config.stereo_configs.is_empty() {
-        for b in &GLOBAL_STATE.enabled_channels {
-            b.store(true, std::sync::atomic::Ordering::Relaxed);
-        }
-    } else {
-        for (&ch, setting) in &config.mono_configs {
-            if setting.enabled && ch > 0 {
-                let real_ch = (ch - 1) as usize;
-                if real_ch < GLOBAL_STATE.enabled_channels.len() {
-                    GLOBAL_STATE.enabled_channels[real_ch]
-                        .store(true, std::sync::atomic::Ordering::Relaxed);
-                }
-                if real_ch + 1 < GLOBAL_STATE.enabled_channels.len() {
-                    GLOBAL_STATE.enabled_channels[real_ch + 1]
-                        .store(true, std::sync::atomic::Ordering::Relaxed);
-                }
-            }
-        }
-        for (&ch, setting) in &config.stereo_configs {
-            if setting.enabled && ch > 0 {
-                let real_ch = (ch - 1) as usize;
-                if real_ch < GLOBAL_STATE.enabled_channels.len() {
-                    GLOBAL_STATE.enabled_channels[real_ch]
-                        .store(true, std::sync::atomic::Ordering::Relaxed);
-                }
-                if real_ch + 1 < GLOBAL_STATE.enabled_channels.len() {
-                    GLOBAL_STATE.enabled_channels[real_ch + 1]
-                        .store(true, std::sync::atomic::Ordering::Relaxed);
-                }
-            }
-        }
-    }
+    apply_enabled_channels(&config);
     {
         let mut global_config = GLOBAL_STATE
             .config
@@ -1176,41 +1180,7 @@ pub fn api_preload_all_sounds(config: AppConfig) -> Result<(), AtmosError> {
         }
     }
 
-    for b in &GLOBAL_STATE.enabled_channels {
-        b.store(false, std::sync::atomic::Ordering::Relaxed);
-    }
-    if config.mono_configs.is_empty() && config.stereo_configs.is_empty() {
-        for b in &GLOBAL_STATE.enabled_channels {
-            b.store(true, std::sync::atomic::Ordering::Relaxed);
-        }
-    } else {
-        for (&ch, setting) in &config.mono_configs {
-            if setting.enabled && ch > 0 {
-                let real_ch = (ch - 1) as usize;
-                if real_ch < GLOBAL_STATE.enabled_channels.len() {
-                    GLOBAL_STATE.enabled_channels[real_ch]
-                        .store(true, std::sync::atomic::Ordering::Relaxed);
-                }
-                if real_ch + 1 < GLOBAL_STATE.enabled_channels.len() {
-                    GLOBAL_STATE.enabled_channels[real_ch + 1]
-                        .store(true, std::sync::atomic::Ordering::Relaxed);
-                }
-            }
-        }
-        for (&ch, setting) in &config.stereo_configs {
-            if setting.enabled && ch > 0 {
-                let real_ch = (ch - 1) as usize;
-                if real_ch < GLOBAL_STATE.enabled_channels.len() {
-                    GLOBAL_STATE.enabled_channels[real_ch]
-                        .store(true, std::sync::atomic::Ordering::Relaxed);
-                }
-                if real_ch + 1 < GLOBAL_STATE.enabled_channels.len() {
-                    GLOBAL_STATE.enabled_channels[real_ch + 1]
-                        .store(true, std::sync::atomic::Ordering::Relaxed);
-                }
-            }
-        }
-    }
+    apply_enabled_channels(&config);
 
     let mut global_config = GLOBAL_STATE
         .config
