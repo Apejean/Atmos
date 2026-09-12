@@ -3,6 +3,7 @@ import 'package:atmos_mixer_pro/features/exhibition/models/speaker_node.dart';
 import 'package:atmos_mixer_pro/core/theme/colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:atmos_mixer_pro/core/state/global_state.dart';
+import 'package:atmos_mixer_pro/core/utils/channel_routing.dart';
 
 class SpeakerNodeWidget extends ConsumerStatefulWidget {
   final SpeakerNode node;
@@ -185,61 +186,108 @@ class _SpeakerNodeWidgetState extends ConsumerState<SpeakerNodeWidget> {
                 child: DropdownButtonHideUnderline(
                   child: Consumer(
                     builder: (context, ref, child) {
-                      final hwChannelsAsync = ref.watch(hardwareChannelsProvider);
-                      final config = ref.watch(configProvider);
-                      int maxChannels = 24;
-                      if (hwChannelsAsync.value != null && hwChannelsAsync.value!.isNotEmpty) {
-                        maxChannels = hwChannelsAsync.value!.length;
-                      } else if (config != null && config.deviceName != null && GlobalDeviceCache.channels.containsKey(config.deviceName)) {
-                        maxChannels = GlobalDeviceCache.channels[config.deviceName]!.length;
+                      final outputChannels = ref.watch(outputChannelsProvider);
+
+                      // loading: 최초 조회/장치 전환 중. 마지막으로 알려진 목록이
+                      // 있으면 그대로 쓰고, 없으면 로딩 표시.
+                      if (outputChannels.status == OutputChannelsStatus.loading &&
+                          outputChannels.channelNames.isEmpty) {
+                        return const Text(
+                          '채널 조회 중...',
+                          style: TextStyle(fontSize: 11, color: Colors.white54),
+                        );
                       }
-                      
-                      // Ensure current channel is within valid range
-                      final currentValue = widget.node.channel < maxChannels
-                          ? widget.node.channel
-                          : 0;
 
-                      return DropdownButton<int>(
-                        value: currentValue,
-                        dropdownColor: AppColors.background,
-                        icon: const Icon(
-                          Icons.arrow_drop_down,
-                          size: 16,
-                          color: Colors.white54,
-                        ),
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Colors.white,
-                        ),
-                        items: List.generate(
-                          maxChannels > 0 ? maxChannels : 2,
-                          (index) {
-                            String hwName = 'Out ${index + 1}';
-                            if (hwChannelsAsync.value != null && index < hwChannelsAsync.value!.length) {
-                              hwName = hwChannelsAsync.value![index].toString();
-                            } else if (config != null && config.deviceName != null && GlobalDeviceCache.channels.containsKey(config.deviceName)) {
-                              if (index < GlobalDeviceCache.channels[config.deviceName]!.length) {
-                                hwName = GlobalDeviceCache.channels[config.deviceName]![index];
+                      // noDevice: 라우팅할 출력 장치 자체가 없음.
+                      if (outputChannels.status == OutputChannelsStatus.noDevice) {
+                        return const Text(
+                          '출력 장치 없음',
+                          style: TextStyle(fontSize: 11, color: Colors.redAccent),
+                        );
+                      }
+
+                      // error: 조회 실패. lastKnownGoodChannelNames로 폴백하고
+                      // 사용자에게 무음으로 실패하지 않았음을 알린다.
+                      final channelNames = outputChannels.status == OutputChannelsStatus.error
+                          ? (outputChannels.lastKnownGoodChannelNames ?? const [])
+                          : outputChannels.channelNames;
+
+                      if (channelNames.isEmpty) {
+                        return const Text(
+                          '채널 없음',
+                          style: TextStyle(fontSize: 11, color: Colors.white54),
+                        );
+                      }
+
+                      // 저장된 channel이 현재 하드웨어 채널 수를 넘는 경우
+                      // (장치가 더 작은 것으로 바뀐 경우) 조용히 0으로 리셋하지
+                      // 않고 사용자가 인지할 수 있게 별도 항목으로 표시한다.
+                      final isOutOfRange = widget.node.channel >= channelNames.length;
+
+                      return Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (outputChannels.status == OutputChannelsStatus.error)
+                            const Padding(
+                              padding: EdgeInsets.only(right: 4.0),
+                              child: Tooltip(
+                                message: '채널 인식 실패 — 마지막으로 확인된 목록 표시 중',
+                                child: Icon(
+                                  Icons.warning_amber_rounded,
+                                  size: 14,
+                                  color: Colors.orangeAccent,
+                                ),
+                              ),
+                            ),
+                          DropdownButton<int>(
+                            value: widget.node.channel,
+                            dropdownColor: AppColors.background,
+                            icon: const Icon(
+                              Icons.arrow_drop_down,
+                              size: 16,
+                              color: Colors.white54,
+                            ),
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Colors.white,
+                            ),
+                            items: [
+                              ...List.generate(channelNames.length, (index) {
+                                // 라벨은 다른 UI(스피커 인스펙터, FX 튜닝,
+                                // 트랙 라우팅)와 같은 `Ch-N (하드웨어 이름)`
+                                // 규약을 쓴다. 화면마다 같은 채널이 같은 이름
+                                // 으로 보여야 한다.
+                                var channelName =
+                                    channelDisplayName(index, channelNames);
+                                // Truncate if too long to prevent UI breaking
+                                if (channelName.length > 25) {
+                                  channelName = '${channelName.substring(0, 22)}...';
+                                }
+
+                                return DropdownMenuItem<int>(
+                                  value: index,
+                                  child: Text(channelName),
+                                );
+                              }),
+                              // 범위를 벗어난 기존 값은 목록에 없으면 드롭다운이
+                              // 크래시하므로, 별도 항목으로 보존해 사용자가 직접
+                              // 재선택하게 한다.
+                              if (isOutOfRange)
+                                DropdownMenuItem<int>(
+                                  value: widget.node.channel,
+                                  child: Text(
+                                    channelOutOfRangeName(widget.node.channel),
+                                    style: const TextStyle(color: Colors.redAccent),
+                                  ),
+                                ),
+                            ],
+                            onChanged: (val) {
+                              if (val != null) {
+                                widget.onChannelChanged(val);
                               }
-                            }
-                            
-                            String channelName = 'Ch ${index + 1} ($hwName)';
-                            // Truncate if too long to prevent UI breaking
-                            if (channelName.length > 25) {
-                              channelName = '${channelName.substring(0, 22)}...';
-                            }
-
-                            return DropdownMenuItem<int>(
-                              value: index,
-                              child: Text(channelName),
-                            );
-                          },
-                        ),
-                        onChanged: (val) {
-                          if (val != null) {
-                            widget.onChannelChanged(val);
-                          }
-                        },
+                            },
+                          ),
+                        ],
                       );
                     },
                   ),

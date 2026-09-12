@@ -6,6 +6,7 @@ import 'package:atmos_mixer_pro/core/state/global_state.dart';
 import 'package:atmos_mixer_pro/src/rust/common/config.dart';
 import 'package:atmos_mixer_pro/src/rust/api/simple.dart' as rust_api;
 import 'package:atmos_mixer_pro/core/utils/channel_dropdown_helper.dart';
+import 'package:atmos_mixer_pro/core/utils/channel_routing.dart';
 
 
 class PreferencesModal extends ConsumerStatefulWidget {
@@ -21,7 +22,6 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
   late AppConfig _tempConfig;
 
   List<String> _devices = [];
-  List<String> _channelNames = [];
   String _selectedDriverType = 'WASAPI';
   bool _isDeviceManuallyChanged = false;
   bool _isScanning = false;
@@ -94,10 +94,6 @@ oscWhitelist: const [],
 
     if (GlobalDeviceCache.devices != null) {
       _devices = GlobalDeviceCache.devices!;
-      if (_tempConfig.deviceName != null &&
-          GlobalDeviceCache.channels.containsKey(_tempConfig.deviceName)) {
-        _channelNames = GlobalDeviceCache.channels[_tempConfig.deviceName]!;
-      }
       _applyLoadedDevices(_devices);
     } else {
       if (_tempConfig.deviceName != null) {
@@ -188,6 +184,12 @@ oscWhitelist: const [],
       }
       _applyLoadedDevices(devices);
 
+      // 재스캔으로 GlobalDeviceCache가 교체됐으므로 채널 목록 provider도
+      // 강제로 다시 조회한다. 그러지 않으면 낡은 채널 목록이 남는다.
+      await ref.read(outputChannelsProvider.notifier).refresh();
+      // 현재 선택된 장치의 미리보기도 새 스캔 결과로 맞춘다.
+      await _loadChannelPreview(_tempConfig.deviceName);
+
       // 6. Restart engine using the init API
       await rust_api.apiInitAudioSystem(deviceName: _tempConfig.deviceName);
     } catch (e) {
@@ -267,44 +269,6 @@ oscWhitelist: _tempConfig.oscWhitelist,
       }
       _selectedDriverType = _getDriverType(_tempConfig.deviceName);
     });
-
-    // Only load channels if not already cached
-    if (_channelNames.isEmpty ||
-        _tempConfig.deviceName == null ||
-        !GlobalDeviceCache.channels.containsKey(_tempConfig.deviceName)) {
-      _loadDeviceChannels(_tempConfig.deviceName);
-    } else {
-      _channelNames = GlobalDeviceCache.channels[_tempConfig.deviceName!]!;
-    }
-  }
-
-  Future<void> _loadDeviceChannels(String? deviceName) async {
-    if (deviceName != null &&
-        GlobalDeviceCache.channels.containsKey(deviceName)) {
-      if (mounted) {
-        setState(() {
-          _channelNames = GlobalDeviceCache.channels[deviceName]!;
-        });
-      }
-      return;
-    }
-
-    try {
-      final names = await rust_api.apiGetDeviceChannelNames(
-        deviceName: deviceName,
-      );
-      if (mounted) {
-        setState(() {
-          _channelNames = names;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _channelNames = [];
-        });
-      }
-    }
   }
 
   // Very basic deep clone for editing
@@ -567,7 +531,64 @@ oscWhitelist: _tempConfig.oscWhitelist,
     );
   }
 
+  /// 저장하기 전에 고른 장치의 채널 목록 미리보기.
+  ///
+  /// `outputChannelsProvider`는 **저장된** `configProvider.deviceName`만
+  /// 구독한다(단일 진실 원천). 그래서 이 모달에서 장치를 바꿔도 저장 전에는
+  /// 채널 수/트랙 매핑이 이전 장치 기준으로 남는다. 사용자가 장치를 고르는
+  /// 즉시 채널 수를 확인해야 하므로, 저장 전 상태에서만 쓰는 미리보기 목록을
+  /// 따로 들고 있는다. 저장하면 provider가 진실이 되고 이 값은 버려진다.
+  String? _previewDeviceName;
+  List<String>? _previewChannelNames;
+  bool _isLoadingPreview = false;
+
+  /// 장치 선택이 바뀔 때 그 장치의 채널 목록을 미리 조회한다.
+  Future<void> _loadChannelPreview(String? deviceName) async {
+    setState(() {
+      _previewDeviceName = deviceName;
+      _previewChannelNames = null;
+      _isLoadingPreview = true;
+    });
+    try {
+      final names = await rust_api.apiGetDeviceChannelNames(
+        deviceName: deviceName,
+      );
+      if (!mounted) return;
+      setState(() {
+        // 그 사이 사용자가 또 다른 장치를 골랐으면 이 응답은 버린다.
+        if (_previewDeviceName == deviceName) {
+          _previewChannelNames = names;
+        }
+        _isLoadingPreview = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        // 조회 실패 시 미리보기를 포기하고 provider 값으로 돌아간다.
+        if (_previewDeviceName == deviceName) {
+          _previewDeviceName = null;
+          _previewChannelNames = null;
+        }
+        _isLoadingPreview = false;
+      });
+    }
+  }
+
+  /// 이 탭이 실제로 써야 할 채널 목록. 저장 전 장치 변경 중이면 미리보기,
+  /// 그 밖에는 provider가 보고한 실제 채널 목록.
+  List<String> _effectiveChannelNames(OutputChannelsState channels) {
+    if (_previewDeviceName == _tempConfig.deviceName &&
+        _previewChannelNames != null) {
+      return _previewChannelNames!;
+    }
+    return channels.channelNames;
+  }
+
   Widget _buildAudioTab() {
+    // 단일 진실 원천: 자체 로드하던 _channelNames를 제거하고
+    // outputChannelsProvider를 구독한다.
+    final outputChannels = ref.watch(outputChannelsProvider);
+    final channelNames = _effectiveChannelNames(outputChannels);
     final List<DropdownMenuItem<String>> channelItems = [];
 
     final sortedMono =
@@ -578,7 +599,7 @@ oscWhitelist: _tempConfig.oscWhitelist,
       final setting = entry.value;
 
       final realCh1 = key - 1;
-      if (realCh1 < _channelNames.length) {
+      if (realCh1 < channelNames.length) {
         final name1 = setting.customName.isNotEmpty
             ? '$key (${setting.customName} L)'
             : '$key';
@@ -592,7 +613,7 @@ oscWhitelist: _tempConfig.oscWhitelist,
 
       final realCh2 = key;
       final displayCh2 = key + 1;
-      if (realCh2 < _channelNames.length) {
+      if (realCh2 < channelNames.length) {
         final name2 = setting.customName.isNotEmpty
             ? '$displayCh2 (${setting.customName} R)'
             : '$displayCh2';
@@ -613,7 +634,7 @@ oscWhitelist: _tempConfig.oscWhitelist,
       final setting = entry.value;
       final realCh = key - 1;
       final displayCh2 = key + 1;
-      if (realCh + 1 < _channelNames.length) {
+      if (realCh + 1 < channelNames.length) {
         final displayName = setting.customName.isNotEmpty
             ? '$key/$displayCh2 (${setting.customName})'
             : '$key/$displayCh2';
@@ -633,7 +654,7 @@ oscWhitelist: _tempConfig.oscWhitelist,
       final key = entry.key;
       final setting = entry.value;
       final realCh = key - 1;
-      if (realCh < _channelNames.length) {
+      if (realCh < channelNames.length) {
         final displayName = setting.customName.isNotEmpty
             ? '$key~ (${setting.customName})'
             : '$key~';
@@ -713,6 +734,9 @@ oscWhitelist: _tempConfig.oscWhitelist,
                       } else {
                         newDeviceName = null;
                       }
+                      // 드라이버 타입이 바뀌면 장치도 바뀌므로 채널 미리보기도
+                      // 새 장치 기준으로 다시 조회한다.
+                      _loadChannelPreview(newDeviceName);
 
                       _tempConfig = AppConfig(globalReverbMix: 0.0, globalReverbDecay: 1.0, 
 oscWhitelist: _tempConfig.oscWhitelist,
@@ -734,7 +758,6 @@ oscWhitelist: _tempConfig.oscWhitelist,
                         roomZones: _tempConfig.roomZones,
                       );
                     });
-                    _loadDeviceChannels(_tempConfig.deviceName);
                   }
                 },
               ),
@@ -801,6 +824,8 @@ oscWhitelist: _tempConfig.oscWhitelist,
                 ],
                 onChanged: (val) {
                   _isDeviceManuallyChanged = true;
+                  // 저장 전에도 고른 장치의 채널 수가 보이도록 미리 조회한다.
+                  _loadChannelPreview(val);
                   setState(() {
                     _tempConfig = AppConfig(globalReverbMix: 0.0, globalReverbDecay: 1.0, 
 oscWhitelist: _tempConfig.oscWhitelist,
@@ -821,7 +846,6 @@ oscWhitelist: _tempConfig.oscWhitelist,
                       roomZones: _tempConfig.roomZones,
                     );
                   });
-                  _loadDeviceChannels(val);
                 },
               ),
             ),
@@ -1114,10 +1138,45 @@ oscWhitelist: _tempConfig.oscWhitelist,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                '현재 선택된 오디오 인터페이스의 아웃풋 채널은 총 ${_channelNames.length}개 입니다.',
-                style: const TextStyle(color: Colors.white70),
-              ),
+              // 저장 전 장치 변경 미리보기 조회가 provider 상태보다 우선한다.
+              if (_isLoadingPreview ||
+                  outputChannels.status == OutputChannelsStatus.loading)
+                const Row(
+                  children: [
+                    SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                    SizedBox(width: 8),
+                    Text(
+                      '출력 채널 정보를 불러오는 중...',
+                      style: TextStyle(color: Colors.white70),
+                    ),
+                  ],
+                )
+              else if (_previewChannelNames != null &&
+                  _previewDeviceName == _tempConfig.deviceName)
+                Text(
+                  '선택한 장치의 아웃풋 채널은 총 ${channelNames.length}개 입니다. '
+                  '(저장하면 적용됩니다)',
+                  style: const TextStyle(color: Colors.lightBlueAccent),
+                )
+              else if (outputChannels.status == OutputChannelsStatus.noDevice)
+                const Text(
+                  '연결된 출력 장치가 없습니다. 오디오 인터페이스를 연결하거나 선택하세요.',
+                  style: TextStyle(color: Colors.orangeAccent),
+                )
+              else if (outputChannels.status == OutputChannelsStatus.error)
+                Text(
+                  '채널 정보 조회 실패: ${outputChannels.errorMessage} (마지막으로 확인된 목록 표시 중)',
+                  style: const TextStyle(color: Colors.redAccent),
+                )
+              else
+                Text(
+                  '현재 선택된 오디오 인터페이스의 아웃풋 채널은 총 ${channelNames.length}개 입니다.',
+                  style: const TextStyle(color: Colors.white70),
+                ),
               const SizedBox(height: 12),
               ElevatedButton(
                 onPressed: () async {
@@ -1125,7 +1184,7 @@ oscWhitelist: _tempConfig.oscWhitelist,
                       await showDialog<Map<String, Map<int, ChannelSetting>>>(
                         context: context,
                         builder: (context) => OutputConfigDialog(
-                          channelCount: _channelNames.length,
+                          channelCount: channelNames.length,
                           initialMonoConfigs: _tempConfig.monoConfigs,
                           initialStereoConfigs: _tempConfig.stereoConfigs,
                           initialMultiConfigs: _tempConfig.multiConfigs,
@@ -1175,6 +1234,18 @@ oscWhitelist: _tempConfig.oscWhitelist,
           ),
         ),
         const SizedBox(height: 8),
+        if (outputChannels.status != OutputChannelsStatus.ready)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Text(
+              outputChannels.status == OutputChannelsStatus.noDevice
+                  ? '연결된 출력 장치가 없어 채널 매핑을 표시할 수 없습니다.'
+                  : outputChannels.status == OutputChannelsStatus.loading
+                  ? '출력 채널 정보를 불러오는 중입니다...'
+                  : '채널 정보 조회 실패: ${outputChannels.errorMessage} (마지막으로 확인된 목록 표시 중)',
+              style: const TextStyle(color: Colors.orangeAccent, fontSize: 12),
+            ),
+          ),
         ..._tempConfig.rooms.asMap().entries.map((rEntry) {
           final rIndex = rEntry.key;
           final room = rEntry.value;
@@ -1195,129 +1266,22 @@ oscWhitelist: _tempConfig.oscWhitelist,
                 final tIndex = entry.key;
                 final track = entry.value;
 
-                final List<DropdownMenuItem<String>> trackDropdownItems = [];
-                final fileChannels = _trackChannels[track.id];
-
-                final isMulti = fileChannels != null && fileChannels > 2;
-                final isMono = fileChannels == 1;
-
-                if (!isMulti) {
-                  final sortedMono =
-                      _tempConfig.monoConfigs.entries
-                          .where((e) => e.value.enabled)
-                          .toList()
-                        ..sort((a, b) => a.key.compareTo(b.key));
-                  for (final e in sortedMono) {
-                    final key = e.key;
-                    final setting = e.value;
-
-                    final realCh1 = key - 1;
-                    if (realCh1 < _channelNames.length) {
-                      final name1 = setting.customName.isNotEmpty
-                          ? '$key (${setting.customName} L)'
-                          : '$key';
-                      trackDropdownItems.add(
-                        DropdownMenuItem<String>(
-                          value: ChannelDropdownValueHelper.getMonoValue(
-                            realCh1,
-                          ),
-                          child: Text(
-                            'Mono $name1',
-                            style: const TextStyle(fontSize: 12),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      );
-                    }
-
-                    final realCh2 = key;
-                    final displayCh2 = key + 1;
-                    if (realCh2 < _channelNames.length) {
-                      final name2 = setting.customName.isNotEmpty
-                          ? '$displayCh2 (${setting.customName} R)'
-                          : '$displayCh2';
-                      trackDropdownItems.add(
-                        DropdownMenuItem<String>(
-                          value: ChannelDropdownValueHelper.getMonoValue(
-                            realCh2,
-                          ),
-                          child: Text(
-                            'Mono $name2',
-                            style: const TextStyle(fontSize: 12),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      );
-                    }
-                  }
-                }
-
-                if (!isMono && !isMulti) {
-                  final sortedStereo =
-                      _tempConfig.stereoConfigs.entries
-                          .where((e) => e.value.enabled)
-                          .toList()
-                        ..sort((a, b) => a.key.compareTo(b.key));
-                  for (final e in sortedStereo) {
-                    final key = e.key;
-                    final setting = e.value;
-                    final realCh = key - 1;
-                    final displayCh2 = key + 1;
-                    if (realCh + 1 < _channelNames.length) {
-                      final displayName = setting.customName.isNotEmpty
-                          ? '$key/$displayCh2 (${setting.customName})'
-                          : '$key/$displayCh2';
-                      trackDropdownItems.add(
-                        DropdownMenuItem<String>(
-                          value: ChannelDropdownValueHelper.getStereoValue(
-                            realCh,
-                          ),
-                          child: Text(
-                            '2-Ch (Stereo) $displayName',
-                            style: const TextStyle(fontSize: 12),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      );
-                    }
-                  }
-                }
-
-                if (isMulti) {
-                  final sortedMulti =
-                      _tempConfig.multiConfigs.entries
-                          .where((e) => e.value.enabled)
-                          .toList()
-                        ..sort((a, b) => a.key.compareTo(b.key));
-                  for (final e in sortedMulti) {
-                    final key = e.key;
-                    final setting = e.value;
-                    final realCh = key - 1;
-                    if (realCh < _channelNames.length) {
-                      final endCh = (key - 1 + fileChannels).clamp(
-                        1,
-                        _channelNames.length,
-                      );
-                      var labelText =
-                          'N-Ch (다채널) Ch $key~$endCh (${fileChannels}ch)';
-                      if (setting.customName.isNotEmpty) {
-                        labelText += ' (${setting.customName})';
-                      }
-                      trackDropdownItems.add(
-                        DropdownMenuItem<String>(
-                          value: ChannelDropdownValueHelper.getMultiValue(
-                            realCh,
-                          ),
-                          child: Text(
-                            labelText,
-                            style: const TextStyle(fontSize: 12),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      );
-                    }
-                  }
-                }
+                // 라우팅 항목 생성은 track_card.dart와 동일한 순수 함수를
+                // 공유해 두 화면의 라벨/값이 항상 일치하도록 한다.
+                final trackDropdownItems = buildChannelRoutingItems(
+                  channelNames: outputChannels.channelNames,
+                  config: _tempConfig,
+                  fileChannels: _trackChannels[track.id],
+                ).map((item) {
+                  return DropdownMenuItem<String>(
+                    value: item.value,
+                    child: Text(
+                      item.label,
+                      style: const TextStyle(fontSize: 12),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  );
+                }).toList();
 
                 final currentVal = _getDropdownValueForTrack(track);
                 final bool valueExists = trackDropdownItems.any(

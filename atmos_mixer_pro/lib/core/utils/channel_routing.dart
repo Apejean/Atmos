@@ -29,6 +29,33 @@ class ChannelRoutingItem {
   });
 }
 
+/// 개별 출력 채널 1개의 표시 이름. **스피커 레이아웃, 스피커 인스펙터,
+/// FX(출력 채널 Mixer)가 모두 이 함수 하나만 쓴다.**
+///
+/// 사용자 요구사항이 "같은 채널이 모든 UI에서 같은 이름으로 보여야 한다"이므로
+/// 라벨 템플릿을 각 위젯에 복제하지 않는다. 예전에는 화면마다
+/// `Output CH 1`, `Channel 1 (L) • Out 1`, `Ch-1 Out 1`로 달라서 같은 채널이
+/// 세 가지 이름을 가졌다.
+///
+/// [index0]은 0-based 하드웨어 채널 인덱스이고 표시는 1-based(`Ch-1`)다.
+/// [channelNames]에 해당 인덱스의 이름이 있으면 괄호로 덧붙인다.
+///
+/// 트랙 라우팅(Mono/Stereo/N-Ch 그룹)은 이 함수가 아니라
+/// [buildChannelRoutingItems]를 쓴다. 스피커와 FX는 그룹핑 없이 개별 채널만
+/// 지정하기 때문이다.
+String channelDisplayName(int index0, List<String> channelNames) {
+  final label = 'Ch-${index0 + 1}';
+  if (index0 < 0 || index0 >= channelNames.length) return label;
+  final hwName = channelNames[index0].trim();
+  return hwName.isEmpty ? label : '$label ($hwName)';
+}
+
+/// 저장된 채널 인덱스가 현재 장치의 채널 수를 넘었을 때의 표시 이름.
+/// 값을 조용히 0으로 되돌리지 않고 사용자에게 드러내기 위한 라벨이다
+/// (더 작은 인터페이스로 교체한 경우 등).
+String channelOutOfRangeName(int index0) =>
+    'Ch-${index0 + 1} (현재 장치에 없음)';
+
 /// `channelNames`(실제 하드웨어 출력 채널 목록)와 Output Config
 /// (`monoConfigs`/`stereoConfigs`/`multiConfigs`)를 입력받아 라우팅 드롭다운
 /// 항목을 생성하는 순수 함수. 부작용이 없으며 동일 입력에는 항상 동일 결과를

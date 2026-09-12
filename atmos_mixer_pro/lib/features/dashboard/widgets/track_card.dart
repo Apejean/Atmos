@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:atmos_mixer_pro/core/state/global_state.dart';
 import 'package:atmos_mixer_pro/src/rust/api/simple.dart' as rust_api;
 import 'package:atmos_mixer_pro/core/utils/channel_dropdown_helper.dart';
+import 'package:atmos_mixer_pro/core/utils/channel_routing.dart';
 import 'package:atmos_mixer_pro/features/dashboard/widgets/trajectory_settings_modal.dart';
 
 class TrackCard extends ConsumerStatefulWidget {
@@ -104,6 +105,23 @@ class _TrackCardState extends ConsumerState<TrackCard> {
     super.dispose();
   }
 
+  /// 라우팅 항목이 0개일 때 사용자에게 보일 이유. `outputChannelsProvider`가
+  /// 조회 중/장치 없음/조회 실패를 구분해 주므로 그대로 문구로 옮긴다.
+  String _emptyOutputReason(OutputChannelsState channels) {
+    switch (channels.status) {
+      case OutputChannelsStatus.loading:
+        return '출력 채널 조회 중...';
+      case OutputChannelsStatus.noDevice:
+        return '연결된 출력 장치 없음';
+      case OutputChannelsStatus.error:
+        return '채널 조회 실패: ${channels.errorMessage ?? '알 수 없는 오류'}';
+      case OutputChannelsStatus.ready:
+        // 채널은 있는데 항목이 0개면 Output Config에서 해당 그룹을 전부
+        // 닫아둔 경우다(예: 멀티 파일인데 Multi 그룹이 모두 비활성).
+        return 'Output Config에서 사용할 채널 그룹을 열어주세요';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final bool isObjectMode = widget.track.outputChannel == 4294967295;
@@ -111,82 +129,41 @@ class _TrackCardState extends ConsumerState<TrackCard> {
     final engineState = ref.watch(engineStateProvider);
     final isPlaying = engineState.playingTrackIds.contains(widget.track.id);
 
-    final hwChannelsAsync = ref.watch(hardwareChannelsProvider);
-    
-    final hwChannels = hwChannelsAsync.value ?? [];
-    // 하드웨어 채널 이름 목록을 아직 못 받았으면(FutureProvider 로딩/실패) 엔진이 보고한
-    // 실제 출력 채널 수를 쓴다. 예전에는 64로 폴백해서 2채널 장치에서도 64개 항목이 생성됐다.
-    final int maxChannels = hwChannels.isNotEmpty
-        ? hwChannels.length
-        : (engineState.outputChannelCount > 0 ? engineState.outputChannelCount : 2);
+    // Ext. Out 드롭다운 항목은 환경설정의 "트랙별 출력 채널 매핑"과 동일한
+    // 순수 함수로 만든다. 같은 저장값이 두 화면에서 같은 라벨로 보이는 것을
+    // 이 공유로 보장한다(라벨을 여기서 직접 만들지 않는다).
+    final outputChannels = ref.watch(outputChannelsProvider);
+    final config = ref.watch(configProvider);
 
-    final List<DropdownMenuItem<String>> outputItems = [];
-    final isMulti = _fileChannels != null && _fileChannels! > 2;
-    final isMono = _fileChannels == 1;
-
-    // 멀티채널 파일이 아니면(모노/스테레오) 각 하드웨어 채널을 모노 목적지로 제공한다.
-    // 스테레오 파일을 모노 채널 하나로 보내면 엔진이 다운믹스해서 출력한다
-    // (mixer.rs: `!output_stereo && ch_limit > 1` 분기).
-    if (!isMulti) {
-      for (int i = 0; i < maxChannels; i++) {
-        outputItems.add(
-          DropdownMenuItem(
-            value: ChannelDropdownValueHelper.getMonoValue(i),
-            child: Text(
-              'Mono (Ch-${i + 1})',
-              style: const TextStyle(fontSize: 12, color: Colors.white),
-            ),
-          ),
-        );
-      }
-    }
-
-    // 스테레오 파일은 위의 모노 선택지에 더해 스테레오 쌍 선택지도 제공한다.
-    // 쌍의 두 채널이 모두 실재해야 하므로 i + 1 < maxChannels 범위만 생성한다.
-    if (!isMono && !isMulti) {
-      for (int i = 0; i + 1 < maxChannels; i++) {
-        outputItems.add(
-          DropdownMenuItem(
-            value: ChannelDropdownValueHelper.getStereoValue(i),
-            child: Text(
-              'Stereo (Ch-${i + 1}/Ch-${i + 2})',
-              style: const TextStyle(fontSize: 12, color: Colors.white),
-            ),
-          ),
-        );
-      }
-    }
-
-    // 멀티채널은 파일 채널 수가 전부 들어갈 수 있는 시작 위치만 생성한다.
-    // 하드웨어 채널이 파일 채널 수보다 적어 들어갈 자리가 없으면, 트랙이 아예
-    // 선택 불가가 되지 않도록 Ch-1 시작 항목 하나는 남긴다(엔진이 다운믹스한다).
-    if (isMulti) {
-      final int fileCh = _fileChannels!;
-      final int lastStart = maxChannels - fileCh;
-      if (lastStart >= 0) {
-        for (int i = 0; i <= lastStart; i++) {
-          outputItems.add(
-            DropdownMenuItem(
-              value: ChannelDropdownValueHelper.getMultiValue(i),
-              child: Text(
-                'N-Ch (Ch-${i + 1}~${i + fileCh})',
-                style: const TextStyle(fontSize: 12, color: Colors.white),
-              ),
-            ),
+    final List<ChannelRoutingItem> routingItems = config == null
+        ? const []
+        : buildChannelRoutingItems(
+            channelNames: outputChannels.channelNames,
+            config: config,
+            fileChannels: _fileChannels,
           );
-        }
-      } else {
-        outputItems.add(
-          DropdownMenuItem(
-            value: ChannelDropdownValueHelper.getMultiValue(0),
-            child: Text(
-              'N-Ch (Ch-1~$fileCh)',
-              style: const TextStyle(fontSize: 12, color: Colors.white),
+
+    final List<DropdownMenuItem<String>> outputItems = [
+      for (final item in routingItems)
+        DropdownMenuItem(
+          value: item.value,
+          child: Text(
+            item.label,
+            style: TextStyle(
+              fontSize: 12,
+              // 부분 출력(파일 채널 수 > 하드웨어 채널 수)은 정상 동작이지만
+              // 사용자가 무음으로 오해하지 않도록 색으로 구분한다.
+              color: item.isPartialOutput
+                  ? Colors.amberAccent
+                  : Colors.white,
             ),
           ),
-        );
-      }
-    }
+        ),
+    ];
+
+    // 저장된 값을 드롭다운 값 형식으로 되돌린다. 멀티채널 파일은 Multi
+    // 인코딩을, 그 밖에는 outputStereo 플래그에 따라 Stereo/Mono 인코딩을 쓴다.
+    final bool isMulti = _fileChannels != null && _fileChannels! > 2;
 
     int currentKey = widget.track.outputChannel;
     String currentValue;
@@ -344,6 +321,21 @@ class _TrackCardState extends ConsumerState<TrackCard> {
                     Row(
                       children: [
                         const Text('Ext. Out: ', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+                        // 항목이 하나도 없으면 왜 없는지 알려준다. 예전에는 빈
+                        // 드롭다운만 남아 장치 미인식과 조회 실패를 구분할 수
+                        // 없었다(무음 실패).
+                        if (outputItems.isEmpty)
+                          Expanded(
+                            child: Text(
+                              _emptyOutputReason(outputChannels),
+                              style: const TextStyle(
+                                color: Colors.orangeAccent,
+                                fontSize: 11,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          )
+                        else
                         DropdownButtonHideUnderline(
                           child: DropdownButton<String>(
                             value: currentValue,

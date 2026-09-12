@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/state/global_state.dart';
+import '../../../core/utils/channel_routing.dart';
 import '../../../src/rust/api/simple.dart';
 import '../../../src/rust/common/config.dart';
 
@@ -1495,6 +1496,21 @@ class _TuningModalState extends ConsumerState<TuningModal>
     );
   }
 
+  /// 채널 목록이 0개일 때 보여줄 이유. `outputChannelsProvider`가 조회 중/
+  /// 장치 없음/조회 실패를 구분해 주므로 그대로 문구로 옮긴다.
+  String _emptyChannelReason(OutputChannelsState channels) {
+    switch (channels.status) {
+      case OutputChannelsStatus.loading:
+        return '채널 조회 중...';
+      case OutputChannelsStatus.noDevice:
+        return '출력 장치 없음';
+      case OutputChannelsStatus.error:
+        return '채널 조회 실패';
+      case OutputChannelsStatus.ready:
+        return '출력 채널 없음';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     ref.listen(tuningStateProvider, (previous, next) {
@@ -1506,15 +1522,15 @@ class _TuningModalState extends ConsumerState<TuningModal>
       }
     });
 
-    final hwChannelsAsync = ref.watch(hardwareChannelsProvider);
-    final hwChannels = hwChannelsAsync.value ?? [];
-    final engineState = ref.watch(engineStateProvider);
-    final int maxChannels = hwChannels.isNotEmpty
-        ? hwChannels.length
-        : (engineState.outputChannelCount > 0
-            ? engineState.outputChannelCount
-            : 2);
+    // 채널 목록은 실제 인식된 오디오 인터페이스 출력이 유일한 진실 원천이다.
+    // 예전에는 engineState.outputChannelCount로 폴백해서 이름 없는 채널이
+    // 생기고 다른 UI와 개수가 어긋날 수 있었다.
+    final outputChannels = ref.watch(outputChannelsProvider);
+    final hwChannels = outputChannels.channelNames;
+    final int maxChannels = hwChannels.length;
 
+    // _selectedChannel은 이 모달 내부에서만 1-based다(레거시). 범위를 넘으면
+    // 1번으로 되돌린다. 채널이 0개면 아래에서 드롭다운 자체를 표시하지 않는다.
     int safeSelectedChannel = _selectedChannel;
     if (safeSelectedChannel > maxChannels) safeSelectedChannel = 1;
 
@@ -1572,7 +1588,21 @@ class _TuningModalState extends ConsumerState<TuningModal>
                         borderRadius: BorderRadius.circular(6),
                         border: Border.all(color: _inputBorder, width: 1),
                       ),
-                      child: DropdownButtonHideUnderline(
+                      // 채널이 0개면(장치 미인식/조회 실패) 드롭다운을 띄우면
+                      // value가 items에 없어 assert로 죽는다. 이유를 문구로
+                      // 보여준다.
+                      child: maxChannels == 0
+                          ? Center(
+                              child: Text(
+                                _emptyChannelReason(outputChannels),
+                                style: const TextStyle(
+                                  color: Colors.orangeAccent,
+                                  fontSize: 11,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            )
+                          : DropdownButtonHideUnderline(
                         child: DropdownButton<int>(
                           value: safeSelectedChannel,
                           dropdownColor: const Color(0xFF1E2229),
@@ -1584,18 +1614,18 @@ class _TuningModalState extends ConsumerState<TuningModal>
                             fontSize: 13,
                             fontWeight: FontWeight.w500,
                           ),
+                          // 라벨은 다른 UI(스피커 레이아웃/인스펙터, 트랙
+                          // 라우팅)와 같은 `Ch-N (하드웨어 이름)` 규약을 쓴다.
+                          // 예전의 'Channel N (L) • 이름' 형식은 화면마다 채널
+                          // 이름이 달라 보이게 만들었다. L/R 표기는 짝수/홀수
+                          // 추정에 불과했고 개별 채널 단위라는 규칙과 어긋나서
+                          // 뺐다(쌍 편집은 옆의 Link L/R이 담당한다).
                           items: List.generate(maxChannels, (index) {
                             final ch = index + 1;
-                            final side = ch % 2 != 0 ? "(L)" : "(R)";
-                            final hwName =
-                                index < hwChannels.length &&
-                                    hwChannels[index].isNotEmpty
-                                ? ' • ${hwChannels[index]}'
-                                : '';
                             return DropdownMenuItem<int>(
                               value: ch,
                               child: Text(
-                                'Channel $ch $side$hwName',
+                                channelDisplayName(index, hwChannels),
                                 overflow: TextOverflow.ellipsis,
                               ),
                             );

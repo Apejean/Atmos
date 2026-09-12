@@ -185,19 +185,6 @@ final deviceEventStreamProvider = StreamProvider<String>((ref) {
   return rust_api.apiCreateDeviceEventStream().asBroadcastStream();
 });
 
-final hardwareChannelsProvider = FutureProvider<List<String>>((ref) async {
-  final deviceName = ref.watch(configProvider.select((c) => c?.deviceName));
-  if (deviceName != null &&
-      GlobalDeviceCache.channels.containsKey(deviceName)) {
-    return GlobalDeviceCache.channels[deviceName]!;
-  }
-  try {
-    return await rust_api.apiGetDeviceChannelNames(deviceName: deviceName);
-  } catch (e) {
-    return [];
-  }
-});
-
 /// [outputChannelsProvider]가 노출하는 채널 목록 조회 상태.
 ///
 /// `hardwareChannelsProvider`(FutureProvider)는 실패 시 조용히 `[]`을 반환해서
@@ -247,11 +234,14 @@ class OutputChannelsState {
   });
 }
 
-/// `hardwareChannelsProvider`를 대체할 신규 단일 진실 원천 provider.
+/// 출력 채널 목록의 단일 진실 원천.
 ///
-/// B3에서 각 소비 위젯(환경설정 트랙 매핑, 메인화면 Ext. Out, FX, 스피커
-/// 인스펙터 등)이 이 provider로 옮겨갈 때까지 `hardwareChannelsProvider`는
-/// 삭제하지 않는다(동시에 깨지는 것을 방지).
+/// 환경설정 트랙 매핑, 메인화면 Ext. Out, FX(출력 채널 Mixer), 스피커 레이아웃,
+/// 스피커 인스펙터가 모두 이 provider만 본다. 이전의 `hardwareChannelsProvider`
+/// (FutureProvider)는 실패 시 조용히 `[]`을 반환해서 "채널 0개"와 "조회 실패"를
+/// 구분할 수 없었고, 소비 위젯마다 제각기 폴백(64채널, outputChannelCount,
+/// GlobalDeviceCache 직접 접근)을 두어 화면별로 채널 개수와 이름이 어긋났다.
+/// 그 provider는 모든 소비처가 옮겨온 뒤 삭제했다.
 class OutputChannelsNotifier extends Notifier<OutputChannelsState> {
   @override
   OutputChannelsState build() {
@@ -276,6 +266,13 @@ class OutputChannelsNotifier extends Notifier<OutputChannelsState> {
 
     return const OutputChannelsState(status: OutputChannelsStatus.loading);
   }
+
+  /// 외부에서 강제 재조회를 요청한다(예: 환경설정의 장치 수동 재스캔).
+  ///
+  /// 이 Notifier는 `deviceName` 변경과 핫플러그 이벤트만 구독하므로, 사용자가
+  /// 재스캔을 눌러 `GlobalDeviceCache`가 비워지고 다시 채워지는 경우에는
+  /// 아무 알림도 받지 못해 채널 목록이 낡은 상태로 남았다.
+  Future<void> refresh() => _refresh();
 
   Future<void> _refresh() async {
     final deviceName = ref.read(configProvider)?.deviceName;

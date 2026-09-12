@@ -275,4 +275,34 @@ void main() {
       expect(asMap(first), asMap(second));
     });
   });
+
+  group('channelDisplayName (개별 채널 이름 단일화)', () {
+    // 사용자 요구사항: 같은 채널이 스피커 레이아웃, 스피커 인스펙터,
+    // FX(출력 채널 Mixer)에서 모두 같은 이름으로 보여야 한다. 예전에는 화면마다
+    // 'Output CH 1' / 'Channel 1 (L) • Out 1' / 'Ch-1 Out 1'로 달랐다.
+    // 이 테스트가 그 규약을 고정한다.
+    test('하드웨어 이름이 있으면 Ch-N (이름) 형식', () {
+      expect(channelDisplayName(0, ['Out 1', 'Out 2']), 'Ch-1 (Out 1)');
+      expect(channelDisplayName(1, ['Out 1', 'Out 2']), 'Ch-2 (Out 2)');
+    });
+
+    test('하드웨어 이름이 비어 있거나 공백뿐이면 Ch-N만', () {
+      expect(channelDisplayName(0, ['']), 'Ch-1');
+      expect(channelDisplayName(0, ['   ']), 'Ch-1');
+    });
+
+    test('입력 인덱스는 0-based, 표시는 1-based', () {
+      expect(channelDisplayName(7, List.filled(8, '')), 'Ch-8');
+    });
+
+    test('범위를 벗어난 인덱스도 크래시하지 않고 번호만 보여준다', () {
+      expect(channelDisplayName(5, ['Out 1', 'Out 2']), 'Ch-6');
+      expect(channelDisplayName(-1, ['Out 1']), 'Ch-0');
+    });
+
+    test('저장값이 현재 장치 범위를 넘으면 조용히 0으로 바뀌지 않고 드러난다', () {
+      expect(channelOutOfRangeName(63), 'Ch-64 (현재 장치에 없음)');
+      expect(channelOutOfRangeName(0), 'Ch-1 (현재 장치에 없음)');
+    });
+  });
 }

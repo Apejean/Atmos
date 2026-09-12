@@ -45,6 +45,20 @@ class MockEngineStateNotifier extends EngineStateNotifier {
   void reset() {}
 }
 
+/// 출력 채널 목록 목. 실제 FFI/CPAL 조회 없이 4채널 장치를 흉내낸다.
+/// 드롭다운 항목 개수는 인식된 하드웨어 출력 채널 수를 따르므로 테스트가
+/// 채널 수를 명시해야 한다(예전 64채널 폴백은 제거됐다).
+class MockOutputChannelsNotifier extends OutputChannelsNotifier {
+  static const channels = ['Out 1', 'Out 2', 'Out 3', 'Out 4'];
+
+  @override
+  OutputChannelsState build() => const OutputChannelsState(
+    status: OutputChannelsStatus.ready,
+    channelNames: channels,
+    lastKnownGoodChannelNames: channels,
+  );
+}
+
 class MockLogNotifier extends Notifier<List<String>> {
   @override
   List<String> build() => [];
@@ -117,10 +131,9 @@ void main() {
         overrides: [
           configProvider.overrideWith(() => MockConfigNotifier(config)),
           engineStateProvider.overrideWith(() => MockEngineStateNotifier()),
-          // 드롭다운 항목 개수는 실제 인식된 하드웨어 출력 채널 수를 따른다.
           // 테스트는 Ch-3/Ch-4 쌍을 선택하므로 4채널 장치를 가정한다.
-          hardwareChannelsProvider.overrideWith(
-            (ref) async => const ['Out 1', 'Out 2', 'Out 3', 'Out 4'],
+          outputChannelsProvider.overrideWith(
+            () => MockOutputChannelsNotifier(),
           ),
         ],
         child: MaterialApp(
@@ -144,8 +157,9 @@ void main() {
     await tester.tap(find.byType(DropdownButton<String>));
     await tester.pumpAndSettle();
 
-    // 스테레오 쌍 항목 라벨은 'Stereo (Ch-3/Ch-4)' 형식이다.
-    await tester.tap(find.text('Stereo (Ch-3/Ch-4)').last);
+    // Output Config에 stereoConfigs[3]이 열려 있으므로 항목은 그 그룹에서
+    // 나오고, customName('Stereo3')이 라벨 뒤에 붙는다.
+    await tester.tap(find.text('Stereo (Ch-3/Ch-4) (Stereo3)').last);
     await tester.pumpAndSettle();
 
     expect(parsedChannel, 2); // 3 - 1 = 2

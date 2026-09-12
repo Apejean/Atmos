@@ -8,6 +8,7 @@ import 'package:atmos_mixer_pro/features/exhibition/state/room_zone_state.dart';
 import 'package:atmos_mixer_pro/features/exhibition/state/spatial_reverb_state.dart';
 import 'package:atmos_mixer_pro/features/exhibition/state/bass_management_provider.dart';
 import 'package:atmos_mixer_pro/core/state/global_state.dart';
+import 'package:atmos_mixer_pro/core/utils/channel_routing.dart';
 import 'package:atmos_mixer_pro/features/exhibition/state/blueprint_state.dart';
 import 'package:atmos_mixer_pro/features/settings/widgets/reverb_settings_modal.dart';
 
@@ -193,12 +194,60 @@ class _SpeakerInspectorPanelState extends ConsumerState<SpeakerInspectorPanel> {
     );
   }
 
+  /// 개별 출력 채널 1개의 드롭다운 항목. 스피커 레이아웃과 FX는 스테레오/멀티
+  /// 그룹핑 없이 개별 채널만 잡으므로 `buildChannelRoutingItems`(트랙 라우팅용)
+  /// 를 쓰지 않고 평면 목록을 만든다.
+  ///
+  /// 라벨은 `Ch-${i + 1}` 규약을 다른 UI와 공유하고, 인터페이스가 보고한
+  /// 채널 이름이 있으면 뒤에 덧붙인다.
+  DropdownMenuItem<int> _channelItem(
+    int i,
+    List<String> channelNames,
+    List<SpeakerNode> speakers,
+    SpeakerNode speaker,
+  ) {
+    final inUseBy = speakers
+        .where((s) => s.channel == i && s.id != speaker.id)
+        .firstOrNull;
+
+    // 라벨 템플릿을 여기서 만들지 않는다. 세 UI가 channelDisplayName 하나만
+    // 쓰도록 모아 같은 채널이 같은 이름으로 보이는 것을 보장한다.
+    var label = channelDisplayName(i, channelNames);
+    if (inUseBy != null) {
+      final shortId = inUseBy.id.substring(0, math.min(3, inUseBy.id.length));
+      label += ' (In Use: $shortId)';
+    }
+
+    return DropdownMenuItem(
+      value: i,
+      child: Row(
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              color: inUseBy != null ? Colors.white54 : Colors.white,
+            ),
+          ),
+          if (speaker.channel == i)
+            const Padding(
+              padding: EdgeInsets.only(left: 8.0),
+              child: Icon(Icons.check, size: 16, color: Colors.lightBlueAccent),
+            ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final layout = ref.watch(speakerLayoutProvider);
     final rooms = ref.watch(roomZoneProvider);
-    final engineState = ref.watch(engineStateProvider);
-    final maxChannels = engineState.outputChannelCount;
+    // 채널 목록은 실제 인식된 오디오 인터페이스 출력이 유일한 진실 원천이다.
+    // 예전에는 engineState.outputChannelCount(개수만)를 써서 채널 이름을 알 수
+    // 없었고, 다른 UI와 라벨이 달랐다.
+    final outputChannels = ref.watch(outputChannelsProvider);
+    final channelNames = outputChannels.channelNames;
+    final maxChannels = channelNames.length;
     final speakers = layout;
     final speaker = layout.where((s) => s.id == widget.speakerId).firstOrNull;
 
@@ -234,28 +283,27 @@ class _SpeakerInspectorPanelState extends ConsumerState<SpeakerInspectorPanel> {
                 Expanded(
                   child: DropdownButtonHideUnderline(
                     child: DropdownButton<int>(
-                      value: speaker.channel < maxChannels ? speaker.channel : (maxChannels > 0 ? 0 : speaker.channel),
+                      // 저장된 채널이 현재 장치의 범위를 넘으면(더 작은 장치로
+                      // 교체된 경우) 조용히 Ch-1로 바꿔 보여주지 않는다. 아래에서
+                      // "범위 초과" 항목을 따로 만들어 실제 저장값을 그대로
+                      // 유지하고 사용자에게 드러낸다.
+                      value: speaker.channel,
                       dropdownColor: const Color(0xFF1E2632),
                       style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
-                      items: List.generate(maxChannels > 0 ? maxChannels : 2, (i) {
-                        final inUseBy = speakers.where((s) => s.channel == i && s.id != speaker.id).firstOrNull;
-                        final label = inUseBy != null ? 'Output CH ${i + 1} (In Use: ${inUseBy.id.substring(0, math.min(3, inUseBy.id.length))})' : 'Output CH ${i + 1}';
-                        return DropdownMenuItem(
-                          value: i, 
-                          child: Row(
-                            children: [
-                              Text(
-                                label, 
-                                style: TextStyle(color: inUseBy != null ? Colors.white54 : Colors.white)
-                              ),
-                              if (speaker.channel == i) const Padding(
-                                padding: EdgeInsets.only(left: 8.0),
-                                child: Icon(Icons.check, size: 16, color: Colors.lightBlueAccent),
-                              )
-                            ]
-                          )
-                        );
-                      }),
+                      items: [
+                        for (int i = 0; i < maxChannels; i++)
+                          _channelItem(i, channelNames, speakers, speaker),
+                        // 저장값이 범위를 넘으면 그 값 자체를 항목으로 추가해야
+                        // DropdownButton이 assert로 죽지 않는다.
+                        if (speaker.channel >= maxChannels)
+                          DropdownMenuItem(
+                            value: speaker.channel,
+                            child: Text(
+                              channelOutOfRangeName(speaker.channel),
+                              style: const TextStyle(color: Colors.orangeAccent),
+                            ),
+                          ),
+                      ],
                       onChanged: (val) {
                         if (val != null) {
                           ref.read(speakerLayoutProvider.notifier).updateSpeaker(speaker.copyWith(channel: val));
