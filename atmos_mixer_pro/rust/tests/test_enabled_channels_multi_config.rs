@@ -82,13 +82,32 @@ fn mono_and_multi_mixed_opens_both_ranges() {
 
 /// enabled=false인 그룹은 열리지 않는다 (mono/stereo와 동일하게 multi도 enabled 플래그를 존중해야 함).
 #[test]
-fn disabled_multi_config_does_not_open_channels() {
+fn all_groups_disabled_opens_all_channels() {
     let mut config = AppConfig::default();
     config.multi_configs.insert(1, setting(false));
     let enabled = compute_enabled_channels(&config, 8);
-    // multi_configs가 비어있지 않으므로 하위호환 "전체 개방" 분기는 타지 않고,
-    // enabled=false라 아무 채널도 열리지 않아야 한다.
-    assert_eq!(enabled, vec![false; 8]);
+    // 항목은 있지만 전부 enabled=false다. 예전에는 맵이 비어있지 않다는 이유로
+    // "전체 개방" 분기를 건너뛰어 모든 채널이 닫혔고, 결과는 완전 무음이었다.
+    // 더 나쁜 건 Dart의 buildChannelRoutingItems()는 "활성 항목이 있는가"를
+    // 기준으로 써서 이 설정에서도 모든 채널을 선택지로 제시했다는 점이다.
+    // UI가 제시한 채널을 엔진이 음소거하는 상태였다.
+    //
+    // 현재 데이터 모델은 "미설정"과 "전부 비활성"을 구분하지 못하므로 Dart와
+    // 같은 규칙으로 통일했다: 활성 그룹이 하나도 없으면 전체 개방.
+    assert_eq!(enabled, vec![true; 8]);
+}
+
+/// 활성 그룹이 하나라도 있으면 그때부터는 그 그룹만 열린다. 즉 "전체 개방"은
+/// 어디까지나 미설정 하위호환이고, 한 번 열면 나머지는 상대적으로 닫힌다.
+#[test]
+fn one_enabled_group_closes_the_rest() {
+    let mut config = AppConfig::default();
+    config.mono_configs.insert(1, setting(true)); // ch0, ch1만 개방
+    config.mono_configs.insert(5, setting(false)); // 비활성이므로 무시
+    config.multi_configs.insert(7, setting(false)); // 비활성이므로 무시
+    let enabled = compute_enabled_channels(&config, 8);
+    let expected = vec![true, true, false, false, false, false, false, false];
+    assert_eq!(enabled, expected);
 }
 
 /// 하드웨어 채널 수를 넘는 키가 들어와도 패닉하지 않고 안전하게 무시해야 한다 (경계 안전).

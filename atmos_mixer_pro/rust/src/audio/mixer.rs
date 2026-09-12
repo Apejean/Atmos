@@ -711,12 +711,31 @@ impl AudioMixer {
                         }
 
                         // Mono file -> Stereo Out upmix for backwards compatibility
+                        //
+                        // 이 경로에는 두 가지 결함이 있었다.
+                        // 1) enabled_channels 게이트를 건너뛰어서 Output Config
+                        //    에서 닫은 채널로도 소리가 나갔다. 바로 위 N:N
+                        //    라우팅은 게이트를 거치므로, 왼쪽은 음소거되고
+                        //    오른쪽만 나오는 비대칭이 생겼다.
+                        // 2) channel_spatial_gains를 오른쪽에만 곱했다. 이 배열은
+                        //    궤적/공간 코드가 1.0에서 크게 벗어나게 변조하므로
+                        //    (같은 파일 436~469행), 모노 소스를 스테레오 쌍으로
+                        //    보내면 왼쪽은 원래 레벨, 오른쪽만 궤적 게인이 걸려
+                        //    이미지가 한쪽으로 쏠리거나 오른쪽이 사라졌다.
+                        //    믹스다운 전체에서 이 배열을 곱하는 곳은 여기뿐이었다.
+                        // 이제 왼쪽과 같은 규칙(게이트 통과, 추가 게인 없음)을
+                        // 적용해 좌우를 대칭으로 만든다.
                         if ch_limit == 1 && instance.output_stereo {
                             let hw_ch_r = instance.output_channel + 1;
                             if hw_ch_r < out_channels {
+                                let is_enabled_r = if hw_ch_r < GLOBAL_STATE.enabled_channels.len() {
+                                    GLOBAL_STATE.enabled_channels[hw_ch_r].load(Ordering::Relaxed)
+                                } else {
+                                    false
+                                };
                                 let out_idx_r = frame * out_channels + hw_ch_r;
-                                if out_idx_r < output.len() {
-                                    output[out_idx_r] += vals[0] * current_vol * self.channel_spatial_gains[hw_ch_r];
+                                if is_enabled_r && out_idx_r < output.len() {
+                                    output[out_idx_r] += vals[0] * current_vol;
                                 }
                             }
                         }

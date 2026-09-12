@@ -59,10 +59,24 @@ pub fn api_update_sound_source_position(sound_id: String, x: f32, y: f32, z: f32
 pub fn compute_enabled_channels(config: &AppConfig, hw_len: usize) -> Vec<bool> {
     let mut enabled = vec![false; hw_len];
 
-    if config.mono_configs.is_empty()
-        && config.stereo_configs.is_empty()
-        && config.multi_configs.is_empty()
-    {
+    // "한 번도 그룹을 열지 않은 설정"은 전체 개방으로 본다.
+    //
+    // 예전에는 맵이 `is_empty()`인지만 봤다. 그래서 항목은 존재하지만 전부
+    // `enabled: false`인 설정(신규 생성 직후 등)에서는 이 분기를 타지 않고
+    // 모든 채널이 닫힌 채로 남아 완전 무음이 됐다. 더 나쁜 건 Dart의
+    // `buildChannelRoutingItems()`(lib/core/utils/channel_routing.dart)가
+    // "enabled 항목이 하나라도 있는가"를 기준으로 쓴다는 점이었다. 두 규칙이
+    // 어긋나서 UI는 채널을 선택지로 제시하는데 엔진은 그 채널을 음소거했다.
+    // 사용자가 "선택은 되는데 소리가 안 난다"고 본 원인이다.
+    //
+    // 현재 데이터 모델에는 "설정된 적 있음"을 나타내는 별도 플래그가 없어
+    // "전부 비활성"과 "미설정"을 구분할 수 없다. 그래서 Dart와 같은 규칙
+    // (활성 항목이 하나도 없으면 전체 개방)으로 통일한다. 채널을 실제로 닫는
+    // 것은 다른 그룹을 열어 상대적으로 닫는 방식이다.
+    let has_enabled_group = config.mono_configs.values().any(|s| s.enabled)
+        || config.stereo_configs.values().any(|s| s.enabled)
+        || config.multi_configs.values().any(|s| s.enabled);
+    if !has_enabled_group {
         return vec![true; hw_len];
     }
 
