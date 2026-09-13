@@ -12,6 +12,7 @@ import 'package:atmos_mixer_pro/features/settings/widgets/tuning_modal.dart';
 import 'package:atmos_mixer_pro/features/dashboard/widgets/osc_monitor_dialog.dart';
 import 'package:atmos_mixer_pro/features/dashboard/widgets/master_limiter_meter.dart';
 import 'package:atmos_mixer_pro/features/dashboard/widgets/resampler_status_badge.dart';
+import 'package:atmos_mixer_pro/features/dashboard/widgets/binaural_toggle_badge.dart';
 import 'package:atmos_mixer_pro/features/dashboard/widgets/rta_spectrum_overlay.dart';
 import 'package:atmos_mixer_pro/features/dashboard/widgets/multitrack_timeline.dart';
 import 'package:atmos_mixer_pro/features/dashboard/widgets/advanced_physics_panel.dart';
@@ -805,6 +806,8 @@ oscWhitelist: config.oscWhitelist,
                 initialGainReductionDb: ref.watch(engineStateProvider).shortTermLufs,
                 enableSimulationToggle: true,
               ),
+              const SizedBox(width: 8),
+              const BinauralToggleBadge(),
             ],
           ),
           Wrap(
