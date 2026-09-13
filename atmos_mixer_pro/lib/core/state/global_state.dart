@@ -62,7 +62,12 @@ class ConfigNotifier extends Notifier<AppConfig?> {
         // Ignore background scan errors
       }
     } catch (e) {
-      ref.read(globalErrorProvider.notifier).showError('설정 로드 실패: $e');
+      // AtmosError는 toString()을 오버라이드하지 않아서 '$e'가 실제 메시지
+      // 대신 'Instance of AtmosError'를 찍는다. 사용자가 원인을 알 수
+      // 없는 화면이 되어, 이미 outputChannelsProvider에서 쓰던 방식대로
+      // .message를 직접 꺼낸다.
+      final message = e is AtmosError ? e.message : e.toString();
+      ref.read(globalErrorProvider.notifier).showError('설정 로드 실패: $message');
     }
   }
 

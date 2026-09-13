@@ -80,14 +80,17 @@ pub fn compute_enabled_channels(config: &AppConfig, hw_len: usize) -> Vec<bool> 
         return vec![true; hw_len];
     }
 
+    // Mono 그룹 하나는 **채널 하나**를 연다. 예전에는 real_ch와 real_ch+1을
+    // 모두 열어서, 사용자가 Mono 1만 열어도 채널 2까지 열렸다. Dart의
+    // buildChannelRoutingItems도 같은 가정으로 항목을 두 개 만들다가 같은 채널이
+    // 중복 노출되는 버그가 있었고, 그쪽을 1:1로 고쳤다. 게이트도 같은 규약을
+    // 따라야 UI가 연 채널과 엔진이 여는 채널이 일치한다.
+    // 페어를 열려면 Stereo 그룹을 쓴다(아래 루프가 real_ch와 real_ch+1을 연다).
     for (&ch, setting) in &config.mono_configs {
         if setting.enabled && ch > 0 {
             let real_ch = (ch - 1) as usize;
             if real_ch < hw_len {
                 enabled[real_ch] = true;
-            }
-            if real_ch + 1 < hw_len {
-                enabled[real_ch + 1] = true;
             }
         }
     }

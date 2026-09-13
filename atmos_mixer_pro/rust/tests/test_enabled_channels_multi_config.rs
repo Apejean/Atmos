@@ -32,9 +32,23 @@ fn all_configs_empty_opens_all_channels() {
 
 /// mono_configs만 설정된 경우: key(1-based)마다 real_ch, real_ch+1 (0-based) 두 채널이 열린다.
 #[test]
-fn mono_only_opens_pair() {
+fn mono_only_opens_single_channel() {
     let mut config = AppConfig::default();
-    config.mono_configs.insert(1, setting(true)); // 1-based key=1 -> 0-based ch 0,1
+    config.mono_configs.insert(1, setting(true)); // 1-based key=1 -> 0-based ch 0
+    let enabled = compute_enabled_channels(&config, 8);
+    // Mono 그룹 하나 = 채널 하나. 예전에는 ch0과 ch1을 함께 열어서, 사용자가
+    // Mono 1만 열어도 채널 2가 열렸다. Dart의 라우팅 항목 생성기도 같은 가정
+    // 때문에 연속한 키에서 같은 채널을 중복 노출했다. 양쪽을 1:1로 통일했다.
+    let expected = vec![true, false, false, false, false, false, false, false];
+    assert_eq!(enabled, expected);
+}
+
+/// 연속한 Mono 키를 열면 그 채널들만 정확히 열린다(페어로 번지지 않는다).
+#[test]
+fn consecutive_mono_keys_open_exactly_those_channels() {
+    let mut config = AppConfig::default();
+    config.mono_configs.insert(1, setting(true)); // -> ch0
+    config.mono_configs.insert(2, setting(true)); // -> ch1
     let enabled = compute_enabled_channels(&config, 8);
     let expected = vec![true, true, false, false, false, false, false, false];
     assert_eq!(enabled, expected);
@@ -65,15 +79,15 @@ fn multi_only_opens_from_start_to_hw_end() {
 
 /// mono + multi 혼합 (기존 버그가 드러나는 케이스):
 /// 수정 전 코드는 mono_configs가 비어있지 않으므로 else 분기로 들어가지만 multi_configs를
-/// 순회하지 않아 채널 4~7이 계속 false로 남았다 (무음 버그). 수정 후에는 mono가 여는 0,1과
+/// 순회하지 않아 채널 4~7이 계속 false로 남았다 (무음 버그). 수정 후에는 mono가 여는 0과
 /// multi가 여는 4..8이 모두 true여야 한다.
 #[test]
 fn mono_and_multi_mixed_opens_both_ranges() {
     let mut config = AppConfig::default();
-    config.mono_configs.insert(1, setting(true)); // 0-based ch 0,1
+    config.mono_configs.insert(1, setting(true)); // 0-based ch 0 (Mono = 채널 하나)
     config.multi_configs.insert(5, setting(true)); // 0-based ch 4..8
     let enabled = compute_enabled_channels(&config, 8);
-    let expected = vec![true, true, false, false, true, true, true, true];
+    let expected = vec![true, false, false, false, true, true, true, true];
     assert_eq!(
         enabled, expected,
         "multi_configs가 반영되지 않으면 채널 4~7이 열리지 않는다 (실제 버그 재현)"
@@ -102,11 +116,11 @@ fn all_groups_disabled_opens_all_channels() {
 #[test]
 fn one_enabled_group_closes_the_rest() {
     let mut config = AppConfig::default();
-    config.mono_configs.insert(1, setting(true)); // ch0, ch1만 개방
+    config.mono_configs.insert(1, setting(true)); // ch0만 개방
     config.mono_configs.insert(5, setting(false)); // 비활성이므로 무시
     config.multi_configs.insert(7, setting(false)); // 비활성이므로 무시
     let enabled = compute_enabled_channels(&config, 8);
-    let expected = vec![true, true, false, false, false, false, false, false];
+    let expected = vec![true, false, false, false, false, false, false, false];
     assert_eq!(enabled, expected);
 }
 

@@ -111,37 +111,27 @@ List<ChannelRoutingItem> buildChannelRoutingItems({
           .where((e) => e.value.enabled)
           .toList()
         ..sort((a, b) => a.key.compareTo(b.key));
+      // Mono 그룹 하나는 **채널 하나**를 연다. 예전에는 한 슬롯이 L/R 페어를
+      // 연다고 보고 key-1과 key 두 채널을 모두 항목으로 만들었다. 그러면 연속한
+      // 키를 열었을 때(예: Mono 1, Mono 2) Ch-2가 두 번 나온다. 게다가 두 항목의
+      // 드롭다운 값이 'mono_1'로 완전히 같아서, 그 채널을 선택하면
+      // DropdownButton이 "값에 해당하는 항목은 정확히 하나여야 한다"는 assert로
+      // 죽는다(잠복 크래시). Ableton식 Output Config에서 Mono는 모노 채널 하나를
+      // 여닫는 것이므로 1:1이 맞다. 페어가 필요하면 Stereo 그룹을 쓴다.
       for (final e in sortedMono) {
         final key = e.key; // 1-based (레거시)
         final setting = e.value;
 
-        final realCh1 = key - 1; // 0-based 변환
-        if (realCh1 < hwCount) {
+        final realCh = key - 1; // 0-based 변환
+        if (realCh < hwCount) {
           items.add(
             ChannelRoutingItem(
-              value: ChannelDropdownValueHelper.getMonoValue(realCh1),
+              value: ChannelDropdownValueHelper.getMonoValue(realCh),
               label: _withCustomSuffix(
-                'Mono (Ch-${realCh1 + 1})',
+                'Mono (Ch-${realCh + 1})',
                 setting.customName,
-                pairSuffix: 'L',
               ),
-              realChannel0: realCh1,
-              isPartialOutput: false,
-            ),
-          );
-        }
-
-        final realCh2 = key; // 0-based (모노 슬롯이 L/R 페어를 연다는 기존 설계 유지)
-        if (realCh2 < hwCount) {
-          items.add(
-            ChannelRoutingItem(
-              value: ChannelDropdownValueHelper.getMonoValue(realCh2),
-              label: _withCustomSuffix(
-                'Mono (Ch-${realCh2 + 1})',
-                setting.customName,
-                pairSuffix: 'R',
-              ),
-              realChannel0: realCh2,
+              realChannel0: realCh,
               isPartialOutput: false,
             ),
           );

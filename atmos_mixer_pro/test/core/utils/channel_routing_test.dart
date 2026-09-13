@@ -183,25 +183,29 @@ void main() {
       },
     );
 
-    test('Mono 그룹 키 1개는 L/R 두 항목(Ch-1, Ch-2)을 만든다', () {
+    test('Mono 그룹 키 1개는 채널 하나만 만든다', () {
+      // 이 테스트는 원래 "Mono 슬롯 하나가 L/R 페어를 연다"고 고정하고 있었다.
+      // 그 전제가 틀렸다. Ableton식 Output Config에서 Mono는 모노 채널 하나를
+      // 여닫는 것이고, 페어가 필요하면 Stereo 그룹을 쓴다. 페어로 만들면
+      // 연속한 키를 열었을 때 같은 채널이 두 번 나오고 드롭다운 값까지 겹쳐
+      // DropdownButton이 assert로 죽었다.
       final items = buildChannelRoutingItems(
         channelNames: hw(2),
         config: config(mono: {1: setting(customName: 'Center')}),
         fileChannels: 1,
       );
 
-      expect(items.map((e) => e.value).toList(), ['mono_0', 'mono_1']);
-      expect(items[0].label, 'Mono (Ch-1) (Center L)');
-      expect(items[1].label, 'Mono (Ch-2) (Center R)');
+      expect(items.map((e) => e.value).toList(), ['mono_0']);
+      expect(items[0].label, 'Mono (Ch-1) (Center)');
     });
 
-    test('Mono 그룹의 R 채널이 하드웨어 상한을 넘으면 L만 생성된다', () {
+    test('Mono 그룹 키가 하드웨어 상한을 넘으면 생성되지 않는다', () {
       final items = buildChannelRoutingItems(
         channelNames: hw(1),
-        config: config(mono: {1: setting()}),
+        config: config(mono: {2: setting()}),
         fileChannels: 1,
       );
-      expect(items.map((e) => e.value).toList(), ['mono_0']);
+      expect(items.map((e) => e.value).toList(), isEmpty);
     });
 
     test('Stereo 그룹은 짝 채널이 있어야만 생성된다', () {
@@ -303,6 +307,88 @@ void main() {
     test('저장값이 현재 장치 범위를 넘으면 조용히 0으로 바뀌지 않고 드러난다', () {
       expect(channelOutOfRangeName(63), 'Ch-64 (현재 장치에 없음)');
       expect(channelOutOfRangeName(0), 'Ch-1 (현재 장치에 없음)');
+    });
+  });
+
+  group('Mono 그룹은 채널 하나만 연다 (중복/크래시 회귀)', () {
+    // 사용자 실제 설정 재현: monoConfigs {1: true, 2: true}, 12채널 장치.
+    // 예전에는 Mono 슬롯 하나가 L/R 페어를 연다고 보고 key-1과 key 두 채널을
+    // 모두 만들어서, 연속한 키를 열면 Ch-2가 두 번 나왔다. 더 심각한 건 두
+    // 항목의 값이 'mono_1'로 같아서 그 채널을 고르면 DropdownButton이
+    // assert로 죽는다는 점이었다.
+    AppConfig configWithMono(Map<int, bool> mono) => AppConfig(
+      globalReverbMix: 0.0,
+      globalReverbDecay: 1.0,
+      oscWhitelist: const [],
+      oscPort: 8000,
+      bufferSize: 1024,
+      themeStartOscAddress: '',
+      systemResetOscAddress: '',
+      monoConfigs: {
+        for (final e in mono.entries)
+          e.key: ChannelSetting(
+            enabled: e.value,
+            customName: '',
+            delayMs: 0.0,
+            gainDb: 0.0,
+            phaseInvert: false,
+            eqBands: const [],
+          ),
+      },
+      stereoConfigs: const {},
+      multiConfigs: const {},
+      rooms: const [],
+      isExhibitionMode: false,
+      masterHeadroomDb: 0.0,
+      peakLimiterEnabled: true,
+      globalTrajectory: null,
+      roomZones: const [],
+    );
+
+    test('연속한 Mono 키를 열어도 같은 채널이 두 번 나오지 않는다', () {
+      final items = buildChannelRoutingItems(
+        channelNames: List.generate(12, (i) => 'Out ${i + 1}'),
+        config: configWithMono({1: true, 2: true}),
+        fileChannels: 1,
+      );
+
+      final labels = items.map((i) => i.label).toList();
+      expect(
+        labels.toSet().length,
+        labels.length,
+        reason: '중복 라벨이 있다: $labels',
+      );
+    });
+
+    test('드롭다운 값이 유일하다 (DropdownButton assert 크래시 방지)', () {
+      final items = buildChannelRoutingItems(
+        channelNames: List.generate(12, (i) => 'Out ${i + 1}'),
+        config: configWithMono({1: true, 2: true}),
+        fileChannels: 1,
+      );
+
+      final values = items.map((i) => i.value).toList();
+      expect(
+        values.toSet().length,
+        values.length,
+        reason:
+            'DropdownButton은 값에 해당하는 항목이 정확히 하나여야 한다. '
+            '중복 값: $values',
+      );
+    });
+
+    test('Mono 키 N은 정확히 채널 N 하나에 대응한다', () {
+      final items = buildChannelRoutingItems(
+        channelNames: List.generate(12, (i) => 'Out ${i + 1}'),
+        config: configWithMono({1: true, 2: true}),
+        fileChannels: 1,
+      );
+
+      expect(items.length, 2);
+      expect(items[0].realChannel0, 0);
+      expect(items[0].label, 'Mono (Ch-1)');
+      expect(items[1].realChannel0, 1);
+      expect(items[1].label, 'Mono (Ch-2)');
     });
   });
 }
