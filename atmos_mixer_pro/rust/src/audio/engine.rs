@@ -239,10 +239,17 @@ impl AudioEngine {
             }
         }
 
+        // 실제로 콜백에 넘어올 프레임 수. AudioMixer::new()에 그대로 전달해
+        // 바이노럴 FFT/오버랩-애드 버퍼를 정확한 크기로 사전 할당한다(위
+        // AudioMixer::new 문서 참고). Unknown인 경우 정확한 값을 알 수
+        // 없으므로 클램프 전 목표치를 최선의 추정치로 쓴다.
+        let mut resolved_buffer_size: usize = target_buffer_size as usize;
+
         match supported_config.buffer_size() {
             cpal::SupportedBufferSize::Range { min, max } => {
                 let clamped = target_buffer_size.clamp(*min, *max);
                 config.buffer_size = cpal::BufferSize::Fixed(clamped);
+                resolved_buffer_size = clamped as usize;
                 println!(
                     "🔥 [디버깅] Buffer size clamped to {} (Range: {} - {})",
                     clamped, min, max
@@ -296,6 +303,7 @@ impl AudioEngine {
         let mut mixer = AudioMixer::new(
             config.sample_rate.0,
             virtual_channels,
+            resolved_buffer_size,
             gc_tx,
             Some(analysis_tx),
         );
@@ -738,6 +746,12 @@ impl AudioEngine {
                     let old_traj = std::mem::replace(&mut mixer.trajectory, trajectory);
                     let old_taps =
                         std::mem::replace(&mut mixer.channel_early_ref_taps, early_reflection_taps);
+
+                    // 채널 위치/룸이 바뀌었으니 바이노럴 렌더러의 채널별 기준
+                    // 방위각도 다시 계산한다(BINAURAL_SPATIAL_RENDERING_SPEC.md).
+                    // channel_positions/room_zones가 이미 교체된 뒤에 호출해야
+                    // 새 값을 읽는다.
+                    mixer.recalculate_binaural_channel_azimuths();
                     let _ = mixer.spatial_gc_tx.try_send(
                         crate::audio::mixer::SpatialGarbage::ChannelPositions(old_positions),
                     );

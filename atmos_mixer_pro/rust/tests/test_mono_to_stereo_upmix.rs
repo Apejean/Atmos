@@ -23,7 +23,7 @@ fn run_mono_to_stereo(
     right_spatial_gain: f32,
 ) -> Vec<f32> {
     let (gc_tx, _) = crossbeam_channel::unbounded();
-    let mut mixer = AudioMixer::new(48000, out_channels, gc_tx, None);
+    let mut mixer = AudioMixer::new(48000, out_channels, 512, gc_tx, None);
 
     for ch in 0..GLOBAL_STATE.enabled_channels.len() {
         GLOBAL_STATE.enabled_channels[ch].store(false, Ordering::SeqCst);

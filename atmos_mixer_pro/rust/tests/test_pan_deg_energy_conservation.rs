@@ -9,7 +9,7 @@ fn p(x: f32, y: f32, z: f32) -> Point3D {
 
 fn build_mixer_with_scene(channels: usize) -> AudioMixer {
     let (gc_tx, _) = crossbeam_channel::unbounded();
-    let mut mixer = AudioMixer::new(48000, channels, gc_tx, None);
+    let mut mixer = AudioMixer::new(48000, channels, 64, gc_tx, None);
 
     // Shoebox 6x4x3m, pivot = (3, 2)
     let zone = RoomZone {

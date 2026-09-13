@@ -101,6 +101,14 @@ impl BinauralChannel {
         self.crossfade_phase = 0.0;
     }
 
+        /// `input`을 이 채널의 현재 HRIR로 컨볼브해 `out_left`/`out_right`에
+        /// **누적(가산)**한다 — 대입이 아니다. 여러 채널을 한 스테레오 버스로
+        /// 합산해야 하는 호출부(`process_interleaved`)가 루프 진입 전
+        /// `mix_left`/`mix_right`를 0으로 채워두고 채널마다 이 함수를 호출하는
+        /// 구조이기 때문이다. 예전에는 여기서 `=`로 대입해서, 채널이
+        /// 2개 이상일 때 나중 채널(무음이어도)이 앞선 채널의 값을 통째로
+        /// 지워버렸다 — 항상 채널 1개로만 테스트되거나 전 채널이 무음이라
+        /// 드러나지 않았던 잠재 결함이었다.
         pub fn process_block(&mut self, input: &[f32], out_left: &mut [f32], out_right: &mut [f32]) {
         let block_size = input.len().min(self.fft_size);
         self.input_buffer.fill(0.0);
@@ -146,13 +154,13 @@ impl BinauralChannel {
                 let mix_l = cur_l * (1.0 - self.crossfade_phase) + tar_l * self.crossfade_phase;
                 let mix_r = cur_r * (1.0 - self.crossfade_phase) + tar_r * self.crossfade_phase;
                 
-                out_left[i] = mix_l + self.overlap_add_left[i];
-                out_right[i] = mix_r + self.overlap_add_right[i];
+                out_left[i] += mix_l + self.overlap_add_left[i];
+                out_right[i] += mix_r + self.overlap_add_right[i];
             }
         } else {
             for i in 0..block_size {
-                out_left[i] = self.out_left_time[i] * scale + self.overlap_add_left[i];
-                out_right[i] = self.out_right_time[i] * scale + self.overlap_add_right[i];
+                out_left[i] += self.out_left_time[i] * scale + self.overlap_add_left[i];
+                out_right[i] += self.out_right_time[i] * scale + self.overlap_add_right[i];
             }
         }
         
@@ -198,6 +206,18 @@ pub struct VirtualMixRoomBinaural {
     // new()에서 1회만 구축하며, 오디오 콜백은 이 인덱스를 읽기만 하므로 매 버퍼마다
     // 전체 측정치를 선형 스캔하지 않는다(Law1/예측 가능한 CPU 사용량 준수).
     azimuth_buckets: Vec<Vec<usize>>,
+
+    /// 채널별 기준 방위각(도, 0°=정면/+Y, +90°=오른쪽/+X). 리스너 기준
+    /// 위치에서 계산되며, 헤드 요각과 합쳐져 최종 조회 방위각이 된다.
+    /// `docs/02_Planning_and_Specs/BINAURAL_SPATIAL_RENDERING_SPEC.md` §2.1.
+    /// 미바인딩 채널은 0.0(정면 취급)으로 안전하게 초기화된다.
+    channel_base_azimuth: Vec<f32>,
+
+    /// `channel_base_azimuth`가 갱신되어 이번 콜백에서 재보간이 필요함을
+    /// 표시한다. 헤드 방향이 안 바뀌어도(예: 사용자가 스피커 레이아웃을
+    /// 편집만 한 경우) 채널 위치가 바뀌면 다시 계산해야 하므로, 기존 요각
+    /// 변화 감지와는 별도의 트리거다.
+    base_azimuth_dirty: bool,
 }
 
 impl VirtualMixRoomBinaural {
@@ -264,7 +284,37 @@ impl VirtualMixRoomBinaural {
             interp_ir_left: vec![0.0; ir_len],
             interp_ir_right: vec![0.0; ir_len],
             azimuth_buckets,
+            channel_base_azimuth: vec![0.0; num_channels],
+            base_azimuth_dirty: true,
         }
+    }
+
+    /// 채널별 기준 방위각을 갱신한다. 오디오 스레드에서
+    /// `UpdateSpatialConfig` 처리 중 호출된다(Law 1: 슬라이스 복사만, 힙
+    /// 할당 없음 — 길이가 다르면 짧은 쪽까지만 갱신하고 나머지는 이전 값을
+    /// 유지한다).
+    pub fn set_channel_base_azimuths(&mut self, azimuths: &[f32]) {
+        let n = self.channel_base_azimuth.len().min(azimuths.len());
+        self.channel_base_azimuth[..n].copy_from_slice(&azimuths[..n]);
+        self.base_azimuth_dirty = true;
+    }
+
+    /// 사전 할당된 채널별 방위각 버퍼에 직접 쓰기 위한 가변 접근자.
+    ///
+    /// `recalculate_binaural_channel_azimuths()`(mixer.rs)가 이 슬라이스에
+    /// 바로 써서, 임시 `Vec`을 만들었다가 [`set_channel_base_azimuths`]로
+    /// 복사하는 추가 할당을 피한다. 커맨드 핸들러(`UpdateSpatialConfig`)는
+    /// 실제 크래시 스택으로 오디오 스레드 위에서 실행됨이 확인된 코드
+    /// 경로라(engine.rs 주석 참고), 여기서도 Law 1(무할당)을 지킨다.
+    /// 호출 후 반드시 [`mark_base_azimuth_dirty`]를 불러야 재보간이 반영된다.
+    pub fn channel_base_azimuth_mut(&mut self) -> &mut [f32] {
+        &mut self.channel_base_azimuth
+    }
+
+    /// [`channel_base_azimuth_mut`]로 값을 갱신한 뒤 호출해 다음 오디오
+    /// 콜백에서 재보간이 일어나도록 표시한다.
+    pub fn mark_base_azimuth_dirty(&mut self) {
+        self.base_azimuth_dirty = true;
     }
 
     /// 바이너리에 임베드된 SOFA 바이트를 임시 파일에 1회 기록한 뒤 strict_load로 읽는다.
@@ -399,50 +449,72 @@ impl VirtualMixRoomBinaural {
         let pitch = f32::from_bits(crate::core::state::GLOBAL_STATE.hrtf_pitch.load(std::sync::atomic::Ordering::Relaxed));
         let roll = f32::from_bits(crate::core::state::GLOBAL_STATE.hrtf_roll.load(std::sync::atomic::Ordering::Relaxed));
         
-        if (yaw - self.current_yaw).abs() > 0.01 || (pitch - self.current_pitch).abs() > 0.01 || (roll - self.current_roll).abs() > 0.01 {
+        let head_changed = (yaw - self.current_yaw).abs() > 0.01
+            || (pitch - self.current_pitch).abs() > 0.01
+            || (roll - self.current_roll).abs() > 0.01;
+
+        if head_changed || self.base_azimuth_dirty {
             self.current_yaw = yaw;
             self.current_pitch = pitch;
             self.current_roll = roll;
-            
+            self.base_azimuth_dirty = false;
+
             if let Some(db) = &self.hrtf_db {
-                // 실측 SOFA HRIR 룩업: 머리 yaw 회전을 음원의 상대 방위각으로 환산하고
-                // 최근접 3개 실측 위치를 역거리 가중 삼선형 보간한다(무할당, 사전 할당 스크래치 버퍼 사용).
-                let azimuth_deg = -yaw.to_degrees();
-                let target = SourcePosition::new(azimuth_deg, 0.0, self.nominal_distance);
-                let nbrs = Self::find_three_nearest_indexed(db, &self.azimuth_buckets, &target);
-
-                const EPS: f32 = 1e-4;
-                let mut weights = [0.0f32; 3];
-                let mut total = 0.0f32;
-                for (slot, (_idx, dist)) in weights.iter_mut().zip(nbrs.iter()) {
-                    let w = 1.0 / (*dist + EPS);
-                    *slot = w;
-                    total += w;
-                }
-                if total > 0.0 {
-                    for w in weights.iter_mut() {
-                        *w /= total;
+                // 실측 SOFA HRIR 룩업: 채널마다 실제 설치 위치 기준 방위각
+                // (channel_base_azimuth)에 머리 요각을 결합해 최종 상대
+                // 방위각을 만들고, 그 방향에 대해 최근접 3개 실측 위치를
+                // 역거리 가중 삼선형 보간한다. 예전에는 이 계산을 콜백당
+                // 한 번만 하고 그 결과를 모든 채널에 동일하게 적용했다
+                // (헤드 방향만 반영, 채널 위치 무시 — 스피커별 방향감이
+                // 재현되지 않는 결함이었다. BINAURAL_SPATIAL_RENDERING_SPEC.md
+                // 참고). 이제 채널마다 반복해 각자의 IR을 구한다.
+                //
+                // Law 1: 힙 할당 없음 — interp_ir_left/right 스크래치 버퍼를
+                // 채널마다 덮어써서 재사용한다(채널을 순차 처리하므로 버퍼가
+                // N개일 필요가 없다).
+                let num_ch = self.channels.len();
+                for ch in 0..num_ch {
+                    let base_azimuth = self.channel_base_azimuth.get(ch).copied().unwrap_or(0.0);
+                    let azimuth_deg = base_azimuth - yaw.to_degrees();
+                    let target = SourcePosition::new(azimuth_deg, 0.0, self.nominal_distance);
+                    let nbrs = Self::find_three_nearest_indexed(db, &self.azimuth_buckets, &target);
+                    if std::env::var("ATMOS_DEBUG_BINAURAL").is_ok() {
+                        eprintln!("[디버그] ch={} base_az={} yaw_deg={} target_az={} nbrs={:?}",
+                            ch, base_azimuth, yaw.to_degrees(), azimuth_deg, nbrs);
                     }
-                }
 
-                self.interp_ir_left.fill(0.0);
-                self.interp_ir_right.fill(0.0);
-                for ((idx, _dist), w) in nbrs.iter().zip(weights.iter()) {
-                    if let Some((_pos, left, right)) = db.get_hrtf_slices(*idx) {
-                        for (dst, src) in self.interp_ir_left.iter_mut().zip(left.iter()) {
-                            *dst += src * (*w);
-                        }
-                        for (dst, src) in self.interp_ir_right.iter_mut().zip(right.iter()) {
-                            *dst += src * (*w);
+                    const EPS: f32 = 1e-4;
+                    let mut weights = [0.0f32; 3];
+                    let mut total = 0.0f32;
+                    for (slot, (_idx, dist)) in weights.iter_mut().zip(nbrs.iter()) {
+                        let w = 1.0 / (*dist + EPS);
+                        *slot = w;
+                        total += w;
+                    }
+                    if total > 0.0 {
+                        for w in weights.iter_mut() {
+                            *w /= total;
                         }
                     }
-                }
 
-                for ch in &mut self.channels {
-                    ch.update_hrtf(&self.interp_ir_left, &self.interp_ir_right);
+                    self.interp_ir_left.fill(0.0);
+                    self.interp_ir_right.fill(0.0);
+                    for ((idx, _dist), w) in nbrs.iter().zip(weights.iter()) {
+                        if let Some((_pos, left, right)) = db.get_hrtf_slices(*idx) {
+                            for (dst, src) in self.interp_ir_left.iter_mut().zip(left.iter()) {
+                                *dst += src * (*w);
+                            }
+                            for (dst, src) in self.interp_ir_right.iter_mut().zip(right.iter()) {
+                                *dst += src * (*w);
+                            }
+                        }
+                    }
+
+                    self.channels[ch].update_hrtf(&self.interp_ir_left, &self.interp_ir_right);
                 }
             } else {
-                // SOFA 데이터셋 로드 실패 시 폴백: 기존 합성 시프트 유지
+                // SOFA 데이터셋 로드 실패 시 폴백: 기존 합성 시프트 유지(채널
+                // 위치는 반영하지 않는다 — 폴백 경로이므로 최소 기능만 유지).
                 let shift = yaw.sin() * 0.5; // -0.5 to 0.5
                 let dummy_ir_left = [(0.5 - shift).max(0.0), 0.0];
                 let dummy_ir_right = [(0.5 + shift).max(0.0), 1.0];

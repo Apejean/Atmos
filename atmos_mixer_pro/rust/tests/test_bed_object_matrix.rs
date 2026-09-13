@@ -10,7 +10,7 @@ use std::sync::Arc;
 fn test_bed_object_matrix() {
     let out_channels = 64;
     let (gc_tx, _) = crossbeam_channel::unbounded();
-    let mut mixer = AudioMixer::new(48000, out_channels, gc_tx, None);
+    let mut mixer = AudioMixer::new(48000, out_channels, 512, gc_tx, None);
 
     for ch in 0..out_channels {
         GLOBAL_STATE.enabled_channels[ch].store(true, Ordering::SeqCst);

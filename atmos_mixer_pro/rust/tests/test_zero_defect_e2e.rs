@@ -244,7 +244,7 @@ fn test_phase3_physics_and_offline_bounce() {
 
     // 3. Test Offline Renderer (Zero-allocation during process loop)
     let (tx, _rx) = crossbeam_channel::bounded(10);
-    let mixer = AudioMixer::new(48000, 2, tx, None);
+    let mixer = AudioMixer::new(48000, 2, 1024, tx, None);
     
     // Render 50ms (0.05s) of audio offline to verify it doesn't crash or block
     let renderer = OfflineRenderer::new(48000, 2, 0.05);

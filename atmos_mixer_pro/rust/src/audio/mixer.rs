@@ -94,7 +94,21 @@ pub struct AudioMixer {
 }
 
 impl AudioMixer {
-    pub fn new(sample_rate: u32, channels: usize, gc_sender: crossbeam_channel::Sender<SoundInstance>, analysis_tx: Option<rtrb::Producer<f32>>) -> Self {
+    /// `block_size`: 이 엔진이 실제로 처리할 콜백당 프레임 수(하드웨어 버퍼
+    /// 크기, 예: 1024). 바이노럴 렌더러의 FFT/오버랩-애드 버퍼를 이 크기에
+    /// 맞춰 사전 할당하는 데만 쓰인다.
+    ///
+    /// 이 값이 실제 `process()` 호출 시 넘어오는 프레임 수와 다르면
+    /// `BinauralChannel`의 오버랩-애드 컨볼루션이 깨진다(매 콜백 오버랩
+    /// 테일을 처음부터 다시 만드는 구조라, FFT 크기가 실제 프레임 수보다
+    /// 훨씬 크면 이전 블록이 넘겨준 테일 대부분을 매번 버리게 되어 출력이
+    /// 완전히 무음이 되거나 뒤섞인다). 예전에는 이 값이 실제 하드웨어 버퍼
+    /// 크기(1024~2048)와 무관하게 8192로 하드코딩되어 있었다 — 바이노럴이
+    /// UI 토글이 없어 실제 엔진 루프로 한 번도 제대로 실행된 적이 없어서
+    /// 지금까지 드러나지 않은 잠재 결함이었다(수치 검증:
+    /// `src/bin/binaural_debug.rs`, 회귀 테스트:
+    /// `tests/test_binaural_channel_azimuth.rs`).
+    pub fn new(sample_rate: u32, channels: usize, block_size: usize, gc_sender: crossbeam_channel::Sender<SoundInstance>, analysis_tx: Option<rtrb::Producer<f32>>) -> Self {
         let (buf_gc_tx, buf_gc_rx) = crossbeam_channel::bounded::<Vec<f32>>(65536);
         std::thread::spawn(move || {
             while let Ok(_buf) = buf_gc_rx.recv() {
@@ -226,7 +240,7 @@ impl AudioMixer {
             master_clock: 0.0,
             spatializer: None,
             reverb: crate::audio::reverb::VirtualRoomReverb::new(sample_rate as f32),
-            binaural: crate::audio::binaural::VirtualMixRoomBinaural::new(channels, 8192), // Using 1024 as default block size for now
+            binaural: crate::audio::binaural::VirtualMixRoomBinaural::new(channels, block_size),
             smoothed_trajectory_pos: trajectory.as_ref().map(|t| t.current_position.clone()),
             bass_management_enabled: false,
             lfe_channel_idx: Some(3),
@@ -797,7 +811,13 @@ impl AudioMixer {
         }
         
         // Apply Binaural Processing (De-interleaves, convolves, and re-interleaves to Ch0 & Ch1)
+        if std::env::var("ATMOS_DEBUG_BINAURAL").is_ok() {
+            eprintln!("[디버그] binaural 이전 output[0..4]={:?}", &output[..4.min(output.len())]);
+        }
         self.binaural.process_interleaved(output, out_channels);
+        if std::env::var("ATMOS_DEBUG_BINAURAL").is_ok() {
+            eprintln!("[디버그] binaural 이후 output[0..4]={:?}", &output[..4.min(output.len())]);
+        }
 
         // Apply Global Reverb to Ch0 and Ch1
         if out_channels >= 2 && self.reverb.mix > 0.0 {
@@ -933,6 +953,70 @@ impl AudioMixer {
                 }
             }
         }
+    }
+
+    /// 바이노럴 렌더러에 채널별 기준 방위각을 넘긴다. `channel_positions`나
+    /// `room_zones`가 바뀔 때(`UpdateSpatialConfig` 처리 중)만 호출하면
+    /// 된다 — 오디오 콜백마다 부를 필요는 없다(binaural 쪽이 dirty 플래그로
+    /// 스스로 재보간 시점을 판단한다).
+    ///
+    /// 좌표계·공식은 `docs/02_Planning_and_Specs/BINAURAL_SPATIAL_RENDERING_SPEC.md`
+    /// §2.1을 따른다: +Y=정면(0°), +X=오른쪽(+90°). 리스너는 바인딩된
+    /// RoomZone의 수평 중심이다(고도는 방위각 계산에 안 쓰므로 ear_level은
+    /// 참조하지 않는다).
+    ///
+    /// 룸 바인딩 판정은 pan_deg 피벗 계산(위 process() 내부)이 이미 하는
+    /// point-in-room 루프와 로직이 겹친다. 지금은 그 코드를 공유 헬퍼로
+    /// 뽑지 않고 여기 별도로 작게 둔다 — 기존에 검증된 pan_deg/초기반사음
+    /// 경로를 건드리지 않는 것이 이번 변경의 위험을 줄인다는 판단이다
+    /// (스펙 문서의 "권장"일 뿐 필수 요구는 아니다). 세 번째 자리가 생겼으니
+    /// 다음에 손댈 때는 공유 헬퍼로 통합을 고려할 것.
+    pub fn recalculate_binaural_channel_azimuths(&mut self) {
+        // Law 1: 임시 Vec을 만들지 않는다. 바이노럴이 들고 있는 사전 할당
+        // 버퍼에 바로 쓴다(channel_base_azimuth_mut()). UpdateSpatialConfig
+        // 핸들러는 실제 크래시 스택으로 오디오 스레드 위임이 확인된 코드
+        // 경로다.
+        let room_zones = &self.room_zones;
+        let channel_positions = &self.channel_positions;
+        let azimuths = self.binaural.channel_base_azimuth_mut();
+
+        let n = azimuths.len().min(channel_positions.len());
+        for ch in 0..n {
+            let Some(pos) = &channel_positions[ch] else {
+                azimuths[ch] = 0.0; // None -> 정면 취급
+                continue;
+            };
+
+            let bound_zone = room_zones.iter().find(|z| {
+                pos.x >= z.boundary_min.x
+                    && pos.x <= z.boundary_max.x
+                    && pos.y >= z.boundary_min.y
+                    && pos.y <= z.boundary_max.y
+            });
+
+            let Some(zone) = bound_zone else {
+                azimuths[ch] = 0.0; // 미바인딩 -> 정면 취급
+                continue;
+            };
+
+            let listener_x = (zone.boundary_min.x + zone.boundary_max.x) * 0.5;
+            let listener_y = (zone.boundary_min.y + zone.boundary_max.y) * 0.5;
+            let dx = pos.x - listener_x;
+            let dy = pos.y - listener_y;
+
+            // dx가 아니라 -dx로 atan2를 계산한다. `binaural_numeric_check`
+            // (src/bin/)로 실측한 결과, 이 SOFA 조회에 들어가는 azimuth_deg는
+            // 양수=왼쪽 우세, 음수=오른쪽 우세였다(수학 교과서의 "0°=정면,
+            // +90°=오른쪽" 관례와 반대). 처음에는 dx.atan2(dy)로 짜서 물리적
+            // 오른쪽(+X) 채널이 왼쪽 귀에서 크게 들리는 반대 버그가 있었다.
+            // -dx로 부호를 뒤집어 "+X(물리적 오른쪽) -> 오른쪽 귀 우세"가
+            // 되도록 맞췄다. 실측 방법: 화이트 노이즈를 azimuth ±90°로 흘려
+            // L/R RMS를 비교(binaural_azimuth_probe.rs 청음 + 사용자 확인,
+            // binaural_numeric_check.rs 수치 확인 둘 다 일치).
+            azimuths[ch] = (-dx).atan2(dy).to_degrees();
+        }
+
+        self.binaural.mark_base_azimuth_dirty();
     }
 
     pub fn recalculate_spatial_dsp(&mut self) {
