@@ -261,7 +261,9 @@ class _SpeakerInspectorPanelState extends ConsumerState<SpeakerInspectorPanel> {
     // 없었고, 다른 UI와 라벨이 달랐다.
     final outputChannels = ref.watch(outputChannelsProvider);
     final channelNames = outputChannels.channelNames;
-    final maxChannels = channelNames.length;
+    // 드라이버 내부 가상 채널(DAW 리턴 등)은 스피커를 물리적으로 연결할 수
+    // 없으므로 목록에서 뺀다. 인덱스는 원래 하드웨어 인덱스를 그대로 쓴다.
+    final selectableChannels = physicalOutputChannelIndices(channelNames);
     final speakers = layout;
     final speaker = layout.where((s) => s.id == widget.speakerId).firstOrNull;
 
@@ -305,11 +307,14 @@ class _SpeakerInspectorPanelState extends ConsumerState<SpeakerInspectorPanel> {
                       dropdownColor: const Color(0xFF1E2632),
                       style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
                       items: [
-                        for (int i = 0; i < maxChannels; i++)
+                        // 드라이버 내부 가상 채널(DAW 리턴 등)은 스피커를
+                        // 물리적으로 연결할 수 없으므로 목록에서 뺀다.
+                        // 인덱스는 원래 하드웨어 인덱스를 그대로 쓴다.
+                        for (final i in selectableChannels)
                           _channelItem(i, channelNames, speakers, speaker),
                         // 저장값이 범위를 넘으면 그 값 자체를 항목으로 추가해야
                         // DropdownButton이 assert로 죽지 않는다.
-                        if (speaker.channel >= maxChannels)
+                        if (!selectableChannels.contains(speaker.channel))
                           DropdownMenuItem(
                             value: speaker.channel,
                             child: Text(

@@ -1527,12 +1527,18 @@ class _TuningModalState extends ConsumerState<TuningModal>
     // 생기고 다른 UI와 개수가 어긋날 수 있었다.
     final outputChannels = ref.watch(outputChannelsProvider);
     final hwChannels = outputChannels.channelNames;
-    final int maxChannels = hwChannels.length;
+    // FX는 드라이버 내부 가상 채널(DAW 리턴 등)에 걸어봐야 물리적으로 나가는
+    // 소리가 없으므로 물리 채널만 제시한다. 인덱스는 하드웨어 인덱스를 유지한다.
+    final selectable = physicalOutputChannelIndices(hwChannels);
+    final int maxChannels = selectable.length;
 
-    // _selectedChannel은 이 모달 내부에서만 1-based다(레거시). 범위를 넘으면
-    // 1번으로 되돌린다. 채널이 0개면 아래에서 드롭다운 자체를 표시하지 않는다.
+    // _selectedChannel은 이 모달 내부에서만 1-based다(레거시).
+    // 선택값이 물리 채널 목록에 없으면(가상 채널이거나 범위 초과) 첫 물리
+    // 채널로 되돌린다. 그러지 않으면 DropdownButton이 assert로 죽는다.
     int safeSelectedChannel = _selectedChannel;
-    if (safeSelectedChannel > maxChannels) safeSelectedChannel = 1;
+    if (!selectable.contains(safeSelectedChannel - 1)) {
+      safeSelectedChannel = selectable.isEmpty ? 1 : selectable.first + 1;
+    }
 
     return Dialog(
       backgroundColor: _dialogBg,
@@ -1620,7 +1626,7 @@ class _TuningModalState extends ConsumerState<TuningModal>
                           // 이름이 달라 보이게 만들었다. L/R 표기는 짝수/홀수
                           // 추정에 불과했고 개별 채널 단위라는 규칙과 어긋나서
                           // 뺐다(쌍 편집은 옆의 Link L/R이 담당한다).
-                          items: List.generate(maxChannels, (index) {
+                          items: selectable.map((index) {
                             final ch = index + 1;
                             return DropdownMenuItem<int>(
                               value: ch,

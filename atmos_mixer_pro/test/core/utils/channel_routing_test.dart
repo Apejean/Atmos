@@ -391,4 +391,94 @@ void main() {
       expect(items[1].label, 'Mono (Ch-2)');
     });
   });
+
+  group('물리 채널 판별 (드라이버 내부 가상 채널 제외)', () {
+    // 실기: Scarlett 6i6은 물리 출력 6개인데 CoreAudio는 12채널로 보고한다.
+    // 7~12번은 Focusrite Control이 쓰는 내부 DAW 리턴이라 스피커를 연결할 수
+    // 없다. 그 채널을 고르면 아무 데로도 소리가 나가지 않는다.
+    const scarlett = [
+      'Mon 1', 'Mon 2', 'Line 3', 'Line 4', 'S/PDIF L', 'S/PDIF R',
+      'DAW 7', 'DAW 8', 'DAW 9', 'DAW 10', 'DAW 11', 'DAW 12',
+    ];
+
+    test('Scarlett 6i6에서 물리 6채널만 남는다', () {
+      expect(physicalOutputChannelIndices(scarlett), [0, 1, 2, 3, 4, 5]);
+    });
+
+    test('인덱스를 다시 매기지 않는다 (Line 3은 언제나 하드웨어 인덱스 2)', () {
+      final idx = physicalOutputChannelIndices(scarlett);
+      expect(channelDisplayName(idx[2], scarlett), 'Ch-3 (Line 3)');
+    });
+
+    test('모르는 이름은 물리로 취급한다 (실재 출력을 숨기지 않는다)', () {
+      expect(isPhysicalOutputChannel('AN 1'), isTrue); // RME
+      expect(isPhysicalOutputChannel('ADAT 3'), isTrue);
+      expect(isPhysicalOutputChannel('Analogue 5'), isTrue);
+      expect(isPhysicalOutputChannel('Dante Out 12'), isTrue);
+      expect(isPhysicalOutputChannel('Channel 7'), isTrue); // Windows 기본 이름
+      expect(isPhysicalOutputChannel(''), isTrue);
+    });
+
+    test('물리 단자 이름으로도 흔한 단어는 가상으로 보지 않는다', () {
+      // 'Return'과 'Mix'는 실제 물리 단자 이름으로 쓰이는 인터페이스가 있어서
+      // 가상 토큰에 넣지 않았다.
+      expect(isPhysicalOutputChannel('FX Return 1'), isTrue);
+      expect(isPhysicalOutputChannel('Mix A L'), isTrue);
+    });
+
+    test('명백한 가상 토큰만 걸러낸다', () {
+      expect(isPhysicalOutputChannel('DAW 7'), isFalse);
+      expect(isPhysicalOutputChannel('Loopback 1'), isFalse);
+      expect(isPhysicalOutputChannel('Virtual Out 3'), isFalse);
+      expect(isPhysicalOutputChannel('daw 12'), isFalse); // 대소문자 무관
+    });
+
+    test('라우팅 목록에 가상 채널이 나오지 않는다', () {
+      final items = buildChannelRoutingItems(
+        channelNames: scarlett,
+        config: config(),
+        fileChannels: 1,
+      );
+
+      expect(items, isNotEmpty);
+      for (final item in items) {
+        expect(
+          item.realChannel0 < 6,
+          isTrue,
+          reason: '가상 채널 Ch-${item.realChannel0 + 1}이 라우팅 목록에 새어나왔다',
+        );
+      }
+      expect(items.length, 6); // 모노 파일 -> 물리 6채널
+    });
+
+    test('스테레오 쌍이 물리/가상 경계를 넘지 않는다', () {
+      final items = buildChannelRoutingItems(
+        channelNames: scarlett,
+        config: config(),
+        fileChannels: 2,
+      );
+      final stereo = items.where((i) => i.value.startsWith('stereo_')).toList();
+
+      // Ch-5/Ch-6까지만 가능하고, Ch-6/Ch-7(가상)은 나오면 안 된다.
+      expect(stereo.map((e) => e.realChannel0).toList(), [0, 1, 2, 3, 4]);
+    });
+
+    test('멀티 파일이 가상 채널로 넘어가면 부분 출력으로 표시된다', () {
+      final items = buildChannelRoutingItems(
+        channelNames: scarlett,
+        config: config(),
+        fileChannels: 4,
+      );
+
+      // Ch-5에서 시작하면 물리로는 Ch-5~6까지만 나간다.
+      final fromCh5 = items.firstWhere((i) => i.realChannel0 == 4);
+      expect(fromCh5.isPartialOutput, isTrue);
+      expect(fromCh5.label, contains('Ch-5~6'));
+
+      // 어떤 항목도 가상 채널에서 시작하지 않는다.
+      for (final item in items) {
+        expect(item.realChannel0 < 6, isTrue);
+      }
+    });
+  });
 }

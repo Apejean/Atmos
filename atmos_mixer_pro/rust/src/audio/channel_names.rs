@@ -133,8 +133,24 @@ pub fn get_channel_names_win(_device_name_target: &str, num_channels: u32) -> Ve
         .map(|i| format!("Channel {}", i))
         .collect::<Vec<_>>();
 
-    // We'll keep it simple for WASAPI: most devices don't have per-channel names easily exposed,
-    // so we return default names if we can't fetch them.
+    // 현재 Windows 경로는 채널 이름을 조회하지 않고 "Channel N"만 돌려준다.
+    //
+    // 이것이 갖는 의미(중요): Dart의 `isPhysicalOutputChannel`
+    // (lib/core/utils/channel_routing.dart)은 채널 이름으로 드라이버 내부
+    // 가상 채널(DAW 리턴, 루프백 등)을 걸러낸다. macOS(CoreAudio)는
+    // "Mon 1"/"DAW 7" 같은 실제 이름을 주므로 걸러지지만, Windows는 이름이
+    // 없어 모든 채널이 물리로 판정된다(판별 불가 시 열어두는 설계).
+    // 규칙 자체는 두 OS에서 같지만 입력 데이터가 없어 결과가 달라진다.
+    //
+    // 동일한 동작을 얻으려면 여기서 실제 채널 이름을 채워야 한다.
+    // - ASIO: `ASIOGetChannelInfo`의 `name` 필드 (드라이버가 "Analogue 1",
+    //   "SPDIF L", "Loopback 1" 등을 준다)
+    // - WASAPI: 엔드포인트 단위라 채널별 이름이 사실상 없다. 공유 모드에서는
+    //   보통 2채널이므로 실익이 크지 않다.
+    //
+    // 미구현으로 두는 이유는 검증 수단이 없어서다. Windows/ASIO 실기 없이
+    // 작성한 FFI 코드를 "동작한다"고 넣는 것보다, 이름이 없다는 사실을
+    // 드러내고 안전한 쪽(전부 표시)으로 두는 편이 낫다.
     fallback
 }
 

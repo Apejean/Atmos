@@ -222,7 +222,15 @@ class _SpeakerNodeWidgetState extends ConsumerState<SpeakerNodeWidget> {
                       // 저장된 channel이 현재 하드웨어 채널 수를 넘는 경우
                       // (장치가 더 작은 것으로 바뀐 경우) 조용히 0으로 리셋하지
                       // 않고 사용자가 인지할 수 있게 별도 항목으로 표시한다.
-                      final isOutOfRange = widget.node.channel >= channelNames.length;
+                      // 저장된 채널이 목록에 없는 경우는 두 가지다: 하드웨어
+                      // 범위를 벗어났거나(더 작은 장치로 교체), 드라이버 내부
+                      // 가상 채널이라 목록에서 걸러졌거나. 둘 다 DropdownButton의
+                      // "값에 해당하는 항목이 정확히 하나" assert를 깨뜨리므로
+                      // 별도 항목으로 보존해야 한다.
+                      final selectable =
+                          physicalOutputChannelIndices(channelNames);
+                      final isOutOfRange =
+                          !selectable.contains(widget.node.channel);
 
                       return Row(
                         mainAxisSize: MainAxisSize.min,
@@ -252,7 +260,9 @@ class _SpeakerNodeWidgetState extends ConsumerState<SpeakerNodeWidget> {
                               color: Colors.white,
                             ),
                             items: [
-                              ...List.generate(channelNames.length, (index) {
+                              // 물리적으로 연결 가능한 채널만 제시한다.
+                              // 인덱스는 하드웨어 인덱스를 유지한다.
+                              ...selectable.map((index) {
                                 // 라벨은 다른 UI(스피커 인스펙터, FX 튜닝,
                                 // 트랙 라우팅)와 같은 `Ch-N (하드웨어 이름)`
                                 // 규약을 쓴다. 화면마다 같은 채널이 같은 이름

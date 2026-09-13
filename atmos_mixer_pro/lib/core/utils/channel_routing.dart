@@ -29,6 +29,50 @@ class ChannelRoutingItem {
   });
 }
 
+/// 드라이버가 보고하지만 **물리적으로 연결할 수 없는** 채널을 걸러내기 위한
+/// 판별 규칙. 플랫폼 독립 순수 함수다.
+///
+/// 인터페이스는 물리 출력보다 많은 채널을 보고하는 경우가 흔하다. 예를 들어
+/// Scarlett 6i6은 물리 출력이 6개(Mon 1~2, Line 3~4, S/PDIF L/R)인데
+/// CoreAudio에는 드라이버 내부 리턴 6개(DAW 7~12)를 더해 12채널로 보고한다.
+/// 그 채널에 스피커를 잡으면 아무 데로도 소리가 나가지 않는다.
+///
+/// ## 왜 이름으로 판별하는가
+/// macOS(CoreAudio)와 Windows(ASIO/WASAPI)에 걸쳐 이식 가능한 공통 신호는
+/// 채널 이름뿐이다. CoreAudio의 스트림 terminal type 같은 건 Windows에 대응물이
+/// 없어서 플랫폼마다 동작이 갈린다. 규칙을 한 곳에 두어 어느 OS에서든 같은
+/// 이름에 같은 판정이 나오게 한다.
+///
+/// ## 보수적으로, 실패하면 열어둔다
+/// 판별은 명백히 가상인 토큰만 본다. 모르는 이름은 **물리로 취급한다**.
+/// 실재하는 출력을 숨기는 쪽이 가상 채널을 하나 더 보여주는 쪽보다 훨씬
+/// 나쁘기 때문이다(스피커를 연결했는데 목록에 없으면 원인을 찾기 어렵다).
+bool isPhysicalOutputChannel(String name) {
+  final n = name.trim().toLowerCase();
+  if (n.isEmpty) return true; // 이름이 없으면 판단 근거가 없다 -> 물리로 본다
+
+  // 벤더 중립적으로 "드라이버 내부 채널"임이 분명한 토큰만 본다.
+  // 'return'이나 'mix'는 물리 단자 이름으로도 흔히 쓰여서 넣지 않는다.
+  const virtualTokens = ['daw', 'loopback', 'virtual'];
+  for (final t in virtualTokens) {
+    if (n.contains(t)) return false;
+  }
+  return true;
+}
+
+/// [channelNames] 중 물리적으로 연결 가능한 채널의 **0-based 하드웨어 인덱스**.
+///
+/// 목록을 걸러내면서 인덱스를 다시 매기면 안 된다. 'Line 3'은 언제나 하드웨어
+/// 인덱스 2이고, 그 값이 그대로 라우팅과 스피커 매핑에 쓰인다. 그래서 이름
+/// 배열을 압축하지 않고 살아남은 인덱스만 돌려준다.
+List<int> physicalOutputChannelIndices(List<String> channelNames) {
+  final out = <int>[];
+  for (var i = 0; i < channelNames.length; i++) {
+    if (isPhysicalOutputChannel(channelNames[i])) out.add(i);
+  }
+  return out;
+}
+
 /// 개별 출력 채널 1개의 표시 이름. **스피커 레이아웃, 스피커 인스펙터,
 /// FX(출력 채널 Mixer)가 모두 이 함수 하나만 쓴다.**
 ///
@@ -92,6 +136,11 @@ List<ChannelRoutingItem> buildChannelRoutingItems({
   // (noDevice/error)를 보고 별도의 안내를 표시해야 한다.
   if (channelNames.isEmpty) return const [];
 
+  // 드라이버 내부 가상 채널(DAW 리턴 등)은 물리적으로 연결할 수 없으므로
+  // 라우팅 후보에서 뺀다. 인덱스는 원래 하드웨어 인덱스를 그대로 유지한다.
+  final physical = physicalOutputChannelIndices(channelNames).toSet();
+  if (physical.isEmpty) return const [];
+
   final int hwCount = channelNames.length;
   final bool isMulti = fileChannels != null && fileChannels > 2;
   final bool isMono = fileChannels == 1;
@@ -123,7 +172,7 @@ List<ChannelRoutingItem> buildChannelRoutingItems({
         final setting = e.value;
 
         final realCh = key - 1; // 0-based 변환
-        if (realCh < hwCount) {
+        if (realCh < hwCount && physical.contains(realCh)) {
           items.add(
             ChannelRoutingItem(
               value: ChannelDropdownValueHelper.getMonoValue(realCh),
@@ -139,6 +188,7 @@ List<ChannelRoutingItem> buildChannelRoutingItems({
       }
     } else {
       for (int i = 0; i < hwCount; i++) {
+        if (!physical.contains(i)) continue;
         items.add(
           ChannelRoutingItem(
             value: ChannelDropdownValueHelper.getMonoValue(i),
@@ -163,8 +213,11 @@ List<ChannelRoutingItem> buildChannelRoutingItems({
         final key = e.key; // 1-based
         final setting = e.value;
         final realCh = key - 1; // 0-based
-        // 짝 채널(realCh+1, 0-based)이 하드웨어에 없으면 만들지 않는다.
-        if (realCh + 1 < hwCount) {
+        // 짝 채널(realCh+1, 0-based)이 하드웨어에 없거나 가상 채널이면
+        // 만들지 않는다. 스테레오 쌍은 두 채널 모두 물리여야 한다.
+        if (realCh + 1 < hwCount &&
+            physical.contains(realCh) &&
+            physical.contains(realCh + 1)) {
           items.add(
             ChannelRoutingItem(
               value: ChannelDropdownValueHelper.getStereoValue(realCh),
@@ -180,6 +233,7 @@ List<ChannelRoutingItem> buildChannelRoutingItems({
       }
     } else {
       for (int i = 0; i + 1 < hwCount; i++) {
+        if (!physical.contains(i) || !physical.contains(i + 1)) continue;
         items.add(
           ChannelRoutingItem(
             value: ChannelDropdownValueHelper.getStereoValue(i),
@@ -207,13 +261,14 @@ List<ChannelRoutingItem> buildChannelRoutingItems({
         final key = e.key; // 1-based
         final setting = e.value;
         final startCh = key - 1; // 0-based
-        // 시작 채널 자체가 하드웨어 상한을 넘으면 만들지 않는다.
-        if (startCh < hwCount) {
+        // 시작 채널이 하드웨어 상한을 넘거나 가상 채널이면 만들지 않는다.
+        if (startCh < hwCount && physical.contains(startCh)) {
           items.add(
             _buildMultiItem(
               startCh: startCh,
               fileCh: fileCh,
               hwCount: hwCount,
+              physical: physical,
               customName: setting.customName,
             ),
           );
@@ -223,13 +278,18 @@ List<ChannelRoutingItem> buildChannelRoutingItems({
       final lastStart = hwCount - fileCh;
       if (lastStart >= 0) {
         for (int i = 0; i <= lastStart; i++) {
-          items.add(_buildMultiItem(startCh: i, fileCh: fileCh, hwCount: hwCount));
+          if (!physical.contains(i)) continue;
+          items.add(_buildMultiItem(
+            startCh: i, fileCh: fileCh, hwCount: hwCount, physical: physical));
         }
-      } else {
-        // 파일 채널 수가 하드웨어 채널 수보다 많아 완전히 들어갈 자리가 없는
-        // 경우에도, 트랙이 선택 불가가 되지 않도록 Ch-1 시작 항목 하나는
-        // 남긴다(부분 출력으로 표시).
-        items.add(_buildMultiItem(startCh: 0, fileCh: fileCh, hwCount: hwCount));
+      }
+      if (items.isEmpty) {
+        // 파일 채널 수가 물리 채널 수보다 많아 완전히 들어갈 자리가 없어도,
+        // 트랙이 선택 불가가 되지 않도록 첫 물리 채널에서 시작하는 항목
+        // 하나는 남긴다(부분 출력으로 표시).
+        final first = physical.reduce((a, b) => a < b ? a : b);
+        items.add(_buildMultiItem(
+          startCh: first, fileCh: fileCh, hwCount: hwCount, physical: physical));
       }
     }
   }
@@ -238,16 +298,27 @@ List<ChannelRoutingItem> buildChannelRoutingItems({
 }
 
 /// Multi 항목 1개를 만든다. 요청한 범위(`startCh`~`startCh+fileCh-1`)가
-/// 하드웨어 상한(`hwCount-1`)을 넘으면 실제로 열리는 범위까지만 라벨에 담고
+/// 실제로 열리는 범위를 넘으면 열리는 데까지만 라벨에 담고
 /// `isPartialOutput`을 true로 표시한다.
+///
+/// 열리는 범위는 하드웨어 상한뿐 아니라 **물리 채널의 연속 구간**으로도
+/// 제한된다. 예를 들어 물리 출력이 Ch-1~6이고 Ch-7 이상이 드라이버 내부
+/// 가상 채널이면, Ch-5에서 시작하는 4채널 파일은 Ch-5~6까지만 실제로 나간다.
 ChannelRoutingItem _buildMultiItem({
   required int startCh,
   required int fileCh,
   required int hwCount,
+  required Set<int> physical,
   String customName = '',
 }) {
   final requestedEnd = startCh + fileCh - 1;
-  final availableEnd = hwCount - 1;
+
+  // startCh에서 시작하는 연속 물리 구간의 마지막 인덱스.
+  var contiguousEnd = startCh;
+  while (contiguousEnd + 1 < hwCount && physical.contains(contiguousEnd + 1)) {
+    contiguousEnd++;
+  }
+  final availableEnd = contiguousEnd;
   final actualEnd = requestedEnd < availableEnd ? requestedEnd : availableEnd;
   final isPartial = requestedEnd > availableEnd;
 
