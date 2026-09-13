@@ -125,23 +125,52 @@ impl VirtualRoomReverb {
     /// `process_stereo`의 damp 계수 등) 극단값이 들어와도 안정적이지만,
     /// 방어적으로 여기서도 한 번 더 클램프해 "안전 범위 보장은 이 함수 하나
     /// 만으로 충분하다"는 불변식을 만든다.
+    /// UI가 보내는 **물리 단위**를 내부 DSP 계수로 변환한다.
+    ///
+    /// 예전에는 UI 값을 그대로 필드에 넣고 사용 지점에서 clamp만 했는데,
+    /// UI 범위와 DSP 계수 범위가 전혀 달라서 슬라이더 대부분이 최댓값에
+    /// 붙박이로 고정됐다(= 움직여도 소리가 안 변함).
+    ///
+    /// | 파라미터 | UI 단위/범위 | 예전 결과 |
+    /// |---|---|---|
+    /// | room_size | m³ 50~2000 | `clamp(0.1,3.0)` -> 항상 3.0 |
+    /// | decay_time | 초 0.2~20 | `clamp(0,0.99)` -> 1초 넘으면 전부 0.99 |
+    /// | damp | % 0~100 | `clamp(0,1)` -> 1% 넘으면 전부 최대 |
+    /// | density | % 0~100 | `clamp(0,0.99)` -> 1% 넘으면 전부 최대 |
     #[allow(clippy::too_many_arguments)]
     pub fn set_full_params(
         &mut self,
         is_enabled: bool,
-        room_size: f32,
-        decay_time: f32,
+        room_size_m3: f32,
+        decay_time_sec: f32,
         pre_delay_ms: f32,
-        damp: f32,
-        density: f32,
+        damp_percent: f32,
+        density_percent: f32,
         dry_wet: f32,
     ) {
         self.is_enabled = is_enabled;
-        self.room_size = room_size.clamp(0.1, 3.0);
-        self.decay = decay_time.clamp(0.0, 0.99);
-        self.pre_delay_ms = pre_delay_ms.max(0.0);
-        self.damp = damp.clamp(0.0, 1.0);
-        self.density = density.clamp(0.0, 1.0);
+
+        // 방 크기(m³) -> 딜레이 길이 배율. 부피는 선형 치수의 세제곱이므로
+        // 세제곱근으로 환산한다. 기본값 800m³가 배율 1.0이 되도록 기준을 잡는다.
+        // 50m³ -> 0.40, 800 -> 1.00, 2000 -> 1.36.
+        const REFERENCE_ROOM_M3: f32 = 800.0;
+        let size_ratio = (room_size_m3.max(1.0) / REFERENCE_ROOM_M3).cbrt();
+        self.room_size = size_ratio.clamp(0.1, 3.0);
+
+        // 감쇠 시간(RT60, 초) -> FDN 피드백 계수.
+        // 표준 슈뢰더 공식: g = 10^(-3 * T_delay / RT60).
+        // T_delay는 딜레이 라인 4개의 평균 길이(초)이며 방 크기 배율을 반영한다.
+        // 이 공식은 구조상 항상 0 < g < 1이라 발진하지 않는다.
+        let mean_delay_sec = {
+            let sum: f32 = self.base_lengths.iter().sum();
+            (sum / 4.0) / self.sample_rate.max(1.0) * self.room_size
+        };
+        let rt60 = decay_time_sec.max(0.05);
+        self.decay = (10.0f32.powf(-3.0 * mean_delay_sec / rt60)).clamp(0.0, 0.985);
+
+        self.pre_delay_ms = pre_delay_ms.clamp(0.0, 400.0);
+        self.damp = (damp_percent / 100.0).clamp(0.0, 1.0);
+        self.density = (density_percent / 100.0).clamp(0.0, 1.0);
         self.mix = dry_wet.clamp(0.0, 1.0);
     }
 

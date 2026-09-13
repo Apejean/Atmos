@@ -183,3 +183,74 @@ fn missing_position_falls_back_to_front_without_crashing() {
     mixer.room_zones = vec![];
     mixer.recalculate_binaural_channel_azimuths(); // 크래시하지 않아야 한다
 }
+
+// ---------------------------------------------------------------------------
+// RoomZone 없이도 동작해야 한다
+//
+// 실기 보고: "스피커 위치를 왼쪽으로 바꿨는데 반영이 안 된다."
+// 원인은 방위각 계산이 RoomZone 바인딩을 필수로 요구했던 것. 사용자의 설정에는
+// RoomZone이 0개였고(rooms는 5개지만 그건 트랙 그룹이지 공간 정의가 아니다),
+// 그래서 모든 채널이 0°(정면)로 고정되어 스피커를 아무리 옮겨도 바이노럴이
+// 반응하지 않았다. 방위각은 리스너 기준점만 있으면 되므로, zone이 없으면
+// 배치된 스피커들의 무게중심을 리스너로 삼도록 고쳤다.
+// ---------------------------------------------------------------------------
+
+/// RoomZone이 하나도 없어도 좌/우 스피커가 서로 다른 방위각을 가져야 한다.
+#[test]
+fn channels_get_distinct_azimuths_without_any_room_zone() {
+    let (gc_tx, _) = crossbeam_channel::unbounded();
+    let mut mixer = AudioMixer::new(48000, 4, 512, gc_tx, None);
+
+    // RoomZone 없음. 스피커 두 개를 좌우로 벌려 배치한다.
+    mixer.room_zones = vec![];
+    mixer.channel_positions = vec![
+        Some(point(2.0, 4.0, 1.5)),  // 무게중심 기준 -X
+        Some(point(8.0, 4.0, 1.5)),  // 무게중심 기준 +X
+    ];
+    mixer.recalculate_binaural_channel_azimuths();
+
+    let az = mixer.binaural.channel_base_azimuth_mut();
+    assert!(
+        (az[0] - az[1]).abs() > 1.0,
+        "RoomZone이 없을 때 좌우 스피커의 방위각이 같다(위치가 무시되고 있다). \
+         az[0]={:.2} az[1]={:.2}",
+        az[0], az[1]
+    );
+    // 무게중심은 x=5.0이므로 ch0은 dx<0, ch1은 dx>0이어야 한다.
+    assert!(az[0] < 0.0, "무게중심보다 -X쪽 채널의 방위각이 음수가 아니다: {}", az[0]);
+    assert!(az[1] > 0.0, "무게중심보다 +X쪽 채널의 방위각이 양수가 아니다: {}", az[1]);
+}
+
+/// 스피커를 옮기면 방위각이 실제로 따라 바뀌어야 한다(실시간 반영).
+#[test]
+fn moving_a_speaker_changes_its_azimuth() {
+    let (gc_tx, _) = crossbeam_channel::unbounded();
+    let mut mixer = AudioMixer::new(48000, 4, 512, gc_tx, None);
+    mixer.room_zones = vec![];
+
+    // 기준점이 흔들리지 않도록 고정 스피커 두 개를 두고, 세 번째를 옮긴다.
+    mixer.channel_positions = vec![
+        Some(point(5.0, 0.0, 1.5)),
+        Some(point(5.0, 8.0, 1.5)),
+        Some(point(9.0, 4.0, 1.5)),
+    ];
+    mixer.recalculate_binaural_channel_azimuths();
+    let before = mixer.binaural.channel_base_azimuth_mut()[2];
+
+    // 같은 채널을 반대쪽으로 옮긴다.
+    mixer.channel_positions[2] = Some(point(1.0, 4.0, 1.5));
+    mixer.recalculate_binaural_channel_azimuths();
+    let after = mixer.binaural.channel_base_azimuth_mut()[2];
+
+    assert!(
+        (before - after).abs() > 1.0,
+        "스피커를 반대편으로 옮겼는데 방위각이 그대로다(위치 변경 미반영). \
+         before={:.2} after={:.2}",
+        before, after
+    );
+    assert!(
+        before.signum() != after.signum(),
+        "좌우를 바꿔 옮겼는데 방위각 부호가 그대로다. before={:.2} after={:.2}",
+        before, after
+    );
+}

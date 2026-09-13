@@ -980,10 +980,33 @@ impl AudioMixer {
         let channel_positions = &self.channel_positions;
         let azimuths = self.binaural.channel_base_azimuth_mut();
 
+        // RoomZone이 정의되지 않은 경우(기본 상태)에도 방위각이 나와야 한다.
+        // 예전에는 바인딩된 zone이 없으면 전부 0°(정면)로 처리해서, RoomZone을
+        // 만들지 않은 사용자에게는 스피커를 아무리 옮겨도 바이노럴이 전혀
+        // 반응하지 않았다(실기 보고: "스피커 위치를 바꿨는데 반영이 안 된다").
+        // 방위각은 리스너 기준점만 있으면 되고 벽 경계는 필요 없으므로,
+        // zone이 없으면 **배치된 스피커들의 무게중심**을 리스너로 삼는다.
+        // (초기반사음은 벽이 있어야 계산되므로 여전히 zone이 필요하다.)
+        let fallback_listener = {
+            let mut sx = 0.0f32;
+            let mut sy = 0.0f32;
+            let mut count = 0.0f32;
+            for p in channel_positions.iter().flatten() {
+                sx += p.x;
+                sy += p.y;
+                count += 1.0;
+            }
+            if count > 0.0 {
+                Some((sx / count, sy / count))
+            } else {
+                None
+            }
+        };
+
         let n = azimuths.len().min(channel_positions.len());
         for ch in 0..n {
             let Some(pos) = &channel_positions[ch] else {
-                azimuths[ch] = 0.0; // None -> 정면 취급
+                azimuths[ch] = 0.0; // 좌표 없음 -> 정면 취급
                 continue;
             };
 
@@ -994,13 +1017,20 @@ impl AudioMixer {
                     && pos.y <= z.boundary_max.y
             });
 
-            let Some(zone) = bound_zone else {
-                azimuths[ch] = 0.0; // 미바인딩 -> 정면 취급
-                continue;
+            let (listener_x, listener_y) = match bound_zone {
+                Some(zone) => (
+                    (zone.boundary_min.x + zone.boundary_max.x) * 0.5,
+                    (zone.boundary_min.y + zone.boundary_max.y) * 0.5,
+                ),
+                None => match fallback_listener {
+                    Some(c) => c,
+                    None => {
+                        azimuths[ch] = 0.0;
+                        continue;
+                    }
+                },
             };
 
-            let listener_x = (zone.boundary_min.x + zone.boundary_max.x) * 0.5;
-            let listener_y = (zone.boundary_min.y + zone.boundary_max.y) * 0.5;
             let dx = pos.x - listener_x;
             let dy = pos.y - listener_y;
 
