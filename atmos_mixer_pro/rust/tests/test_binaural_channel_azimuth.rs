@@ -1,15 +1,25 @@
 //! 채널 위치 -> 바이노럴 방위각 변환의 물리적 방향 회귀 테스트.
 //!
-//! 실측(백서 `docs/02_Planning_and_Specs/BINAURAL_SPATIAL_RENDERING_SPEC.md`
-//! §5 항목 5)으로 확인한 사실: 이 SOFA 조회에 넣는 azimuth_deg는 양수=왼쪽
-//! 우세, 음수=오른쪽 우세다(수학 교과서 관례와 반대). 처음 구현은 이를 몰라서
-//! 물리적으로 오른쪽에 있는 채널이 왼쪽 귀에서 크게 들리는 반대 방향 버그가
-//! 있었다. `binaural_numeric_check`(src/bin/)로 수치 확인, 사용자가
-//! `binaural_azimuth_probe`(src/bin/)로 청음 확인해 일치를 재확인했다.
+//! 이 부호는 두 단계를 거쳐 확정됐다.
 //!
-//! 이 테스트는 그 물리적 방향(리스너 기준 오른쪽에 있는 채널은 오른쪽 귀에서
-//! 크게 들려야 한다)을 고정해, 좌표계나 SOFA 조회부를 나중에 건드릴 때
-//! 조용히 반대로 뒤집히는 것을 막는다.
+//! 1) SOFA 조회에 넣는 azimuth_deg는 양수=왼쪽 우세, 음수=오른쪽 우세다
+//!    (수학 교과서 관례와 반대. `binaural_numeric_check` 실측으로 확인).
+//! 2) 실제 3D 룸(assets/3d_simulator/studio_engine.html)에서 Dart 채널
+//!    x좌표는 Three.js world X에 반전 없이 그대로 들어간다
+//!    (`posX = sp.x - room.width/2`). 사용자가 "정면"이라 부르는 카메라
+//!    ("Back View" 프리셋 — 마네킹 눈이 보는 방향과 같은 방향을 보는,
+//!    마네킹 뒤통수 너머의 시점)에서는 forward×up 벡터 계산상 화면
+//!    오른쪽이 world -X다.
+//!
+//! 두 사실이 서로를 상쇄해서, 최종 공식(`mixer.rs`의
+//! `dx.atan2(dy)`, 부호 반전 없음)이 정답이 된다: dx<0(화면 오른쪽, 정면
+//! 카메라 기준) -> 음수 azimuth -> 오른쪽 귀 우세.
+//!
+//! 처음에는 1번만 확인하고 2번(실제 룸 좌표 매핑)을 검증 없이 "월드
+//! +X=화면 오른쪽"이라 가정해 `-dx`로 뒤집는 회귀를 만들었다. 실기(스피커
+//! 레이아웃 + 헤드폰)에서 "Ch1이 오른쪽에 있는데 왼쪽에서 들린다"는 사용자
+//! 보고로 발견해 되돌렸다. 이 테스트는 그 방향을 고정해 나중에 좌표계나
+//! SOFA 조회부를 건드릴 때 조용히 다시 뒤집히는 것을 막는다.
 
 use rust_lib_atmos_mixer_pro::audio::player::{SoundData, SoundInstance};
 use rust_lib_atmos_mixer_pro::audio::mixer::AudioMixer;
@@ -22,7 +32,13 @@ fn point(x: f32, y: f32, z: f32) -> Point3D {
     Point3D { x, y, z, ..Default::default() }
 }
 
-/// 10m x 8m 방. 채널 0을 리스너 기준 정확히 오른쪽(+X) 또는 왼쪽(-X)에 둔다.
+/// 10m x 8m 방. 채널 0을 리스너 기준 dx_from_center만큼 X축으로 옮겨 둔다.
+///
+/// 부호 규약(중요, 직관과 반대): 이 프로젝트의 "정면" 카메라(사용자가
+/// 마네킹 눈이 보는 방향을 따라 마네킹 뒤통수 너머로 보는 시점, 3D 룸의
+/// "Back View" 프리셋)에서는 world +X가 화면 왼쪽, world -X가 화면
+/// 오른쪽이다(studio_engine.html의 카메라 벡터 계산, 파일 상단 doc 참고).
+/// 즉 **dx_from_center가 음수일 때 "리스너 기준 오른쪽"**이다.
 fn build_mixer_with_channel_at(dx_from_center: f32) -> AudioMixer {
     let (gc_tx, _) = crossbeam_channel::unbounded();
     let mut mixer = AudioMixer::new(48000, 2, 512, gc_tx, None);
@@ -102,24 +118,28 @@ fn measure_lr_rms(mixer: &mut AudioMixer) -> (f32, f32) {
 
 #[test]
 fn channel_physically_right_of_listener_is_louder_in_right_ear() {
-    let mut mixer = build_mixer_with_channel_at(4.0); // 리스너 기준 +X(오른쪽) 4m
+    // dx=-4.0이 "정면" 카메라 기준 리스너의 오른쪽이다(위 build_mixer_with_channel_at
+    // 문서 참고). 실기(스피커 레이아웃 + 헤드폰)에서 사용자가 "Ch1이 오른쪽에
+    // 있는데 왼쪽에서 들린다"고 보고해 발견한 방향이 이 테스트다.
+    let mut mixer = build_mixer_with_channel_at(-4.0);
     let (l, r) = measure_lr_rms(&mut mixer);
     assert!(
         r > l,
-        "리스너 기준 오른쪽에 있는 채널이 오른쪽 귀보다 왼쪽 귀에서 크게 들린다 \
-         (좌우 반전 회귀). L={:.5} R={:.5}",
+        "리스너 기준 오른쪽(정면 카메라에서 dx<0)에 있는 채널이 오른쪽 귀보다 \
+         왼쪽 귀에서 크게 들린다(좌우 반전 회귀). L={:.5} R={:.5}",
         l, r
     );
 }
 
 #[test]
 fn channel_physically_left_of_listener_is_louder_in_left_ear() {
-    let mut mixer = build_mixer_with_channel_at(-4.0); // 리스너 기준 -X(왼쪽) 4m
+    // dx=+4.0이 "정면" 카메라 기준 리스너의 왼쪽이다.
+    let mut mixer = build_mixer_with_channel_at(4.0);
     let (l, r) = measure_lr_rms(&mut mixer);
     assert!(
         l > r,
-        "리스너 기준 왼쪽에 있는 채널이 왼쪽 귀보다 오른쪽 귀에서 크게 들린다 \
-         (좌우 반전 회귀). L={:.5} R={:.5}",
+        "리스너 기준 왼쪽(정면 카메라에서 dx>0)에 있는 채널이 왼쪽 귀보다 \
+         오른쪽 귀에서 크게 들린다(좌우 반전 회귀). L={:.5} R={:.5}",
         l, r
     );
 }

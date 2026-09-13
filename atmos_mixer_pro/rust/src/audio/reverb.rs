@@ -105,6 +105,46 @@ impl VirtualRoomReverb {
         self.mix = mix.clamp(0.0, 1.0);
     }
 
+    /// UI/OSC에서 오는 리버브 파라미터 전체를 안전 범위로 클램프해 반영하는
+    /// 유일한 진입점. `engine.rs`의 `SetSpatialReverb`/`SetChannelSpatialReverb`
+    /// 핸들러가 예전에는 이 필드들을 직접 대입해서 `set_params()`의 클램프를
+    /// 건너뛰었다.
+    ///
+    /// 특히 `decay`(FDN 피드백 계수, `process_stereo`/`process_mono`의
+    /// `next_inputs[i] = input + feedback * self.decay`)가 클램프 없이
+    /// 대입됐다. UI의 "Decay Time" 슬라이더는 최대 20("초"로 표시)까지
+    /// 허용하는데, Rust는 그 숫자를 그대로 피드백 게인으로 쓴다. 1.0을 넘는
+    /// 피드백 게인은 FDN을 발진시켜 몇 밀리초 안에 값이 폭주하고, f32
+    /// 범위를 넘으면 Inf/NaN이 되어 리버브의 딜레이 라인 상태(`self.delays`)
+    /// 에 영구히 눌러앉는다. 리버브는 채널 간 공유 상태라서, 한 번 오염되면
+    /// 그 뒤로 재생하는 어떤 트랙도 무음이 된다(사용자 실기 재현: "소리가
+    /// 커지더니 이후 소리가 안 나고, 트랙을 다시 재생해도 소리가 안 남").
+    ///
+    /// `room_size`/`damp`/`density`/`pre_delay_ms`는 이미 사용 지점에서
+    /// 클램프되어 있어(`update_dsp_params`, `process_allpass`,
+    /// `process_stereo`의 damp 계수 등) 극단값이 들어와도 안정적이지만,
+    /// 방어적으로 여기서도 한 번 더 클램프해 "안전 범위 보장은 이 함수 하나
+    /// 만으로 충분하다"는 불변식을 만든다.
+    #[allow(clippy::too_many_arguments)]
+    pub fn set_full_params(
+        &mut self,
+        is_enabled: bool,
+        room_size: f32,
+        decay_time: f32,
+        pre_delay_ms: f32,
+        damp: f32,
+        density: f32,
+        dry_wet: f32,
+    ) {
+        self.is_enabled = is_enabled;
+        self.room_size = room_size.clamp(0.1, 3.0);
+        self.decay = decay_time.clamp(0.0, 0.99);
+        self.pre_delay_ms = pre_delay_ms.max(0.0);
+        self.damp = damp.clamp(0.0, 1.0);
+        self.density = density.clamp(0.0, 1.0);
+        self.mix = dry_wet.clamp(0.0, 1.0);
+    }
+
     fn update_dsp_params(&mut self) {
         let pd_samples = ((self.pre_delay_ms / 1000.0) * self.sample_rate).max(1.0) as usize;
         self.pre_delay_line.set_delay(pd_samples);

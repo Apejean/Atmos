@@ -1004,16 +1004,27 @@ impl AudioMixer {
             let dx = pos.x - listener_x;
             let dy = pos.y - listener_y;
 
-            // dx가 아니라 -dx로 atan2를 계산한다. `binaural_numeric_check`
-            // (src/bin/)로 실측한 결과, 이 SOFA 조회에 들어가는 azimuth_deg는
-            // 양수=왼쪽 우세, 음수=오른쪽 우세였다(수학 교과서의 "0°=정면,
-            // +90°=오른쪽" 관례와 반대). 처음에는 dx.atan2(dy)로 짜서 물리적
-            // 오른쪽(+X) 채널이 왼쪽 귀에서 크게 들리는 반대 버그가 있었다.
-            // -dx로 부호를 뒤집어 "+X(물리적 오른쪽) -> 오른쪽 귀 우세"가
-            // 되도록 맞췄다. 실측 방법: 화이트 노이즈를 azimuth ±90°로 흘려
-            // L/R RMS를 비교(binaural_azimuth_probe.rs 청음 + 사용자 확인,
-            // binaural_numeric_check.rs 수치 확인 둘 다 일치).
-            azimuths[ch] = (-dx).atan2(dy).to_degrees();
+            // 부호를 뒤집지 않는다. 두 가지 사실이 서로를 상쇄한다.
+            //
+            // 1) SOFA 조회에 들어가는 azimuth_deg는 양수=왼쪽 우세다
+            //    (binaural_numeric_check.rs로 실측 확인, 수학 교과서의
+            //    "0°=정면, +90°=오른쪽" 관례와 반대).
+            // 2) 실제 3D 룸(assets/3d_simulator/studio_engine.html)에서
+            //    Dart의 채널 x좌표는 `posX = sp.x - room.width/2`로 Three.js
+            //    world X에 그대로 들어간다(반전 없음). 사용자가 "정면"이라
+            //    부르는 카메라(마네킹 뒤통수 너머로 마네킹 눈이 보는 방향을
+            //    보는 각도 = 'Back View' 프리셋, studio_engine.html:607-610,
+            //    camera가 -Z에서 +Z를 바라봄)에서는 forward×up 벡터 계산상
+            //    화면 오른쪽이 world -X다. 즉 dx>0(월드 +X)는 이 카메라
+            //    기준 화면 왼쪽, dx<0이 화면 오른쪽이다.
+            //
+            // 두 사실을 합치면: dx<0(화면 오른쪽) -> dx.atan2(dy)가 음수
+            // azimuth를 만들고 -> 음수 azimuth는 오른쪽 귀 우세. 정확히
+            // 맞다. 처음에 -dx로 뒤집었던 건 1번만 확인하고 2번(실제 룸
+            // 좌표 매핑)을 검증 없이 "월드 +X=화면 오른쪽"이라고 가정해서
+            // 생긴 회귀였다 — 실기(스피커 레이아웃 + 헤드폰)에서 "Ch1이
+            // 오른쪽에 있는데 왼쪽에서 들린다"는 사용자 보고로 발견했다.
+            azimuths[ch] = dx.atan2(dy).to_degrees();
         }
 
         self.binaural.mark_base_azimuth_dirty();
