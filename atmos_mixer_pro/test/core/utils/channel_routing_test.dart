@@ -481,4 +481,59 @@ void main() {
       }
     });
   });
+
+  group('Output Config도 물리 채널만 다룬다', () {
+    const scarlett = [
+      'Mon 1', 'Mon 2', 'Line 3', 'Line 4', 'S/PDIF L', 'S/PDIF R',
+      'DAW 7', 'DAW 8', 'DAW 9', 'DAW 10', 'DAW 11', 'DAW 12',
+    ];
+
+    test('물리 채널이 비연속이어도 인덱스를 보존한다', () {
+      // 가상 채널이 중간에 끼어 있는 가상의 인터페이스.
+      const mixed = [
+        'Analogue 1', 'Analogue 2',
+        'Loopback 3', 'Loopback 4',
+        'Analogue 5', 'Analogue 6',
+      ];
+      expect(physicalOutputChannelIndices(mixed), [0, 1, 4, 5]);
+      // 압축해서 0,1,2,3으로 다시 매기면 Analogue 5가 하드웨어 3번으로
+      // 잘못 매핑된다. 그 회귀를 막는다.
+      expect(channelDisplayName(4, mixed), 'Ch-5 (Analogue 5)');
+    });
+
+    test('비연속 물리 채널에서 스테레오 쌍이 경계를 넘지 않는다', () {
+      const mixed = [
+        'Analogue 1', 'Analogue 2',
+        'Loopback 3', 'Loopback 4',
+        'Analogue 5', 'Analogue 6',
+      ];
+      final items = buildChannelRoutingItems(
+        channelNames: mixed,
+        config: config(),
+        fileChannels: 2,
+      );
+      final stereo = items
+          .where((i) => i.value.startsWith('stereo_'))
+          .map((i) => i.realChannel0)
+          .toList();
+
+      // 0/1과 4/5만 가능하다. 1/2(가상 포함), 3/4(가상 포함)는 나오면 안 된다.
+      expect(stereo, [0, 4]);
+    });
+
+    test('모든 채널이 가상이면 라우팅 항목이 비어 있다', () {
+      final items = buildChannelRoutingItems(
+        channelNames: const ['DAW 1', 'DAW 2'],
+        config: config(),
+        fileChannels: 2,
+      );
+      expect(items, isEmpty);
+    });
+
+    test('Scarlett에서 물리/가상 개수가 6과 6으로 갈린다', () {
+      final physical = physicalOutputChannelIndices(scarlett);
+      expect(physical.length, 6);
+      expect(scarlett.length - physical.length, 6);
+    });
+  });
 }

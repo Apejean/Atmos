@@ -5,6 +5,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:atmos_mixer_pro/core/theme/colors.dart';
 import 'package:atmos_mixer_pro/core/state/global_state.dart';
+import 'package:atmos_mixer_pro/core/utils/channel_routing.dart';
 import 'package:atmos_mixer_pro/features/dashboard/widgets/room_card.dart';
 import 'package:atmos_mixer_pro/features/settings/widgets/preferences_modal.dart';
 import 'package:atmos_mixer_pro/features/settings/widgets/tuning_modal.dart';
@@ -44,14 +45,23 @@ String _outputChannelSummary(OutputChannelsState channels) {
   final names = channels.channelNames;
   if (names.isEmpty) return '출력 채널 0개';
 
-  final main = names
+  // 실제로 소리를 내보낼 수 있는 물리 출력만 센다. 드라이버가 보고하는 총
+  // 채널 수에는 내부 가상 채널(DAW 리턴 등)이 섞여 있어서, 그 숫자를 그대로
+  // 보여주면 현장에서 쓸 수 있는 출력 수를 오해하게 된다.
+  final physical = physicalOutputChannelIndices(names);
+  if (physical.isEmpty) return '물리 출력 없음';
+
+  final main = physical
       .take(2)
-      .map((n) => n.trim())
+      .map((i) => names[i].trim())
       .where((n) => n.isNotEmpty)
       .join(' / ');
 
-  if (main.isEmpty) return '출력 ${names.length}채널';
-  return '출력 ${names.length}채널 · 메인 Ch-1/Ch-2 ($main)';
+  final head = '물리 출력 ${physical.length}채널';
+  if (main.isEmpty) return head;
+
+  final firstTwo = physical.take(2).map((i) => 'Ch-${i + 1}').join('/');
+  return '$head · 메인 $firstTwo ($main)';
 }
 
 class DashboardScreen extends ConsumerStatefulWidget {

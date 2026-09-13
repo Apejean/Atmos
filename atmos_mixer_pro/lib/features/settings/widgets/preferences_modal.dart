@@ -592,6 +592,19 @@ oscWhitelist: _tempConfig.oscWhitelist,
     return channels.channelNames;
   }
 
+  /// 드라이버가 보고한 채널 중 가상 채널이 섞여 있으면 그 사실을 덧붙인다.
+  ///
+  /// 총 채널 수를 아예 숨기지 않는 이유는, 장치 설정 유틸리티나 매뉴얼에 적힌
+  /// 숫자와 다르면 사용자가 인식 오류로 오해하기 때문이다. 실제로 쓸 수 있는
+  /// 것은 물리 출력이라는 점을 앞세우고, 나머지는 괄호로 설명한다.
+  String _virtualSuffix(List<String> channelNames) {
+    final physical = physicalOutputChannelIndices(channelNames).length;
+    final total = channelNames.length;
+    final virtual = total - physical;
+    if (virtual <= 0) return '';
+    return ' (드라이버 보고 $total개 중 $virtual개는 내부 가상 채널이라 제외)';
+  }
+
   Widget _buildAudioTab() {
     // 단일 진실 원천: 자체 로드하던 _channelNames를 제거하고
     // outputChannelsProvider를 구독한다.
@@ -1166,8 +1179,8 @@ oscWhitelist: _tempConfig.oscWhitelist,
               else if (_previewChannelNames != null &&
                   _previewDeviceName == _tempConfig.deviceName)
                 Text(
-                  '선택한 장치의 아웃풋 채널은 총 ${channelNames.length}개 입니다. '
-                  '(저장하면 적용됩니다)',
+                  '선택한 장치의 물리 출력은 ${physicalOutputChannelIndices(channelNames).length}개 입니다'
+                  '${_virtualSuffix(channelNames)}. (저장하면 적용됩니다)',
                   style: const TextStyle(color: Colors.lightBlueAccent),
                 )
               else if (outputChannels.status == OutputChannelsStatus.noDevice)
@@ -1182,7 +1195,9 @@ oscWhitelist: _tempConfig.oscWhitelist,
                 )
               else
                 Text(
-                  '현재 선택된 오디오 인터페이스의 아웃풋 채널은 총 ${channelNames.length}개 입니다.',
+                  '현재 오디오 인터페이스의 물리 출력은 '
+                  '${physicalOutputChannelIndices(channelNames).length}개 입니다'
+                  '${_virtualSuffix(channelNames)}.',
                   style: const TextStyle(color: Colors.white70),
                 ),
               const SizedBox(height: 12),
@@ -1192,7 +1207,10 @@ oscWhitelist: _tempConfig.oscWhitelist,
                       await showDialog<Map<String, Map<int, ChannelSetting>>>(
                         context: context,
                         builder: (context) => OutputConfigDialog(
-                          channelCount: channelNames.length,
+                          physicalChannels: physicalOutputChannelIndices(
+                            channelNames,
+                          ),
+                          channelNames: channelNames,
                           initialMonoConfigs: _tempConfig.monoConfigs,
                           initialStereoConfigs: _tempConfig.stereoConfigs,
                           initialMultiConfigs: _tempConfig.multiConfigs,
@@ -1919,14 +1937,23 @@ oscWhitelist: _tempConfig.oscWhitelist,
 }
 
 class OutputConfigDialog extends ConsumerStatefulWidget {
-  final int channelCount;
+  /// 물리적으로 연결 가능한 출력 채널의 **0-based 하드웨어 인덱스** 목록.
+  ///
+  /// 개수(int)가 아니라 인덱스 목록을 받는다. 드라이버가 보고하는 채널 중
+  /// 가상 채널(DAW 리턴 등)을 걸러내면 남는 채널이 연속이라는 보장이 없기
+  /// 때문이다. 개수만 받으면 0..n-1로 가정하게 되어 엉뚱한 채널을 연다.
+  final List<int> physicalChannels;
+
+  /// 하드웨어 채널 이름(전체 목록, 인덱스 = 하드웨어 채널).
+  final List<String> channelNames;
   final Map<int, ChannelSetting> initialMonoConfigs;
   final Map<int, ChannelSetting> initialStereoConfigs;
   final Map<int, ChannelSetting> initialMultiConfigs;
 
   const OutputConfigDialog({
     super.key,
-    required this.channelCount,
+    required this.physicalChannels,
+    required this.channelNames,
     required this.initialMonoConfigs,
     required this.initialStereoConfigs,
     required this.initialMultiConfigs,
@@ -1947,6 +1974,21 @@ class _OutputConfigDialogState extends ConsumerState<OutputConfigDialog> {
     monoConfigs = Map.from(widget.initialMonoConfigs);
     stereoConfigs = Map.from(widget.initialStereoConfigs);
     multiConfigs = Map.from(widget.initialMultiConfigs);
+  }
+
+  /// Output Config의 Stereo 목록에 쓸 쌍의 시작 채널(0-based 하드웨어 인덱스).
+  ///
+  /// 기존에는 전체 채널 수를 2로 나눠 0,2,4...로 기계적으로 잘랐다. 가상 채널을
+  /// 걸러내면 남은 채널이 연속이라는 보장이 없으므로, 인접한 두 채널이 모두
+  /// 물리인 경우만 쌍으로 만든다.
+  List<int> _stereoPairStarts() {
+    final physical = widget.physicalChannels.toSet();
+    final starts = <int>[];
+    for (final ch in widget.physicalChannels) {
+      // 쌍은 짝수 경계(1/2, 3/4, ...)에서 시작하는 기존 관례를 유지한다.
+      if (ch.isEven && physical.contains(ch + 1)) starts.add(ch);
+    }
+    return starts;
   }
 
   Widget _buildChannelRow(
@@ -2089,9 +2131,11 @@ class _OutputConfigDialogState extends ConsumerState<OutputConfigDialog> {
                         ),
                         Expanded(
                           child: ListView.builder(
-                            itemCount: widget.channelCount,
+                            itemCount: widget.physicalChannels.length,
                             itemBuilder: (context, index) {
-                              final chStart = index;
+                              // 물리 채널 인덱스를 그대로 쓴다. 목록 순번이
+                              // 아니라 하드웨어 인덱스가 설정 키가 되어야 한다.
+                              final chStart = widget.physicalChannels[index];
                               final displayCh1 = chStart + 1;
                               final key = displayCh1;
                               final setting =
@@ -2135,12 +2179,11 @@ class _OutputConfigDialogState extends ConsumerState<OutputConfigDialog> {
                         ),
                         Expanded(
                           child: ListView.builder(
-                            itemCount: (widget.channelCount / 2).ceil(),
+                            itemCount: _stereoPairStarts().length,
                             itemBuilder: (context, index) {
-                              final chStart = index * 2;
-                              if (chStart >= widget.channelCount) {
-                                return const SizedBox.shrink();
-                              }
+                              // 스테레오 쌍은 인접한 두 채널이 모두 물리일 때만
+                              // 성립한다. 물리/가상 경계를 넘는 쌍은 만들지 않는다.
+                              final chStart = _stereoPairStarts()[index];
                               final displayCh1 = chStart + 1;
                               final displayCh2 = chStart + 2;
                               final key = displayCh1;
@@ -2187,9 +2230,9 @@ class _OutputConfigDialogState extends ConsumerState<OutputConfigDialog> {
                         ),
                         Expanded(
                           child: ListView.builder(
-                            itemCount: widget.channelCount,
+                            itemCount: widget.physicalChannels.length,
                             itemBuilder: (context, index) {
-                              final chStart = index;
+                              final chStart = widget.physicalChannels[index];
                               final displayCh1 = chStart + 1;
                               final key = displayCh1;
                               final setting =
