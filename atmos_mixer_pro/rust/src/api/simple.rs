@@ -1939,6 +1939,29 @@ pub fn api_update_spatial_config_json(json_payload: String) -> Result<(), AtmosE
             message: format!("Failed to parse spatial config JSON: {}", e),
         })?;
 
+    // 리스너(마네킹) 기준점은 `SpatialConfigPayload`에 필드로 넣지 않고 JSON에서
+    // 직접 뽑는다. 그 구조체는 flutter_rust_bridge가 생성한 코드
+    // (`frb_generated.rs`)가 참조하고 있어서 필드를 추가하면 재생성이 필요한데,
+    // 이 저장소의 코드젠은 freezed 의존성 누락으로 현재 실패한다
+    // (`channel_names.rs`의 TODO 주석 참고). 반면 이 함수의 입력은 JSON
+    // 문자열이라 FFI 시그니처를 건드리지 않고 필드를 늘릴 수 있다.
+    //
+    // 없으면 None으로 두고 엔진이 폴백한다(구버전 payload 호환).
+    let listener_position = serde_json::from_str::<serde_json::Value>(&json_payload)
+        .ok()
+        .and_then(|v| v.get("listener_position").cloned())
+        .and_then(|lp| {
+            let x = lp.get("x")?.as_f64()? as f32;
+            let y = lp.get("y")?.as_f64()? as f32;
+            let z = lp.get("z").and_then(|v| v.as_f64()).unwrap_or(1.2) as f32;
+            Some(crate::common::config::Point3D {
+                x,
+                y,
+                z,
+                ..Default::default()
+            })
+        });
+
     // 초기반사음(1차 반사) 탭을 비-오디오 스레드(FRB 워커 풀)에서 미리 계산한다.
     // api_calculate_eq_response_curve와 달리 #[frb(sync)]가 없어 오디오 렌더 콜백과 무관한
     // 워커 스레드에서 실행되므로, 여기서의 힙 할당/삼각함수 반복 계산은 Law 1/2 위반이 아니다.
@@ -1970,6 +1993,7 @@ pub fn api_update_spatial_config_json(json_payload: String) -> Result<(), AtmosE
     GLOBAL_STATE
         .command_sender
         .send(AudioCommand::UpdateSpatialConfig {
+            listener_position,
             channel_positions: payload.channel_positions,
             room_zones: payload.room_zones,
             trajectory: payload.trajectory,

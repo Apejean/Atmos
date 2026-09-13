@@ -254,3 +254,88 @@ fn moving_a_speaker_changes_its_azimuth() {
         before, after
     );
 }
+
+/// 프론트엔드가 보낸 리스너 좌표(마네킹 = 방 중심)를 최우선으로 써야 한다.
+///
+/// 실기 보고: "1번 채널 바이노럴 켜고 스피커를 움직이면 소리가 오른쪽에서만
+/// 난다." 원인은 리스너 기준점이 스피커 무게중심이었던 것. 스피커를 일직선으로
+/// 늘어놓으면 무게중심도 그 선 위에 놓여서, 모든 채널의 dy가 0이 되고 방위각이
+/// 정확히 ±90°(하드 좌우)로만 나온다. 중간 방향이 아예 안 나온다.
+#[test]
+fn explicit_listener_position_avoids_hard_panning_for_collinear_speakers() {
+    let (gc_tx, _) = crossbeam_channel::unbounded();
+    let mut mixer = AudioMixer::new(48000, 4, 512, gc_tx, None);
+    mixer.room_zones = vec![];
+
+    // 스피커 두 개를 같은 깊이(y=2.0)에 일직선으로 배치한다.
+    mixer.channel_positions = vec![
+        Some(point(2.0, 2.0, 1.5)),
+        Some(point(8.0, 2.0, 1.5)),
+    ];
+
+    // (1) 리스너 좌표가 없으면 무게중심 폴백 -> 두 채널 모두 dy=0 -> ±90°
+    mixer.listener_position = None;
+    mixer.recalculate_binaural_channel_azimuths();
+    {
+        let az = mixer.binaural.channel_base_azimuth_mut();
+        assert!(
+            (az[0].abs() - 90.0).abs() < 0.01 && (az[1].abs() - 90.0).abs() < 0.01,
+            "일직선 배치 + 무게중심 폴백이면 ±90°가 되는 퇴화를 재현해야 한다. \
+             az={:?}",
+            [az[0], az[1]]
+        );
+    }
+
+    // (2) 리스너를 스피커 선 뒤쪽에 두면(스피커가 리스너 앞에 있으면)
+    //     더 이상 하드 좌우가 아니라 앞쪽 좌/우로 벌어진다.
+    mixer.listener_position = Some(point(5.0, 0.0, 1.2));
+    mixer.recalculate_binaural_channel_azimuths();
+    {
+        let az = mixer.binaural.channel_base_azimuth_mut();
+        assert!(
+            az[0].abs() < 89.0 && az[1].abs() < 89.0,
+            "명시적 리스너 좌표를 줬는데도 하드 좌우(±90°)로 나온다. az={:?}",
+            [az[0], az[1]]
+        );
+        assert!(
+            az[0].signum() != az[1].signum(),
+            "리스너 양옆의 두 스피커가 같은 방향으로 계산됐다. az={:?}",
+            [az[0], az[1]]
+        );
+    }
+}
+
+/// 리스너 좌표가 주어지면 RoomZone 중심보다 우선한다.
+#[test]
+fn explicit_listener_position_takes_priority_over_room_zone() {
+    let (gc_tx, _) = crossbeam_channel::unbounded();
+    let mut mixer = AudioMixer::new(48000, 4, 512, gc_tx, None);
+
+    mixer.room_zones = vec![RoomZone {
+        room_id: 1,
+        boundary_min: point(0.0, 0.0, 0.0),
+        boundary_max: point(10.0, 8.0, 3.0),
+        boundary_delay_ms: 0.0,
+        boundary_eq_bands: vec![],
+        transmission_loss_db: 0.0,
+        absorption_coeff: 0.0,
+        ear_level: 1.2,
+    }];
+    // zone 중심은 (5,4). 스피커를 (5, 6)에 두면 zone 기준으로는 정면(0°)이다.
+    mixer.channel_positions = vec![Some(point(5.0, 6.0, 1.5))];
+
+    mixer.listener_position = None;
+    mixer.recalculate_binaural_channel_azimuths();
+    let via_zone = mixer.binaural.channel_base_azimuth_mut()[0];
+    assert!(via_zone.abs() < 0.01, "zone 중심 기준이면 정면이어야 한다: {}", via_zone);
+
+    // 리스너를 스피커의 오른쪽 옆으로 옮기면 방위각이 달라져야 한다.
+    mixer.listener_position = Some(point(1.0, 6.0, 1.2));
+    mixer.recalculate_binaural_channel_azimuths();
+    let via_listener = mixer.binaural.channel_base_azimuth_mut()[0];
+    assert!(
+        (via_listener - via_zone).abs() > 1.0,
+        "명시적 리스너 좌표가 무시되고 zone 중심이 쓰였다. zone={:.2} listener={:.2}",
+        via_zone, via_listener
+    );
+}

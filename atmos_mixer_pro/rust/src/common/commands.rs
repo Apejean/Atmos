@@ -95,6 +95,9 @@ pub enum AudioCommand {
         gain_db: f32,
     },
     UpdateSpatialConfig {
+        /// 리스너(마네킹) 기준점. 방위각 계산의 기준이며, RoomZone이 없어도
+        /// 스피커 위치가 반영되게 한다. 없으면 엔진이 폴백한다.
+        listener_position: Option<crate::common::config::Point3D>,
         channel_positions: Vec<Option<crate::common::config::Point3D>>,
         room_zones: Vec<crate::common::config::RoomZone>,
         trajectory: Option<crate::common::config::Trajectory>,

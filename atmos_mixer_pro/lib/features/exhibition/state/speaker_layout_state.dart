@@ -86,11 +86,28 @@ class SpeakerLayoutState extends Notifier<List<SpeakerNode>> {
     final rooms = ref.read(roomZoneProvider);
     final trajectories = ref.read(trajectoryProvider);
     
+    final bp = ref.read(blueprintProvider);
+
+    // 리스너(마네킹) 기준점. 3D 룸은 마네킹을 방 중심에 세우므로
+    // (studio_engine.html의 listenerGroup이 원점, posX = sp.x - width/2),
+    // 엔진도 같은 지점을 기준으로 방위각을 계산해야 한다.
+    //
+    // 좌표 단위는 channel_positions와 반드시 같은 공간이어야 한다. 아래
+    // buildChannelPositionsPayload가 scale로 나눈 값을 보내므로 여기서도
+    // 같은 방식으로 나눈다(방위각은 균일 배율에 불변이라 각도는 정확하다).
+    //
+    // 이 값을 안 보내면 엔진이 "배치된 스피커들의 무게중심"으로 폴백하는데,
+    // 스피커를 일렬로 늘어놓으면 무게중심이 그 직선 위에 놓여 모든 스피커가
+    // 정확히 ±90°(하드 좌우)가 되어버린다.
+    final listenerX = (bp.canvasWidthMeters / 2.0) / bp.scale;
+    final listenerY = (bp.canvasHeightMeters / 2.0) / bp.scale;
+
     final payload = {
+      'listener_position': {'x': listenerX, 'y': listenerY, 'z': 1.2},
       'channel_positions': buildChannelPositionsPayload(
         nodes,
         ref.read(engineStateProvider).outputChannelCount,
-        ref.read(blueprintProvider).scale,
+        bp.scale,
       ),
       'room_zones': rooms.map((r) {
         return {

@@ -58,6 +58,9 @@ pub struct AudioMixer {
     // 다를 수 있음(프론트엔드가 통째로 교체). engine.rs 핸들러가 channel_dsp[ch].taps로 값만 이관한다.
     pub channel_early_ref_taps: Vec<[crate::audio::acoustic::EarlyReflectionTap; crate::audio::acoustic::MAX_EARLY_REFLECTION_TAPS]>,
     pub room_zones: Vec<crate::common::config::RoomZone>,
+    /// 리스너(마네킹) 기준점. 3D 룸이 마네킹을 방 중심에 세우므로 그 좌표가
+    /// 프론트엔드에서 실려온다. 바이노럴 방위각 계산의 기준점이다.
+    pub listener_position: Option<crate::common::config::Point3D>,
     pub trajectory: Option<crate::common::config::Trajectory>,
     pub master_headroom_db: f32,
     pub peak_limiter_enabled: bool,
@@ -218,6 +221,7 @@ impl AudioMixer {
             channel_positions,
             channel_pan_deg: vec![0.0; channels],
             channel_early_ref_taps: vec![[crate::audio::acoustic::EarlyReflectionTap::default(); crate::audio::acoustic::MAX_EARLY_REFLECTION_TAPS]; channels],
+            listener_position: None,
             room_zones,
             trajectory: trajectory.clone(),
             master_headroom_db,
@@ -978,6 +982,7 @@ impl AudioMixer {
         // 경로다.
         let room_zones = &self.room_zones;
         let channel_positions = &self.channel_positions;
+        let explicit_listener = self.listener_position.as_ref().map(|p| (p.x, p.y));
         let azimuths = self.binaural.channel_base_azimuth_mut();
 
         // RoomZone이 정의되지 않은 경우(기본 상태)에도 방위각이 나와야 한다.
@@ -1017,17 +1022,28 @@ impl AudioMixer {
                     && pos.y <= z.boundary_max.y
             });
 
-            let (listener_x, listener_y) = match bound_zone {
-                Some(zone) => (
-                    (zone.boundary_min.x + zone.boundary_max.x) * 0.5,
-                    (zone.boundary_min.y + zone.boundary_max.y) * 0.5,
-                ),
-                None => match fallback_listener {
-                    Some(c) => c,
-                    None => {
-                        azimuths[ch] = 0.0;
-                        continue;
-                    }
+            // 기준점 우선순위:
+            // 1. 프론트엔드가 보낸 리스너 좌표(3D 룸의 마네킹 위치 = 방 중심).
+            //    실제로 소리를 듣는 지점이므로 이게 가장 정확하다.
+            // 2. 스피커가 바인딩된 RoomZone의 중심.
+            // 3. 배치된 스피커들의 무게중심(최후 폴백). 스피커가 일직선으로
+            //    놓이면 무게중심도 그 선 위에 놓여 모든 채널이 정확히 ±90°
+            //    (하드 좌우)가 되는 퇴화가 생기므로, 1번이 있으면 반드시
+            //    1번을 쓴다.
+            let (listener_x, listener_y) = match explicit_listener {
+                Some(c) => c,
+                None => match bound_zone {
+                    Some(zone) => (
+                        (zone.boundary_min.x + zone.boundary_max.x) * 0.5,
+                        (zone.boundary_min.y + zone.boundary_max.y) * 0.5,
+                    ),
+                    None => match fallback_listener {
+                        Some(c) => c,
+                        None => {
+                            azimuths[ch] = 0.0;
+                            continue;
+                        }
+                    },
                 },
             };
 

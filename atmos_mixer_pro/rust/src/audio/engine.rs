@@ -721,12 +721,14 @@ impl AudioEngine {
                         .try_send(crate::audio::mixer::SpatialGarbage::EqBands(eq_bands));
                 }
                 AudioCommand::UpdateSpatialConfig {
+                    listener_position,
                     channel_positions,
                     room_zones,
                     trajectory,
                     track_positions,
                     early_reflection_taps,
                 } => {
+                    mixer.listener_position = listener_position;
                     let old_positions =
                         std::mem::replace(&mut mixer.channel_positions, channel_positions);
                     let old_zones = std::mem::replace(&mut mixer.room_zones, room_zones);
