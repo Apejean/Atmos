@@ -23,6 +23,37 @@ import 'package:atmos_mixer_pro/features/exhibition/models/room_zone.dart' as ex
 import 'package:atmos_mixer_pro/src/rust/common/config.dart';
 import 'package:file_picker/file_picker.dart';
 
+/// 인식된 출력 채널을 한 줄로 요약한다. 장치 이름 옆에 붙는다.
+///
+/// 인터페이스가 광고하는 출력 개수와 CoreAudio가 보고하는 채널 수는 자주
+/// 다르다. 예를 들어 Scarlett 6i6은 물리 출력이 6개(아날로그 4 + S/PDIF 2)
+/// 지만, 드라이버가 내부 DAW 리턴 채널까지 더해 12채널을 보고한다. 어느 쪽이
+/// 맞는지 사용자가 판단할 수 있도록 총 채널 수와 메인 아웃 이름을 함께 보여준다.
+String _outputChannelSummary(OutputChannelsState channels) {
+  switch (channels.status) {
+    case OutputChannelsStatus.loading:
+      return '채널 조회 중...';
+    case OutputChannelsStatus.noDevice:
+      return '출력 장치 없음';
+    case OutputChannelsStatus.error:
+      return '채널 조회 실패';
+    case OutputChannelsStatus.ready:
+      break;
+  }
+
+  final names = channels.channelNames;
+  if (names.isEmpty) return '출력 채널 0개';
+
+  final main = names
+      .take(2)
+      .map((n) => n.trim())
+      .where((n) => n.isNotEmpty)
+      .join(' / ');
+
+  if (main.isEmpty) return '출력 ${names.length}채널';
+  return '출력 ${names.length}채널 · 메인 Ch-1/Ch-2 ($main)';
+}
+
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
 
@@ -1059,6 +1090,25 @@ oscWhitelist: config.oscWhitelist,
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
                     ),
+                  ),
+                  // 장치 이름만으로는 실제로 몇 채널이 잡혔는지 알 수 없어서,
+                  // 인식된 출력 채널 수와 메인 아웃(Ch-1/Ch-2) 이름을 함께 보여준다.
+                  // 인터페이스가 물리 출력보다 많은 채널을 보고하는 경우가 흔하다
+                  // (예: Scarlett 6i6은 물리 6개 + 내부 DAW 리턴 6개 = 12채널).
+                  const SizedBox(width: 8),
+                  Consumer(
+                    builder: (context, ref, _) {
+                      final channels = ref.watch(outputChannelsProvider);
+                      return Text(
+                        _outputChannelSummary(channels),
+                        style: TextStyle(
+                          color: channels.status == OutputChannelsStatus.ready
+                              ? Colors.white54
+                              : Colors.orangeAccent,
+                          fontSize: 12,
+                        ),
+                      );
+                    },
                   ),
                   IconButton(
                     icon: const Icon(Icons.refresh, color: Colors.white),
