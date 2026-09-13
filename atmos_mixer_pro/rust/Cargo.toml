@@ -56,3 +56,8 @@ opt-level = 3
 [profile.release]
 lto = true
 codegen-units = 1
+
+[dev-dependencies]
+# 테스트 전용. 분석 스레드가 유휴 상태에서 CPU를 태우지 않는지 확인하려면
+# getrusage(RUSAGE_SELF)로 실제 소비한 CPU 시간을 읽어야 한다.
+libc = "0.2"
