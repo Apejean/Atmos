@@ -404,8 +404,16 @@ class _TuningModalState extends ConsumerState<TuningModal>
     });
   }
 
+  /// 자동 스케일 모드일 때만 Y축 표시 범위를 다시 계산한다.
+  ///
+  /// `force`는 "값이 안 바뀌었어도 다시 적용하라"는 뜻이지, "수동 설정을
+  /// 무시하라"는 뜻이 아니다. 예전에는 `!_isAutoScale && !force`로 묶여 있어
+  /// force가 붙은 호출(_loadStateForChannel 등)이 사용자가 30dB로 고정해둔
+  /// 설정을 덮어썼다. 채널 튜닝이 바뀔 때마다 _loadStateForChannel이 불리므로
+  /// (스피커 위치 기반 FX 자동 동기화가 켜진 뒤로는 더 자주) 수동 범위가
+  /// 계속 풀렸다. 수동 모드면 어떤 경우에도 건드리지 않는다.
   void _updateAutoScale({bool force = false}) {
-    if (!_isAutoScale && !force) return;
+    if (!_isAutoScale) return;
 
     double maxAbsGain = 0.0;
     for (int i = 0; i < 8; i++) {

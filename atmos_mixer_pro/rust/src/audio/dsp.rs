@@ -218,18 +218,43 @@ pub mod dsp_utils {
             self.target_delay_ms = target_delay_ms.clamp(0.0, 1000.0);
         }
 
+        /// 밴드 값이 **실제로 달라졌을 때만** 필터 계수를 다시 만든다.
+        ///
+        /// `eq_filters[i].update()`는 계수를 즉시 스냅한다(스무딩 없음). 예전에는
+        /// 값이 그대로여도 호출할 때마다 무조건 갱신했는데, 스피커를 드래그하면
+        /// `recalculate_spatial_dsp()`가 초당 30번 이 함수를 부르므로 계수가
+        /// 계속 튀어 딸깍거리는 잡음이 났다(실기 보고: "스피커를 움직이면 소리가
+        /// 끊기면서 나온다"). 오프액시스 EQ는 각도가 의미 있게 변할 때만
+        /// 달라지므로, 같은 값이면 건너뛰는 것만으로 대부분의 잡음이 사라진다.
+        ///
+        /// 부수 효과로 오디오 스레드의 불필요한 계수 재계산(삼각함수 포함)도
+        /// 함께 줄어든다.
         pub fn update_eq_targets(&mut self, target_bands: &[EqBand], fs: f32) {
+            fn same(a: &EqBand, b: &EqBand) -> bool {
+                a.enabled == b.enabled
+                    && a.filter_type == b.filter_type
+                    && (a.freq - b.freq).abs() < 1e-3
+                    && (a.gain - b.gain).abs() < 1e-3
+                    && (a.q_factor - b.q_factor).abs() < 1e-3
+            }
+
             let limit = target_bands.len().min(MAX_EQ_BANDS);
-            
+
             for (i, band) in target_bands.iter().enumerate().take(limit) {
+                if same(&self.current_bands[i], band) {
+                    continue;
+                }
                 self.target_bands[i] = band.clone();
                 self.current_bands[i] = band.clone();
                 self.eq_filters[i].update(band, fs);
             }
-            
+
             // Fill remaining filters with defaults if target_bands is smaller than MAX_EQ_BANDS
+            let default_band = EqBand::default();
             for i in limit..MAX_EQ_BANDS {
-                let default_band = EqBand::default();
+                if same(&self.current_bands[i], &default_band) {
+                    continue;
+                }
                 self.target_bands[i] = default_band.clone();
                 self.current_bands[i] = default_band.clone();
                 self.eq_filters[i].update(&default_band, fs);

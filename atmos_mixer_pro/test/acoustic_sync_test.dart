@@ -7,6 +7,9 @@ import 'package:atmos_mixer_pro/features/exhibition/state/acoustic_sync_provider
 import 'package:atmos_mixer_pro/features/exhibition/models/speaker_node.dart';
 import 'package:atmos_mixer_pro/features/exhibition/models/room_zone.dart';
 
+import 'dart:math' as math;
+
+import 'package:atmos_mixer_pro/features/exhibition/state/environment_state_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// 스피커 위치가 바뀌면 채널별 FX(딜레이/게인 등)가 자동으로 따라오는지 검증한다.
@@ -91,6 +94,39 @@ void main() {
 
     // 방 정보가 없으면 음향 계산의 근거가 없으므로 아무것도 쓰지 않는다.
     expect(container.read(tuningStateProvider)[1], isNull);
+
+    container.dispose();
+  });
+
+  test('딜레이와 게인이 물리 계산값과 일치한다', () async {
+    final container = await setUpContainer();
+
+    final env = container.read(environmentStateProvider);
+    final tuning = container.read(tuningStateProvider)[1];
+    expect(tuning, isNotNull);
+
+    // 10m x 10m 방의 리스너는 정중앙 (5, 5, earLevel).
+    // 스피커는 (2, 2, heightZ 기본 3.5).
+    const room = 10.0;
+    const earLevel = 1.2; // RoomZone 기본값
+    final dx = 2.0 - room / 2.0;
+    final dy = 2.0 - room / 2.0;
+    final dz = 3.5 - earLevel;
+    final distance = math.sqrt(dx * dx + dy * dy + dz * dz);
+
+    final expectedDelay = (distance / env.speedOfSound) * 1000.0;
+    final expectedGain = 20.0 * math.log(1.0 / distance) / math.ln10;
+
+    expect(
+      tuning!.delay,
+      closeTo(expectedDelay, 0.01),
+      reason: '딜레이가 비행시간(거리/음속) 계산값과 다르다',
+    );
+    expect(
+      tuning.gainDb,
+      closeTo(expectedGain, 0.5),
+      reason: '게인이 역제곱 거리 감쇠 계산값과 다르다',
+    );
 
     container.dispose();
   });
