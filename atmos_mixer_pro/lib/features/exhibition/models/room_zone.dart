@@ -212,21 +212,34 @@ class RoomZone {
 ///
 /// `boundary_max.z`는 반드시 [RoomZone.ceilingHeight]를 사용해야 한다 — 하드코딩된
 /// 값을 쓰면 천장 반사(early reflection) 탭이 항상 잘못된 높이로 계산된다.
-List<Map<String, dynamic>> buildRoomZonesPayload(
-  List<RoomZone> rooms,
-  double pixelsPerMeter,
-) {
+/// 엔진에 보낼 방 경계. 스피커 좌표와 **같은 미터 공간**이어야 한다.
+///
+/// 3D 룸은 방을 `physicalWidth × physicalHeight` 미터로 짓고 원점에 놓으며,
+/// 스피커는 그 안의 `0..physicalWidth` 좌표를 갖는다(studio_engine.html의
+/// `posX = sp.x - room.width/2`). 따라서 경계는 (0,0)~(physicalWidth,
+/// physicalHeight)다.
+///
+/// 사각형 필드(`x`, `y`, `width`, `height`)는 쓰지 않는다. 옛 2D 캔버스
+/// 잔재라 단위가 뒤섞여 있다(기본 방은 width=5.0 미터인데, 대시보드가 만드는
+/// 방은 x=200 같은 픽셀성 값을 넣는다). 3D 라이브 경로는 이 필드들을 아예
+/// 렌더링에 쓰지 않고 physicalWidth/physicalHeight만 쓴다.
+///
+/// 한계(알려진 것): 방이 여러 개면 전부 (0,0)~(W,H)로 겹친다. 3D 룸이 한
+/// 번에 한 방만 보여주고 스피커도 그 방 기준 좌표를 갖는 구조라 그렇다.
+/// 방별로 공간을 분리하려면 방마다 월드 오프셋을 도입해야 하는데 그건
+/// 별도 작업이다.
+List<Map<String, dynamic>> buildRoomZonesPayload(List<RoomZone> rooms) {
   return rooms.map((r) {
     return {
       'room_id': r.id.hashCode.abs(),
       'boundary_min': {
-        'x': r.x / pixelsPerMeter,
-        'y': r.y / pixelsPerMeter,
+        'x': 0.0,
+        'y': 0.0,
         'z': 0.0,
       },
       'boundary_max': {
-        'x': (r.x + r.width) / pixelsPerMeter,
-        'y': (r.y + r.height) / pixelsPerMeter,
+        'x': r.physicalWidth,
+        'y': r.physicalHeight,
         'z': r.ceilingHeight,
       },
       'absorption_coeff': r.absorptionCoeff,

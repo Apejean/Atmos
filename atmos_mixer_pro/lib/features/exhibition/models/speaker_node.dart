@@ -164,18 +164,28 @@ class SpeakerNode {
 /// 미터 단위인 `room_zones` 경계와 직접 비교하므로, 픽셀을 그대로 넘기면 거리가
 /// scale배(기본 50배) 부풀려져 딜레이가 수백 ms로 잘못 산출된다.
 /// [node.heightZ]는 이미 미터 단위라 변환하지 않는다.
+/// 엔진에 보낼 채널별 스피커 좌표. **좌표는 이미 미터이므로 변환하지 않는다.**
+///
+/// `SpeakerNode.x/y`가 미터라는 근거:
+/// - 생성 시 `x: roomWidth * 0.25`(dynamic_3d_room.dart) — roomWidth는 미터.
+/// - 3D 룸에서 드래그하면 JS가 `x = newPos.x + room.width/2`로 되돌려준다
+///   (studio_engine.html). Three.js 씬은 미터로 만들어진다.
+///
+/// 예전에는 이 값을 캔버스 픽셀로 오해해 `pixelsPerMeter`(기본 50)로 나눠서
+/// 보냈다. 방위각은 균일 배율에 불변이라 티가 안 났지만, 절대 거리가 필요한
+/// 계산(초기반사음 경로 길이, 거리 감쇠, 시간 정렬 딜레이)이 전부 50배
+/// 작은 값으로 돌아가 사실상 무효였다. 그래서 변환 인자를 아예 제거했다 —
+/// 호출부가 실수로 다시 나누지 못하게 하기 위함이다.
 List<Map<String, dynamic>?> buildChannelPositionsPayload(
   List<SpeakerNode> nodes,
   int channelCount,
-  double pixelsPerMeter,
 ) {
-  final safeScale = pixelsPerMeter.abs() < 0.0001 ? 0.0001 : pixelsPerMeter;
   return List.generate(channelCount, (index) {
     final node = nodes.where((n) => n.channel == index).firstOrNull;
     if (node == null) return null;
     return {
-      'x': node.x / safeScale,
-      'y': node.y / safeScale,
+      'x': node.x,
+      'y': node.y,
       'z': node.heightZ,
       'yaw_rotation': node.rotation,
       'pitch_tilt': node.pitchTilt,

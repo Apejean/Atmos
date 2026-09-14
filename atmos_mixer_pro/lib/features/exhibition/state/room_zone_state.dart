@@ -8,7 +8,6 @@ import 'package:atmos_mixer_pro/features/exhibition/models/speaker_node.dart';
 import 'package:atmos_mixer_pro/src/rust/api/simple.dart' as rust_api;
 import 'package:atmos_mixer_pro/features/exhibition/state/speaker_layout_state.dart';
 import 'package:atmos_mixer_pro/features/exhibition/state/trajectory_state.dart';
-import 'package:atmos_mixer_pro/features/exhibition/state/blueprint_state.dart';
 import 'package:atmos_mixer_pro/core/state/global_state.dart';
 
 const _kRoomZonePrefsKey = 'exhibition_room_zone_layout';
@@ -88,12 +87,16 @@ class RoomZoneState extends Notifier<List<RoomZone>> {
     final trajectories = ref.read(trajectoryProvider);
     
     final payload = {
+      'listener_position': {
+        'x': (rooms.isNotEmpty ? rooms.first.physicalWidth : 40.0) / 2.0,
+        'y': (rooms.isNotEmpty ? rooms.first.physicalHeight : 40.0) / 2.0,
+        'z': rooms.isNotEmpty ? rooms.first.earLevel : 1.2,
+      },
       'channel_positions': buildChannelPositionsPayload(
         nodes,
         ref.read(engineStateProvider).outputChannelCount,
-        ref.read(blueprintProvider).scale,
       ),
-      'room_zones': buildRoomZonesPayload(rooms, ref.read(blueprintProvider).scale),
+      'room_zones': buildRoomZonesPayload(rooms),
       'trajectory':
           trajectories.isNotEmpty && trajectories.first.waypoints.isNotEmpty
           ? {

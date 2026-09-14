@@ -8,7 +8,7 @@ import 'package:atmos_mixer_pro/features/exhibition/models/speaker_node.dart';
 import 'package:atmos_mixer_pro/src/rust/api/simple.dart' as rust_api;
 import 'package:atmos_mixer_pro/features/exhibition/state/speaker_layout_state.dart';
 import 'package:atmos_mixer_pro/features/exhibition/state/room_zone_state.dart';
-import 'package:atmos_mixer_pro/features/exhibition/state/blueprint_state.dart';
+import 'package:atmos_mixer_pro/features/exhibition/models/room_zone.dart';
 import 'package:atmos_mixer_pro/core/state/global_state.dart';
 
 const _kTrajectoryPrefsKey = 'exhibition_trajectory_layout';
@@ -58,29 +58,17 @@ class TrajectoryState extends Notifier<List<TrajectoryModel>> {
     final trajectories = state;
     
     final payload = {
+      // 리스너(마네킹)는 3D 룸에서 방 중심에 선다. 방위각 계산의 기준점이다.
+      'listener_position': {
+        'x': (rooms.isNotEmpty ? rooms.first.physicalWidth : 40.0) / 2.0,
+        'y': (rooms.isNotEmpty ? rooms.first.physicalHeight : 40.0) / 2.0,
+        'z': rooms.isNotEmpty ? rooms.first.earLevel : 1.2,
+      },
       'channel_positions': buildChannelPositionsPayload(
         nodes,
         ref.read(engineStateProvider).outputChannelCount,
-        ref.read(blueprintProvider).scale,
       ),
-      'room_zones': rooms.map((r) {
-        return {
-          'room_id': r.id.hashCode.abs(),
-          'boundary_min': {
-            'x': r.x / ref.read(blueprintProvider).scale,
-            'y': r.y / ref.read(blueprintProvider).scale,
-            'z': 0.0,
-          },
-          'boundary_max': {
-            'x': (r.x + r.width) / ref.read(blueprintProvider).scale,
-            'y': (r.y + r.height) / ref.read(blueprintProvider).scale,
-            'z': 2.0,
-          },
-          'absorption_coeff': r.absorptionCoeff,
-          'material_name': r.materialName,
-          'transmission_loss': r.wallTransmissionLoss,
-        };
-      }).toList(),
+      'room_zones': buildRoomZonesPayload(rooms),
       'trajectory':
           trajectories.isNotEmpty && trajectories.first.waypoints.isNotEmpty
           ? {

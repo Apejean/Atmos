@@ -7,6 +7,7 @@ import 'package:atmos_mixer_pro/features/exhibition/models/speaker_node.dart';
 import 'package:atmos_mixer_pro/src/rust/api/simple.dart' as rust_api;
 import 'package:atmos_mixer_pro/features/exhibition/state/room_zone_state.dart';
 import 'package:atmos_mixer_pro/features/exhibition/state/trajectory_state.dart';
+import 'package:atmos_mixer_pro/features/exhibition/models/room_zone.dart';
 import 'package:atmos_mixer_pro/features/exhibition/state/blueprint_state.dart';
 import 'package:atmos_mixer_pro/core/state/global_state.dart';
 
@@ -92,41 +93,28 @@ class SpeakerLayoutState extends Notifier<List<SpeakerNode>> {
     // (studio_engine.html의 listenerGroup이 원점, posX = sp.x - width/2),
     // 엔진도 같은 지점을 기준으로 방위각을 계산해야 한다.
     //
-    // 좌표 단위는 channel_positions와 반드시 같은 공간이어야 한다. 아래
-    // buildChannelPositionsPayload가 scale로 나눈 값을 보내므로 여기서도
-    // 같은 방식으로 나눈다(방위각은 균일 배율에 불변이라 각도는 정확하다).
+    // 좌표 단위는 channel_positions와 같은 미터 공간이다.
     //
     // 이 값을 안 보내면 엔진이 "배치된 스피커들의 무게중심"으로 폴백하는데,
     // 스피커를 일렬로 늘어놓으면 무게중심이 그 직선 위에 놓여 모든 스피커가
     // 정확히 ±90°(하드 좌우)가 되어버린다.
-    final listenerX = (bp.canvasWidthMeters / 2.0) / bp.scale;
-    final listenerY = (bp.canvasHeightMeters / 2.0) / bp.scale;
+    // 방 크기는 3D 룸과 같은 출처를 쓴다: 방이 있으면 그 물리 치수, 없으면
+    // 블루프린트 캔버스 크기(dynamic_3d_room.dart의 폴백과 동일).
+    final roomW = rooms.isNotEmpty ? rooms.first.physicalWidth : bp.canvasWidthMeters;
+    final roomD = rooms.isNotEmpty ? rooms.first.physicalHeight : bp.canvasHeightMeters;
+    final earLevel = rooms.isNotEmpty ? rooms.first.earLevel : 1.2;
 
     final payload = {
-      'listener_position': {'x': listenerX, 'y': listenerY, 'z': 1.2},
+      'listener_position': {
+        'x': roomW / 2.0,
+        'y': roomD / 2.0,
+        'z': earLevel,
+      },
       'channel_positions': buildChannelPositionsPayload(
         nodes,
         ref.read(engineStateProvider).outputChannelCount,
-        bp.scale,
       ),
-      'room_zones': rooms.map((r) {
-        return {
-          'room_id': r.id.hashCode.abs(),
-          'boundary_min': {
-            'x': r.x / ref.read(blueprintProvider).scale,
-            'y': r.y / ref.read(blueprintProvider).scale,
-            'z': 0.0,
-          },
-          'boundary_max': {
-            'x': (r.x + r.width) / ref.read(blueprintProvider).scale,
-            'y': (r.y + r.height) / ref.read(blueprintProvider).scale,
-            'z': 2.0,
-          },
-          'absorption_coeff': r.absorptionCoeff,
-          'material_name': r.materialName,
-          'transmission_loss': r.wallTransmissionLoss,
-        };
-      }).toList(),
+      'room_zones': buildRoomZonesPayload(rooms),
       'trajectory':
           trajectories.isNotEmpty && trajectories.first.waypoints.isNotEmpty
           ? {
