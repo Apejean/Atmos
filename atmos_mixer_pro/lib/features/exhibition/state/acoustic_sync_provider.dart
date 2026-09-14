@@ -6,7 +6,6 @@ import 'package:atmos_mixer_pro/src/rust/common/config.dart';
 import 'package:atmos_mixer_pro/features/exhibition/models/speaker_node.dart';
 import 'package:atmos_mixer_pro/features/exhibition/state/speaker_layout_state.dart';
 import 'package:atmos_mixer_pro/features/exhibition/state/room_zone_state.dart';
-import 'package:atmos_mixer_pro/features/exhibition/state/blueprint_state.dart';
 import 'package:atmos_mixer_pro/features/exhibition/state/environment_state_provider.dart';
 import 'package:atmos_mixer_pro/features/settings/widgets/tuning_modal.dart';
 
@@ -44,12 +43,12 @@ class AcousticSyncProvider extends Notifier<void> {
     final rooms = ref.read(roomZoneProvider);
     final tuningNotifier = ref.read(tuningStateProvider.notifier);
 
-    // SpeakerNode.x/y는 캔버스 픽셀이고 RoomZone.physical*/earLevel은 미터이므로,
-    // 두 값을 섞어 쓰기 전에 스피커 좌표를 미터로 환산해야 한다.
-    final double pxPerMeter = ref.read(blueprintProvider).scale;
-    final double safeScale = pxPerMeter.abs() < 0.0001 ? 0.0001 : pxPerMeter;
-    double xMeters(SpeakerNode n) => n.x / safeScale;
-    double yMeters(SpeakerNode n) => n.y / safeScale;
+    // SpeakerNode.x/y는 **이미 미터**다(생성 시 `roomWidth * 0.25`, 3D 룸
+    // 드래그도 미터로 되돌려준다). 예전에는 캔버스 픽셀로 오해해 scale(50)로
+    // 나눴는데, RoomZone.physical*/earLevel과 단위가 어긋나 거리·각도 계산이
+    // 전부 틀어졌다. 변환하지 않는다.
+    double xMeters(SpeakerNode n) => n.x;
+    double yMeters(SpeakerNode n) => n.y;
 
     bool changed = false;
 

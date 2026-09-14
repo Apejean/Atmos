@@ -236,7 +236,15 @@ class TuningStateNotifier extends Notifier<Map<int, ChannelTuningState>>
         ),
       );
     }
-    apiApplyAllChannelTunings(tunings: tuningsToApply);
+    // 엔진이 아직 기동 전이거나(FFI 미초기화) 장치 전환 중이면 이 호출이
+    // 예외를 던진다. 그대로 두면 이 함수를 호출하는 쪽(음향 자동 동기화
+    // 타이머 등)이 통째로 죽어 이후 재계산이 멈춘다. Dart 쪽 튜닝 상태는
+    // 이미 갱신됐으므로, 전송만 건너뛰고 다음 변경 때 다시 시도한다.
+    try {
+      apiApplyAllChannelTunings(tunings: tuningsToApply);
+    } catch (e) {
+      debugPrint('채널 튜닝 전송 건너뜀(엔진 미준비): $e');
+    }
   }
 
   void syncFromBackendConfig(AppConfig config) {

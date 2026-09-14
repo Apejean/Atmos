@@ -81,7 +81,17 @@ class RoomZoneState extends Notifier<List<RoomZone>> {
     }
   }
 
+  /// 엔진 동기화. 의존 provider나 FFI가 아직 준비되지 않아도 UI 상태까지
+  /// 같이 죽지 않도록 방어한다. 다음 변경 때 다시 시도된다.
   void _notifyBackend() {
+    try {
+      _notifyBackendInner();
+    } catch (e) {
+      debugPrint('공간 설정 동기화 건너뜀: $e');
+    }
+  }
+
+  void _notifyBackendInner() {
     final nodes = ref.read(speakerLayoutProvider);
     final rooms = state;
     final trajectories = ref.read(trajectoryProvider);

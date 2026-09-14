@@ -9,53 +9,89 @@ import 'package:atmos_mixer_pro/features/exhibition/models/room_zone.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
+/// 스피커 위치가 바뀌면 채널별 FX(딜레이/게인 등)가 자동으로 따라오는지 검증한다.
+///
+/// 이 테스트는 예전에 값을 print만 하고 아무것도 단언하지 않아 항상 통과했다.
+/// 게다가 방을 `updateRoomZone`(기존 방 갱신용)으로 넣어서 실제로는 방이
+/// 추가되지 않았고, 동기화 코드가 `rooms.isEmpty`에서 그냥 빠져나가 한 번도
+/// 실행되지 않았다. 그래서 출력이 전부 null이었다.
+///
+/// 정작 제품에서는 `acousticSyncProvider`를 앱 어디에서도 읽지 않아(테스트
+/// 에서만 읽었다) Riverpod 지연 생성 때문에 기능 전체가 죽어 있었다.
+/// 지금은 메인 화면에서 watch한다.
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
-  SharedPreferences.setMockInitialValues({});
 
-  test('AcousticSyncProvider updates tuning state on speaker move', () async {
+  /// 채널 0짜리 스피커 하나를 10m x 10m 방에 두고 동기화를 켠다.
+  Future<ProviderContainer> setUpContainer() async {
     SharedPreferences.setMockInitialValues({});
     final container = ProviderContainer();
-    
-    // Add a room
-    final room = RoomZone(id: 'room1', x: 0, y: 0, width: 10, height: 10, color: 0xFF0000, physicalWidth: 10, physicalHeight: 10);
-    container.read(roomZoneProvider.notifier).updateRoomZone(room, immediate: true);
-    
-    // Add a speaker
+
+    final room = RoomZone(
+      id: 'room1',
+      x: 0,
+      y: 0,
+      width: 10,
+      height: 10,
+      color: 0xFF0000,
+      physicalWidth: 10,
+      physicalHeight: 10,
+    );
+    container.read(roomZoneProvider.notifier).addRoomZone(room);
+
     final speaker = SpeakerNode(id: 'spk1', roomId: 'room1', x: 2.0, y: 2.0, channel: 0);
     container.read(speakerLayoutProvider.notifier).addSpeaker(speaker);
-    
-    // Initialize acoustic sync
+
+    // provider를 활성화해야 ref.listen이 등록된다(지연 생성).
     container.read(acousticSyncProvider);
-    
-    // Wait for throttle
-    await Future.delayed(const Duration(milliseconds: 50));
-    
-    // Check initial tuning
-    var tuning = container.read(tuningStateProvider)[1];
-    print('Initial Delay: ${tuning?.delay}, Gain: ${tuning?.gainDb}');
-    
-    // Move speaker
-    final movedSpeaker = speaker.copyWith(x: 5.0, y: 5.0);
-    container.read(speakerLayoutProvider.notifier).updateSpeaker(movedSpeaker);
-    
-    // Wait for throttle
-    await Future.delayed(const Duration(milliseconds: 50));
-    
-    // Check updated tuning
-    tuning = container.read(tuningStateProvider)[1];
-    print('Updated Delay: ${tuning?.delay}, Gain: ${tuning?.gainDb}');
-    
-    // Move to wall to test SBIR
-    final wallSpeaker = speaker.copyWith(x: 0.1, y: 5.0);
-    container.read(speakerLayoutProvider.notifier).updateSpeaker(wallSpeaker);
-    
-    // Wait for throttle
-    await Future.delayed(const Duration(milliseconds: 50));
-    
-    // Check updated tuning for wall
-    tuning = container.read(tuningStateProvider)[1];
-    print('Wall SBIR Enabled: ${tuning?.bandEnabled[0]}');
-    print('Wall SBIR Gain: ${tuning?.gains[0]}');
+    await Future.delayed(const Duration(milliseconds: 60));
+    return container;
+  }
+
+  test('스피커를 옮기면 해당 채널의 FX 값이 실제로 재계산된다', () async {
+    final container = await setUpContainer();
+
+    // 채널 0 -> 튜닝 맵 키는 1 (UI가 1-based로 표시하는 관례).
+    final before = container.read(tuningStateProvider)[1];
+    expect(
+      before,
+      isNotNull,
+      reason: '동기화가 돌았다면 채널 1의 튜닝이 만들어져 있어야 한다. '
+          'null이면 acousticSyncProvider가 실행되지 않은 것이다.',
+    );
+    final beforeDelay = before!.delay;
+
+    // 스피커를 리스너에서 훨씬 먼 쪽으로 옮긴다 -> 시간 정렬 딜레이가 달라져야 한다.
+    container.read(speakerLayoutProvider.notifier).updateSpeaker(
+          SpeakerNode(id: 'spk1', roomId: 'room1', x: 9.0, y: 9.0, channel: 0),
+        );
+    await Future.delayed(const Duration(milliseconds: 60));
+
+    final after = container.read(tuningStateProvider)[1];
+    expect(after, isNotNull);
+    expect(
+      after!.delay,
+      isNot(equals(beforeDelay)),
+      reason: '스피커를 옮겼는데 딜레이가 그대로다 — 위치 변경이 FX에 반영되지 않았다. '
+          'before=$beforeDelay after=${after.delay}',
+    );
+
+    container.dispose();
+  });
+
+  test('방이 없으면 계산을 건너뛰고 크래시하지 않는다', () async {
+    SharedPreferences.setMockInitialValues({});
+    final container = ProviderContainer();
+
+    container.read(speakerLayoutProvider.notifier).addSpeaker(
+          SpeakerNode(id: 'spk1', x: 2.0, y: 2.0, channel: 0),
+        );
+    container.read(acousticSyncProvider);
+    await Future.delayed(const Duration(milliseconds: 60));
+
+    // 방 정보가 없으면 음향 계산의 근거가 없으므로 아무것도 쓰지 않는다.
+    expect(container.read(tuningStateProvider)[1], isNull);
+
+    container.dispose();
   });
 }

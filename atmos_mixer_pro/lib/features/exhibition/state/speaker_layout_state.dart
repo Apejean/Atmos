@@ -58,6 +58,32 @@ class SpeakerLayoutState extends Notifier<List<SpeakerNode>> {
     }
   }
 
+  Timer? _engineSyncThrottle;
+  bool _engineSyncPending = false;
+
+  /// 엔진으로 좌표를 보내는 것과 디스크에 저장하는 것을 분리한다.
+  ///
+  /// 저장은 무겁고(SharedPreferences 직렬화 + 디스크 I/O) 드래그 중 매 프레임
+  /// 할 필요가 없어 300ms 디바운스를 쓴다. 그런데 예전에는 엔진 전송
+  /// (`_notifyBackend`)이 그 저장 경로 안에 들어있어서, 드래그를 **놓은 뒤**
+  /// 300ms가 지나야 비로소 소리가 새 위치를 따라왔다.
+  ///
+  /// 엔진 전송은 lock-free 커맨드 채널로 가는 가벼운 작업이므로, 드래그
+  /// 중에도 약 30fps로 흘려보내 소리가 스피커를 따라 움직이게 한다.
+  void _notifyBackendThrottled() {
+    if (_engineSyncThrottle?.isActive ?? false) {
+      _engineSyncPending = true;
+      return;
+    }
+    _notifyBackend();
+    _engineSyncThrottle = Timer(const Duration(milliseconds: 33), () {
+      if (_engineSyncPending) {
+        _engineSyncPending = false;
+        _notifyBackend();
+      }
+    });
+  }
+
   void _saveToPrefsDebounced() {
     _saveDebounceTimer?.cancel();
     _saveDebounceTimer = Timer(const Duration(milliseconds: 300), () {
@@ -82,7 +108,20 @@ class SpeakerLayoutState extends Notifier<List<SpeakerNode>> {
     }
   }
 
+  /// 엔진에 공간 설정을 보낸다.
+  ///
+  /// 의존 provider가 아직 준비되지 않았거나(예: 엔진 스트림 미기동, 테스트
+  /// 환경) FFI 호출이 실패해도 UI 상태 갱신까지 같이 죽으면 안 되므로 전체를
+  /// 방어한다. 동기화는 다음 변경 때 다시 시도된다.
   void _notifyBackend() {
+    try {
+      _notifyBackendInner();
+    } catch (e) {
+      debugPrint('공간 설정 동기화 건너뜀: $e');
+    }
+  }
+
+  void _notifyBackendInner() {
     final nodes = state;
     final rooms = ref.read(roomZoneProvider);
     final trajectories = ref.read(trajectoryProvider);
@@ -163,6 +202,10 @@ class SpeakerLayoutState extends Notifier<List<SpeakerNode>> {
       rust_api.apiSetChannelPanDeg(channel: BigInt.from(chIdx), panDeg: node.panDeg);
       rust_api.apiSetChannelEarlyRefMix(channel: BigInt.from(chIdx), mix: node.earlyRefMix.clamp(0.0, 1.0));
     } catch (_) {}
+    // 위치 변경을 엔진에 바로 흘린다(드래그 중에도 소리가 따라 움직이도록).
+    // 디스크 저장은 아래에서 따로 디바운스한다.
+    _notifyBackendThrottled();
+
     if (immediate) {
       _saveToPrefsImmediate();
     } else {

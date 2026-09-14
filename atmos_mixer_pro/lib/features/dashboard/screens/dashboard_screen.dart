@@ -13,6 +13,7 @@ import 'package:atmos_mixer_pro/features/dashboard/widgets/osc_monitor_dialog.da
 import 'package:atmos_mixer_pro/features/dashboard/widgets/master_limiter_meter.dart';
 import 'package:atmos_mixer_pro/features/dashboard/widgets/resampler_status_badge.dart';
 import 'package:atmos_mixer_pro/features/dashboard/widgets/binaural_toggle_badge.dart';
+import 'package:atmos_mixer_pro/features/exhibition/state/acoustic_sync_provider.dart';
 import 'package:atmos_mixer_pro/features/dashboard/widgets/rta_spectrum_overlay.dart';
 import 'package:atmos_mixer_pro/features/dashboard/widgets/multitrack_timeline.dart';
 import 'package:atmos_mixer_pro/features/dashboard/widgets/advanced_physics_panel.dart';
@@ -129,6 +130,17 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // 스피커 위치/룸/환경이 바뀌면 채널별 FX(딜레이, 게인, EQ, 위상)를 자동
+    // 재계산하는 동기화 provider를 여기서 활성화한다.
+    //
+    // Riverpod NotifierProvider는 지연 생성이라 아무도 읽지 않으면 build()가
+    // 실행되지 않고, 따라서 내부의 ref.listen(speakerLayoutProvider, ...)도
+    // 등록되지 않는다. 예전에는 이 provider를 앱 어디에서도 읽지 않아
+    // (테스트에서만 읽었다) 기능 전체가 죽어 있었다 — 스피커를 옮겨도 FX가
+    // 전혀 따라오지 않던 원인이다. 메인 화면은 앱 수명 내내 살아 있으므로
+    // 여기서 watch해 동기화가 항상 돌게 한다.
+    ref.watch(acousticSyncProvider);
+
     final bodyContent = SafetyAlertBorderWidget(
       isWatchdogActive: _isWatchdogActive,
       isAutoGuardActive: _isAutoGuardActive,
