@@ -1,5 +1,10 @@
+/// 두 테스트가 전역 GLOBAL_STATE.hrtf_yaw를 쓴다. 병렬로 돌면 한 테스트가 요각을 0.5rad로
+/// 바꾸는 사이 다른 테스트의 "정면" 측정이 29° 틀어진 채로 재져서 가끔 실패했다(8번에 1번꼴).
+static HRTF_YAW_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
 #[test]
 fn test_hrtf_3dof_and_osc_feedback() {
+    let _yaw = HRTF_YAW_LOCK.lock().unwrap_or_else(|e| e.into_inner());
     // We just want to ensure it builds and the basic HRTF overlap-add state is initialized correctly without panicking
     use rust_lib_atmos_mixer_pro::audio::binaural::VirtualMixRoomBinaural;
 
@@ -69,6 +74,7 @@ fn measure_lr_rms_for_azimuth(azimuth_deg: f32) -> (f32, f32) {
 
 #[test]
 fn test_zero_defect_real_sofa_hrtf_ild_varies_with_azimuth() {
+    let _yaw = HRTF_YAW_LOCK.lock().unwrap_or_else(|e| e.into_inner());
     let (rms_l_left90, rms_r_left90) = measure_lr_rms_for_azimuth(-90.0);
     let (rms_l_center, rms_r_center) = measure_lr_rms_for_azimuth(0.0);
     let (rms_l_right90, rms_r_right90) = measure_lr_rms_for_azimuth(90.0);

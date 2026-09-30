@@ -12,13 +12,25 @@ import '../../../core/state/global_state.dart';
 import '../../../core/utils/channel_routing.dart';
 import '../../../src/rust/api/simple.dart';
 import '../../../src/rust/common/config.dart';
+import '../../exhibition/state/position_eq.dart';
+import 'eq_cut_math.dart';
 
 class ChannelTuningState {
   final double delay;
   final bool phaseInvert;
   final double gainDb;
-  final double reverbSend;
   final List<bool> bandEnabled;
+  /// 해당 밴드를 스피커 배치 자동 계산이 소유하는가.
+  ///
+  /// true면 `acousticSyncProvider`가 스피커를 움직일 때마다 덮어쓴다.
+  /// 엔지니어가 그 밴드를 UI에서 건드리는 순간 false로 풀려(수동 전환)
+  /// 더 이상 자동 계산이 손대지 않는다. `position_eq.dart` 참고.
+  final List<bool> bandAuto;
+  /// 채널 게인을 스피커 배치 자동 계산이 소유하는가.
+  /// 엔지니어가 게인을 직접 만지면 false가 되어 자동 계산이 손을 뗀다.
+  final bool gainAuto;
+  /// 채널 딜레이를 자동 계산이 소유하는가. [gainAuto]와 같은 규칙.
+  final bool delayAuto;
   final List<EqType> bandTypes;
   final List<int> bandSlopes;
   final List<double> freqs;
@@ -33,8 +45,10 @@ class ChannelTuningState {
     required this.delay,
     required this.phaseInvert,
     required this.gainDb,
-    this.reverbSend = 0.0,
     required this.bandEnabled,
+    List<bool>? bandAuto,
+    this.gainAuto = true,
+    this.delayAuto = true,
     required this.bandTypes,
     List<int>? bandSlopes,
     required this.freqs,
@@ -42,15 +56,35 @@ class ChannelTuningState {
     required this.qs,
     required this.isStereoLinked,
     this.isTuningLocked = false,
-  }) : bandSlopes = bandSlopes ?? List.filled(8, 12);
+  })  : bandAuto = bandAuto ?? defaultBandAuto(),
+        bandSlopes = (bandSlopes ?? List.filled(8, 12))
+            .map(sanitizeSlope)
+            .toList();
+
+  /// 슬로프를 EQ 화면 드롭다운이 가진 값(12/18/24) 중 가장 가까운 것으로 맞춘다.
+  ///
+  /// 드롭다운은 목록에 없는 값을 받으면 assertion으로 화면 전체를 죽인다.
+  /// 이전 빌드가 48을 저장해 둔 상태도 불러올 때 여기서 정리된다.
+  static int sanitizeSlope(int slope) {
+    const allowed = [12, 18, 24];
+    var best = allowed.first;
+    for (final a in allowed) {
+      if ((a - slope).abs() < (best - slope).abs()) best = a;
+    }
+    return best;
+  }
+
+  /// 자동 슬롯(0~4)은 기본으로 무장, 뒤의 3개는 처음부터 엔지니어 몫이다.
+  static List<bool> defaultBandAuto() =>
+      List.generate(8, (i) => i < kAutoEqSlotCount);
 
   factory ChannelTuningState.initial() {
     return ChannelTuningState(
       delay: 0.0,
       phaseInvert: false,
       gainDb: 0.0,
-      reverbSend: 0.0,
       bandEnabled: List.filled(8, false),
+      bandAuto: defaultBandAuto(),
       bandTypes: List.filled(8, EqType.bell),
       bandSlopes: List.filled(8, 12),
       freqs: List.generate(
@@ -59,7 +93,11 @@ class ChannelTuningState {
       ),
       gains: List.filled(8, 0.0),
       qs: List.filled(8, 0.707),
-      isStereoLinked: true,
+      // 기본값은 해제다. 예전에는 true였는데, 짝 채널(1<->2)에
+      // 전체 튜닝을 통째로 복사하는 경로가 있어서 모노 스피커 2대를
+      // 쓰면 Mono-2를 저장할 때마다 Mono-1이 통째로 덮어써졌다.
+      // 스테레오 페어는 사용자가 명시적으로 켜는 기능이어야 한다.
+      isStereoLinked: false,
       isTuningLocked: false,
     );
   }
@@ -68,8 +106,10 @@ class ChannelTuningState {
     double? delay,
     bool? phaseInvert,
     double? gainDb,
-    double? reverbSend,
     List<bool>? bandEnabled,
+    List<bool>? bandAuto,
+    bool? gainAuto,
+    bool? delayAuto,
     List<EqType>? bandTypes,
     List<int>? bandSlopes,
     List<double>? freqs,
@@ -82,8 +122,10 @@ class ChannelTuningState {
       delay: delay ?? this.delay,
       phaseInvert: phaseInvert ?? this.phaseInvert,
       gainDb: gainDb ?? this.gainDb,
-      reverbSend: reverbSend ?? this.reverbSend,
       bandEnabled: bandEnabled ?? this.bandEnabled,
+      bandAuto: bandAuto ?? this.bandAuto,
+      gainAuto: gainAuto ?? this.gainAuto,
+      delayAuto: delayAuto ?? this.delayAuto,
       bandTypes: bandTypes ?? this.bandTypes,
       bandSlopes: bandSlopes ?? this.bandSlopes,
       freqs: freqs ?? this.freqs,
@@ -99,8 +141,10 @@ class ChannelTuningState {
       'delay': delay,
       'phaseInvert': phaseInvert,
       'gainDb': gainDb,
-      'reverbSend': reverbSend,
       'bandEnabled': bandEnabled,
+      'bandAuto': bandAuto,
+      'gainAuto': gainAuto,
+      'delayAuto': delayAuto,
       'bandTypes': bandTypes.map((e) => e.index).toList(),
       'bandSlopes': bandSlopes,
       'freqs': freqs,
@@ -116,10 +160,18 @@ class ChannelTuningState {
       delay: (json['delay'] as num?)?.toDouble() ?? 0.0,
       phaseInvert: (json['phaseInvert'] as bool?) ?? false,
       gainDb: (json['gainDb'] as num?)?.toDouble() ?? 0.0,
-      reverbSend: (json['reverbSend'] as num?)?.toDouble() ?? 0.0,
+      // 예전 저장본의 'reverbSend' 키는 읽지 않는다. 채널 리버브 센드는
+      // 스피커 인스펙터(SpeakerNode.reverbSend) 한 곳에서만 관리한다.
       bandEnabled: json['bandEnabled'] != null
           ? (json['bandEnabled'] as List).cast<bool>()
           : List.filled(8, false),
+      // 키가 없는 예전 저장본은 자동 슬롯을 무장한 상태로 올린다.
+      // 이 기능이 생기기 전 상태라 수동으로 지켜야 할 밴드가 없다.
+      bandAuto: json['bandAuto'] != null
+          ? (json['bandAuto'] as List).cast<bool>()
+          : defaultBandAuto(),
+      gainAuto: (json['gainAuto'] as bool?) ?? true,
+      delayAuto: (json['delayAuto'] as bool?) ?? true,
       bandTypes: json['bandTypes'] != null
           ? (json['bandTypes'] as List)
               .map((e) => EqType.values[e as int])
@@ -181,15 +233,48 @@ class TuningStateNotifier extends Notifier<Map<int, ChannelTuningState>>
     }
   }
 
-  Future<void> ensureLoaded() async {
-    if (_isLoaded) return;
-    await _load();
+  /// 저장된 튜닝을 한 번만 불러온다. 여러 곳에서 동시에 불러도 같은 불러오기를 기다린다
+  /// (자동 계산은 이걸 기다린 뒤에 계산한다 — acoustic_sync_provider.dart).
+  Future<void> ensureLoaded() {
+    if (_isLoaded) return Future.value();
+    return _loading ??= _load().then((_) => _isLoaded = true);
+  }
+
+  Future<void>? _loading;
+
+  /// 프로젝트 파일을 불러온 뒤 저장소를 다시 읽는다(core/state/project_file.dart).
+  /// 이미 불러온 상태여도 새 파일의 값으로 덮어써야 하므로 그냥 다시 읽는다.
+  Future<void> reloadFromPrefs() async {
+    await _load(resetWhenAbsent: true);
     _isLoaded = true;
   }
 
-  Future<void> _load() async {
+  /// 저장 스키마 버전. 올리면 아래 마이그레이션이 한 번 돈다.
+  static const int _schemaVersion = 4;
+  static const String _schemaVersionKey = 'tuning_state_schema_version';
+
+  /// [resetWhenAbsent]는 프로젝트 전환에서만 켠다. 앱 시작 경로에서 켜면, 저장값이
+  /// 아직 없는 상태에서 자동 계산(acoustic_sync)이 방금 채워 넣은 값을 지워버린다.
+  Future<void> _load({bool resetWhenAbsent = false}) async {
     final prefs = await SharedPreferences.getInstance();
+    final storedVersion = prefs.getInt(_schemaVersionKey) ?? 1;
+    // v1에서는 EQ 화면이 로드 전에 저장을 실행해 8밴드를 전부
+    // Bell/1000Hz/off로 덮어쓰고, 그 변경을 "사람이 고쳤다"로 오인해
+    // bandAuto/gainAuto/delayAuto를 모두 내려버리는 버그가 있었다.
+    // 그 상태로 저장된 플래그는 신뢰할 수 없으므로 한 번 되살린다.
+    // v2 마이그레이션은 이미 한 번 돌았지만, 그 시점에는 syncFromBackendConfig가
+    // 앱을 켤 때마다 플래그를 도로 꺼뜨리는 버그가 남아 있어서 곧바로 다시
+    // 오염됐다. 그 원인을 고쳤으니 한 번 더 되살린다.
+    // v4: "잠그지 않으면 자동 계산이 항상 반영된다"로 규칙이 바뀌었다. 예전
+    // 규칙에서 수동으로 고정돼 저장된 밴드들을 한 번 풀어준다.
+    final needsAutoFlagReset = storedVersion < 4;
     final jsonString = prefs.getString('tuning_state');
+    if (jsonString == null && resetWhenAbsent) {
+      // 다른 프로젝트를 불러왔을 때 이전 프로젝트의 채널 튜닝이 남지 않게 한다
+      // (core/state/project_file.dart).
+      state = {};
+      applyAllToBackend();
+    }
     if (jsonString != null) {
       try {
         final decoded = jsonDecode(jsonString) as Map<String, dynamic>;
@@ -199,12 +284,24 @@ class TuningStateNotifier extends Notifier<Map<int, ChannelTuningState>>
             entry.value as Map<String, dynamic>,
           );
         }
-        state = loadedState;
+        state = needsAutoFlagReset
+            ? loadedState.map((k, v) => MapEntry(
+                  k,
+                  v.copyWith(
+                    bandAuto: ChannelTuningState.defaultBandAuto(),
+                    gainAuto: true,
+                    delayAuto: true,
+                  ),
+                ))
+            : loadedState;
 
         applyAllToBackend();
       } catch (e) {
         debugPrint('Failed to load tuning state: $e');
       }
+    }
+    if (needsAutoFlagReset) {
+      await prefs.setInt(_schemaVersionKey, _schemaVersion);
     }
   }
 
@@ -223,6 +320,7 @@ class TuningStateNotifier extends Notifier<Map<int, ChannelTuningState>>
             freq: tuning.freqs[i],
             gain: tuning.gains[i],
             qFactor: tuning.qs[i],
+            slopeDbPerOct: tuning.bandSlopes[i],
           ),
         );
       }
@@ -247,7 +345,18 @@ class TuningStateNotifier extends Notifier<Map<int, ChannelTuningState>>
     }
   }
 
-  void syncFromBackendConfig(AppConfig config) {
+  /// 백엔드 `AppConfig`의 채널 설정을 튜닝 상태로 옮긴다.
+  ///
+  /// [treatAsManual]이 true면 불러온 EQ를 "엔지니어가 확정한 값"으로 보고
+  /// 전 밴드를 수동으로 둔다(자동 계산이 덮어쓰지 않는다). 사용자가 직접
+  /// config 파일을 임포트한 경우가 그렇다.
+  ///
+  /// 기본값은 false다. 이 함수는 **앱을 켤 때마다** 자동으로도 불리는데
+  /// (global_state.dart의 엔진 상태 스트림), 거기서도 수동으로 처리하면
+  /// 켤 때마다 EQ 자동 계산이 영구히 꺼져서 스피커를 움직여도 EQ가 절대
+  /// 갱신되지 않는다. 실기 계측에서 `bandAuto=[false×5]`인데
+  /// `gainAuto/delayAuto=true`인 조합이 잡혔고, 그 출처가 여기였다.
+  void syncFromBackendConfig(AppConfig config, {bool treatAsManual = false}) {
     final Map<int, ChannelTuningState> newState = {};
 
     void processConfigs(Map<int, ChannelSetting> configs, bool isStereo) {
@@ -255,12 +364,27 @@ class TuningStateNotifier extends Notifier<Map<int, ChannelTuningState>>
         final chKey = entry.key;
         final setting = entry.value;
 
-        final bandEnabled = List.filled(8, false);
-        final bandTypes = List.filled(8, EqType.bell);
-        final freqs = List.filled(8, 1000.0);
-        final gains = List.filled(8, 0.0);
-        final qs = List.filled(8, 0.707);
+        // 이미 들고 있는 상태가 있으면 그걸 기준으로 시작한다.
+        //
+        // 예전에는 늘 `List.filled(8, 1000.0)`에서 출발해 상태를 통째로
+        // 교체했다. config.json에 해당 채널의 eqBands가 없거나 비어 있으면
+        // 8밴드가 전부 bell/1000Hz/꺼짐이 되는데, 이 함수는 엔진이 config를
+        // 브로드캐스트할 때마다 불린다. 그래서 스피커 배치로 방금 계산한
+        // EQ가 곧바로 지워졌다(실기 계측: 정상값 -> 직후 1000Hz로 덮임).
+        final existing = state[chKey];
+        final bandEnabled = List<bool>.from(
+            existing?.bandEnabled ?? List.filled(8, false));
+        final bandTypes = List<EqType>.from(
+            existing?.bandTypes ?? List.filled(8, EqType.bell));
+        final freqs = List<double>.from(existing?.freqs ??
+            List.generate(
+                8, (i) => math.min(100 * math.pow(2, i), 20000.0).toDouble()));
+        final gains = List<double>.from(existing?.gains ?? List.filled(8, 0.0));
+        final qs = List<double>.from(existing?.qs ?? List.filled(8, 0.707));
+        final bandSlopes =
+            List<int>.from(existing?.bandSlopes ?? List.filled(8, 12));
 
+        // config에 실제 밴드가 들어 있을 때만 그 값으로 덮는다.
         for (int i = 0; i < setting.eqBands.length && i < 8; i++) {
           final band = setting.eqBands[i];
           bandEnabled[i] = band.enabled;
@@ -268,15 +392,31 @@ class TuningStateNotifier extends Notifier<Map<int, ChannelTuningState>>
           freqs[i] = band.freq;
           gains[i] = band.gain;
           qs[i] = band.qFactor;
+          bandSlopes[i] = ChannelTuningState.sanitizeSlope(band.slopeDbPerOct);
         }
 
         newState[chKey] = ChannelTuningState(
-          delay: setting.delayMs,
-          phaseInvert: setting.phaseInvert,
-          gainDb: setting.gainDb,
+          // 딜레이/게인/위상도 자동 계산이 소유 중이면 config 값으로
+          // 되돌리지 않는다.
+          delay: (existing != null && existing.delayAuto)
+              ? existing.delay
+              : setting.delayMs,
+          phaseInvert:
+              existing?.phaseInvert ?? setting.phaseInvert,
+          gainDb: (existing != null && existing.gainAuto)
+              ? existing.gainDb
+              : setting.gainDb,
           bandEnabled: bandEnabled,
+          // 자동/수동 플래그는 config.json에 없다. 이미 들고 있던 값이 있으면
+          // 그대로 유지하고(엔지니어가 떼어놓은 밴드를 지키기 위해),
+          // 없으면 자동 계산이 소유하도록 무장한 채로 시작한다.
+          bandAuto: treatAsManual
+              ? List.filled(8, false)
+              : (state[chKey]?.bandAuto ?? ChannelTuningState.defaultBandAuto()),
+          gainAuto: treatAsManual ? false : (state[chKey]?.gainAuto ?? true),
+          delayAuto: treatAsManual ? false : (state[chKey]?.delayAuto ?? true),
           bandTypes: bandTypes,
-          bandSlopes: List.filled(8, 12),
+          bandSlopes: bandSlopes,
           freqs: freqs,
           gains: gains,
           qs: qs,
@@ -289,7 +429,8 @@ class TuningStateNotifier extends Notifier<Map<int, ChannelTuningState>>
     processConfigs(config.stereoConfigs, true);
     processConfigs(config.multiConfigs, false);
 
-    state = newState;
+    // config에 없는 채널의 상태까지 날리지 않는다.
+    state = {...state, ...newState};
     _saveToPrefs();
   }
 
@@ -297,11 +438,122 @@ class TuningStateNotifier extends Notifier<Map<int, ChannelTuningState>>
     return state[channel] ?? ChannelTuningState.initial();
   }
 
+  /// 사용자(EQ UI)가 부르는 저장 경로.
+  ///
+  /// 자동 슬롯이라도 사람이 값을 바꿨으면 그 밴드를 수동으로 풀어준다.
+  /// 그래야 다음에 스피커를 움직였을 때 엔지니어가 고쳐놓은 값이 자동 계산에
+  /// 다시 덮이지 않는다. 위젯마다 플래그를 끄는 코드를 넣는 대신 저장 경로
+  /// 한 곳에서 처리한다.
   void saveTuning(int channel, ChannelTuningState tuning) {
+    // 잠그지 않은 채널은 자동 계산이 항상 이긴다.
+    //
+    // 예전에는 사람이 값을 바꾸면 그 밴드를 자동에서 떼어냈다. 그런데 EQ를
+    // 초기화하거나 잠깐 손만 대도 그 밴드가 영구히 수동으로 고정돼, 스피커를
+    // 옮겨도 다시 계산되지 않았다. 수동으로 지키고 싶으면 Lock Tuning을 쓴다
+    // (음향 자동 동기화가 잠근 채널을 통째로 건너뛴다).
     state = {...state, channel: tuning};
     _saveTimer?.cancel();
     _saveTimer = Timer(const Duration(milliseconds: 500), _saveToPrefs);
     applyAllToBackend();
+  }
+
+  /// 자동 계산(`acousticSyncProvider`)이 부르는 저장 경로.
+  ///
+  /// [base]는 딜레이·게인·위상까지 이미 반영된 튜닝이고, [autoBands]는
+  /// `computeAutoEqBands`의 결과다. EQ는 무장된 슬롯만 덮어쓴다.
+  ///
+  /// `saveTuning`과 달리 자동 해제(disarm)를 하지 않는다 — 자동 계산 자신이
+  /// 쓴 값을 사람이 손댄 것으로 오해하면 안 되기 때문이다.
+  ///
+  /// 저장된 값과 정말로 달라진 게 하나도 없으면 false를 돌려줘서, 호출자가
+  /// 불필요한 백엔드 커맨드로 오디오 스레드를 깨우지 않게 한다.
+  bool applyAutoTuning(
+    int channel,
+    ChannelTuningState base,
+    List<AutoEqBand> autoBands,
+  ) {
+    final stored = state[channel];
+    final bandEnabled = List<bool>.from(base.bandEnabled);
+    final bandTypes = List<EqType>.from(base.bandTypes);
+    final bandSlopes = List<int>.from(base.bandSlopes);
+    final freqs = List<double>.from(base.freqs);
+    final gains = List<double>.from(base.gains);
+    final qs = List<double>.from(base.qs);
+
+    bool changed = false;
+    for (final band in autoBands) {
+      final i = band.slot;
+      if (i < 0 || i >= 8) continue;
+      if (!base.bandAuto[i]) continue; // 엔지니어가 가져간 밴드
+      if (bandEnabled[i] != band.enabled ||
+          bandTypes[i] != band.type ||
+          bandSlopes[i] != band.slopeDbPerOct ||
+          freqs[i] != band.freq ||
+          gains[i] != band.gain ||
+          qs[i] != band.q) {
+        changed = true;
+      }
+      bandEnabled[i] = band.enabled;
+      bandTypes[i] = band.type;
+      bandSlopes[i] = band.slopeDbPerOct;
+      freqs[i] = band.freq;
+      gains[i] = band.gain;
+      qs[i] = band.q;
+    }
+
+    // 엔지니어가 직접 만진 게인/딜레이는 되돌리지 않는다.
+    final prevDelay = stored?.delay ?? base.delay;
+    final prevGain = stored?.gainDb ?? base.gainDb;
+    final merged = base.copyWith(
+      delay: base.delayAuto ? base.delay : prevDelay,
+      gainDb: base.gainAuto ? base.gainDb : prevGain,
+      bandEnabled: bandEnabled,
+      bandTypes: bandTypes,
+      bandSlopes: bandSlopes,
+      freqs: freqs,
+      gains: gains,
+      qs: qs,
+    );
+
+    // EQ 외 항목(딜레이·게인·위상)도 변화 판정에 포함한다.
+    if (stored != null &&
+        (stored.delay != merged.delay ||
+            stored.gainDb != merged.gainDb ||
+            stored.phaseInvert != merged.phaseInvert)) {
+      changed = true;
+    }
+    if (stored == null) changed = true;
+    if (!changed) return false;
+
+    state = {...state, channel: merged};
+    _saveTimer?.cancel();
+    _saveTimer = Timer(const Duration(milliseconds: 500), _saveToPrefs);
+    return true;
+  }
+
+  /// 게인/딜레이를 다시 자동 계산에 맡긴다.
+  void rearmAutoValue(int channel, {required bool gain}) {
+    final tuning = state[channel];
+    if (tuning == null) return;
+    state = {
+      ...state,
+      channel: gain
+          ? tuning.copyWith(gainAuto: true)
+          : tuning.copyWith(delayAuto: true),
+    };
+    _saveTimer?.cancel();
+    _saveTimer = Timer(const Duration(milliseconds: 500), _saveToPrefs);
+  }
+
+  /// 밴드를 다시 자동 계산에 맡긴다(EQ UI의 "Re-arm Auto"용).
+  void rearmAutoBand(int channel, int bandIndex) {
+    final tuning = state[channel];
+    if (tuning == null || bandIndex < 0 || bandIndex >= kAutoEqSlotCount) return;
+    final next = List<bool>.from(tuning.bandAuto);
+    next[bandIndex] = true;
+    state = {...state, channel: tuning.copyWith(bandAuto: next)};
+    _saveTimer?.cancel();
+    _saveTimer = Timer(const Duration(milliseconds: 500), _saveToPrefs);
   }
 
   Future<void> _saveToPrefs() async {
@@ -335,9 +587,6 @@ class _TuningModalState extends ConsumerState<TuningModal>
     text: '0.0',
   );
   final TextEditingController _gainController = TextEditingController(
-    text: '0.0',
-  );
-  final TextEditingController _reverbSendController = TextEditingController(
     text: '0.0',
   );
 
@@ -490,9 +739,9 @@ class _TuningModalState extends ConsumerState<TuningModal>
 
   void _loadStateForChannel(int channel) {
     final tuning = ref.read(tuningStateProvider.notifier).getTuning(channel);
+    _stateLoaded = true;
     _safeSetText(_delayController, tuning.delay.toStringAsFixed(1));
     _safeSetText(_gainController, tuning.gainDb.toStringAsFixed(1));
-    _safeSetText(_reverbSendController, tuning.reverbSend.toStringAsFixed(0));
     
     _phaseInvert = tuning.phaseInvert;
     _isStereoLinked = tuning.isStereoLinked;
@@ -511,13 +760,33 @@ class _TuningModalState extends ConsumerState<TuningModal>
     setState(() {});
   }
 
+  /// EQ 화면의 텍스트 컨트롤러가 저장된 값으로 채워졌는가.
+  ///
+  /// 이게 없으면 위젯이 만들어지자마자(컨트롤러가 빈 문자열인 상태에서)
+  /// _saveCurrentState가 돌 수 있는데, 그때 freq 파싱이 실패해 폴백
+  /// 1000.0이 8밴드에 전부 박힌다. 그 값이 튜닝 상태를 덮어쓰고,
+  /// _disarmEditedAutoBands는 그걸 "사람이 고쳤다"로 읽어 자동 소유권까지
+  /// 전부 해제해 버린다. 결과적으로 스피커를 움직여도 EQ가 영영 갱신되지
+  /// 않았다(실기 계측: 도착한 밴드가 전부 Bell/1000Hz/on=false).
+  bool _stateLoaded = false;
+
   void _saveCurrentState() {
+    if (!_stateLoaded) return;
+    // 자동/수동 플래그는 로컬 편집 버퍼에 없다. 저장된 값을 그대로 실어
+    // 보내지 않으면 생성자 기본값(슬롯 0~4 무장)이 들어가서, 저장할 때마다
+    // 엔지니어가 수동으로 떼어놓은 밴드가 도로 자동으로 돌아가 버린다.
+    final storedTuning =
+        ref.read(tuningStateProvider.notifier).getTuning(_selectedChannel);
+    final storedAuto = storedTuning.bandAuto;
+
     final tuning = ChannelTuningState(
       delay: double.tryParse(_delayController.text) ?? 0.0,
       phaseInvert: _phaseInvert,
       gainDb: double.tryParse(_gainController.text) ?? 0.0,
-      reverbSend: double.tryParse(_reverbSendController.text) ?? 0.0,
       bandEnabled: List.from(_bandEnabled),
+      bandAuto: List.from(storedAuto),
+      gainAuto: storedTuning.gainAuto,
+      delayAuto: storedTuning.delayAuto,
       bandTypes: List.from(_bandTypes),
       bandSlopes: List.from(_bandSlopes),
       freqs: _freqControllers
@@ -538,8 +807,24 @@ class _TuningModalState extends ConsumerState<TuningModal>
         : _selectedChannel - 1;
 
     if (_isStereoLinked) {
-      // If linked, partner channel should have the exact same tuning state.
-      ref.read(tuningStateProvider.notifier).saveTuning(partnerChannel, tuning);
+      // 스테레오 링크는 EQ 커브를 공유하자는 뜻이지, 짝 채널의 물리 배치를
+      // 무시하자는 뜻이 아니다. 딜레이/게인/위상은 스피커 위치에서 나오는
+      // 값이라 채널마다 다르므로 짝 채널 것을 그대로 둔다. 예전에는 튜닝
+      // 전체를 복사해서, 링크가 켜진 채 Mono-2를 저장하면 Mono-1의 타임
+      // 얼라인먼트와 게인까지 Mono-2 값으로 덮어써졌다.
+      final partner = ref
+          .read(tuningStateProvider.notifier)
+          .getTuning(partnerChannel);
+      ref.read(tuningStateProvider.notifier).saveTuning(
+            partnerChannel,
+            tuning.copyWith(
+              delay: partner.delay,
+              gainDb: partner.gainDb,
+              phaseInvert: partner.phaseInvert,
+              gainAuto: partner.gainAuto,
+              delayAuto: partner.delayAuto,
+            ),
+          );
     } else {
       // If unlinked, just ensure the partner channel also unlinks its UI state without changing its eq values.
       final partnerTuning = ref
@@ -562,7 +847,6 @@ class _TuningModalState extends ConsumerState<TuningModal>
     _throttleTimer?.cancel();
     _delayController.dispose();
     _gainController.dispose();
-    _reverbSendController.dispose();
     for (var c in _freqControllers) {
       c.dispose();
     }
@@ -591,7 +875,6 @@ class _TuningModalState extends ConsumerState<TuningModal>
 
       final double delay = double.tryParse(_delayController.text) ?? 0.0;
       final double gain = double.tryParse(_gainController.text) ?? 0.0;
-      final double revSend = (double.tryParse(_reverbSendController.text) ?? 0.0) / 100.0;
       final bool phaseInvert = _phaseInvert;
 
       final List<EqBand> bands = [];
@@ -606,6 +889,7 @@ class _TuningModalState extends ConsumerState<TuningModal>
             gain: g,
             qFactor: q,
             filterType: _bandTypes[i],
+            slopeDbPerOct: _bandSlopes[i],
           ),
         );
       }
@@ -620,7 +904,13 @@ class _TuningModalState extends ConsumerState<TuningModal>
           gainDb: gain,
         ),
       ];
-      apiSetChannelReverbSend(channel: BigInt.from(targetChannel1), send: revSend.clamp(0.0, 1.0));
+      // 채널 리버브 센드는 여기서 보내지 않는다. 스피커 인스펙터
+      // (SpeakerNode.reverbSend -> speaker_layout_state) 한 곳에서만 관리한다.
+      //
+      // 예전에는 화면에 그려지지도 않는 컨트롤러 값(보통 0)을 이 튜닝을
+      // 적용할 때마다 apiSetChannelReverbSend로 보냈다. 같은 백엔드 값을 두
+      // 곳이 쓰고 있었기 때문에, 센드를 소리에 반영하면 FX에서 EQ·게인·
+      // 딜레이를 만질 때마다 인스펙터에서 설정한 센드가 0으로 덮어써진다.
 
       if (_isStereoLinked) {
         int targetChannel2 = _selectedChannel % 2 != 0
@@ -635,7 +925,6 @@ class _TuningModalState extends ConsumerState<TuningModal>
             gainDb: gain,
           ),
         );
-        apiSetChannelReverbSend(channel: BigInt.from(targetChannel2), send: revSend.clamp(0.0, 1.0));
       }
       apiApplyAllChannelTunings(tunings: tunings);
 
@@ -1214,7 +1503,7 @@ class _TuningModalState extends ConsumerState<TuningModal>
                   },
                 ),
                 IconButton(
-                  tooltip: 'Reset Band Defaults',
+                  tooltip: 'Reset Band Defaults (자동 계산으로 되돌림)',
                   icon: const Icon(Icons.refresh, color: Colors.white70, size: 19),
                   onPressed: () {
                     setState(() {
@@ -1222,6 +1511,18 @@ class _TuningModalState extends ConsumerState<TuningModal>
                       _qControllers[idx].text = '0.707';
                       _bandTypes[idx] = EqType.bell;
                       _saveCurrentState();
+                      // 초기화는 "이 밴드를 자동 계산에 다시 맡긴다"는 뜻이다.
+                      //
+                      // _saveCurrentState는 사람이 값을 바꾼 밴드를 자동에서
+                      // 떼어내는 경로라서, 초기화 버튼을 누르면 그 밴드가 수동으로
+                      // 고정돼 버렸다. 그래서 EQ를 전부 초기화한 뒤로는 스피커를
+                      // 움직여도 EQ가 다시 채워지지 않았다(실기 보고).
+                      if (idx < kAutoEqSlotCount) {
+                        ref
+                            .read(tuningStateProvider.notifier)
+                            .rearmAutoBand(_selectedChannel, idx);
+                        _loadStateForChannel(_selectedChannel);
+                      }
                       _updateAutoScale();
                       _sendThrottledUpdate();
                     });
@@ -1813,13 +2114,10 @@ class _TuningModalState extends ConsumerState<TuningModal>
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                    _buildAutoLabel(
                       'Gain (dB)',
-                      style: TextStyle(
-                        color: Colors.white70,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                      ),
+                      isAuto: _isValueAuto(gain: true),
+                      onRearm: () => _rearmAutoValue(gain: true),
                     ),
                     const SizedBox(height: 6),
                     _buildStepperBox(
@@ -1854,13 +2152,10 @@ class _TuningModalState extends ConsumerState<TuningModal>
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                    _buildAutoLabel(
                       'Delay (ms)',
-                      style: TextStyle(
-                        color: Colors.white70,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                      ),
+                      isAuto: _isValueAuto(gain: false),
+                      onRearm: () => _rearmAutoValue(gain: false),
                     ),
                     const SizedBox(height: 6),
                     _buildStepperBox(
@@ -1958,6 +2253,83 @@ class _TuningModalState extends ConsumerState<TuningModal>
     );
   }
 
+  /// 게인/딜레이가 아직 자동 계산 소유인지.
+  bool _isValueAuto({required bool gain}) {
+    final t = ref.read(tuningStateProvider.notifier).getTuning(_selectedChannel);
+    // 잠그지 않았으면 스피커 위치에서 계속 자동 계산된다.
+    return !t.isTuningLocked;
+  }
+
+  /// 게인/딜레이를 다시 자동 계산에 맡긴다.
+  void _rearmAutoValue({required bool gain}) {
+    ref
+        .read(tuningStateProvider.notifier)
+        .rearmAutoValue(_selectedChannel, gain: gain);
+    setState(() => _loadStateForChannel(_selectedChannel));
+  }
+
+  /// 라벨 + 자동/수동 상태 칩. 칩을 누르면 다시 자동 계산에 맡긴다.
+  ///
+  /// 이게 없으면 엔지니어가 값을 한 번 만진 뒤로는 배치 자동 계산으로
+  /// 되돌릴 방법이 영영 없다.
+  Widget _buildAutoLabel(
+    String label, {
+    required bool isAuto,
+    required VoidCallback onRearm,
+  }) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            color: Colors.white70,
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(width: 6),
+        Tooltip(
+          message: isAuto
+              ? '스피커 위치에서 자동 계산 중입니다. 값을 직접 바꾸면 수동으로 바뀝니다.'
+              : '수동 값입니다. 눌러서 위치 자동 계산으로 되돌립니다.',
+          child: InkWell(
+            onTap: isAuto ? null : onRearm,
+            borderRadius: BorderRadius.circular(3),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(3),
+                border: Border.all(
+                  color: isAuto ? _activeCyan : Colors.white30,
+                  width: 1,
+                ),
+              ),
+              child: Text(
+                isAuto ? 'AUTO' : 'MAN',
+                style: TextStyle(
+                  color: isAuto ? _activeCyan : Colors.white54,
+                  fontSize: 8,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// 해당 밴드가 아직 스피커 배치 자동 계산 소유인지.
+  bool _isBandAuto(int bandIndex) {
+    final tuning = ref.read(tuningStateProvider.notifier).getTuning(
+          _selectedChannel,
+        );
+    if (bandIndex < 0 || bandIndex >= tuning.bandAuto.length) return false;
+    // 잠그지 않았으면 자동 계산이 이 밴드를 계속 갱신한다.
+    return !tuning.isTuningLocked;
+  }
+
   void _showBandContextMenu(BuildContext context, Offset globalPosition, int bandIndex) {
     showMenu(
       context: context,
@@ -1977,6 +2349,23 @@ class _TuningModalState extends ConsumerState<TuningModal>
             style: const TextStyle(color: Colors.white),
           ),
         ),
+        // 자동 슬롯(0~4)은 스피커 배치에서 계산된다. 사람이 값을 바꾸면
+        // 자동에서 떨어져 나오는데, 여기서 다시 자동에 맡길 수 있게 한다.
+        if (bandIndex < kAutoEqSlotCount) ...[
+          const PopupMenuDivider(),
+          PopupMenuItem<dynamic>(
+            value: 'rearm',
+            enabled: !_isBandAuto(bandIndex),
+            child: Text(
+              _isBandAuto(bandIndex)
+                  ? '자동 계산 중 (스피커 위치 연동)'
+                  : '자동 계산으로 되돌리기',
+              style: TextStyle(
+                color: _isBandAuto(bandIndex) ? _activeCyan : Colors.white,
+              ),
+            ),
+          ),
+        ],
         const PopupMenuDivider(),
         ...EqType.values.map((type) => PopupMenuItem<dynamic>(
               value: type,
@@ -1998,6 +2387,14 @@ class _TuningModalState extends ConsumerState<TuningModal>
         setState(() {
           if (value == 'toggle') {
             _bandEnabled[bandIndex] = !_bandEnabled[bandIndex];
+          } else if (value == 'rearm') {
+            ref
+                .read(tuningStateProvider.notifier)
+                .rearmAutoBand(_selectedChannel, bandIndex);
+            // 무장만 하고 값은 다음 동기화가 채운다. 로컬 EQ 편집 버퍼를
+            // 저장된 상태로 되돌려 화면과 어긋나지 않게 한다.
+            _loadStateForChannel(_selectedChannel);
+            return;
           } else if (value is EqType) {
             _bandTypes[bandIndex] = value;
           }
@@ -2200,6 +2597,20 @@ class _EqCurvePainter extends CustomPainter {
       double alpha = math.sin(w0) / (2.0 * bandQ);
       double A = math.pow(10.0, bandG / 40.0).toDouble();
 
+      // 로우컷/하이컷은 DSP와 같은 Butterworth 연결 응답으로 그린다.
+      // 예전에는 2차 응답에 slope/12를 곱하고 밴드 게인까지 더해 그렸는데,
+      // DSP는 컷 필터에 게인을 쓰지 않아 화면과 소리가 달랐다.
+      if (bandTypes[b] == EqType.lowCut || bandTypes[b] == EqType.highCut) {
+        return cutFilterMagnitudeDb(
+          lowCut: bandTypes[b] == EqType.lowCut,
+          cutoffHz: bandF,
+          q: bandQ,
+          slopeDbPerOct: bandSlopes.length > b ? bandSlopes[b] : 12,
+          frequencyHz: f,
+          sampleRate: 48000.0,
+        );
+      }
+
       double b0 = 1.0, b1 = 0.0, b2 = 0.0;
       double a0 = 1.0, a1 = 0.0, a2 = 0.0;
 
@@ -2277,10 +2688,6 @@ class _EqCurvePainter extends CustomPainter {
         double magSq = numSq / denSq;
         if (magSq > 0.0) {
           double magDb = 10.0 * (math.log(magSq) / math.ln10);
-          if (bandTypes[b] == EqType.lowCut || bandTypes[b] == EqType.highCut) {
-            double slopeFactor = (bandSlopes.length > b ? bandSlopes[b] : 12) / 12.0;
-            return bandG + slopeFactor * magDb;
-          }
           return magDb;
         }
       }

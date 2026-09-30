@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:atmos_mixer_pro/core/state/engine_resync.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:atmos_mixer_pro/core/theme/colors.dart';
@@ -192,6 +193,9 @@ oscWhitelist: const [],
 
       // 6. Restart engine using the init API
       await rust_api.apiInitAudioSystem(deviceName: _tempConfig.deviceName);
+      // 재스캔은 엔진을 껐다 켜므로 믹서가 새로 만들어진다. 현재 설정을 다시
+      // 보내지 않으면 사용자가 컨트롤을 건드리기 전까지 소리가 설정과 다르다.
+      resyncEngineStateFromWidgetRef(ref);
     } catch (e) {
       if (mounted) {
         ref.read(globalErrorProvider.notifier).showError('장치 스캔 실패: $e');
@@ -554,6 +558,23 @@ oscWhitelist: _tempConfig.oscWhitelist,
       _previewChannelNames = null;
       _isLoadingPreview = true;
     });
+    // 이미 스캔 결과로 받아둔 채널 이름이 있으면 그걸 쓴다.
+    //
+    // apiGetDeviceChannelNames는 내부에서 장치를 처음부터 다시 열거한다
+    // (측정: 약 300ms). 재스캔 직후에는 GlobalDeviceCache에 같은 값이
+    // 이미 들어 있으므로 그 시간을 그대로 낭비하고 있었다.
+    final cachedNames =
+        deviceName != null ? GlobalDeviceCache.channels[deviceName] : null;
+    if (cachedNames != null && cachedNames.isNotEmpty) {
+      setState(() {
+        if (_previewDeviceName == deviceName) {
+          _previewChannelNames = cachedNames;
+          _isLoadingPreview = false;
+        }
+      });
+      return;
+    }
+
     try {
       final names = await rust_api.apiGetDeviceChannelNames(
         deviceName: deviceName,
@@ -610,6 +631,12 @@ oscWhitelist: _tempConfig.oscWhitelist,
     // outputChannelsProvider를 구독한다.
     final outputChannels = ref.watch(outputChannelsProvider);
     final channelNames = _effectiveChannelNames(outputChannels);
+    // channel_routing.dart의 공용 라우팅 빌더는 이미 이 필터를 적용하는데,
+    // 이 출력 그룹 드롭다운(Mono/Stereo/Multi Output Config)만 별도 경로라
+    // channelNames.length(드라이버가 보고하는 원본 개수, 예: DAW 리턴 포함
+    // 12개)로만 경계 검사를 하고 있었다. 그러면 물리적으로 연결할 수 없는
+    // 채널(DAW 7~12 등)에도 그룹을 열 수 있었다.
+    final physical = physicalOutputChannelIndices(channelNames).toSet();
     final List<DropdownMenuItem<String>> channelItems = [];
 
     final sortedMono =
@@ -620,7 +647,7 @@ oscWhitelist: _tempConfig.oscWhitelist,
       final setting = entry.value;
 
       final realCh1 = key - 1;
-      if (realCh1 < channelNames.length) {
+      if (realCh1 < channelNames.length && physical.contains(realCh1)) {
         final name1 = setting.customName.isNotEmpty
             ? '$key (${setting.customName} L)'
             : '$key';
@@ -634,7 +661,7 @@ oscWhitelist: _tempConfig.oscWhitelist,
 
       final realCh2 = key;
       final displayCh2 = key + 1;
-      if (realCh2 < channelNames.length) {
+      if (realCh2 < channelNames.length && physical.contains(realCh2)) {
         final name2 = setting.customName.isNotEmpty
             ? '$displayCh2 (${setting.customName} R)'
             : '$displayCh2';
@@ -655,7 +682,9 @@ oscWhitelist: _tempConfig.oscWhitelist,
       final setting = entry.value;
       final realCh = key - 1;
       final displayCh2 = key + 1;
-      if (realCh + 1 < channelNames.length) {
+      if (realCh + 1 < channelNames.length &&
+          physical.contains(realCh) &&
+          physical.contains(realCh + 1)) {
         final displayName = setting.customName.isNotEmpty
             ? '$key/$displayCh2 (${setting.customName})'
             : '$key/$displayCh2';
@@ -675,7 +704,9 @@ oscWhitelist: _tempConfig.oscWhitelist,
       final key = entry.key;
       final setting = entry.value;
       final realCh = key - 1;
-      if (realCh < channelNames.length) {
+      // Multi는 파일 채널 수에 따라 길이가 가변이라 시작 채널만 물리인지
+      // 본다(channel_routing.dart의 공용 빌더와 동일한 정책).
+      if (realCh < channelNames.length && physical.contains(realCh)) {
         final displayName = setting.customName.isNotEmpty
             ? '$key~ (${setting.customName})'
             : '$key~';

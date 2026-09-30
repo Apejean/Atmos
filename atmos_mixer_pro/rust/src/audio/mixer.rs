@@ -4,13 +4,38 @@ use std::sync::atomic::Ordering;
 use crate::audio::dsp::dsp_utils::ChannelDspState;
 
 pub enum SpatialGarbage {
-    Command(crate::common::commands::AudioCommand),
     TrackPositions(std::collections::HashMap<String, crate::common::config::Point3D>),
     EqBands(Vec<crate::common::config::EqBand>),
     RoomZones(Vec<crate::common::config::RoomZone>),
     Trajectory(Option<crate::common::config::Trajectory>),
     ChannelPositions(Vec<Option<crate::common::config::Point3D>>),
+    ChannelRoomIds(Vec<Option<u32>>),
+    BassRouting(Vec<Option<usize>>, Vec<bool>),
+    SimBands(Vec<[crate::common::config::EqBand; crate::audio::binaural::MAX_SIM_BANDS]>),
     EarlyReflectionTaps(Vec<[crate::audio::acoustic::EarlyReflectionTap; crate::audio::acoustic::MAX_EARLY_REFLECTION_TAPS]>),
+}
+
+/// 베이스 매니지먼트 켜기/끄기·LFE 변경 크로스페이드 길이(초).
+const BASS_MANAGEMENT_RAMP_S: f32 = 0.02;
+
+/// 서브 채널 자기 신호(.1 LFE 트랙)의 대역 제한(Hz). 영화·방송 표준 LFE 대역이다.
+/// 메인에서 넘어온 저역은 이미 크로스오버 주파수로 잘려 있다.
+const LFE_TRACK_LPF_HZ: f32 = 120.0;
+/// LFE +10dB 토글의 선형 게인(10^(10/20)).
+const LFE_BOOST_LINEAR: f32 = 3.162_277_7;
+/// LFE +10dB 켜기/끄기 램프 길이(초).
+const LFE_BOOST_RAMP_S: f32 = 0.02;
+
+/// 블록 시작값 `start`에서 `target`으로 샘플당 `step`씩 움직일 때 `frame`번째 샘플의 값.
+/// 상태가 없어서 채널 루프 안 어느 채널에서 불러도 같은 궤적이 나온다.
+#[inline(always)]
+fn bass_management_ramp_at(start: f32, target: f32, step: f32, frame: usize) -> f32 {
+    let delta = step * (frame + 1) as f32;
+    if target > start {
+        (start + delta).min(target)
+    } else {
+        (start - delta).max(target)
+    }
 }
 
 pub struct DuckingState {
@@ -29,12 +54,27 @@ impl StartupMuteRamp {
             ramp_step: 1.0 / (sample_rate * 3.0), // 3초 분량 샘플 스텝
         }
     }
+    /// 블록 안 `frame`번째 프레임에 적용할 램프 게인. 상태를 바꾸지 않는다.
+    ///
+    /// 예전에는 `apply(sample)` 하나로 "게인 적용 + 전진"을 같이 했는데, 그
+    /// 호출이 `for ch { for frame { ... } }` 안에 있어서 **프레임당 한 번이
+    /// 아니라 프레임×채널만큼** 전진했다. 그래서 3초로 설계한 부팅 뮤트
+    /// 램프가 12채널 장치에서 0.25초 만에 끝났고(= 스피커 충격음 차단이 거의
+    /// 무력), 게다가 같은 프레임인데도 채널마다 다른 게인이 걸렸다.
     #[inline(always)]
-    pub fn apply(&mut self, sample: f32) -> f32 {
-        if self.current_gain < 1.0 {
-            self.current_gain = (self.current_gain + self.ramp_step).min(1.0);
+    pub fn block_gain(&self, frame: usize) -> f32 {
+        if self.current_gain >= 1.0 {
+            return 1.0;
         }
-        sample * self.current_gain // 부팅 초기 스피커 충격음 100% 차단
+        (self.current_gain + frame as f32 * self.ramp_step).min(1.0)
+    }
+
+    /// 블록을 다 처리한 뒤 **한 번만** 호출해 프레임 수만큼 전진시킨다.
+    #[inline(always)]
+    pub fn advance_block(&mut self, frames: usize) {
+        if self.current_gain < 1.0 {
+            self.current_gain = (self.current_gain + frames as f32 * self.ramp_step).min(1.0);
+        }
     }
 }
 
@@ -51,6 +91,15 @@ pub struct AudioMixer {
     pub master_mute: bool,
     pub channel_dsp: Vec<ChannelDspState>,
     pub channel_positions: Vec<Option<crate::common::config::Point3D>>,
+    /// 채널별 스피커가 속한 방 ID. RoomZone 연결은 acoustic::bind_channel_zone으로 한다.
+    pub channel_room_ids: Vec<Option<u32>>,
+    /// 채널별 연출용 초기반사 믹스(사용자가 돌린 값 0~1). 실제 적용량은
+    /// `refresh_early_ref_mix`가 방 시뮬레이션 몫과 합쳐서 계산한다.
+    pub channel_er_mix: Vec<f32>,
+    /// 채널별 연출용 믹스 정규화 배율(acoustic::early_reflection_effect_scale).
+    pub channel_er_effect_scale: Vec<f32>,
+    /// 헤드폰 미리듣기에서 들려줄 방(지금 보고 있는 방). None이면 전체 채널.
+    binaural_room: Option<u32>,
     // pan_deg 방위 트림(도 단위). 채널 하드웨어 고정 길이(= channels). DBAP 계산의 가중치 입력(dx/dy)에만
     // 적용되며 물리적 channel_positions/시간정렬은 건드리지 않는다.
     pub channel_pan_deg: Vec<f32>,
@@ -76,6 +125,13 @@ pub struct AudioMixer {
     pub temp_spatial_weights: Vec<f32>,
     pub analysis_tx: Option<rtrb::Producer<f32>>,
     pub temp_vals: Vec<f32>,
+    /// 이번 블록에서 실제로 재생 중인 인스턴스 슬롯 번호.
+    ///
+    /// 예전에는 프레임 루프 **안에서** 인스턴스 4096칸을 매번 훑었다. 블록마다
+    /// 1024 x 4096 = 약 420만 번이라, 재생 중인 트랙이 하나도 없어도 블록당
+    /// 6.35ms를 썼다(실시간 예산 21.3ms의 30%). 이제 블록 시작에 한 번만
+    /// 목록을 만들고 프레임 루프는 이 목록만 돈다.
+    pub temp_active_instances: Vec<usize>,
     
     // Pre-allocated buffers for spatial dsp recalculation
     pub temp_base_delays: Vec<f32>,
@@ -87,13 +143,33 @@ pub struct AudioMixer {
     pub reverb: crate::audio::reverb::VirtualRoomReverb,
     pub binaural: crate::audio::binaural::VirtualMixRoomBinaural,
     pub smoothed_trajectory_pos: Option<crate::common::config::Point3D>,
-    // Bass Management (LR24)
-    pub bass_management_enabled: bool,
-    pub lfe_channel_idx: Option<usize>,
+    // Bass Management (LR24) — 방별
+    /// 베이스 매니지먼트 적용량(0=바이패스, 1=완전 분할). 서브 지정 변경을
+    /// BASS_MANAGEMENT_RAMP_S에 걸쳐 잇는다(Law 3).
+    pub bm_mix: f32,
+    /// 지금 쓰고 있는 라우팅 표. route[ch] = 그 채널의 저역을 받을 서브(자기 방의 서브).
+    /// 서브 자신·서브 없는 방·스피커 없는 채널은 None(audio::bass_route).
+    bass_route: Vec<Option<usize>>,
+    /// 지금 서브우퍼인 채널들.
+    channel_is_sub: Vec<bool>,
+    /// 새로 받은 라우팅 표. 적용량이 0으로 내려간 블록 경계에서 위 표와 바꾼다
+    /// (옛 서브 페이드아웃 → 교체 → 새 서브 페이드인).
+    bass_route_pending: Vec<Option<usize>>,
+    channel_is_sub_pending: Vec<bool>,
+    bass_route_dirty: bool,
     pub crossovers: Vec<crate::audio::crossover::LinkwitzRiley24>,
-    // 서브우퍼로 보낼 저역 합산용 사전 할당 버퍼 (Law 1: 콜백 내 힙 할당 금지).
-    // binaural.rs의 8192 프레임 관례를 그대로 따른다.
-    pub lfe_sub_mix: Vec<f32>,
+    /// LFE +10dB 토글(베이스 매니지먼트 패널). 켜면 서브 채널 **자기 신호**(.1 LFE 트랙)를
+    /// 120Hz 로우패스 **이후**에 +10dB 올린다. 메인에서 넘어온 저역에는 걸지 않는다.
+    /// 서브 레벨은 원래 최종 출력단·하드웨어에서 맞추는 것이고, 이건 바이노럴 미리듣기나
+    /// 소프트웨어로 맞춰야 할 때를 위한 스위치다.
+    pub lfe_boost_enabled: bool,
+    /// LFE 부스트의 현재 선형 게인(1.0 <-> LFE_BOOST_LINEAR 사이를 램프로 오간다).
+    lfe_boost_gain: f32,
+    /// 채널별 서브 자기 신호용 120Hz 로우패스(LR4 저역 쪽만 쓴다). 서브가 된 채널만 쓴다.
+    lfe_track_lpfs: Vec<crate::audio::crossover::LinkwitzRiley24>,
+    // 채널별 서브우퍼로 보낼 저역 합산 버퍼. 서브가 된 채널 것만 쓴다
+    // (Law 1: new()에서 사전 할당, binaural.rs의 8192 프레임 관례).
+    lfe_sub_mix: Vec<Vec<f32>>,
 }
 
 impl AudioMixer {
@@ -219,6 +295,10 @@ impl AudioMixer {
             master_mute: false,
             channel_dsp,
             channel_positions,
+            channel_room_ids: Vec::new(),
+            channel_er_mix: vec![0.0; channels],
+            channel_er_effect_scale: vec![0.0; channels],
+            binaural_room: None,
             channel_pan_deg: vec![0.0; channels],
             channel_early_ref_taps: vec![[crate::audio::acoustic::EarlyReflectionTap::default(); crate::audio::acoustic::MAX_EARLY_REFLECTION_TAPS]; channels],
             listener_position: None,
@@ -238,26 +318,49 @@ impl AudioMixer {
             temp_spatial_weights: vec![0.0; channels],
             analysis_tx,
             temp_vals: vec![0.0; channels],
+            temp_active_instances: Vec::with_capacity(4096),
             temp_base_delays: vec![0.0; channels],
             temp_base_eqs: (0..channels).map(|_| Vec::with_capacity(32)).collect(),
             temp_channel_dists: vec![0.0; channels],
             master_clock: 0.0,
             spatializer: None,
             reverb: crate::audio::reverb::VirtualRoomReverb::new(sample_rate as f32),
-            binaural: crate::audio::binaural::VirtualMixRoomBinaural::new(channels, block_size),
+            // HRTF를 엔진 샘플레이트로 맞춰 쓴다(audio::hrtf_eq).
+            binaural: crate::audio::binaural::VirtualMixRoomBinaural::new_with_rate(
+                channels,
+                block_size,
+                sample_rate as f32,
+            ),
             smoothed_trajectory_pos: trajectory.as_ref().map(|t| t.current_position.clone()),
-            bass_management_enabled: false,
-            lfe_channel_idx: Some(3),
+            bm_mix: 0.0,
+            // 서브가 지정되기 전(엔진 기동 직후)에는 베이스 매니지먼트가 없다. 서브 지정은
+            // 공간 설정 payload로 들어온다(simple.rs api_update_spatial_config_json).
+            bass_route: Vec::new(),
+            channel_is_sub: Vec::new(),
+            bass_route_pending: Vec::new(),
+            channel_is_sub_pending: Vec::new(),
+            bass_route_dirty: false,
+            lfe_boost_enabled: false,
+            lfe_boost_gain: 1.0,
+            lfe_track_lpfs: vec![crate::audio::crossover::LinkwitzRiley24::new(); channels],
             crossovers: vec![crate::audio::crossover::LinkwitzRiley24::new(); channels],
-            lfe_sub_mix: vec![0.0; 8192],
+            lfe_sub_mix: vec![vec![0.0; 8192]; channels],
         };
-        
+
         for c in mixer.crossovers.iter_mut() {
             c.set_crossover_freq(80.0, sample_rate as f32);
         }
+        for f in mixer.lfe_track_lpfs.iter_mut() {
+            f.set_crossover_freq(LFE_TRACK_LPF_HZ, sample_rate as f32);
+        }
         
         mixer.recalculate_spatial_dsp();
-        
+
+        // 사용자가 켜 둔 바이노럴 상태를 새 믹서가 이어받는다(state.rs 참고).
+        mixer.binaural.enabled = crate::core::state::GLOBAL_STATE
+            .binaural_enabled
+            .load(std::sync::atomic::Ordering::Relaxed);
+
         mixer
     }
 
@@ -380,15 +483,13 @@ impl AudioMixer {
             let mut gain = 1.0;
             if ch < self.channel_positions.len() {
                 if let Some(pos) = &self.channel_positions[ch] {
-                    // 1. Point-in-Room Auto-Binding
-                    let mut bound_room_id = None;
-                    for zone in &self.room_zones {
-                        if pos.x >= zone.boundary_min.x && pos.x <= zone.boundary_max.x &&
-                           pos.y >= zone.boundary_min.y && pos.y <= zone.boundary_max.y {
-                            bound_room_id = Some(zone.room_id);
-                            break;
-                        }
-                    }
+                    // 1. 스피커가 속한 방에 연결(acoustic::bind_channel_zone 참고)
+                    let bound_room_id = crate::audio::acoustic::bind_channel_zone(
+                        &self.room_zones,
+                        self.channel_room_ids.get(ch).copied().flatten(),
+                        pos,
+                    )
+                    .map(|z| z.room_id);
                     if let Some(rid) = bound_room_id {
                         for (room_id, rvol) in self.room_volumes.iter().flatten() {
                             if *room_id == rid {
@@ -467,6 +568,16 @@ impl AudioMixer {
 
         let mut temp_vals = std::mem::take(&mut self.temp_vals);
 
+        // 재생 중인 슬롯만 한 번 추려 둔다(위 temp_active_instances 주석 참고).
+        let mut active_instances = std::mem::take(&mut self.temp_active_instances);
+        active_instances.clear();
+        for (i, inst_opt) in self.instances.iter().enumerate() {
+            if let Some(inst) = inst_opt {
+                if inst.is_playing {
+                    active_instances.push(i);
+                }
+            }
+        }
         for frame in 0..frames {
             // Anti-zipper smoothing for spatial automation (~4ms time constant) and 50ms Equal-Power Crossfade for Scene changes
             let fade_step = 1.0 / (self.sample_rate as f32 * 0.05); // 50ms
@@ -509,12 +620,14 @@ impl AudioMixer {
                 }
             }
 
-            for (i, instance_opt) in self.instances.iter_mut().enumerate() {
-                let instance = match instance_opt {
+            for idx in 0..active_instances.len() {
+                let i = active_instances[idx];
+                let instance = match &mut self.instances[i] {
                     Some(inst) => inst,
                     None => continue,
                 };
-                
+
+                // 블록 도중 재생이 끝날 수 있으므로 여기서도 확인한다.
                 if !instance.is_playing {
                     continue;
                 }
@@ -771,16 +884,44 @@ impl AudioMixer {
         }
         
         self.temp_vals = temp_vals;
+        self.temp_active_instances = active_instances;
 
         // Apply Channel DSP
         let fs = self.sample_rate as f32;
         let dsp_limit = self.channel_dsp.len().min(out_channels);
         
-        let bm_enabled = self.bass_management_enabled;
-        let lfe_idx = self.lfe_channel_idx;
-        // Law 1: 콜백 내 힙 할당 금지 - new()에서 사전 할당한 버퍼를 재사용하고 사용 구간만 초기화
-        let lfe_frames = frames.min(self.lfe_sub_mix.len());
-        self.lfe_sub_mix[..lfe_frames].fill(0.0);
+        // ── 방별 베이스 매니지먼트 ─────────────────────────────────────
+        // 서브 지정이 바뀌었으면, 적용량을 0까지 내린 블록 경계에서 새 라우팅 표로 바꾼다
+        // (옛 서브 페이드아웃 → 교체 → 새 서브 페이드인).
+        if self.bass_route_dirty && self.bm_mix == 0.0 {
+            std::mem::swap(&mut self.bass_route, &mut self.bass_route_pending);
+            std::mem::swap(&mut self.channel_is_sub, &mut self.channel_is_sub_pending);
+            self.bass_route_dirty = false;
+            // 새로 서브가 된 채널의 로우패스 상태를 비운다(다른 신호의 잔상이 섞이지 않게).
+            // 적용량이 0인 지점이라 소리에는 드러나지 않는다. 고정 크기 대입만 한다(Law 1).
+            for (ch, f) in self.lfe_track_lpfs.iter_mut().enumerate() {
+                if self.channel_is_sub.get(ch).copied().unwrap_or(false) {
+                    *f = crate::audio::crossover::LinkwitzRiley24::new();
+                    f.set_crossover_freq(LFE_TRACK_LPF_HZ, fs);
+                }
+            }
+        }
+        let has_sub = self.channel_is_sub.iter().any(|&s| s);
+        let bm_target = if has_sub && !self.bass_route_dirty { 1.0 } else { 0.0 };
+        let bm_start = self.bm_mix;
+        let bm_step = 1.0 / (BASS_MANAGEMENT_RAMP_S * fs);
+        // Law 1: new()에서 사전 할당한 버퍼의 사용 구간만 비운다(서브가 된 채널 것만).
+        let lfe_frames = frames.min(self.lfe_sub_mix.first().map_or(0, |b| b.len()));
+        for (ch, buf) in self.lfe_sub_mix.iter_mut().enumerate() {
+            if self.channel_is_sub.get(ch).copied().unwrap_or(false) {
+                buf[..lfe_frames].fill(0.0);
+            }
+        }
+        // 서브가 된 채널은 공간 효과(초기반사·리버브)를 서서히 뺀다(기존 스무딩).
+        for (ch, dsp) in self.channel_dsp.iter_mut().enumerate() {
+            dsp.mute_room_effects = self.channel_is_sub.get(ch).copied().unwrap_or(false);
+        }
+
         for ch in 0..dsp_limit {
             let is_enabled = if ch < GLOBAL_STATE.enabled_channels.len() {
                 GLOBAL_STATE.enabled_channels[ch].load(Ordering::Relaxed)
@@ -788,40 +929,90 @@ impl AudioMixer {
                 false
             };
             if !is_enabled { continue; }
+            // 서브는 메인 채널을 다 처리해 합산 저역이 모인 **뒤에** 아래에서 처리한다.
+            // 예전에는 합산 저역을 바이노럴 렌더와 서브 채널 DSP가 끝난 뒤에 더해서,
+            // ① 서브의 딜레이·EQ·게인이 그 저역에 걸리지 않았고 ② 헤드폰 미리듣기에서
+            // 메인이 잘라낸 저역이 통째로 사라졌다(소리가 날카롭게 들렸다).
+            if self.channel_is_sub.get(ch).copied().unwrap_or(false) {
+                continue;
+            }
+            // 이 채널의 저역을 받을 서브 = 자기 방의 서브(없으면 풀레인지).
+            let route = self
+                .bass_route
+                .get(ch)
+                .copied()
+                .flatten()
+                .filter(|&s| s < self.lfe_sub_mix.len());
 
             for frame in 0..frames {
                 let sample_idx = frame * out_channels + ch;
                 if sample_idx < output.len() {
                     let mut val = output[sample_idx];
-                    val = self.channel_dsp[ch].process(val, fs);
-                    
-                    // Bass Management Routing (LR24)
-                    if bm_enabled && ch < self.crossovers.len() {
-                        if Some(ch) == lfe_idx {
-                            // Subwoofer channel: skip HPF, it will receive the accumulated LPF mix later
-                        } else {
-                            // Satellite channels: Split into HPF (keeps in channel) and LPF (sends to sub)
-                            let low_val = self.crossovers[ch].process_low(val);
-                            val = self.crossovers[ch].process_high(val);
-                            if frame < lfe_frames {
-                                self.lfe_sub_mix[frame] += low_val;
+
+                    // Bass Management Routing (LR24): 고역은 채널에 남기고 저역은 자기 방
+                    // 서브로 보낸다. 크로스오버는 서브가 없을 때도 돌려서 필터 상태를 데워
+                    // 둔다(빈 상태에서 켜면 과도 응답이 난다).
+                    //
+                    // 표준 순서대로 채널 DSP(딜레이·EQ·게인·극성·반사)보다 **앞에서** 가른다.
+                    // 그 보정들은 이 스피커가 실제로 내는 소리(고역)에만 걸려야 하고, 서브로
+                    // 넘어간 저역은 서브 채널의 보정만 받는다. 예전에는 DSP 뒤에서 갈라서
+                    // 메인의 로우컷·쉘프·게인이 서브 저역에 한 번 더 걸렸고(실기: 9~13dB 작음),
+                    // 극성이 뒤집힌 메인의 저역은 서브에서 다른 메인의 같은 저역을 지웠다.
+                    if ch < self.crossovers.len() {
+                        let (low_val, high_val) = self.crossovers[ch].split(val);
+                        if let Some(sub) = route {
+                            let m = bass_management_ramp_at(bm_start, bm_target, bm_step, frame);
+                            if m > 0.0 {
+                                val += (high_val - val) * m;
+                                if frame < lfe_frames {
+                                    self.lfe_sub_mix[sub][frame] += low_val * m;
+                                }
                             }
                         }
                     }
-                    
-                    output[sample_idx] = val;
+
+                    output[sample_idx] = self.channel_dsp[ch].process(val, fs);
                 }
             }
         }
-        
+
+        // 서브 출력 = LPF120(자기 신호) x (LFE +10dB 토글) + 자기 방 메인에서 넘어온 저역.
+        // 그 합 전체가 서브 채널의 딜레이·EQ·게인·극성을 지난다(표준 서브 출력 체인).
+        // +10dB 램프는 샘플 위치로 계산해서, 서브가 여럿이어도 모두 같은 게인을 쓴다.
+        let boost_start = self.lfe_boost_gain;
+        let boost_target = if self.lfe_boost_enabled { LFE_BOOST_LINEAR } else { 1.0 };
+        let boost_step = (LFE_BOOST_LINEAR - 1.0) / (LFE_BOOST_RAMP_S * fs);
+        for sub in 0..dsp_limit {
+            if !self.channel_is_sub.get(sub).copied().unwrap_or(false) {
+                continue;
+            }
+            let sub_enabled = sub < GLOBAL_STATE.enabled_channels.len()
+                && GLOBAL_STATE.enabled_channels[sub].load(Ordering::Relaxed);
+            if !sub_enabled {
+                continue;
+            }
+            for frame in 0..frames {
+                let idx = frame * out_channels + sub;
+                if idx >= output.len() {
+                    break;
+                }
+                let own = output[idx];
+                let low = self.lfe_track_lpfs[sub].process_low(own);
+                let m = bass_management_ramp_at(bm_start, bm_target, bm_step, frame);
+                let boost = bass_management_ramp_at(boost_start, boost_target, boost_step, frame);
+                // 자기 신호(.1 LFE 트랙): 로우패스 **이후**에 부스트한다.
+                let track = own + (low * boost - own) * m;
+                let folded = if frame < lfe_frames { self.lfe_sub_mix[sub][frame] } else { 0.0 };
+                output[idx] = self.channel_dsp[sub].process(track + folded, fs);
+            }
+        }
+        if frames > 0 {
+            self.lfe_boost_gain =
+                bass_management_ramp_at(boost_start, boost_target, boost_step, frames - 1);
+        }
+
         // Apply Binaural Processing (De-interleaves, convolves, and re-interleaves to Ch0 & Ch1)
-        if std::env::var("ATMOS_DEBUG_BINAURAL").is_ok() {
-            eprintln!("[디버그] binaural 이전 output[0..4]={:?}", &output[..4.min(output.len())]);
-        }
         self.binaural.process_interleaved(output, out_channels);
-        if std::env::var("ATMOS_DEBUG_BINAURAL").is_ok() {
-            eprintln!("[디버그] binaural 이후 output[0..4]={:?}", &output[..4.min(output.len())]);
-        }
 
         // Apply Global Reverb to Ch0 and Ch1
         if out_channels >= 2 && self.reverb.mix > 0.0 {
@@ -836,30 +1027,8 @@ impl AudioMixer {
             }
         }
 
-                // Add accumulated bass to the LFE channel output
-        if bm_enabled {
-            if let Some(idx) = lfe_idx {
-                if idx < out_channels {
-                    for frame in 0..lfe_frames {
-                        let sample_idx = frame * out_channels + idx;
-                        if sample_idx < output.len() {
-                            output[sample_idx] += self.lfe_sub_mix[frame];
-                        }
-                    }
-                } else if out_channels >= 2 {
-                    for frame in 0..lfe_frames {
-                        let sample_idx_l = frame * out_channels + 0;
-                        let sample_idx_r = frame * out_channels + 1;
-                        let bass_val = self.lfe_sub_mix[frame] * 0.707;
-                        if sample_idx_l < output.len() {
-                            output[sample_idx_l] += bass_val;
-                        }
-                        if sample_idx_r < output.len() {
-                            output[sample_idx_r] += bass_val;
-                        }
-                    }
-                }
-            }
+        if frames > 0 {
+            self.bm_mix = bass_management_ramp_at(bm_start, bm_target, bm_step, frames - 1);
         }
 
         // Compute VU levels (Peak per channel) and apply soft clipping
@@ -886,7 +1055,7 @@ impl AudioMixer {
                             val = -0.99;
                         }
                     }
-                    val = self.startup_ramp.apply(val);
+                    val *= self.startup_ramp.block_gain(frame);
                     if self.master_mute {
                         val = 0.0;
                     }
@@ -904,6 +1073,10 @@ impl AudioMixer {
 
             GLOBAL_STATE.vu_levels[ch].store(peak.to_bits(), Ordering::Relaxed);
         }
+
+        // 부팅 뮤트 램프는 블록당 한 번만 전진시킨다(채널 루프 안에서 전진하면
+        // 채널 수만큼 빨라진다 - block_gain 문서 참고).
+        self.startup_ramp.advance_block(frames);
 
         // Store first two channels LUFS to global state (assume stereo master)
         if out_channels > 0 && !self.limiters.is_empty() {
@@ -975,6 +1148,128 @@ impl AudioMixer {
     /// 경로를 건드리지 않는 것이 이번 변경의 위험을 줄인다는 판단이다
     /// (스펙 문서의 "권장"일 뿐 필수 요구는 아니다). 세 번째 자리가 생겼으니
     /// 다음에 손댈 때는 공유 헬퍼로 통합을 고려할 것.
+    /// 채널의 초기반사 탭을 DSP 스무딩 타겟으로 옮기고, 연출용 정규화 배율을 갱신한다.
+    /// 커맨드 처리(UpdateSpatialConfig)에서 호출된다 — 고정 배열 대입만 하고 힙 할당은 없다.
+    pub fn apply_early_reflection_taps(
+        &mut self,
+        channel: usize,
+        taps: &[crate::audio::acoustic::EarlyReflectionTap;
+             crate::audio::acoustic::MAX_EARLY_REFLECTION_TAPS],
+    ) {
+        if channel >= self.channel_dsp.len() {
+            return;
+        }
+        for i in 0..crate::audio::acoustic::MAX_EARLY_REFLECTION_TAPS {
+            self.channel_dsp[channel].taps[i].target_delay_ms = taps[i].delay_ms;
+            self.channel_dsp[channel].taps[i].target_gain = taps[i].gain;
+            self.channel_dsp[channel].taps[i].target_hf_shelf_db = taps[i].hf_shelf_db;
+        }
+        if channel < self.channel_er_effect_scale.len() {
+            self.channel_er_effect_scale[channel] =
+                crate::audio::acoustic::early_reflection_effect_scale(taps);
+        }
+        self.refresh_early_ref_mix(channel);
+    }
+
+    /// 사용자가 돌린 연출용 초기반사 믹스(0~1)를 기록한다.
+    pub fn set_channel_early_ref_mix(&mut self, channel: usize, mix: f32) {
+        if channel < self.channel_er_mix.len() {
+            self.channel_er_mix[channel] = mix.clamp(0.0, 1.0);
+        }
+        self.refresh_early_ref_mix(channel);
+    }
+
+    /// 실제 적용량 = 방 시뮬레이션 몫 + 연출용 몫.
+    ///
+    /// 방 시뮬레이션(그 방이 만들 반사를 물리 그대로)은 **헤드폰 미리듣기(바이노럴)에서만**
+    /// 건다. 현장에서는 진짜 벽이 같은 반사를 만들기 때문에 겹치면 반사가 두 번 들어간다.
+    /// 연출용 몫은 방과 무관하게 슬라이더 감각이 같도록 정규화해서 더한다.
+    /// 값 변경은 dsp.rs에서 샘플 단위로 스무딩된다(Law 3).
+    pub fn refresh_early_ref_mix(&mut self, channel: usize) {
+        if channel >= self.channel_dsp.len() {
+            return;
+        }
+        // 방 시뮬레이션도 연출용과 같은 방식으로 정규화한다(물리 그대로 쓰면 너무 세다 —
+        // acoustic::EARLY_REFLECTION_ROOM_SIM_TARGET_DB 주석 참고).
+        let room_sim = if self.binaural.enabled {
+            crate::audio::acoustic::room_sim_scale_from_effect_scale(
+                self.channel_er_effect_scale.get(channel).copied().unwrap_or(0.0),
+            )
+        } else {
+            0.0
+        };
+        let effect = self.channel_er_mix.get(channel).copied().unwrap_or(0.0)
+            * self.channel_er_effect_scale.get(channel).copied().unwrap_or(0.0);
+        self.channel_dsp[channel].target_early_ref_mix = room_sim + effect;
+    }
+
+    /// 바이노럴 on/off처럼 전 채널에 영향을 주는 변경 뒤에 부른다.
+    pub fn refresh_all_early_ref_mixes(&mut self) {
+        for ch in 0..self.channel_dsp.len() {
+            self.refresh_early_ref_mix(ch);
+        }
+    }
+
+    /// 방별 베이스 매니지먼트 라우팅을 바꾼다(엔진은 UpdateSpatialConfig로 받는다).
+    ///
+    /// `route[ch]` = 그 채널의 저역을 받을 서브(audio::bass_route::compute_bass_route),
+    /// `is_sub[ch]` = 그 채널이 서브우퍼인가. 표가 지금과 같으면 아무것도 바꾸지 않는다
+    /// (스피커를 드래그하면 초당 수십 번 들어온다). 다르면 대기 표로 두고, process()가
+    /// 적용량을 0까지 내린 뒤 교체한다(딸깍 방지).
+    ///
+    /// 돌려주는 옛 대기 표는 오디오 스레드에서 해제하지 말고 GC 스레드로 보낸다(Law 1).
+    pub fn set_bass_routing(
+        &mut self,
+        route: Vec<Option<usize>>,
+        is_sub: Vec<bool>,
+    ) -> (Vec<Option<usize>>, Vec<bool>) {
+        self.bass_route_dirty = route != self.bass_route || is_sub != self.channel_is_sub;
+        let old_route = std::mem::replace(&mut self.bass_route_pending, route);
+        let old_is_sub = std::mem::replace(&mut self.channel_is_sub_pending, is_sub);
+        (old_route, old_is_sub)
+    }
+
+    /// 헤드폰 미리듣기에 들려줄 방을 정한다(지금 보고 있는 방).
+    ///
+    /// 설계는 방 단위로 하므로, 그 방의 스피커만 헤드폰에 섞여야 한다. 방을 아직
+    /// 만들지 않았거나 지정이 없으면(None) 예전처럼 전체 채널을 렌더링한다.
+    pub fn set_binaural_room(&mut self, room_id: Option<u32>) {
+        self.binaural_room = room_id;
+        self.refresh_binaural_channel_mask();
+    }
+
+    /// 채널 마스크를 현재 방 지정과 채널별 방 ID로 다시 계산한다.
+    /// 방 지정이나 스피커 배치가 바뀔 때만 부르면 된다(Law 1: 사전 할당 버퍼에 쓰기만).
+    ///
+    /// 서브우퍼도 같은 규칙을 따른다. 베이스 매니지먼트가 방별이라, 보고 있는 방의 저역은
+    /// 그 방 안의 서브로 모인다(그 서브는 방 규칙으로 들린다). 다른 방 서브는 다른 방의
+    /// 저역을 담고 있으므로 넣지 않는다.
+    pub fn refresh_binaural_channel_mask(&mut self) {
+        let room = self.binaural_room;
+        let room_ids = &self.channel_room_ids;
+        let positions = &self.channel_positions;
+        // 스피커를 하나라도 배치했으면, 스피커가 없는 채널(설계에 없는 채널 — 예: 6채널 장비의
+        // CH3~6)은 헤드폰에 섞지 않는다. 예전에는 정면에서 어느 방에서나 들려서 헷갈렸다.
+        // 아직 하나도 배치하지 않았으면 예전처럼 전부 들려준다(헤드폰이 무음이 되지 않게).
+        let any_placed = positions.iter().any(|p| p.is_some());
+        let mask = self.binaural.channel_enabled_mut();
+        for (ch, slot) in mask.iter_mut().enumerate() {
+            let placed = positions.get(ch).is_some_and(|p| p.is_some());
+            if any_placed && !placed {
+                *slot = false;
+                continue;
+            }
+            *slot = match (room, room_ids.get(ch).copied().flatten()) {
+                // 방 지정이 없으면 전체 채널.
+                (None, _) => true,
+                // 방이 지정되지 않은 예전 스피커는 3D 화면과 같은 규칙으로 어느 방에서나
+                // 들린다(dynamic_3d_room.dart: roomId == null이면 모든 방에 표시).
+                (Some(_), None) => true,
+                (Some(target), Some(id)) => id == target,
+            };
+        }
+    }
+
     pub fn recalculate_binaural_channel_azimuths(&mut self) {
         // Law 1: 임시 Vec을 만들지 않는다. 바이노럴이 들고 있는 사전 할당
         // 버퍼에 바로 쓴다(channel_base_azimuth_mut()). UpdateSpatialConfig
@@ -982,8 +1277,10 @@ impl AudioMixer {
         // 경로다.
         let room_zones = &self.room_zones;
         let channel_positions = &self.channel_positions;
+        let channel_room_ids = &self.channel_room_ids;
         let explicit_listener = self.listener_position.as_ref().map(|p| (p.x, p.y));
-        let azimuths = self.binaural.channel_base_azimuth_mut();
+        let explicit_listener_z = self.listener_position.as_ref().map(|p| p.z);
+        let (azimuths, elevations) = self.binaural.channel_base_angles_mut();
 
         // RoomZone이 정의되지 않은 경우(기본 상태)에도 방위각이 나와야 한다.
         // 예전에는 바인딩된 zone이 없으면 전부 0°(정면)로 처리해서, RoomZone을
@@ -1008,19 +1305,19 @@ impl AudioMixer {
             }
         };
 
-        let n = azimuths.len().min(channel_positions.len());
+        let n = azimuths.len().min(elevations.len()).min(channel_positions.len());
         for ch in 0..n {
             let Some(pos) = &channel_positions[ch] else {
                 azimuths[ch] = 0.0; // 좌표 없음 -> 정면 취급
+                elevations[ch] = 0.0;
                 continue;
             };
 
-            let bound_zone = room_zones.iter().find(|z| {
-                pos.x >= z.boundary_min.x
-                    && pos.x <= z.boundary_max.x
-                    && pos.y >= z.boundary_min.y
-                    && pos.y <= z.boundary_max.y
-            });
+            let bound_zone = crate::audio::acoustic::bind_channel_zone(
+                room_zones,
+                channel_room_ids.get(ch).copied().flatten(),
+                pos,
+            );
 
             // 기준점 우선순위:
             // 1. 프론트엔드가 보낸 리스너 좌표(3D 룸의 마네킹 위치 = 방 중심).
@@ -1041,6 +1338,7 @@ impl AudioMixer {
                         Some(c) => c,
                         None => {
                             azimuths[ch] = 0.0;
+                            elevations[ch] = 0.0;
                             continue;
                         }
                     },
@@ -1071,9 +1369,49 @@ impl AudioMixer {
             // 생긴 회귀였다 — 실기(스피커 레이아웃 + 헤드폰)에서 "Ch1이
             // 오른쪽에 있는데 왼쪽에서 들린다"는 사용자 보고로 발견했다.
             azimuths[ch] = dx.atan2(dy).to_degrees();
+            // 고도각: 청취 지점(귀 높이) 기준 위(+)·아래(−). 예전에는 모든 스피커를 귀 높이로
+            // 렌더링해서 천장 가까이 매단 스피커도 앞에서 들렸다. 귀 높이를 모르면 0.
+            let listener_z = explicit_listener_z.or_else(|| bound_zone.map(|z| z.ear_level));
+            elevations[ch] = match listener_z {
+                Some(lz) => (pos.z - lz).atan2((dx * dx + dy * dy).sqrt()).to_degrees(),
+                None => 0.0,
+            };
         }
 
         self.binaural.mark_base_azimuth_dirty();
+        self.recalculate_binaural_propagation();
+    }
+
+    /// 헤드폰 미리듣기의 채널별 전파 흉내(스피커 → 청취 지점: 지연·거리 감쇠)를 다시
+    /// 계산한다. 현장에서 공기가 만드는 것과 같은 지연·감쇠라, 자동 튜닝의 시간 정렬
+    /// 딜레이·거리 게인이 헤드폰에서도 현장처럼 상쇄된다(binaural.rs Propagation 참고).
+    ///
+    /// 청취 지점은 초기반사·공기흡음과 같은 규칙(acoustic::listening_point)을 쓴다.
+    /// 오디오 스레드(UpdateSpatialConfig)에서 불린다 — 계산과 고정 슬롯 쓰기만 한다(Law 1).
+    fn recalculate_binaural_propagation(&mut self) {
+        for ch in 0..self.binaural.channel_count() {
+            let Some(pos) = self.channel_positions.get(ch).and_then(|p| p.as_ref()) else {
+                self.binaural.clear_channel_propagation(ch);
+                continue;
+            };
+            let zone = crate::audio::acoustic::bind_channel_zone(
+                &self.room_zones,
+                self.channel_room_ids.get(ch).copied().flatten(),
+                pos,
+            );
+            match crate::audio::acoustic::gain_reference_distance(zone, self.listener_position.as_ref()) {
+                Some(reference) => {
+                    let lp = crate::audio::acoustic::listening_point(
+                        self.listener_position.as_ref(),
+                        zone,
+                        pos,
+                    );
+                    let distance = crate::audio::acoustic::distance_3d(pos, &lp);
+                    self.binaural.set_channel_propagation(ch, distance, reference);
+                }
+                None => self.binaural.clear_channel_propagation(ch),
+            }
+        }
     }
 
     pub fn recalculate_spatial_dsp(&mut self) {
@@ -1135,14 +1473,12 @@ impl AudioMixer {
 
                 for ch_idx in 0..self.channel_positions.len() {
                     if let Some(pos) = &self.channel_positions[ch_idx] {
-                        let mut bound_room_id = None;
-                        for zone in &self.room_zones {
-                            if pos.x >= zone.boundary_min.x && pos.x <= zone.boundary_max.x &&
-                               pos.y >= zone.boundary_min.y && pos.y <= zone.boundary_max.y {
-                                bound_room_id = Some(zone.room_id);
-                                break;
-                            }
-                        }
+                        let bound_room_id = crate::audio::acoustic::bind_channel_zone(
+                            &self.room_zones,
+                            self.channel_room_ids.get(ch_idx).copied().flatten(),
+                            pos,
+                        )
+                        .map(|z| z.room_id);
 
                         let in_target_room = match target_room_id {
                             Some(target_id) => bound_room_id == Some(target_id),
@@ -1153,19 +1489,13 @@ impl AudioMixer {
                             let t_pos = if let Some(tp) = &target_pos {
                                 tp.clone()
                             } else {
-                                // Find zone center
-                                let mut cx = pos.x;
-                                let mut cz = pos.z;
-                                if let Some(rid) = bound_room_id {
-                                    for zone in &self.room_zones {
-                                        if zone.room_id == rid {
-                                            cx = (zone.boundary_min.x + zone.boundary_max.x) / 2.0;
-                                            cz = (zone.boundary_min.y + zone.boundary_max.y) / 2.0;
-                                            break;
-                                        }
-                                    }
-                                }
-                                crate::common::config::Point3D { x: cx, y: pos.y, z: cz, ..Default::default() }
+                                let zone = bound_room_id
+                                    .and_then(|rid| self.room_zones.iter().find(|z| z.room_id == rid));
+                                crate::audio::acoustic::listening_point(
+                                    self.listener_position.as_ref(),
+                                    zone,
+                                    pos,
+                                )
                             };
                             
                             let dist = crate::audio::acoustic::distance_3d(pos, &t_pos);
@@ -1189,23 +1519,20 @@ impl AudioMixer {
                     }
 
                     if let Some(pos) = &self.channel_positions[ch_idx] {
-                        let mut matched_zone = None;
-                        for zone in &self.room_zones {
-                            if pos.x >= zone.boundary_min.x && pos.x <= zone.boundary_max.x &&
-                               pos.y >= zone.boundary_min.y && pos.y <= zone.boundary_max.y {
-                                matched_zone = Some(zone);
-                                break;
-                            }
-                        }
+                        let matched_zone = crate::audio::acoustic::bind_channel_zone(
+                            &self.room_zones,
+                            self.channel_room_ids.get(ch_idx).copied().flatten(),
+                            pos,
+                        );
 
                         let t_pos = if let Some(tp) = &target_pos {
                             tp.clone()
-                        } else if let Some(zone) = matched_zone {
-                            let cx = (zone.boundary_min.x + zone.boundary_max.x) / 2.0;
-                            let cz = (zone.boundary_min.y + zone.boundary_max.y) / 2.0; 
-                            crate::common::config::Point3D { x: cx, y: pos.y, z: cz, ..Default::default() }
                         } else {
-                            pos.clone()
+                            crate::audio::acoustic::listening_point(
+                                self.listener_position.as_ref(),
+                                matched_zone,
+                                pos,
+                            )
                         };
                         
                         // Phase 2: Time Alignment Formula
@@ -1214,8 +1541,17 @@ impl AudioMixer {
                         let zone_delay = matched_zone.map(|z| z.boundary_delay_ms).unwrap_or(0.0);
                         
                         let base_delay = base_delays[ch_idx];
-                        self.channel_dsp[ch_idx].update_delay_target(base_delay + acoustic_delay_ms + zone_delay);
-                        self.channel_dsp[ch_idx].update_distance(dist);
+                        // 채널별 딜레이/EQ의 소유자는 Dart의 음향 동기화
+                        // (acoustic_sync_provider)다. 여기서도 같은 필드를
+                        // 계산해 쓰면 두 시스템이 서로 덮어써서, 나중에 도착한
+                        // 명령에 따라 값이 요동친다(실기 보고: "스피커를 누르면
+                        // EQ 계열 값이 미묘하게 바뀐다"). 계산 자체는 남겨두되
+                        // (아래 로그/후속 작업 참고) 기록하지 않는다.
+                        //
+                        // 공기 흡음도 여기(채널 DSP = 실제 스피커 출력)에 걸지 않는다. 현장에서는
+                        // 진짜 공기가 흡음하므로 두 번 깎인다. 헤드폰 미리듣기에서만 바이노럴
+                        // 전파 흉내가 건다(recalculate_binaural_propagation).
+                        let _ = base_delay + acoustic_delay_ms + zone_delay;
 
                         // Phase 2: Dispersion Angle off-axis EQ roll-off
                         let mut dynamic_eq = None;
@@ -1238,6 +1574,7 @@ impl AudioMixer {
                                     gain: roll_off_gain,
                                     q_factor: 0.707,
                                     filter_type: crate::common::config::EqType::HighShelf,
+                                    slope_db_per_oct: 12,
                                 });
                             }
                         }
@@ -1280,8 +1617,10 @@ impl AudioMixer {
                             final_eqs.truncate(crate::audio::dsp::dsp_utils::MAX_EQ_BANDS);
                         }
 
-                        let sr = self.sample_rate as f32;
-                        self.channel_dsp[ch_idx].update_eq_targets(&final_eqs, sr);
+                        // 위와 같은 이유로 EQ도 여기서 기록하지 않는다.
+                        // 오프액시스(분산각) 롤오프는 Dart 쪽 음향 동기화로
+                        // 옮겨서 FX 패널에 보이고 엔지니어가 수정할 수 있게 했다.
+                        let _ = &final_eqs;
                     }
                 }
                 

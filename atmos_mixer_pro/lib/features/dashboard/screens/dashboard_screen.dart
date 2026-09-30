@@ -1,4 +1,6 @@
 import 'dart:io';
+import 'package:atmos_mixer_pro/core/state/engine_resync.dart';
+import 'package:atmos_mixer_pro/core/state/project_file.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
@@ -14,6 +16,7 @@ import 'package:atmos_mixer_pro/features/dashboard/widgets/master_limiter_meter.
 import 'package:atmos_mixer_pro/features/dashboard/widgets/resampler_status_badge.dart';
 import 'package:atmos_mixer_pro/features/dashboard/widgets/binaural_toggle_badge.dart';
 import 'package:atmos_mixer_pro/features/exhibition/state/acoustic_sync_provider.dart';
+import 'package:atmos_mixer_pro/features/exhibition/state/spatial_sync_provider.dart';
 import 'package:atmos_mixer_pro/features/dashboard/widgets/rta_spectrum_overlay.dart';
 import 'package:atmos_mixer_pro/features/dashboard/widgets/multitrack_timeline.dart';
 import 'package:atmos_mixer_pro/features/dashboard/widgets/advanced_physics_panel.dart';
@@ -89,7 +92,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text(
-              '⚠️ ASIO 오디오 인터페이스 연결이 끊어져 기본 출력 장치(WASAPI)로 임시 전환되었습니다. 환경설정에서 오디오 장치를 다시 확인해 주세요.',
+              // ASIO/WASAPI는 Windows 전용 개념이라 macOS에서는 맞지 않는
+              // 문구였다(실기 보고: "나는 맥인데 왜 저런 게 뜨냐").
+              // 폴백 동작 자체는 플랫폼 공통이므로 문구도 중립으로 쓴다.
+              '⚠️ 오디오 장치 연결이 끊어져 시스템 기본 출력 장치로 임시 전환되었습니다. 환경설정에서 오디오 장치를 다시 확인해 주세요.',
               style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
             ),
             backgroundColor: Colors.redAccent,
@@ -140,6 +146,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     // 전혀 따라오지 않던 원인이다. 메인 화면은 앱 수명 내내 살아 있으므로
     // 여기서 watch해 동기화가 항상 돌게 한다.
     ref.watch(acousticSyncProvider);
+    // 공간 설정(스피커 좌표·방·궤적·청취 지점)을 엔진에 보내는 단일 소유자.
+    // 같은 이유로 여기서 watch해야 한다 — 아무도 읽지 않으면 전송이 멈춘다.
+    ref.watch(spatialSyncProvider);
 
     final bodyContent = SafetyAlertBorderWidget(
       isWatchdogActive: _isWatchdogActive,
@@ -216,7 +225,16 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                             .saveConfig(importedConfig);
                         ref
                             .read(tuningStateProvider.notifier)
-                            .syncFromBackendConfig(importedConfig);
+                            .syncFromBackendConfig(importedConfig, treatAsManual: true);
+
+                        // 엔진 설정에 없는 설계 데이터(스피커 배치·방·리버브·베이스
+                        // 매니지먼트·궤적·청사진·채널 튜닝)를 같은 파일에서 복원한다.
+                        // 설계 데이터가 없는 예전 파일이면 건너뛴다.
+                        if (await restoreExhibitionDataFromFile(
+                            result.files.single.path!)) {
+                          await reloadExhibitionProvidersFromWidgetRef(ref);
+                          resyncEngineStateFromWidgetRef(ref);
+                        }
 
                         try {
                           await rust_api.apiPreloadAllSounds(
@@ -264,6 +282,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                         path: outputFile,
                         config: config,
                       );
+                      // 엔진이 파일을 쓴 뒤에 설계 데이터를 같은 파일에 얹는다.
+                      // 이게 없으면 새 컴퓨터에서 스피커 배치와 방 설계가 사라진다.
+                      // 드래그·노브 조작은 저장이 300ms 미뤄져 있다. 먼저 끝낸다.
+                      await flushExhibitionSavesFromWidgetRef(ref);
+                      await appendExhibitionDataToFile(outputFile);
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
@@ -449,7 +472,15 @@ oscWhitelist: config.oscWhitelist,
                                 .saveConfig(importedConfig);
                             ref
                                 .read(tuningStateProvider.notifier)
-                                .syncFromBackendConfig(importedConfig);
+                                .syncFromBackendConfig(importedConfig, treatAsManual: true);
+
+                            // 엔진 설정에 없는 설계 데이터를 같은 파일에서 복원한다
+                            // (core/state/project_file.dart). macOS 메뉴 쪽과 같은 처리.
+                            if (await restoreExhibitionDataFromFile(
+                                result.files.single.path!)) {
+                              await reloadExhibitionProvidersFromWidgetRef(ref);
+                              resyncEngineStateFromWidgetRef(ref);
+                            }
 
                             try {
                               await rust_api.apiPreloadAllSounds(
@@ -497,6 +528,11 @@ oscWhitelist: config.oscWhitelist,
                             path: outputFile,
                             config: config,
                           );
+                          // 엔진이 파일을 쓴 뒤 설계 데이터를 같은 파일에 얹는다
+                          // (macOS 메뉴 쪽과 같은 처리).
+                          // 드래그·노브 조작은 저장이 300ms 미뤄져 있다. 먼저 끝낸다.
+                          await flushExhibitionSavesFromWidgetRef(ref);
+                          await appendExhibitionDataToFile(outputFile);
                           if (context.mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
@@ -699,6 +735,7 @@ oscWhitelist: config.oscWhitelist,
                                     await rust_api.apiForceRestartEngine(
                                       deviceName: config.deviceName,
                                     );
+                                    resyncEngineStateFromWidgetRef(ref);
                                     if (context.mounted) {
                                       ref
                                           .read(globalErrorProvider.notifier)
@@ -815,8 +852,12 @@ oscWhitelist: config.oscWhitelist,
               ),
               const SizedBox(width: 8),
               MasterLimiterMeterWidget(
-                initialGainReductionDb: ref.watch(engineStateProvider).shortTermLufs,
-                enableSimulationToggle: true,
+                // 실측 게인 리덕션(양수 dB)을 위젯 규약(음수)으로 맞춰 넘긴다.
+                initialGainReductionDb:
+                    -ref.watch(engineStateProvider).gainReductionDb.abs(),
+                // 상용 전시 현장에서 시뮬레이션이 켜진 채 남으면 미터를
+                // 오독하게 되므로 기본적으로 끈다.
+                enableSimulationToggle: false,
               ),
               const SizedBox(width: 8),
               const BinauralToggleBadge(),

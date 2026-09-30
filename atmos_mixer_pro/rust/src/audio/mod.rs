@@ -1,4 +1,6 @@
 pub mod channel_names;
+#[cfg(target_os = "macos")]
+pub mod coreaudio_fallback;
 pub mod engine;
 pub mod mixer;
 pub mod player;
@@ -13,5 +15,7 @@ pub mod limiter;
 pub mod analysis;
 pub mod reverb;
 pub mod binaural;
+pub mod hrtf_eq;
 pub mod offline;
 pub mod crossover;
+pub mod bass_route;

@@ -1201,39 +1201,6 @@ fn wire__crate__api__simple__api_play_all_loop_tracks_impl(
         },
     )
 }
-fn wire__crate__api__simple__api_play_test_noise_impl(
-    port_: flutter_rust_bridge::for_generated::MessagePort,
-    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
-    rust_vec_len_: i32,
-    data_len_: i32,
-) {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
-        flutter_rust_bridge::for_generated::TaskInfo {
-            debug_name: "api_play_test_noise",
-            port: Some(port_),
-            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
-        },
-        move || {
-            let message = unsafe {
-                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
-                    ptr_,
-                    rust_vec_len_,
-                    data_len_,
-                )
-            };
-            let mut deserializer =
-                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
-            let api_channel = <u32>::sse_decode(&mut deserializer);
-            deserializer.end();
-            move |context| {
-                transform_result_sse::<_, crate::api::error::AtmosError>((move || {
-                    let output_ok = crate::api::simple::api_play_test_noise(api_channel)?;
-                    Ok(output_ok)
-                })())
-            }
-        },
-    )
-}
 fn wire__crate__api__simple__api_play_track_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
@@ -1435,14 +1402,14 @@ fn wire__crate__api__simple__api_set_active_room_impl(
         },
     )
 }
-fn wire__crate__api__simple__api_set_bass_management_enabled_impl(
+fn wire__crate__api__simple__api_set_lfe_boost_enabled_impl(
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
     rust_vec_len_: i32,
     data_len_: i32,
 ) -> flutter_rust_bridge::for_generated::WireSyncRust2DartSse {
     FLUTTER_RUST_BRIDGE_HANDLER.wrap_sync::<flutter_rust_bridge::for_generated::SseCodec, _>(
         flutter_rust_bridge::for_generated::TaskInfo {
-            debug_name: "api_set_bass_management_enabled",
+            debug_name: "api_set_lfe_boost_enabled",
             port: None,
             mode: flutter_rust_bridge::for_generated::FfiCallMode::Sync,
         },
@@ -1460,7 +1427,7 @@ fn wire__crate__api__simple__api_set_bass_management_enabled_impl(
             deserializer.end();
             transform_result_sse::<_, ()>((move || {
                 let output_ok = Result::<_, ()>::Ok({
-                    crate::api::simple::api_set_bass_management_enabled(api_enabled);
+                    crate::api::simple::api_set_lfe_boost_enabled(api_enabled);
                 })?;
                 Ok(output_ok)
             })())
@@ -1774,38 +1741,6 @@ fn wire__crate__api__acoustics__api_set_global_reverb_impl(
             transform_result_sse::<_, ()>((move || {
                 let output_ok = Result::<_, ()>::Ok({
                     crate::api::acoustics::api_set_global_reverb(api_mix, api_decay);
-                })?;
-                Ok(output_ok)
-            })())
-        },
-    )
-}
-fn wire__crate__api__simple__api_set_lfe_channel_impl(
-    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
-    rust_vec_len_: i32,
-    data_len_: i32,
-) -> flutter_rust_bridge::for_generated::WireSyncRust2DartSse {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap_sync::<flutter_rust_bridge::for_generated::SseCodec, _>(
-        flutter_rust_bridge::for_generated::TaskInfo {
-            debug_name: "api_set_lfe_channel",
-            port: None,
-            mode: flutter_rust_bridge::for_generated::FfiCallMode::Sync,
-        },
-        move || {
-            let message = unsafe {
-                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
-                    ptr_,
-                    rust_vec_len_,
-                    data_len_,
-                )
-            };
-            let mut deserializer =
-                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
-            let api_channel = <Option<usize>>::sse_decode(&mut deserializer);
-            deserializer.end();
-            transform_result_sse::<_, ()>((move || {
-                let output_ok = Result::<_, ()>::Ok({
-                    crate::api::simple::api_set_lfe_channel(api_channel);
                 })?;
                 Ok(output_ok)
             })())
@@ -2769,12 +2704,15 @@ impl SseDecode for crate::common::config::EqBand {
         let mut var_gain = <f32>::sse_decode(deserializer);
         let mut var_qFactor = <f32>::sse_decode(deserializer);
         let mut var_filterType = <crate::common::config::EqType>::sse_decode(deserializer);
+        // 수동 추가: slope_db_per_oct (codegen 고장으로 직접 편집. Dart 쪽 순서와 일치해야 함)
+        let mut var_slopeDbPerOct = <u32>::sse_decode(deserializer);
         return crate::common::config::EqBand {
             enabled: var_enabled,
             freq: var_freq,
             gain: var_gain,
             q_factor: var_qFactor,
             filter_type: var_filterType,
+            slope_db_per_oct: var_slopeDbPerOct,
         };
     }
 }
@@ -3380,7 +3318,6 @@ fn pde_ffi_dispatcher_primary_impl(
             rust_vec_len,
             data_len,
         ),
-        34 => wire__crate__api__simple__api_play_test_noise_impl(port, ptr, rust_vec_len, data_len),
         35 => wire__crate__api__simple__api_play_track_impl(port, ptr, rust_vec_len, data_len),
         36 => {
             wire__crate__api__simple__api_preload_all_sounds_impl(port, ptr, rust_vec_len, data_len)
@@ -3476,11 +3413,7 @@ fn pde_ffi_dispatcher_sync_impl(
             rust_vec_len,
             data_len,
         ),
-        41 => wire__crate__api__simple__api_set_bass_management_enabled_impl(
-            ptr,
-            rust_vec_len,
-            data_len,
-        ),
+        73 =>wire__crate__api__simple__api_set_lfe_boost_enabled_impl(ptr, rust_vec_len, data_len),
         42 => wire__crate__api__simple__api_set_binaural_enabled_impl(ptr, rust_vec_len, data_len),
         44 => wire__crate__api__simple__api_set_channel_early_ref_mix_impl(
             ptr,
@@ -3500,7 +3433,6 @@ fn pde_ffi_dispatcher_sync_impl(
             wire__crate__api__simple__api_set_crossover_frequency_impl(ptr, rust_vec_len, data_len)
         }
         50 => wire__crate__api__acoustics__api_set_global_reverb_impl(ptr, rust_vec_len, data_len),
-        51 => wire__crate__api__simple__api_set_lfe_channel_impl(ptr, rust_vec_len, data_len),
         54 => wire__crate__api__simple__api_set_reverb_params_impl(ptr, rust_vec_len, data_len),
         55 => wire__crate__api__simple__api_set_spatial_reverb_impl(ptr, rust_vec_len, data_len),
         57 => wire__crate__api__simple__api_set_track_volume_impl(ptr, rust_vec_len, data_len),
@@ -3649,6 +3581,8 @@ impl flutter_rust_bridge::IntoDart for crate::common::config::EqBand {
             self.gain.into_into_dart().into_dart(),
             self.q_factor.into_into_dart().into_dart(),
             self.filter_type.into_into_dart().into_dart(),
+            // 수동 추가: slope_db_per_oct (Dart dco_decode_eq_band의 arr[5])
+            self.slope_db_per_oct.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
@@ -4037,6 +3971,8 @@ impl SseEncode for crate::common::config::EqBand {
         <f32>::sse_encode(self.gain, serializer);
         <f32>::sse_encode(self.q_factor, serializer);
         <crate::common::config::EqType>::sse_encode(self.filter_type, serializer);
+        // 수동 추가: slope_db_per_oct (Dart 쪽 순서와 일치해야 함)
+        <u32>::sse_encode(self.slope_db_per_oct, serializer);
     }
 }
 

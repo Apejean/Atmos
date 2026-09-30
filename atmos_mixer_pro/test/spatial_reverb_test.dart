@@ -1,8 +1,12 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:atmos_mixer_pro/features/exhibition/state/spatial_reverb_state.dart';
 
 void main() {
+  // 저장소 모의값을 깔지 않으면 provider의 비동기 로더가 플러그인 미등록 예외를
+  // 던지고, 그 예외가 테스트 종료와 경합해 간헐적으로 실패한다.
+  setUp(() => SharedPreferences.setMockInitialValues({}));
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group('SpatialReverbNotifier - Per-Channel Independence Tests', () {

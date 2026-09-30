@@ -56,6 +56,12 @@ pub struct GlobalEngineState {
     pub engine_error: RwLock<Option<String>>,
     pub rta_magnitudes_ref: RwLock<Option<Arc<parking_lot::RwLock<Vec<f32>>>>>,
     pub is_failover_mode: AtomicBool,
+    /// 사용자가 켠 바이노럴 상태. 믹서는 장치 선택/재스캔 때마다 새로
+    /// 만들어지는데, 예전에는 켜짐 여부가 믹서 필드에만 있어서 재시작하면
+    /// 조용히 꺼졌다. UI 배지는 켜짐으로 남고 실제로는 바이노럴 없이 ch0 원본이
+    /// 왼쪽 출력으로만 나갔다(실기 보고: "Ch1이 왼쪽에서만 들린다", "재스캔하고
+    /// 다시 켜야 동작한다"). 새 믹서는 이 값으로 시작한다.
+    pub binaural_enabled: AtomicBool,
 }
 
 impl Default for GlobalEngineState {
@@ -111,6 +117,7 @@ impl GlobalEngineState {
             engine_error: RwLock::new(None),
             rta_magnitudes_ref: RwLock::new(None),
             is_failover_mode: AtomicBool::new(false),
+            binaural_enabled: AtomicBool::new(false),
         }
     }
 
@@ -208,5 +215,33 @@ impl GlobalEngineState {
             guard.clear();
         }
         self.broadcast_state();
+    }
+}
+
+
+/// 오디오 스레드에서 쓰는 디버그 플래그.
+///
+/// `std::env::var`는 전역 락을 잡고 결과 String을 힙에 할당한다. DSP Law 1/2가
+/// 금지하는 동작인데, 예전에는 오디오 콜백과 커맨드 핸들러 안에서 직접 불렀다.
+/// 스피커를 드래그하면 방위각이 매 콜백 갱신되면서 채널마다 이 호출이 돌아
+/// 오디오 스레드가 긁히는 소리("드드륵")가 났다.
+///
+/// 프로세스 시작 후 한 번만 읽고 그 뒤로는 원자적 bool 읽기만 한다.
+pub mod debug_flags {
+    use std::sync::OnceLock;
+
+    static BINAURAL: OnceLock<bool> = OnceLock::new();
+    static TRACE_CMD: OnceLock<bool> = OnceLock::new();
+
+    /// `ATMOS_DEBUG_BINAURAL`이 설정되어 있는가.
+    #[inline(always)]
+    pub fn binaural() -> bool {
+        *BINAURAL.get_or_init(|| std::env::var("ATMOS_DEBUG_BINAURAL").is_ok())
+    }
+
+    /// `ATMOS_TRACE_CMD`가 설정되어 있는가.
+    #[inline(always)]
+    pub fn trace_cmd() -> bool {
+        *TRACE_CMD.get_or_init(|| std::env::var("ATMOS_TRACE_CMD").is_ok())
     }
 }

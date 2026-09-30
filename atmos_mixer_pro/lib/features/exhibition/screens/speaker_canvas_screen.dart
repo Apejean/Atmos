@@ -17,7 +17,6 @@ class SpeakerCanvasScreen extends ConsumerStatefulWidget {
 }
 
 class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
-  String? _selectedRoomId;
   String? _selectedInspectorSpeakerId;
   bool _isRoomSetupOpen = false;
 
@@ -52,20 +51,21 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
         earLevel: 1.2,
       );
       ref.read(roomZoneProvider.notifier).addRoomZone(defaultRoom);
-      setState(() {
-        _selectedRoomId = defaultRoom.id;
-      });
-    } else if (_selectedRoomId == null || !ref.read(roomZoneProvider).any((r) => r.id == _selectedRoomId)) {
-      setState(() {
-        _selectedRoomId = ref.read(roomZoneProvider).first.id;
-      });
+      ref.read(activeRoomIdProvider.notifier).set(defaultRoom.id);
+    } else {
+      // 보고 있는 방은 헤드폰 미리듣기의 청취 지점 기준이라 엔진과 공유한다
+      // (room_zone_state.dart의 activeRoomIdProvider).
+      final activeId = ref.read(activeRoomIdProvider);
+      if (activeId == null || !rooms.any((r) => r.id == activeId)) {
+        ref.read(activeRoomIdProvider.notifier).set(rooms.first.id);
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final rooms = ref.watch(roomZoneProvider);
-    final activeRoom = rooms.where((r) => r.id == _selectedRoomId).firstOrNull ?? rooms.firstOrNull;
+    final activeRoom = activeRoomOf(rooms, ref.watch(activeRoomIdProvider));
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -255,9 +255,7 @@ class _SpeakerCanvasScreenState extends ConsumerState<SpeakerCanvasScreen> {
   Widget _buildRoomTabItem(RoomZone room, {required bool isSelected}) {
     return InkWell(
       onTap: () {
-        setState(() {
-          _selectedRoomId = room.id;
-        });
+        ref.read(activeRoomIdProvider.notifier).set(room.id);
       },
       borderRadius: BorderRadius.circular(6),
       child: Container(

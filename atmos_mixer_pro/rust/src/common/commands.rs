@@ -23,9 +23,6 @@ pub enum AudioCommand {
     SetMasterMute {
         muted: bool,
     },
-    PlayTestNoise {
-        channel: u32,
-    },
     ApplyAllChannelTunings {
         tunings: Vec<(usize, f32, Vec<crate::common::config::EqBand>, bool, f32)>,
     },
@@ -74,14 +71,15 @@ pub enum AudioCommand {
         channel: usize,
         send: f32,
     },
-    SetBassManagementEnabled {
+    /// LFE +10dB 토글. 서브 채널 자기 신호(.1 LFE 트랙)를 120Hz 로우패스 이후에 +10dB.
+    SetLfeBoostEnabled {
         enabled: bool,
     },
+    // 서브우퍼 지정(베이스 매니지먼트)은 방별이라 스피커 속성으로 UpdateSpatialConfig에
+    // 실려 온다(channel_is_sub, bass_route). 예전의 전역 SetBassManagementEnabled /
+    // SetLfeChannel은 서브가 하나뿐이라 다른 방 저역까지 모아서 없앴다.
     SetCrossoverFrequency {
         freq: f32,
-    },
-    SetLfeChannel {
-        channel: Option<usize>,
     },
     SetChannelEq {
         channel: usize,
@@ -99,12 +97,27 @@ pub enum AudioCommand {
         /// 스피커 위치가 반영되게 한다. 없으면 엔진이 폴백한다.
         listener_position: Option<crate::common::config::Point3D>,
         channel_positions: Vec<Option<crate::common::config::Point3D>>,
+        /// 채널별 스피커가 속한 방 ID(RoomZone.room_id). 없으면 좌표로 찾는다
+        /// (acoustic::bind_channel_zone 참고).
+        channel_room_ids: Vec<Option<u32>>,
+        /// 지금 화면에서 보고 있는 방. 헤드폰 미리듣기(바이노럴)를 이 방 기준으로
+        /// 계산한다. None이면 전체 채널을 렌더링한다.
+        active_room_id: Option<u32>,
         room_zones: Vec<crate::common::config::RoomZone>,
         trajectory: Option<crate::common::config::Trajectory>,
         track_positions: std::collections::HashMap<String, crate::common::config::Point3D>,
         // 채널별 초기반사음(1차 반사) 탭 6슬롯. len == channel_positions.len().
         // api_update_spatial_config_json()(비-오디오 스레드)에서 미리 계산되어 실려온다.
         early_reflection_taps: Vec<[crate::audio::acoustic::EarlyReflectionTap; 6]>,
+        /// 채널별 서브우퍼 지정(스피커 인스펙터의 Set as LFE Subwoofer).
+        channel_is_sub: Vec<bool>,
+        /// 채널별 저역을 보낼 같은 방 서브 채널(audio::bass_route::compute_bass_route).
+        /// 비-오디오 스레드에서 미리 계산해 오디오 스레드는 표를 바꿔 끼우기만 한다.
+        bass_route: Vec<Option<usize>>,
+        /// 채널별 현장 물리 밴드(헤드폰 미리듣기 전용, 슬롯 고정). Dart position_eq.dart의
+        /// computeFieldPhysicsBands가 자동 EQ와 같은 모델로 계산해 보낸다.
+        channel_sim_bands:
+            Vec<[crate::common::config::EqBand; crate::audio::binaural::MAX_SIM_BANDS]>,
     },
     SetChannelPanDeg {
         channel: usize,

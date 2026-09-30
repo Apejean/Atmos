@@ -51,7 +51,10 @@ pub struct Trajectory {
     pub target_room_zone_id: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
+// Copy를 붙인 이유: 오디오 스레드(dsp.rs의 smooth_eq_block)에서 밴드 타입을
+// 꺼내 쓸 때 clone()을 쓰지 않기 위해서다(DSP Law 1은 오디오 콜백 안의
+// .clone() 사용을 금지한다). 필드 없는 enum이라 Copy가 안전하다.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
 pub enum EqType {
     #[default]
     LowCut,
@@ -70,6 +73,9 @@ pub struct EqBand {
     pub gain: f32,
     pub q_factor: f32,
     pub filter_type: EqType,
+    /// 로우컷/하이컷의 기울기(dB/oct): 12, 18, 24. 벨·쉘프·노치에서는 무시한다.
+    /// 예전 config.json에는 이 필드가 없으므로 #[serde(default)]로 12가 들어간다.
+    pub slope_db_per_oct: u32,
 }
 
 impl Default for EqBand {
@@ -80,6 +86,7 @@ impl Default for EqBand {
             gain: 0.0,
             q_factor: 0.707,
             filter_type: EqType::Bell,
+            slope_db_per_oct: 12,
         }
     }
 }

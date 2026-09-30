@@ -153,3 +153,42 @@ impl LinkwitzRiley24 {
         self.stage2.process(y)
     }
 }
+
+/// 1차 ZDF(TPT) 필터. 18dB/oct 컷을 만들 때 2차 SVF 앞에 붙인다.
+/// LowCut이면 고역 통과, HighCut이면 저역 통과로 동작한다.
+#[derive(Clone)]
+pub struct OnePole {
+    s: f32,
+    g: f32,
+    high_pass: bool,
+}
+
+impl Default for OnePole {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl OnePole {
+    pub fn new() -> Self {
+        Self { s: 0.0, g: 0.0, high_pass: true }
+    }
+
+    pub fn update(&mut self, eq_type: &EqType, fs: f32, freq: f32) {
+        let f = freq.clamp(10.0, fs * 0.49);
+        let g = (PI * f / fs).tan();
+        self.g = g / (1.0 + g);
+        self.high_pass = matches!(eq_type, EqType::LowCut);
+    }
+
+    #[inline(always)]
+    pub fn process(&mut self, x: f32) -> f32 {
+        let v = (x - self.s) * self.g;
+        let lp = v + self.s;
+        self.s = lp + v;
+        if self.s.abs() < 1e-15 {
+            self.s = 0.0;
+        }
+        if self.high_pass { x - lp } else { lp }
+    }
+}

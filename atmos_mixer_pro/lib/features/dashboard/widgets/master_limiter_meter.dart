@@ -63,17 +63,22 @@ class _MasterLimiterMeterWidgetState
 
   @override
   Widget build(BuildContext context) {
-    // Read the actual shortTermLufs from the backend engine state
-    final double engineLufs = ref.watch(engineStateProvider.select((s) => s.shortTermLufs));
-    
-    // Convert LUFS to an approximate Gain Reduction for display if we are not simulating
-    // (Assuming true peak limiter kicks in when LUFS is very high, e.g. > -12 LUFS)
+    // 백엔드 리미터가 실제로 적용한 게인 리덕션(dB)을 그대로 표시한다.
+    //
+    // 예전에는 shortTermLufs를 받아 "-((lufs + 12) * 1.5)"로 **추정**했다
+    // (원 주석에도 Rough approximation). 그래서 리미터가 전혀 동작하지 않아도
+    // 라우드니스가 높으면 게인 리덕션이 걸린 것처럼 보였고, 반대로 리미터가
+    // 실제로 물려도 LUFS가 낮으면 0으로 표시됐다. Rust는 이미
+    // EngineStateUpdate.gain_reduction_db로 실측값을 보내고 있었고
+    // Dart EngineState에만 그 필드가 없었다.
+    //
+    // Rust는 리덕션 양을 0 이상의 양수 dB로 보내고 이 위젯은 음수(0 ~ -12dB)
+    // 규약을 쓰므로 부호를 맞춘다.
+    final double engineGrDb =
+        ref.watch(engineStateProvider.select((s) => s.gainReductionDb));
+
     if (!_isSimulating) {
-      if (engineLufs > -12.0) {
-        _currentGrDb = -((engineLufs + 12.0) * 1.5).clamp(0.0, 12.0); // Rough approximation
-      } else {
-         _currentGrDb = 0.0;
-      }
+      _currentGrDb = -engineGrDb.abs();
     }
 
     final bool isCompressing = _currentGrDb.abs() > 0.1;

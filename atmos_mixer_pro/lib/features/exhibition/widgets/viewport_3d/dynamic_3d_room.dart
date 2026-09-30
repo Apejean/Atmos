@@ -56,7 +56,9 @@ class _Dynamic3DRoomState extends ConsumerState<Dynamic3DRoom> {
       if (node != null && !node.isFixed) {
         ref.read(speakerLayoutProvider.notifier).updateSpeaker(
           node.copyWith(x: x, y: y),
-          immediate: isFinal
+          immediate: isFinal,
+          // 드래그 중에는 시간정렬 딜레이를 건드리지 않는다(테이프 스톱 방지).
+          dragging: !isFinal,
         );
       }
     });

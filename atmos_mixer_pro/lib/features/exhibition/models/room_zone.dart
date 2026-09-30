@@ -228,10 +228,45 @@ class RoomZone {
 /// 번에 한 방만 보여주고 스피커도 그 방 기준 좌표를 갖는 구조라 그렇다.
 /// 방별로 공간을 분리하려면 방마다 월드 오프셋을 도입해야 하는데 그건
 /// 별도 작업이다.
+/// 지금 화면에서 보고 있는 방. 지정이 없거나 그 방이 사라졌으면 첫 번째 방.
+RoomZone? activeRoomOf(List<RoomZone> rooms, String? activeRoomId) {
+  for (final r in rooms) {
+    if (r.id == activeRoomId) return r;
+  }
+  return rooms.isEmpty ? null : rooms.first;
+}
+
+/// 엔진에 보낼 청취 지점(마네킹)과 보고 있는 방.
+///
+/// 헤드폰 미리듣기(바이노럴)는 **지금 보고 있는 방 중심에 서 있는** 것으로 계산해야
+/// 한다. 예전에는 항상 첫 번째 방 중심을 보내서, 2번 방 이후를 설계할 때 방향이
+/// 틀렸다. 방을 아직 만들지 않았으면 청사진 캔버스 중심을 쓴다.
+Map<String, dynamic> buildListenerPayload({
+  required List<RoomZone> rooms,
+  required String? activeRoomId,
+  required double fallbackWidth,
+  required double fallbackHeight,
+}) {
+  final room = activeRoomOf(rooms, activeRoomId);
+  return {
+    'listener_position': {
+      'x': (room?.physicalWidth ?? fallbackWidth) / 2.0,
+      'y': (room?.physicalHeight ?? fallbackHeight) / 2.0,
+      'z': room?.earLevel ?? 1.2,
+    },
+    'active_room_id': room == null ? null : engineRoomId(room.id),
+  };
+}
+
+/// 엔진(Rust `RoomZone.room_id`, u32)에 보내는 방 ID.
+/// 방 payload와 스피커 채널 payload가 반드시 이 함수 하나로 계산해야 엔진이
+/// 스피커를 자기 방에 연결할 수 있다(`buildChannelPositionsPayload` 참고).
+int engineRoomId(String roomId) => roomId.hashCode.abs();
+
 List<Map<String, dynamic>> buildRoomZonesPayload(List<RoomZone> rooms) {
   return rooms.map((r) {
     return {
-      'room_id': r.id.hashCode.abs(),
+      'room_id': engineRoomId(r.id),
       'boundary_min': {
         'x': 0.0,
         'y': 0.0,

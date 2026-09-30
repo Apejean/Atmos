@@ -471,7 +471,7 @@ class _SpeakerInspectorPanelState extends ConsumerState<SpeakerInspectorPanel> {
 
   Widget _buildBassManagementCard(BuildContext context, SpeakerNode speaker) {
     final bmState = ref.watch(bassManagementProvider);
-    final isLfe = bmState.lfeChannel == speaker.channel;
+    final isLfe = speaker.isSubwoofer;
 
     return Theme(
       data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
@@ -510,7 +510,7 @@ class _SpeakerInspectorPanelState extends ConsumerState<SpeakerInspectorPanel> {
                   style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 0.5),
                 ),
               ),
-              if (bmState.isEnabled && isLfe)
+              if (isLfe)
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(color: const Color(0xFF0E1219), borderRadius: BorderRadius.circular(4)),
@@ -531,27 +531,13 @@ class _SpeakerInspectorPanelState extends ConsumerState<SpeakerInspectorPanel> {
                         value: isLfe,
                         activeColor: const Color(0xFFFF5722),
                         onChanged: (val) {
-                          ref.read(bassManagementProvider.notifier).setLfeChannel(val ? speaker.channel : null);
+                          ref.read(speakerLayoutProvider.notifier).setSubwoofer(speaker.id, val);
                         },
                       ),
                     ],
                   ),
                   if (isLfe) ...[
                     const Divider(color: Colors.white10, height: 16),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text('Enable Bass Mgmt', style: TextStyle(color: Colors.white70, fontSize: 12)),
-                        Switch(
-                          value: bmState.isEnabled,
-                          activeColor: const Color(0xFFFF5722),
-                          onChanged: (val) {
-                            ref.read(bassManagementProvider.notifier).setEnabled(val);
-                          },
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [

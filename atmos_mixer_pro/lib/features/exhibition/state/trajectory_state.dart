@@ -2,14 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter/foundation.dart';
 import 'package:atmos_mixer_pro/features/exhibition/models/trajectory.dart';
-import 'package:atmos_mixer_pro/features/exhibition/models/speaker_node.dart';
-import 'package:atmos_mixer_pro/src/rust/api/simple.dart' as rust_api;
-import 'package:atmos_mixer_pro/features/exhibition/state/speaker_layout_state.dart';
-import 'package:atmos_mixer_pro/features/exhibition/state/room_zone_state.dart';
-import 'package:atmos_mixer_pro/features/exhibition/models/room_zone.dart';
-import 'package:atmos_mixer_pro/core/state/global_state.dart';
 
 const _kTrajectoryPrefsKey = 'exhibition_trajectory_layout';
 
@@ -25,10 +18,19 @@ class TrajectoryState extends Notifier<List<TrajectoryModel>> {
     return [];
   }
 
-  Future<void> _loadFromPrefs() async {
+  /// 프로젝트 파일을 불러온 뒤 저장소를 다시 읽는다(core/state/project_file.dart).
+  Future<void> reloadFromPrefs() => _loadFromPrefs(resetWhenAbsent: true);
+
+  /// [resetWhenAbsent]는 앱 시작 경로에서 끈다(스피커 배치 쪽 주석 참고).
+  Future<void> _loadFromPrefs({bool resetWhenAbsent = false}) async {
     final prefs = await SharedPreferences.getInstance();
     final jsonString = prefs.getString(_kTrajectoryPrefsKey);
-    if (jsonString != null) {
+    if (jsonString == null) {
+      // 프로젝트 전환으로 다시 읽는 경우에만 비운다.
+      if (resetWhenAbsent) state = [];
+      return;
+    }
+    {
       try {
         final List<dynamic> decoded = jsonDecode(jsonString);
         state = decoded.map((e) => TrajectoryModel.fromJson(e)).toList();
@@ -36,6 +38,14 @@ class TrajectoryState extends Notifier<List<TrajectoryModel>> {
         state = [];
       }
     }
+  }
+
+  /// 프로젝트 파일을 저장하기 전에 미뤄둔 저장을 즉시 끝낸다
+  /// (core/state/project_file.dart). 이게 없으면 방금 옮긴 스피커나 방금 돌린
+  /// 노브가 파일에 빠진다.
+  Future<void> flushPendingSave() {
+    _saveDebounceTimer?.cancel();
+    return _saveToPrefsImmediate();
   }
 
   void _saveToPrefsDebounced() {
@@ -49,63 +59,11 @@ class TrajectoryState extends Notifier<List<TrajectoryModel>> {
     final prefs = await SharedPreferences.getInstance();
     final jsonString = jsonEncode(state.map((e) => e.toJson()).toList());
     await prefs.setString(_kTrajectoryPrefsKey, jsonString);
-    _notifyBackend();
   }
 
   /// 엔진 동기화. 의존 provider나 FFI가 아직 준비되지 않아도 UI 상태까지
   /// 같이 죽지 않도록 방어한다. 다음 변경 때 다시 시도된다.
-  void _notifyBackend() {
-    try {
-      _notifyBackendInner();
-    } catch (e) {
-      debugPrint('공간 설정 동기화 건너뜀: $e');
-    }
-  }
 
-  void _notifyBackendInner() {
-    final nodes = ref.read(speakerLayoutProvider);
-    final rooms = ref.read(roomZoneProvider);
-    final trajectories = state;
-    
-    final payload = {
-      // 리스너(마네킹)는 3D 룸에서 방 중심에 선다. 방위각 계산의 기준점이다.
-      'listener_position': {
-        'x': (rooms.isNotEmpty ? rooms.first.physicalWidth : 40.0) / 2.0,
-        'y': (rooms.isNotEmpty ? rooms.first.physicalHeight : 40.0) / 2.0,
-        'z': rooms.isNotEmpty ? rooms.first.earLevel : 1.2,
-      },
-      'channel_positions': buildChannelPositionsPayload(
-        nodes,
-        ref.read(engineStateProvider).outputChannelCount,
-      ),
-      'room_zones': buildRoomZonesPayload(rooms),
-      'trajectory':
-          trajectories.isNotEmpty && trajectories.first.waypoints.isNotEmpty
-          ? {
-              'waypoints': trajectories.first.waypoints
-                  .map(
-                    (w) => {
-                      'x': w.position.dx,
-                      'y': w.position.dy,
-                      'z': w.heightZ,
-                    },
-                  )
-                  .toList(),
-              'current_position': {
-                'x': trajectories.first.getCurrentPositionMeter().dx,
-                'y': trajectories.first.getCurrentPositionMeter().dy,
-                'z': trajectories.first.getCurrentHeightZ(),
-              },
-              'size': trajectories.first.size,
-              'audio_file_path': trajectories.first.audioFilePath,
-            }
-          : null,
-    };
-
-    rust_api.apiUpdateSpatialConfigJson(jsonPayload: jsonEncode(payload)).catchError((e) {
-      debugPrint('FFI sync error: $e');
-    });
-  }
 
   void addTrajectory(TrajectoryModel trajectory) {
     state = [...state, trajectory];

@@ -9,7 +9,6 @@ import 'package:atmos_mixer_pro/features/exhibition/state/spatial_reverb_state.d
 import 'package:atmos_mixer_pro/features/exhibition/state/bass_management_provider.dart';
 import 'package:atmos_mixer_pro/core/state/global_state.dart';
 import 'package:atmos_mixer_pro/core/utils/channel_routing.dart';
-import 'package:atmos_mixer_pro/features/exhibition/state/blueprint_state.dart';
 import 'package:atmos_mixer_pro/features/settings/widgets/reverb_settings_modal.dart';
 
 class CrossoverCurveIcon extends StatelessWidget {
@@ -269,6 +268,14 @@ class _SpeakerInspectorPanelState extends ConsumerState<SpeakerInspectorPanel> {
 
     if (speaker == null) return const SizedBox.shrink();
 
+    // 같은 채널을 다른 방에도 쓰면 그 채널에는 **지금 보고 있는 방**의 스피커 설정이
+    // 적용된다(speaker_node.dart channelRepresentatives). 방을 바꾸면 값이 바뀌는 이유를 알린다.
+    final sharedRoomLabels = <String>{
+      for (final s in layout)
+        if (s.id != speaker.id && s.channel == speaker.channel && s.roomId != speaker.roomId)
+          rooms.where((r) => r.id == s.roomId).firstOrNull?.label ?? '방 없음',
+    };
+
     double roomW = 10.0;
     double roomD = 10.0;
     double roomH = 5.0;
@@ -349,6 +356,15 @@ class _SpeakerInspectorPanelState extends ConsumerState<SpeakerInspectorPanel> {
             child: ListView(
               padding: const EdgeInsets.all(16),
               children: [
+                if (sharedRoomLabels.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Text(
+                      'CH${speaker.channel + 1}을(를) ${sharedRoomLabels.join(', ')} 방에도 씁니다 · '
+                      '이 채널에는 지금 보고 있는 방의 스피커 설정(위치·EQ·게인·딜레이)이 적용됩니다.',
+                      style: const TextStyle(color: Colors.orangeAccent, fontSize: 10),
+                    ),
+                  ),
                 // 1. Speaker Inspector Accordion
                 Theme(
                   data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
@@ -378,6 +394,10 @@ class _SpeakerInspectorPanelState extends ConsumerState<SpeakerInspectorPanel> {
                                 _buildControlBox('assets/3d_simulator/icons/icon_tilt.svg', 'Pitch (Tilt)', speaker.pitchTilt, '°', -90.0, 90.0, speaker.isFixed ? null : (v) => _updateSpeaker(speaker, tilt: v)),
                                 _buildControlBox('assets/3d_simulator/icons/icon_dispersion.svg', 'Dispersion', speaker.dispersionAngle, '°', 10.0, 180.0, speaker.isFixed ? null : (v) => _updateSpeaker(speaker, disp: v)),
                                 _buildControlBox('assets/3d_simulator/icons/icon_pan.svg', 'Pan Trim', speaker.panDeg, '°', -45.0, 45.0, speaker.isFixed ? null : (v) => _updateSpeaker(speaker, pan: v)),
+                                // 스피커 저역 한계: 자동 EQ가 이 주파수에 보호용 로우컷(12dB/oct)을
+                                // 건다. 서브우퍼로 지정하거나 베이스 매니지먼트로 저역을 서브에
+                                // 넘기는 동안에는 쓰지 않는다(position_eq.dart).
+                                _buildControlBox('assets/3d_simulator/icons/icon_lowcut.svg', 'Low Limit', speaker.lowCutHz, 'Hz', 20.0, 200.0, speaker.isFixed ? null : (v) => _updateSpeaker(speaker, lowCut: v)),
                                 const SizedBox(height: 8),
                                 // Auto-Aim Button
                                           if (!speaker.isFixed)
@@ -387,35 +407,11 @@ class _SpeakerInspectorPanelState extends ConsumerState<SpeakerInspectorPanel> {
                                                 width: double.infinity,
                                                 child: OutlinedButton.icon(
                                                   onPressed: () {
-                                                    final bp = ref.read(blueprintProvider);
-                                                    final currentRoom = ref.read(roomZoneProvider).where((r) => r.id == speaker.roomId).firstOrNull;
-                                                    final roomW = currentRoom?.physicalWidth ?? bp.canvasWidthMeters;
-                                                    final roomD = currentRoom?.physicalHeight ?? bp.canvasHeightMeters;
-                                                    final earLevel = currentRoom?.earLevel ?? 1.2;
-                                
-                                                    // Speaker coordinates relative to center (0,0)
-                                                    final spkX = speaker.x - (roomW / 2);
-                                                    final spkZ = speaker.y - (roomD / 2);
-                                                    final spkY = speaker.heightZ;
-                                
-                                                    // Target (Mannequin Ear)
-                                                    final tarX = 0.0;
-                                                    final tarY = earLevel;
-                                                    final tarZ = 0.0;
-                                
-                                                    // Calculate direction
-                                                    final dx = tarX - spkX;
-                                                    final dy = tarY - spkY;
-                                                    final dz = tarZ - spkZ;
-                                
-                                                    // Yaw = atan2(dx, dz)
-                                                    final yawDeg = math.atan2(dx, dz) * 180 / math.pi;
-                                                    
-                                                    // Pitch = atan2(dy, distance_xz)
-                                                    final distXZ = math.sqrt(dx * dx + dz * dz);
-                                                    final pitchDeg = math.atan2(dy, distXZ) * 180 / math.pi;
-                                
-                                                    _updateSpeaker(speaker, rot: yawDeg, tilt: pitchDeg);
+                                                    // 각도를 여기서 직접 계산해 박아넣지 않고 자동 조준을
+                                                    // 켜기만 한다. 실제 yaw/pitch는 speaker_layout_state의
+                                                    // _applyAutoAim이 채우므로, 이후 스피커를 옮겨도 계속
+                                                    // 청취자를 따라 조준한다(버튼 이름 그대로).
+                                                    _updateSpeaker(speaker, autoAimOn: true);
                                                   },
                                                   icon: const Icon(Icons.my_location_rounded, size: 18),
                                                   label: const Text('Auto-Aim to Listener'),
@@ -609,7 +605,40 @@ class _SpeakerInspectorPanelState extends ConsumerState<SpeakerInspectorPanel> {
           ),
           const SizedBox(height: 10),
 
-          // Early Reflections Mix (image-source, feeds serially into the late reverb above)
+          // Reverb Send: 이 스피커가 채널 리버브(잔향)에 보내는 양.
+          // 실제로 걸리는 잔향 = 랙 MIX x Send. 초기 반사에는 영향이 없다.
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text('Reverb Send', style: TextStyle(color: Colors.white70, fontSize: 12)),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(color: const Color(0xFF0E1219), borderRadius: BorderRadius.circular(4)),
+                child: Text('${(speaker.reverbSendNormalized * 100).round()}%', style: const TextStyle(color: Color(0xFFFFA000), fontSize: 11, fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ),
+          SliderTheme(
+            data: SliderTheme.of(context).copyWith(
+              activeTrackColor: const Color(0xFFFFA000),
+              thumbColor: const Color(0xFFFFA000),
+              trackHeight: 2.0,
+            ),
+            child: Slider(
+              value: speaker.reverbSendNormalized,
+              min: 0.0,
+              max: 1.0,
+              onChanged: (v) => _updateSpeaker(speaker, rev: v),
+            ),
+          ),
+          const SizedBox(height: 6),
+
+          // 연출용 초기반사 효과.
+          //
+          // 방 자체의 반사(방 크기·재질로 계산)는 바이노럴을 켤 때 엔진이 자동으로
+          // 적용한다(rust/src/audio/mixer.rs의 refresh_early_ref_mix). 현장에서는 실제
+          // 벽이 그 역할을 하므로 자동으로 꺼지고, 이 슬라이더만 남는다.
+          // 100%가 직접음 대비 -6dB로 정규화돼 방이 달라도 감각이 같다.
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -634,22 +663,30 @@ class _SpeakerInspectorPanelState extends ConsumerState<SpeakerInspectorPanel> {
               onChanged: (v) => _updateSpeaker(speaker, earlyRef: v),
             ),
           ),
+          const Text(
+            '연출용입니다. 방 반사는 바이노럴을 켜면 자동 적용됩니다.',
+            style: TextStyle(color: Colors.white38, fontSize: 10),
+          ),
         ],
       ),
     );
   }
 
-  void _updateSpeaker(SpeakerNode speaker, {double? x, double? y, double? z, double? pan, double? tilt, double? rot, double? disp, double? rev, double? earlyRef, bool? isFixed}) {
+  void _updateSpeaker(SpeakerNode speaker, {double? x, double? y, double? z, double? pan, double? tilt, double? rot, double? disp, double? rev, double? earlyRef, double? lowCut, bool? isFixed, bool? autoAimOn}) {
     ref.read(speakerLayoutProvider.notifier).updateSpeaker(speaker.copyWith(
       x: x ?? speaker.x,
       y: y ?? speaker.y,
       heightZ: z ?? speaker.heightZ,
       pitchTilt: tilt ?? speaker.pitchTilt,
       rotation: rot ?? speaker.rotation,
+      // Yaw나 Pitch를 직접 돌리면 자동 조준을 해제하고 지정한 각도를 쓴다.
+      // 'Auto-Aim to Listener' 버튼은 반대로 다시 켠다.
+      autoAim: autoAimOn ?? ((rot != null || tilt != null) ? false : speaker.autoAim),
       panDeg: pan ?? speaker.panDeg,
       dispersionAngle: disp ?? speaker.dispersionAngle,
       reverbSend: rev ?? speaker.reverbSend,
       earlyRefMix: earlyRef ?? speaker.earlyRefMix,
+      lowCutHz: lowCut ?? speaker.lowCutHz,
       isFixed: isFixed ?? speaker.isFixed,
     ));
     // Trigger real-time sync via global state or similar if needed.
@@ -657,7 +694,8 @@ class _SpeakerInspectorPanelState extends ConsumerState<SpeakerInspectorPanel> {
 
   Widget _buildBassManagementCard(BuildContext context, SpeakerNode speaker) {
     final bmState = ref.watch(bassManagementProvider);
-    final isLfe = bmState.lfeChannel == speaker.channel;
+    // 서브 지정은 스피커 속성이다(방마다 하나). 크로스오버·LFE +10dB는 모든 방 공통.
+    final isLfe = speaker.isSubwoofer;
 
     return Theme(
       data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
@@ -705,10 +743,36 @@ class _SpeakerInspectorPanelState extends ConsumerState<SpeakerInspectorPanel> {
                           value: isLfe,
                           activeThumbColor: const Color(0xFFFF5722),
                           onChanged: (val) {
-                            ref.read(bassManagementProvider.notifier).setLfeChannel(val ? speaker.channel : null);
+                            ref.read(speakerLayoutProvider.notifier).setSubwoofer(speaker.id, val);
                           },
                         ),
                       ],
+                    ),
+                    const Text(
+                      '이 방의 서브우퍼로 씁니다 · 방마다 하나(같은 방 다른 스피커를 켜면 옮겨집니다) · 이 방 메인의 저역만 받습니다.',
+                      style: TextStyle(color: Colors.white38, fontSize: 10),
+                    ),
+                    // LFE +10dB: 서브 채널 자기 신호(.1 LFE 트랙)를 120Hz 로우패스
+                    // **이후**에 +10dB 올린다. 메인에서 넘어온 저역에는 걸지 않는다.
+                    // 서브 지정과 상관없이 켜고 끌 수 있게 항상 보여준다(전체 설정이다).
+                    // 서브 레벨은 원래 출력단·하드웨어에서 맞추고, 이건 바이노럴
+                    // 미리듣기나 소프트웨어로 맞춰야 할 때 쓴다.
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('LFE +10dB', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                        Switch(
+                          value: bmState.lfeBoostEnabled,
+                          activeThumbColor: const Color(0xFFFF5722),
+                          onChanged: (val) {
+                            ref.read(bassManagementProvider.notifier).setLfeBoostEnabled(val);
+                          },
+                        ),
+                      ],
+                    ),
+                    const Text(
+                      '.1(LFE) 트랙에만 · 120Hz 로우패스 이후 적용 · 서브우퍼로 지정된 채널에서 동작 · 모든 방 공통',
+                      style: TextStyle(color: Colors.white38, fontSize: 10),
                     ),
                     if (isLfe) ...[
                       const Divider(color: Colors.white10, height: 16),
@@ -738,6 +802,13 @@ class _SpeakerInspectorPanelState extends ConsumerState<SpeakerInspectorPanel> {
                             ref.read(bassManagementProvider.notifier).setCrossoverFreq(val);
                           },
                         ),
+                      ),
+                      // 크로스오버는 메인 스피커 쪽 설정이다: 메인의 이 주파수 아래를 잘라
+                      // 자기 방 서브로 보낸다. 서브 자기 신호(.1 LFE 트랙)는 영향을 받지 않고
+                      // 120Hz 대역까지 그대로 나간다. 값은 모든 방 공통이다.
+                      const Text(
+                        '메인 스피커의 이 주파수 아래를 잘라 자기 방 서브로 보냅니다 · 모든 방 공통 · .1(LFE) 트랙은 영향 없이 120Hz까지',
+                        style: TextStyle(color: Colors.white38, fontSize: 10),
                       ),
                     ],
                   ],

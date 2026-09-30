@@ -1,0 +1,47 @@
+# Build Outputs & Package Caches
+build/
+target/
+.dart_tool/
+.idea/
+.vscode/
+.DS_Store
+
+# Large Audio Files & Media
+*.wav
+*.mp3
+*.aif
+*.aiff
+*.flac
+*.ogg
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.sofa
+Image/
+
+# Binary Artifacts & Ephemeral Native Files
+*.dylib
+*.so
+*.dll
+*.a
+*.exe
+macos/Flutter/ephemeral/
+windows/flutter/ephemeral/
+
+# Compiled Test Binaries in Root
+test_delay
+test_delay2
+test_doppler
+test_doppler2
+test_doppler3
+test_doppler4
+test_limiter
+test_limiter_process
+test_smoothing
+test_svf
+
+# Verbose Log Files
+*.log
+flutter_run.log
+build_verbose.log

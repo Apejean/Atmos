@@ -89,12 +89,22 @@ fn room_geometry_produces_reflections_at_physically_correct_delays() {
     let floor_image = point(speaker.x, speaker.y, -speaker.z);
     let ceiling_image = point(speaker.x, speaker.y, 2.0 * 3.0 - speaker.z);
 
+    // 탭 지연·크기는 직접음 대비 상대값이다(acoustic.rs의 compute_early_reflection_taps).
+    // 합성 반사음도 스피커에서 나와 청취자까지 같은 거리를 다시 지나므로, 직접음과의
+    // 경로 차이만 지연으로 걸어야 실제 그 방에서 들리는 시간차가 된다.
+    let direct = distance_3d(&speaker, &listener);
+    let mut checked = 0;
     for (label, image, tap_idx) in [
         ("바닥", floor_image, 0usize),
         ("천장", ceiling_image, 1usize),
     ] {
+        // 스피커에 바짝 붙은 면의 반사는 의도적으로 제외된다(콤필터 방지).
+        if taps[tap_idx].gain == 0.0 {
+            continue;
+        }
+        checked += 1;
         let path = distance_3d(&image, &listener);
-        let delay_ms = calculate_acoustic_delay_ms(path);
+        let delay_ms = calculate_acoustic_delay_ms(path - direct);
 
         // 구현이 계산한 탭과 독립 계산이 일치하는지 먼저 확인.
         assert!(
@@ -117,10 +127,21 @@ fn room_geometry_produces_reflections_at_physically_correct_delays() {
             label, peak, taps[tap_idx].gain, delay_ms, idx
         );
     }
+    assert!(checked > 0, "검증할 반사 탭이 하나도 없다(픽스처가 전부 근접면인가?)");
 
     // 탭이 없는 조용한 구간에서는 차이가 사실상 0이어야 한다
     // (초기반사음이 전 구간에 번지고 있지 않은지 확인).
-    let quiet = &diff[50..500];
+    //
+    // 지연이 직접음 대비 상대값이 되면서 첫 반사가 수 ms 안에 들어온다. 그래서 검사
+    // 구간을 **첫 반사 직전**으로 잡는다(예전에는 1~10ms 구간이 조용하다고 가정했다).
+    let first_tap_ms = taps
+        .iter()
+        .filter(|t| t.gain > 0.0)
+        .map(|t| t.delay_ms)
+        .fold(f32::MAX, f32::min);
+    let first_idx = (first_tap_ms / 1000.0 * FS) as usize;
+    assert!(first_idx > 40, "첫 반사가 너무 빨라 조용한 구간을 잡을 수 없다: {first_tap_ms:.2}ms");
+    let quiet = &diff[2..first_idx - 4];
     let quiet_max = quiet.iter().fold(0.0f32, |m, v| m.max(v.abs()));
     assert!(
         quiet_max < 1e-5,
@@ -197,7 +218,13 @@ fn absorption_reduces_reflection_gain() {
     let t_live = compute_early_reflection_taps(&speaker, &live);
     let t_dead = compute_early_reflection_taps(&speaker, &dead);
 
+    let mut compared = 0;
     for i in 0..MAX_EARLY_REFLECTION_TAPS {
+        // 근접면으로 제외된 탭은 양쪽 모두 0이라 비교 대상이 아니다.
+        if t_live[i].gain == 0.0 {
+            continue;
+        }
+        compared += 1;
         assert!(
             t_dead[i].gain < t_live[i].gain,
             "흡음이 큰 방의 탭 {} 게인이 더 작아야 한다. live {:.4}, dead {:.4}",
@@ -209,4 +236,5 @@ fn absorption_reduces_reflection_gain() {
             "흡음이 지연을 바꿨다. 탭 {}", i
         );
     }
+    assert!(compared >= 4, "비교한 탭이 너무 적다: {compared}개");
 }

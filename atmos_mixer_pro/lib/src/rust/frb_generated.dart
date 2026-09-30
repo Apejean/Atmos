@@ -73,10 +73,23 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   @override
   int get rustContentHash => 2134240129;
 
+  // 수동 편집(codegen 고장): ioDirectory를 일부러 존재하지 않는 경로로 둔다.
+  //
+  // 원래 값은 'rust/target/release/'였다. 그러면 앱이 그 경로의 dylib을 열어
+  // FFI를 걸고, 번들 안 프레임워크는 무시한다. 그런데 `flutter build`는
+  // cargokit으로 **번들 프레임워크만** 새로 만들고 `cargo test`는 target/debug
+  // 에만 쓴다. 그래서 target/release 파일은 누가 `cargo build --release`를
+  // 직접 돌리기 전까지 낡은 채로 남고, 그 사이 Rust 수정은 앱에 전혀 반영되지
+  // 않는다. 실제로 Dart와 Rust의 EqBand 필드 수가 어긋나 디코딩이 패닉으로
+  // 죽었고 트랙을 재생해도 소리가 나지 않았다.
+  //
+  // 이 경로에 파일이 없으면 로더는 이미 로드된 번들 프레임워크에서 심볼을
+  // 찾는다(실측 확인). ioDirectory는 필수 인자라 생략할 수 없어서, 대신
+  // 절대 만들어지지 않는 경로를 넣어 사본이 하나로 유지되게 한다.
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
         stem: 'rust_lib_atmos_mixer_pro',
-        ioDirectory: 'rust/target/release/',
+        ioDirectory: '.frb_use_bundled_framework/',
         webPrefix: 'pkg/',
         wasmBindgenName: 'wasm_bindgen',
       );
@@ -185,8 +198,6 @@ abstract class RustLibApi extends BaseApi {
 
   Future<void> crateApiSimpleApiPlayAllLoopTracks();
 
-  Future<void> crateApiSimpleApiPlayTestNoise({required int channel});
-
   Future<void> crateApiSimpleApiPlayTrack({
     required String roomId,
     required String trackId,
@@ -205,7 +216,7 @@ abstract class RustLibApi extends BaseApi {
 
   Future<void> crateApiSimpleApiSetActiveRoom({String? roomId});
 
-  void crateApiSimpleApiSetBassManagementEnabled({required bool enabled});
+  void crateApiSimpleApiSetLfeBoostEnabled({required bool enabled});
 
   void crateApiSimpleApiSetBinauralEnabled({required bool enabled});
 
@@ -251,8 +262,6 @@ abstract class RustLibApi extends BaseApi {
     required double mix,
     required double decay,
   });
-
-  void crateApiSimpleApiSetLfeChannel({BigInt? channel});
 
   Future<void> crateApiSimpleApiSetMasterMute({required bool muted});
 
@@ -1389,37 +1398,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(debugName: "api_play_all_loop_tracks", argNames: []);
 
   @override
-  Future<void> crateApiSimpleApiPlayTestNoise({required int channel}) {
-    return handler.executeNormal(
-      NormalTask(
-        callFfi: (port_) {
-          final serializer = SseSerializer(generalizedFrbRustBinding);
-          sse_encode_u_32(channel, serializer);
-          pdeCallFfi(
-            generalizedFrbRustBinding,
-            serializer,
-            funcId: 34,
-            port: port_,
-          );
-        },
-        codec: SseCodec(
-          decodeSuccessData: sse_decode_unit,
-          decodeErrorData: sse_decode_atmos_error,
-        ),
-        constMeta: kCrateApiSimpleApiPlayTestNoiseConstMeta,
-        argValues: [channel],
-        apiImpl: this,
-      ),
-    );
-  }
-
-  TaskConstMeta get kCrateApiSimpleApiPlayTestNoiseConstMeta =>
-      const TaskConstMeta(
-        debugName: "api_play_test_noise",
-        argNames: ["channel"],
-      );
-
-  @override
   Future<void> crateApiSimpleApiPlayTrack({
     required String roomId,
     required String trackId,
@@ -1609,28 +1587,28 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
-  void crateApiSimpleApiSetBassManagementEnabled({required bool enabled}) {
+  void crateApiSimpleApiSetLfeBoostEnabled({required bool enabled}) {
     return handler.executeSync(
       SyncTask(
         callFfi: () {
           final serializer = SseSerializer(generalizedFrbRustBinding);
           sse_encode_bool(enabled, serializer);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 41)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 73)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_unit,
           decodeErrorData: null,
         ),
-        constMeta: kCrateApiSimpleApiSetBassManagementEnabledConstMeta,
+        constMeta: kCrateApiSimpleApiSetLfeBoostEnabledConstMeta,
         argValues: [enabled],
         apiImpl: this,
       ),
     );
   }
 
-  TaskConstMeta get kCrateApiSimpleApiSetBassManagementEnabledConstMeta =>
+  TaskConstMeta get kCrateApiSimpleApiSetLfeBoostEnabledConstMeta =>
       const TaskConstMeta(
-        debugName: "api_set_bass_management_enabled",
+        debugName: "api_set_lfe_boost_enabled",
         argNames: ["enabled"],
       );
 
@@ -1934,32 +1912,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(
         debugName: "api_set_global_reverb",
         argNames: ["mix", "decay"],
-      );
-
-  @override
-  void crateApiSimpleApiSetLfeChannel({BigInt? channel}) {
-    return handler.executeSync(
-      SyncTask(
-        callFfi: () {
-          final serializer = SseSerializer(generalizedFrbRustBinding);
-          sse_encode_opt_box_autoadd_usize(channel, serializer);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 51)!;
-        },
-        codec: SseCodec(
-          decodeSuccessData: sse_decode_unit,
-          decodeErrorData: null,
-        ),
-        constMeta: kCrateApiSimpleApiSetLfeChannelConstMeta,
-        argValues: [channel],
-        apiImpl: this,
-      ),
-    );
-  }
-
-  TaskConstMeta get kCrateApiSimpleApiSetLfeChannelConstMeta =>
-      const TaskConstMeta(
-        debugName: "api_set_lfe_channel",
-        argNames: ["channel"],
       );
 
   @override
@@ -2850,14 +2802,16 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   EqBand dco_decode_eq_band(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 5)
-      throw Exception('unexpected arr length: expect 5 but see ${arr.length}');
+    if (arr.length != 6)
+      throw Exception('unexpected arr length: expect 6 but see ${arr.length}');
     return EqBand(
       enabled: dco_decode_bool(arr[0]),
       freq: dco_decode_f_32(arr[1]),
       gain: dco_decode_f_32(arr[2]),
       qFactor: dco_decode_f_32(arr[3]),
       filterType: dco_decode_eq_type(arr[4]),
+      // 수동 추가: slopeDbPerOct
+      slopeDbPerOct: dco_decode_u_32(arr[5]),
     );
   }
 
@@ -3390,12 +3344,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_gain = sse_decode_f_32(deserializer);
     var var_qFactor = sse_decode_f_32(deserializer);
     var var_filterType = sse_decode_eq_type(deserializer);
+    // 수동 추가: slopeDbPerOct (Rust 쪽 순서와 일치해야 함)
+    var var_slopeDbPerOct = sse_decode_u_32(deserializer);
     return EqBand(
       enabled: var_enabled,
       freq: var_freq,
       gain: var_gain,
       qFactor: var_qFactor,
       filterType: var_filterType,
+      slopeDbPerOct: var_slopeDbPerOct,
     );
   }
 
@@ -4042,6 +3999,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_f_32(self.gain, serializer);
     sse_encode_f_32(self.qFactor, serializer);
     sse_encode_eq_type(self.filterType, serializer);
+    // 수동 추가: slopeDbPerOct (Rust 쪽 순서와 일치해야 함)
+    sse_encode_u_32(self.slopeDbPerOct, serializer);
   }
 
   @protected

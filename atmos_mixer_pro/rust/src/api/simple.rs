@@ -208,16 +208,6 @@ pub fn api_save_config(path: String, config: AppConfig) -> Result<(), AtmosError
     Ok(())
 }
 
-pub fn api_play_test_noise(channel: u32) -> Result<(), AtmosError> {
-    GLOBAL_STATE
-        .command_sender
-        .send(AudioCommand::PlayTestNoise { channel })
-        .map_err(|e| AtmosError {
-            message: e.to_string(),
-        })?;
-    Ok(())
-}
-
 pub fn api_preload_sound(file_path: String) -> Result<(), AtmosError> {
     let path = std::path::Path::new(&file_path);
     let target_sr = GLOBAL_STATE
@@ -337,6 +327,9 @@ pub fn build_play_track_command(
 }
 
 pub fn api_play_track(room_id: String, track_id: String) -> Result<(), AtmosError> {
+    if crate::core::state::debug_flags::trace_cmd() {
+        eprintln!("[CMD] 재생 요청 room={room_id} track={track_id}");
+    }
     let config_guard = GLOBAL_STATE
         .config
         .read()
@@ -366,6 +359,9 @@ pub fn api_play_track(room_id: String, track_id: String) -> Result<(), AtmosErro
                             guard.values().any(|id| id == &track_id)
                         };
                         if is_playing {
+                            if crate::core::state::debug_flags::trace_cmd() {
+                                eprintln!("[CMD] 재생 건너뜀(이미 재생 중인 루프) track={track_id}");
+                            }
                             return Ok(());
                         }
                     }
@@ -382,6 +378,9 @@ pub fn api_play_track(room_id: String, track_id: String) -> Result<(), AtmosErro
                         Ok(streamer) => {
                             let sample_rate = streamer.sample_rate;
                             let channels = streamer.channels;
+                            if crate::core::state::debug_flags::trace_cmd() {
+                                eprintln!("[CMD] 재생 시작(스트리밍) track={track_id} instance={instance_id}");
+                            }
                             GLOBAL_STATE.add_playing_track(instance_id, track_id.clone());
                             GLOBAL_STATE
                                 .command_sender
@@ -556,6 +555,9 @@ pub fn api_play_track(room_id: String, track_id: String) -> Result<(), AtmosErro
 }
 
 pub fn api_stop_track(room_id: String, track_id: String) -> Result<(), AtmosError> {
+    if crate::core::state::debug_flags::trace_cmd() {
+        eprintln!("[CMD] 정지 요청 room={room_id} track={track_id}");
+    }
     GLOBAL_STATE.remove_playing_tracks_by_track_id(&track_id);
     GLOBAL_STATE
         .command_sender
@@ -570,6 +572,9 @@ pub fn api_stop_track(room_id: String, track_id: String) -> Result<(), AtmosErro
 }
 
 pub fn api_stop_all() -> Result<(), AtmosError> {
+    if crate::core::state::debug_flags::trace_cmd() {
+        eprintln!("[CMD] 전체 정지 요청");
+    }
     let _lock = GLOBAL_STATE
         .broadcast_lock
         .lock()
@@ -764,8 +769,10 @@ pub fn api_create_vu_stream(sink: StreamSink<Vec<f32>>) {
     });
 }
 
+// 엔진 세대는 오디오 콜백도 읽어야 해서 엔진 모듈에 둔다(옛 스트림이 명령을 가로채지 않게).
+use crate::audio::engine::ENGINE_GENERATION;
+
 lazy_static::lazy_static! {
-    static ref ENGINE_GENERATION: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
     pub static ref ENGINE_ACTIVE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
     static ref ENGINE_THREAD: std::sync::Mutex<Option<std::thread::JoinHandle<()>>> = std::sync::Mutex::new(None);
     static ref STREAM_STATUS_SINK: std::sync::RwLock<Option<StreamSink<String>>> = std::sync::RwLock::new(None);
@@ -838,6 +845,9 @@ pub fn api_init_audio_system(device_name: Option<String>) -> Result<(), AtmosErr
         let mut engine = crate::audio::engine::AudioEngine::new();
         crate::audio::engine::ENGINE_INIT_SIGNAL.store(false, std::sync::atomic::Ordering::SeqCst);
         let device_name_clone = device_name.clone();
+        // 아래 Ok 분기에서 페일오버 해제 여부를 판단할 때 쓴다. device_name_clone은
+        // engine.start()로 이동되므로 미리 값만 뽑아 둔다.
+        let requested_explicit_device = device_name_clone.is_some();
 
         let is_asio = if let Some(ref name) = device_name_clone {
             name.starts_with("[ASIO]")
@@ -858,9 +868,14 @@ pub fn api_init_audio_system(device_name: Option<String>) -> Result<(), AtmosErr
             }
         };
 
-        match engine.start(device_name_clone, rx) {
+        match engine.start(device_name_clone, rx, gen) {
             Ok(_) => {
                 ENGINE_ACTIVE.store(true, std::sync::atomic::Ordering::SeqCst);
+                if crate::core::state::debug_flags::trace_cmd() {
+                    // 엔진 관리 스레드(오디오 콜백 아님). 시작/종료가 짝을 이루지 않으면
+                    // 두 믹서가 명령 큐를 나눠 먹는 중이다(재생/정지가 엇갈린다).
+                    eprintln!("[CMD] 엔진 시작 세대={gen}");
+                }
 
                 // Wait for callback to actually fire (Atomic spin-wait)
                 let start = std::time::Instant::now();
@@ -874,6 +889,23 @@ pub fn api_init_audio_system(device_name: Option<String>) -> Result<(), AtmosErr
                 }
 
                 let _ = tx.send(Ok(()));
+
+                // 사용자가 지정한 장치로 정상 기동했으면 페일오버를 해제한다.
+                //
+                // is_failover_mode는 긴급 폴백 경로에서 true로만 저장되고 **어디에서도
+                // false로 되돌리지 않았다**. 그런데 믹서 출력단이 이 플래그를 보고
+                // -40dB(×0.01)를 걸기 때문에, 한 번 페일오버가 걸리면 이후 장치를 다시
+                // 잡아도 앱을 재시작할 때까지 사실상 무음이 됐다(실기 증상: "인터페이스를
+                // 켜고 리스캔해서 다시 잡고 재생해도 소리가 안 남"). 상태 배너도 같은
+                // 이유로 계속 떴다.
+                //
+                // 폴백 경로는 api_init_audio_system(None)으로 호출되므로 여기서 해제되지
+                // 않는다. 즉 "기본 장치로 임시 전환된 상태"는 그대로 유지된다.
+                if requested_explicit_device {
+                    crate::core::state::GLOBAL_STATE
+                        .is_failover_mode
+                        .store(false, std::sync::atomic::Ordering::Relaxed);
+                }
 
                 if crate::core::state::GLOBAL_STATE
                     .is_failover_mode
@@ -928,7 +960,14 @@ pub fn api_init_audio_system(device_name: Option<String>) -> Result<(), AtmosErr
                         .watchdog_last_callback
                         .load(std::sync::atomic::Ordering::Relaxed);
                     if last_cb > 0 && (now_ms > last_cb + 1000) {
-                        println!("🚨 [Watchdog] 오디오 스레드 콜백 응답 없음 (1000ms 초과)! 엔진 강제 재기동...");
+                        // 다음 발생 때 트리거를 좁히려면 실제 공백 길이를 남겨야 한다.
+                        // 장치 열거로 인한 일시 정지(수백 ms~수 초)와 스레드 사망은
+                        // 공백 길이가 다르게 찍힌다. println!은 앱 로그에 남지 않아
+                        // 사후 분석이 불가능했으므로 파일 로그로 남긴다.
+                        crate::core::state::GLOBAL_STATE.log(format!(
+                            "🚨 [Watchdog] 오디오 콜백 공백 {}ms (임계 1000ms)! 엔진 강제 재기동...",
+                            now_ms - last_cb
+                        ));
                         break;
                     }
 
@@ -963,17 +1002,40 @@ pub fn api_init_audio_system(device_name: Option<String>) -> Result<(), AtmosErr
                     std::thread::sleep(std::time::Duration::from_millis(100));
                 }
 
+                if crate::core::state::debug_flags::trace_cmd() {
+                    eprintln!("[CMD] 엔진 종료 세대={gen}");
+                }
                 drop(engine);
                 ENGINE_ACTIVE.store(false, std::sync::atomic::Ordering::SeqCst);
                 broadcast_stream_status("Stopped".to_string());
+                // 스트림이 사라진 뒤에도 마지막 콜백 시각이 남아 있으면, 다음 세대가
+                // 아직 첫 콜백을 내지 못한 사이에 워치독이 낡은 값으로 오발한다.
+                crate::core::state::GLOBAL_STATE
+                    .watchdog_last_callback
+                    .store(0, std::sync::atomic::Ordering::Relaxed);
 
                 // If it wasn't a manual stop, auto restart
                 if ENGINE_GENERATION.load(std::sync::atomic::Ordering::SeqCst) == gen {
-                    std::thread::sleep(std::time::Duration::from_millis(100)); // Fast auto hot-reload
-                    if ENGINE_GENERATION.load(std::sync::atomic::Ordering::SeqCst) == gen {
+                    // 재기동은 반드시 **별도 스레드**에서 해야 한다. 이 코드를 실행하는
+                    // 주체가 엔진 스레드 자신이기 때문이다. api_init_audio_system은
+                    // ENGINE_THREAD에 들어 있는 핸들(= 바로 이 스레드)을 새 스레드에서
+                    // join한 뒤, 자신은 rx_init.recv()로 engine.start() 결과를 기다린다.
+                    // 그래서 여기서 직접 부르면 새 스레드는 이 스레드의 종료를 기다리고
+                    // 이 스레드는 새 스레드의 결과를 기다려 서로 영구 교착된다. 그 결과
+                    // 스트림이 다시 열리지 않고 앱이 조용히 무음이 된다(실기 증상:
+                    // 워치독 발동 후 75분간 무음, Stream: 로그가 다시 찍히지 않음,
+                    // 리스캔의 apiInitAudioSystem await도 끝나지 않음).
+                    // 여기서 스레드를 띄우고 즉시 반환하면 이 스레드가 종료되므로
+                    // 새 스레드의 join이 풀린다.
+                    let restart_device = device_name.clone();
+                    std::thread::spawn(move || {
+                        std::thread::sleep(std::time::Duration::from_millis(100)); // Fast auto hot-reload
+                        if ENGINE_GENERATION.load(std::sync::atomic::Ordering::SeqCst) != gen {
+                            return; // 그 사이 사용자가 직접 정지/재기동했다
+                        }
                         println!("🔄 [디버깅] 자동 재연결(Hot-Reload) 수행!");
                         broadcast_stream_status("HotReloading".to_string());
-                        if let Err(_e) = api_init_audio_system(device_name.clone()) {
+                        if let Err(_e) = api_init_audio_system(restart_device) {
                             // Emergency Failover
                             println!("🚨 [Failover] 장치 재연결 실패. WASAPI 기본 장치로 강제 비상 전환!");
                             crate::core::state::GLOBAL_STATE
@@ -981,7 +1043,7 @@ pub fn api_init_audio_system(device_name: Option<String>) -> Result<(), AtmosErr
                                 .store(true, std::sync::atomic::Ordering::Relaxed);
                             let _ = api_init_audio_system(None); // None forces default OS device
                         }
-                    }
+                    });
                 }
             }
             Err(e) => {
@@ -1032,7 +1094,28 @@ pub fn api_get_asio_panel() {
 pub fn api_create_device_event_stream(sink: StreamSink<String>) {
     std::thread::spawn(move || {
         let mut last_err: Option<String> = None;
+        // 엔진 준비 완료를 Dart에 알린다.
+        //
+        // 예전에는 이 스트림이 장치 유실 문자열만 보냈고 "EngineReady"는 Rust
+        // 어디에서도 발신하지 않았다. 그런데 Dart 세 곳이 그 문자열을 기다린다:
+        //   - global_state.dart: 설정 변경으로 엔진을 재기동한 뒤 준비 대기
+        //   - audio_init_splash_screen.dart: 앱 부팅 시 초기화 대기
+        //   - main.dart: 엔진이 스스로 되살아났을 때(워치독 복구) 재동기화
+        // 앞의 둘은 항상 5초 타임아웃으로 빠졌고(사용자에게 "오디오 엔진 연결
+        // 시간 초과" 오류까지 표시), 마지막 하나는 실행된 적 없는 죽은 코드였다.
+        let mut last_ready = false;
         loop {
+            // 준비 상태가 false -> true로 바뀌면 알린다. last_ready가 false로
+            // 시작하므로, 스트림을 만든 시점에 이미 준비돼 있으면 첫 폴링에서
+            // 즉시 한 번 발신한다(준비 직후 스트림을 만드는 경쟁 상황 대비).
+            // 재기동으로 true -> false -> true가 되면 다시 발신하므로 워치독
+            // 복구 훅도 그때 동작한다.
+            let ready = api_is_engine_ready();
+            if ready && !last_ready && sink.add("EngineReady".to_string()).is_err() {
+                break; // Stop thread if port is closed
+            }
+            last_ready = ready;
+
             let current_err = GLOBAL_STATE
                 .engine_error
                 .read()
@@ -1547,6 +1630,35 @@ pub fn api_get_output_devices() -> Result<Vec<OutputDeviceInfo>, AtmosError> {
                     });
                 }
             }
+
+            // cpal 0.15.3(macOS)의 output_devices()는 출력 전용 장치(맥북 내장 스피커 등)를
+            // 빠뜨린다(audio::coreaudio_fallback 문서 참고). 전체 장치 중 CoreAudio가 출력
+            // 채널을 보고하는데 아직 목록에 없는 장치를 덧붙인다.
+            #[cfg(target_os = "macos")]
+            if let Ok(all_devices) = host.devices() {
+                for device in all_devices {
+                    let Ok(name_str) = device.name() else { continue };
+                    let actual_name = name_str.replace('\0', "").trim().to_string();
+                    let name = format!("{}{}", prefix, actual_name);
+                    if device_info_list.iter().any(|d| d.name == name) {
+                        continue;
+                    }
+                    let Some(config) = crate::audio::coreaudio_fallback::output_config(&actual_name)
+                    else {
+                        continue;
+                    };
+                    let max_channels = config.channels() as u32;
+                    let channel_names = crate::audio::channel_names::get_channel_names_mac(
+                        &actual_name,
+                        max_channels,
+                    );
+                    device_info_list.push(OutputDeviceInfo {
+                        name,
+                        max_channels,
+                        channel_names,
+                    });
+                }
+            }
         }
 
         Ok(device_info_list)
@@ -1644,6 +1756,10 @@ pub fn api_get_device_channel_count(device_name: Option<String>) -> Result<u32, 
                         }
                     }
                 }
+                #[cfg(target_os = "macos")]
+                if found_device.is_none() {
+                    found_device = crate::audio::coreaudio_fallback::find_output_device(host, &target_name);
+                }
                 if found_device.is_some() {
                     break;
                 }
@@ -1676,6 +1792,16 @@ pub fn api_get_device_channel_count(device_name: Option<String>) -> Result<u32, 
             }
         }
 
+        // cpal이 설정을 못 읽는 출력 전용 장치(audio::coreaudio_fallback 문서 참고).
+        #[cfg(target_os = "macos")]
+        if max_channels == 0 {
+            if let Some(config) = device.name().ok().and_then(|n| {
+                crate::audio::coreaudio_fallback::output_config(n.replace('\0', "").trim())
+            }) {
+                max_channels = config.channels() as u32;
+            }
+        }
+
         Ok(max_channels)
     })
     .join()
@@ -1691,6 +1817,13 @@ pub fn api_get_device_channel_names(
 ) -> Result<Vec<String>, AtmosError> {
     let max_channels = api_get_device_channel_count(device_name.clone())?;
 
+    // 기본 장치("선택 안 함" = None)일 때 문자열 "Default"를 그대로 CoreAudio
+    // 이름 조회에 넘기면, 그런 이름의 장치는 실존하지 않으므로 조회가 항상
+    // 실패해 get_channel_names_mac/_win이 "Channel 1".."Channel N"으로
+    // 폴백한다. 그 이름들에는 필터가 가상 채널을 판별할 토큰(daw/loopback/
+    // virtual)이 없어 전부 물리로 오분류된다(실기 증상: 기본값 선택 시
+    // "물리 출력 12채널", 장치를 명시적으로 고르면 올바르게 "6채널").
+    // 실제 기본 출력 장치의 진짜 이름을 조회해 넘겨야 한다.
     let actual_name = if let Some(ref name) = device_name {
         if let Some(idx) = name.find("] ") {
             name[idx + 2..].to_string()
@@ -1698,7 +1831,11 @@ pub fn api_get_device_channel_names(
             name.clone()
         }
     } else {
-        "Default".to_string()
+        use cpal::traits::{DeviceTrait, HostTrait};
+        cpal::default_host()
+            .default_output_device()
+            .and_then(|d| d.name().ok())
+            .unwrap_or_else(|| "Default".to_string())
     };
 
     #[cfg(target_os = "macos")]
@@ -1962,6 +2099,91 @@ pub fn api_update_spatial_config_json(json_payload: String) -> Result<(), AtmosE
             })
         });
 
+    // 채널별 스피커가 속한 방 ID도 listener_position과 같은 이유로 JSON에서 직접 뽑는다
+    // (Point3D에 필드를 추가하면 FRB 재생성이 필요하다). 방마다 로컬 좌표라 RoomZone이
+    // 원점에서 겹치므로 좌표만으로는 방을 알 수 없다(acoustic::bind_channel_zone 참고).
+    let raw_positions = serde_json::from_str::<serde_json::Value>(&json_payload)
+        .ok()
+        .and_then(|v| v.get("channel_positions").cloned());
+    // 지금 보고 있는 방(헤드폰 미리듣기 기준). 같은 이유로 JSON에서 직접 뽑는다.
+    let active_room_id = serde_json::from_str::<serde_json::Value>(&json_payload)
+        .ok()
+        .and_then(|v| v.get("active_room_id").cloned())
+        .and_then(|v| v.as_u64())
+        .and_then(|v| u32::try_from(v).ok());
+
+    let channel_room_ids: Vec<Option<u32>> = (0..payload.channel_positions.len())
+        .map(|i| {
+            raw_positions
+                .as_ref()
+                .and_then(|arr| arr.get(i))
+                .and_then(|ch| ch.get("room_id"))
+                .and_then(|id| id.as_u64())
+                .and_then(|id| u32::try_from(id).ok())
+        })
+        .collect();
+
+    // 채널별 서브우퍼 지정(스피커 인스펙터의 Set as LFE Subwoofer)도 같은 이유로 JSON에서
+    // 직접 뽑는다. 방마다 자기 방 서브로만 저역을 보내는 라우팅 표를 여기서(비-오디오
+    // 스레드) 미리 계산해 두고, 오디오 스레드는 표를 바꿔 끼우기만 한다(Law 1).
+    // 스피커가 없는 채널은 서브로 치지 않는다(라우팅 표와 믹서가 같은 걸 보게).
+    let has_speaker: Vec<bool> = payload.channel_positions.iter().map(|p| p.is_some()).collect();
+    let channel_is_sub: Vec<bool> = (0..payload.channel_positions.len())
+        .map(|i| {
+            has_speaker[i]
+                && raw_positions
+                    .as_ref()
+                    .and_then(|arr| arr.get(i))
+                    .and_then(|ch| ch.get("is_subwoofer"))
+                    .and_then(|v| v.as_bool())
+                    .unwrap_or(false)
+        })
+        .collect();
+    let bass_route =
+        crate::audio::bass_route::compute_bass_route(&channel_is_sub, &channel_room_ids, &has_speaker);
+    if crate::core::state::debug_flags::trace_cmd() {
+        // 비-오디오 스레드(FRB 워커). 화면 번호(CH1 = 내부 0)로 찍고, 드래그 중 매 프레임
+        // 찍히지 않게 내용이 바뀔 때만 남긴다.
+        let subs: Vec<String> = (0..channel_is_sub.len())
+            .filter(|&i| channel_is_sub[i])
+            .map(|i| format!("CH{}(방 {:?})", i + 1, channel_room_ids.get(i).copied().flatten()))
+            .collect();
+        let routes: Vec<String> = bass_route
+            .iter()
+            .enumerate()
+            .filter_map(|(i, r)| r.map(|s| format!("CH{}→CH{}", i + 1, s + 1)))
+            .collect();
+        let line = format!("[CMD] 베이스 매니지먼트: 서브 {subs:?}, 저역 보냄 {routes:?}");
+        static LAST: std::sync::Mutex<String> = std::sync::Mutex::new(String::new());
+        let mut last = LAST.lock().unwrap_or_else(|e| e.into_inner());
+        if *last != line {
+            eprintln!("{line}");
+            *last = line;
+        }
+    }
+
+    // 채널별 현장 물리 밴드(헤드폰 미리듣기 전용)도 같은 이유로 JSON에서 직접 뽑는다.
+    // 형식: "sim_bands": [{"on", "type"(EqType 순서 번호), "freq", "gain", "q"}, ...] — 슬롯 고정.
+    let channel_sim_bands: Vec<
+        [crate::common::config::EqBand; crate::audio::binaural::MAX_SIM_BANDS],
+    > = (0..payload.channel_positions.len())
+        .map(|i| {
+            let mut bands: [crate::common::config::EqBand; crate::audio::binaural::MAX_SIM_BANDS] =
+                std::array::from_fn(|_| crate::common::config::EqBand::default());
+            if let Some(list) = raw_positions
+                .as_ref()
+                .and_then(|arr| arr.get(i))
+                .and_then(|ch| ch.get("sim_bands"))
+                .and_then(|v| v.as_array())
+            {
+                for (slot, b) in bands.iter_mut().zip(list.iter()) {
+                    *slot = sim_band_from_json(b);
+                }
+            }
+            bands
+        })
+        .collect();
+
     // 초기반사음(1차 반사) 탭을 비-오디오 스레드(FRB 워커 풀)에서 미리 계산한다.
     // api_calculate_eq_response_curve와 달리 #[frb(sync)]가 없어 오디오 렌더 콜백과 무관한
     // 워커 스레드에서 실행되므로, 여기서의 힙 할당/삼각함수 반복 계산은 Law 1/2 위반이 아니다.
@@ -1971,15 +2193,11 @@ pub fn api_update_spatial_config_json(json_payload: String) -> Result<(), AtmosE
         [crate::audio::acoustic::EarlyReflectionTap;
             crate::audio::acoustic::MAX_EARLY_REFLECTION_TAPS],
     > = Vec::with_capacity(payload.channel_positions.len());
-    for pos_opt in &payload.channel_positions {
+    for (pos_opt, room_id) in payload.channel_positions.iter().zip(&channel_room_ids) {
         let taps = match pos_opt {
             Some(pos) => {
-                let bound_zone = payload.room_zones.iter().find(|zone| {
-                    pos.x >= zone.boundary_min.x
-                        && pos.x <= zone.boundary_max.x
-                        && pos.y >= zone.boundary_min.y
-                        && pos.y <= zone.boundary_max.y
-                });
+                let bound_zone =
+                    crate::audio::acoustic::bind_channel_zone(&payload.room_zones, *room_id, pos);
                 match bound_zone {
                     Some(zone) => crate::audio::acoustic::compute_early_reflection_taps(pos, zone),
                     None => Default::default(),
@@ -1995,16 +2213,43 @@ pub fn api_update_spatial_config_json(json_payload: String) -> Result<(), AtmosE
         .send(AudioCommand::UpdateSpatialConfig {
             listener_position,
             channel_positions: payload.channel_positions,
+            channel_room_ids,
+            active_room_id,
             room_zones: payload.room_zones,
             trajectory: payload.trajectory,
             track_positions: payload.track_positions,
             early_reflection_taps,
+            channel_is_sub,
+            bass_route,
+            channel_sim_bands,
         })
         .map_err(|e| AtmosError {
             message: format!("Failed to send UpdateSpatialConfig: {}", e),
         })?;
 
     Ok(())
+}
+
+/// 공간 설정 JSON의 물리 밴드 하나 → EqBand(형식은 api_update_spatial_config_json 주석 참고).
+fn sim_band_from_json(v: &serde_json::Value) -> crate::common::config::EqBand {
+    use crate::common::config::EqType;
+    let num = |k: &str, default: f64| v.get(k).and_then(|x| x.as_f64()).unwrap_or(default) as f32;
+    let filter_type = match v.get("type").and_then(|x| x.as_u64()).unwrap_or(2) {
+        0 => EqType::LowCut,
+        1 => EqType::LowShelf,
+        2 => EqType::Bell,
+        3 => EqType::Notch,
+        4 => EqType::HighShelf,
+        _ => EqType::HighCut,
+    };
+    crate::common::config::EqBand {
+        enabled: v.get("on").and_then(|x| x.as_bool()).unwrap_or(false),
+        freq: num("freq", 1000.0),
+        gain: num("gain", 0.0),
+        q_factor: num("q", 0.707),
+        filter_type,
+        slope_db_per_oct: 12,
+    }
 }
 
 #[flutter_rust_bridge::frb(sync)]
@@ -2225,6 +2470,10 @@ pub fn api_reset_osc_metrics() {
 
 #[flutter_rust_bridge::frb(sync)]
 pub fn api_set_binaural_enabled(enabled: bool) {
+    // 엔진이 재시작돼도 유지되도록 전역에 먼저 기록한다(state.rs 주석 참고).
+    crate::core::state::GLOBAL_STATE
+        .binaural_enabled
+        .store(enabled, std::sync::atomic::Ordering::Relaxed);
     let _ = crate::core::state::GLOBAL_STATE
         .command_sender
         .send(crate::common::commands::AudioCommand::SetBinauralEnabled { enabled });
@@ -2292,23 +2541,22 @@ pub fn api_set_channel_spatial_reverb(
     );
 }
 
+/// LFE +10dB 토글(베이스 매니지먼트 패널). 서브 채널 자기 신호(.1 LFE 트랙)를 120Hz
+/// 로우패스 **이후**에 +10dB 올린다. 메인에서 넘어온 저역에는 걸지 않는다.
+/// 서브 레벨은 원래 최종 출력단이나 하드웨어에서 맞추고, 이건 바이노럴 미리듣기나
+/// 소프트웨어로 맞춰야 할 때 쓴다.
 #[flutter_rust_bridge::frb(sync)]
-pub fn api_set_bass_management_enabled(enabled: bool) {
+pub fn api_set_lfe_boost_enabled(enabled: bool) {
     let _ = crate::core::state::GLOBAL_STATE
         .command_sender
-        .send(crate::common::commands::AudioCommand::SetBassManagementEnabled { enabled });
+        .send(crate::common::commands::AudioCommand::SetLfeBoostEnabled { enabled });
 }
 
+/// 베이스 매니지먼트 크로스오버 주파수(모든 방 공통). 서브우퍼 지정은 방별이라
+/// 스피커 속성으로 공간 설정 payload에 실려 온다(api_update_spatial_config_json).
 #[flutter_rust_bridge::frb(sync)]
 pub fn api_set_crossover_frequency(freq: f32) {
     let _ = crate::core::state::GLOBAL_STATE
         .command_sender
         .send(crate::common::commands::AudioCommand::SetCrossoverFrequency { freq });
-}
-
-#[flutter_rust_bridge::frb(sync)]
-pub fn api_set_lfe_channel(channel: Option<usize>) {
-    let _ = crate::core::state::GLOBAL_STATE
-        .command_sender
-        .send(crate::common::commands::AudioCommand::SetLfeChannel { channel });
 }

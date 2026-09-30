@@ -3,11 +3,15 @@ use crate::common::commands::AudioCommand;
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::{OutputCallbackInfo, SampleFormat, Stream, StreamConfig};
 
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
 lazy_static::lazy_static! {
     pub static ref ENGINE_INIT_SIGNAL: AtomicBool = AtomicBool::new(false);
 }
+
+/// 엔진 세대. `api_init_audio_system`·`api_stop_audio_engine`이 올리고, 스트림 콜백은 자기가
+/// 만들어진 세대일 때만 일한다([`AudioEngine::begin_callback`]).
+pub static ENGINE_GENERATION: AtomicU64 = AtomicU64::new(0);
 
 pub struct AudioEngine {
     stream: Option<Stream>,
@@ -100,10 +104,12 @@ pub fn apply_windows_admin_optimizations() {
 }
 
 impl AudioEngine {
+    /// `generation`: 이 엔진의 세대(ENGINE_GENERATION). 콜백은 이 세대가 지금 세대일 때만 일한다.
     pub fn start(
         &mut self,
         device_name: Option<String>,
         cmd_receiver: crossbeam_channel::Receiver<AudioCommand>,
+        generation: u64,
     ) -> Result<(), String> {
         #[cfg(target_os = "windows")]
         {
@@ -151,6 +157,13 @@ impl AudioEngine {
                                 }
                             }
                         }
+                    }
+                    // cpal 0.15.3(macOS)의 output_devices()는 출력 전용 장치를 빠뜨린다
+                    // (audio::coreaudio_fallback 문서 참고).
+                    #[cfg(target_os = "macos")]
+                    if found_device.is_none() {
+                        found_device =
+                            crate::audio::coreaudio_fallback::find_output_device(host, &target_name);
                     }
                     if found_device.is_some() {
                         break;
@@ -223,7 +236,18 @@ impl AudioEngine {
             }
         }
 
-        let supported_config = best_config.expect("No output configs found");
+        // cpal 0.15.3(macOS)은 출력 전용 장치의 설정을 읽지 못한다(audio::coreaudio_fallback
+        // 문서 참고). 스트림은 열리므로 CoreAudio에서 직접 읽은 설정으로 채운다.
+        // 맥북 내장 스피커가 OS 기본 출력일 때 "기본 장치"로 시작하는 경로도 여기를 지난다.
+        #[cfg(target_os = "macos")]
+        if best_config.is_none() {
+            best_config = device.name().ok().and_then(|n| {
+                crate::audio::coreaudio_fallback::output_config(n.replace('\0', "").trim())
+            });
+        }
+
+        // 설정을 하나도 얻지 못하면 패닉하지 않고 오류로 돌려준다.
+        let supported_config = best_config.ok_or_else(|| "No output configs found".to_string())?;
         let sample_format = supported_config.sample_format();
         let mut config: StreamConfig = supported_config.clone().into();
 
@@ -283,6 +307,12 @@ impl AudioEngine {
         std::thread::spawn(move || {
             while let Ok(dropped) = gc_rx.recv() {
                 // Instance is dropped here in a background thread, preventing GC in audio thread.
+                if crate::core::state::debug_flags::trace_cmd() {
+                    eprintln!(
+                        "[CMD] 인스턴스 정리 track={} instance={}",
+                        dropped.track_id_str, dropped.instance_id
+                    );
+                }
                 crate::core::state::GLOBAL_STATE.remove_playing_track(dropped.instance_id);
             }
         });
@@ -326,7 +356,7 @@ impl AudioEngine {
             }
         };
 
-        let mut cmd_receiver_f32 = cmd_receiver;
+        let cmd_receiver_f32 = cmd_receiver;
 
         let stream = match sample_format {
             SampleFormat::F32 => {
@@ -336,18 +366,11 @@ impl AudioEngine {
                 device.build_output_stream(
                     &config,
                     move |data: &mut [f32], _: &OutputCallbackInfo| {
-                        if !ENGINE_INIT_SIGNAL.load(Ordering::Acquire) {
-                            ENGINE_INIT_SIGNAL.store(true, Ordering::Release);
+                        // 옛 세대 스트림은 무음만 낸다(begin_callback 참고).
+                        if !Self::begin_callback(&mut mixer, &cmd_receiver_f32, generation) {
+                            data.fill(0.0);
+                            return;
                         }
-                        let now_ms = std::time::SystemTime::now()
-                            .duration_since(std::time::UNIX_EPOCH)
-                            .unwrap_or(std::time::Duration::from_secs(0))
-                            .as_millis() as u64;
-                        crate::core::state::GLOBAL_STATE
-                            .watchdog_last_callback
-                            .store(now_ms, Ordering::Relaxed);
-
-                        Self::process_commands(&mut mixer, &mut cmd_receiver_f32);
 
                         let frames = data.len() / hw_channels;
                         let temp_len = frames * virtual_channels;
@@ -385,18 +408,11 @@ impl AudioEngine {
                 device.build_output_stream(
                     &config,
                     move |data: &mut [i16], _: &OutputCallbackInfo| {
-                        if !ENGINE_INIT_SIGNAL.load(Ordering::Acquire) {
-                            ENGINE_INIT_SIGNAL.store(true, Ordering::Release);
+                        // 옛 세대 스트림은 무음만 낸다(begin_callback 참고).
+                        if !Self::begin_callback(&mut mixer, &cmd_receiver_f32, generation) {
+                            data.fill(<i16 as cpal::Sample>::EQUILIBRIUM);
+                            return;
                         }
-                        let now_ms = std::time::SystemTime::now()
-                            .duration_since(std::time::UNIX_EPOCH)
-                            .unwrap_or(std::time::Duration::from_secs(0))
-                            .as_millis() as u64;
-                        crate::core::state::GLOBAL_STATE
-                            .watchdog_last_callback
-                            .store(now_ms, Ordering::Relaxed);
-
-                        Self::process_commands(&mut mixer, &mut cmd_receiver_f32);
 
                         let frames = data.len() / hw_channels;
                         let temp_len = frames * virtual_channels;
@@ -434,18 +450,11 @@ impl AudioEngine {
                 device.build_output_stream(
                     &config,
                     move |data: &mut [i32], _: &OutputCallbackInfo| {
-                        if !ENGINE_INIT_SIGNAL.load(Ordering::Acquire) {
-                            ENGINE_INIT_SIGNAL.store(true, Ordering::Release);
+                        // 옛 세대 스트림은 무음만 낸다(begin_callback 참고).
+                        if !Self::begin_callback(&mut mixer, &cmd_receiver_f32, generation) {
+                            data.fill(<i32 as cpal::Sample>::EQUILIBRIUM);
+                            return;
                         }
-                        let now_ms = std::time::SystemTime::now()
-                            .duration_since(std::time::UNIX_EPOCH)
-                            .unwrap_or(std::time::Duration::from_secs(0))
-                            .as_millis() as u64;
-                        crate::core::state::GLOBAL_STATE
-                            .watchdog_last_callback
-                            .store(now_ms, Ordering::Relaxed);
-
-                        Self::process_commands(&mut mixer, &mut cmd_receiver_f32);
 
                         let frames = data.len() / hw_channels;
                         let temp_len = frames * virtual_channels;
@@ -483,18 +492,11 @@ impl AudioEngine {
                 device.build_output_stream(
                     &config,
                     move |data: &mut [u16], _: &OutputCallbackInfo| {
-                        if !ENGINE_INIT_SIGNAL.load(Ordering::Acquire) {
-                            ENGINE_INIT_SIGNAL.store(true, Ordering::Release);
+                        // 옛 세대 스트림은 무음만 낸다(begin_callback 참고).
+                        if !Self::begin_callback(&mut mixer, &cmd_receiver_f32, generation) {
+                            data.fill(<u16 as cpal::Sample>::EQUILIBRIUM);
+                            return;
                         }
-                        let now_ms = std::time::SystemTime::now()
-                            .duration_since(std::time::UNIX_EPOCH)
-                            .unwrap_or(std::time::Duration::from_secs(0))
-                            .as_millis() as u64;
-                        crate::core::state::GLOBAL_STATE
-                            .watchdog_last_callback
-                            .store(now_ms, Ordering::Relaxed);
-
-                        Self::process_commands(&mut mixer, &mut cmd_receiver_f32);
 
                         let frames = data.len() / hw_channels;
                         let temp_len = frames * virtual_channels;
@@ -544,6 +546,36 @@ impl AudioEngine {
         Ok(())
     }
 
+    /// 오디오 콜백의 앞부분. 이 스트림이 지금 세대면 초기화 신호·워치독 시각을 갱신하고 명령을
+    /// 처리한 뒤 true를 돌려준다. 옛 세대면 아무것도 건드리지 않고 false — 콜백은 무음만 낸다.
+    ///
+    /// cpal 0.15.3(macOS)은 기본 장치가 아닌 장치의 스트림에 장치 분리 리스너를 달면서 그
+    /// 리스너 안에 스트림 자신(Arc)을 넣는다. 순환 참조라 drop해도 해제되지 않고, 워치독 재시작처럼
+    /// pause가 실패하는 상황이면 옛 스트림이 계속 돈다. 그러면 옛 콜백과 새 콜백이 같은 명령 큐를
+    /// 나눠 먹어서 재생은 한쪽, 정지는 다른 쪽으로 가 소리가 멈추지 않았다(실기 로그: 워치독 재시작
+    /// 뒤에만 정지 실패, 전체 정지도 일부만 멈춤, 살아 있는 믹서 3개). 옛 세대는 명령에 손대지 않는다.
+    pub fn begin_callback(
+        mixer: &mut AudioMixer,
+        rx: &crossbeam_channel::Receiver<AudioCommand>,
+        generation: u64,
+    ) -> bool {
+        if ENGINE_GENERATION.load(Ordering::Acquire) != generation {
+            return false;
+        }
+        if !ENGINE_INIT_SIGNAL.load(Ordering::Acquire) {
+            ENGINE_INIT_SIGNAL.store(true, Ordering::Release);
+        }
+        let now_ms = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or(std::time::Duration::from_secs(0))
+            .as_millis() as u64;
+        crate::core::state::GLOBAL_STATE
+            .watchdog_last_callback
+            .store(now_ms, Ordering::Relaxed);
+        Self::process_commands(mixer, rx);
+        true
+    }
+
     fn process_commands(mixer: &mut AudioMixer, rx: &crossbeam_channel::Receiver<AudioCommand>) {
         // Lock-free pop from command queue
         while let Ok(cmd) = rx.try_recv() {
@@ -587,6 +619,8 @@ impl AudioEngine {
                 }
                 AudioCommand::SetBinauralEnabled { enabled } => {
                     mixer.binaural.enabled = enabled;
+                    // 방 시뮬레이션은 헤드폰 미리듣기에서만 걸린다(mixer::refresh_early_ref_mix).
+                    mixer.refresh_all_early_ref_mixes();
                 }
                 AudioCommand::SetReverbParams { mix, decay } => {
                     mixer.reverb.set_params(decay, mix);
@@ -642,8 +676,11 @@ impl AudioEngine {
                     }
                 }
                 AudioCommand::SetChannelReverbSend { channel, send } => {
+                    if crate::core::state::debug_flags::trace_cmd() {
+                        eprintln!("[CMD] SetChannelReverbSend ch={} send={}", channel, send);
+                    }
                     if channel < mixer.channel_dsp.len() {
-                        mixer.channel_dsp[channel].target_reverb_send = send;
+                        mixer.channel_dsp[channel].target_reverb_send = send.clamp(0.0, 1.0);
                     }
                 }
                 AudioCommand::SetSpatialReverb {
@@ -669,6 +706,9 @@ impl AudioEngine {
                     density,
                     dry_wet,
                 } => {
+                    if crate::core::state::debug_flags::trace_cmd() {
+                        eprintln!("[CMD] SetChannelSpatialReverb ch={} (0이면 전체 채널에 적용)", channel);
+                    }
                     if channel == 0 {
                         mixer.reverb.set_full_params(
                             is_enabled, room_size, decay_time, pre_delay_ms, damp, density,
@@ -723,14 +763,40 @@ impl AudioEngine {
                 AudioCommand::UpdateSpatialConfig {
                     listener_position,
                     channel_positions,
+                    channel_room_ids,
+                    active_room_id,
                     room_zones,
                     trajectory,
                     track_positions,
                     early_reflection_taps,
+                    channel_is_sub,
+                    bass_route,
+                    channel_sim_bands,
                 } => {
                     mixer.listener_position = listener_position;
+                    // 헤드폰 미리듣기의 현장 물리 밴드: 목표값만 바꾸고(할당 없음) 다 쓴 벡터는
+                    // GC 스레드로 보낸다(Law 1).
+                    for (ch, bands) in channel_sim_bands.iter().enumerate() {
+                        mixer.binaural.set_channel_sim_bands(ch, bands);
+                    }
+                    let _ = mixer.spatial_gc_tx.try_send(
+                        crate::audio::mixer::SpatialGarbage::SimBands(channel_sim_bands),
+                    );
+                    // 방별 서브 라우팅: 새 표는 대기석에 두고, 믹서가 저역 믹스를 0까지
+                    // 내린 순간에 바꿔 끼운다(클릭 없음). 밀려난 대기 표는 GC로 보낸다.
+                    let (old_route, old_is_sub) = mixer.set_bass_routing(bass_route, channel_is_sub);
+                    let _ = mixer.spatial_gc_tx.try_send(
+                        crate::audio::mixer::SpatialGarbage::BassRouting(old_route, old_is_sub),
+                    );
                     let old_positions =
                         std::mem::replace(&mut mixer.channel_positions, channel_positions);
+                    let old_room_ids =
+                        std::mem::replace(&mut mixer.channel_room_ids, channel_room_ids);
+                    // 채널별 방 ID가 바뀐 뒤에 불러야 마스크가 새 배치로 계산된다.
+                    mixer.set_binaural_room(active_room_id);
+                    let _ = mixer.spatial_gc_tx.try_send(
+                        crate::audio::mixer::SpatialGarbage::ChannelRoomIds(old_room_ids),
+                    );
                     let old_zones = std::mem::replace(&mut mixer.room_zones, room_zones);
                     let old_traj = std::mem::replace(&mut mixer.trajectory, trajectory);
                     let old_taps =
@@ -760,11 +826,8 @@ impl AudioEngine {
                         .len()
                         .min(mixer.channel_early_ref_taps.len());
                     for ch in 0..n_ch {
-                        for i in 0..crate::audio::acoustic::MAX_EARLY_REFLECTION_TAPS {
-                            let tap = mixer.channel_early_ref_taps[ch][i];
-                            mixer.channel_dsp[ch].taps[i].target_delay_ms = tap.delay_ms;
-                            mixer.channel_dsp[ch].taps[i].target_gain = tap.gain;
-                        }
+                        let taps = mixer.channel_early_ref_taps[ch];
+                        mixer.apply_early_reflection_taps(ch, &taps);
                     }
 
                     for inst in mixer.instances.iter_mut().flatten() {
@@ -778,14 +841,20 @@ impl AudioEngine {
                     );
                 }
                 AudioCommand::SetChannelPanDeg { channel, pan_deg } => {
+                    if crate::core::state::debug_flags::trace_cmd() {
+                        eprintln!("[CMD] SetChannelPanDeg ch={} deg={}", channel, pan_deg);
+                    }
                     if channel < mixer.channel_pan_deg.len() {
                         mixer.channel_pan_deg[channel] = pan_deg;
                     }
                 }
                 AudioCommand::SetChannelEarlyRefMix { channel, mix } => {
-                    if channel < mixer.channel_dsp.len() {
-                        mixer.channel_dsp[channel].target_early_ref_mix = mix;
+                    if crate::core::state::debug_flags::trace_cmd() {
+                        eprintln!("[CMD] SetChannelEarlyRefMix ch={} mix={}", channel, mix);
                     }
+                    // 실제 적용량은 믹서가 방 시뮬레이션 몫과 합쳐서 계산한다
+                    // (mixer::refresh_early_ref_mix).
+                    mixer.set_channel_early_ref_mix(channel, mix);
                 }
                 AudioCommand::UpdateTrajectoryPosition { position } => {
                     if let Some(traj) = &mut mixer.trajectory {
@@ -864,16 +933,14 @@ impl AudioEngine {
                     mixer.master_headroom_db = master_headroom_db;
                     mixer.peak_limiter_enabled = peak_limiter_enabled;
                 }
-                AudioCommand::SetBassManagementEnabled { enabled } => {
-                    mixer.bass_management_enabled = enabled;
-                }
-                AudioCommand::SetLfeChannel { channel } => {
-                    mixer.lfe_channel_idx = channel;
+                AudioCommand::SetLfeBoostEnabled { enabled } => {
+                    // 실제 게인 변화는 믹서가 램프로 따라간다(Law 3).
+                    mixer.lfe_boost_enabled = enabled;
                 }
                 AudioCommand::SetCrossoverFrequency { freq } => {
                     let fs = mixer.sample_rate as f32;
                     for c in mixer.crossovers.iter_mut() {
-                        c.set_crossover_freq(freq, fs);
+                        c.set_target_freq(freq, fs);
                     }
                 }
                 AudioCommand::ApplyAllChannelTunings { tunings } => {
@@ -887,7 +954,14 @@ impl AudioEngine {
                         }
                     }
                 }
-                _ => {}
+                // catch-all(`_ => {}`)을 두지 않는다.
+                //
+                // 예전에는 여기에 catch-all이 있어서 처리부가 없는 커맨드가
+                // 조용히 버려졌다. PlayTestNoise가 그 상태로 오래 남아 있었고
+                // (커맨드 정의와 FFI 바인딩은 있는데 핸들러가 없어 아무 일도
+                // 일어나지 않음), 컴파일러도 아무 경고를 주지 않았다.
+                // 이제 match가 모든 variant를 열거하므로, 새 커맨드를 추가하고
+                // 처리를 빠뜨리면 컴파일 에러로 즉시 드러난다.
             }
         }
     }

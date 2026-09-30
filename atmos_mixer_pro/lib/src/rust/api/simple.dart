@@ -49,9 +49,6 @@ Future<void> apiSaveConfig({required String path, required AppConfig config}) =>
       config: config,
     );
 
-Future<void> apiPlayTestNoise({required int channel}) =>
-    RustLib.instance.api.crateApiSimpleApiPlayTestNoise(channel: channel);
-
 Future<void> apiPreloadSound({required String filePath}) =>
     RustLib.instance.api.crateApiSimpleApiPreloadSound(filePath: filePath);
 
@@ -350,16 +347,14 @@ void apiSetChannelSpatialReverb({
   dryWet: dryWet,
 );
 
-void apiSetBassManagementEnabled({required bool enabled}) => RustLib
-    .instance
-    .api
-    .crateApiSimpleApiSetBassManagementEnabled(enabled: enabled);
+/// LFE +10dB 토글. 서브 채널 자기 신호(.1 LFE 트랙)를 120Hz 로우패스 이후에 +10dB.
+void apiSetLfeBoostEnabled({required bool enabled}) =>
+    RustLib.instance.api.crateApiSimpleApiSetLfeBoostEnabled(enabled: enabled);
 
+/// 베이스 매니지먼트 크로스오버 주파수(모든 방 공통). 서브우퍼 지정은 방별이라
+/// 스피커 속성(`is_subwoofer`)으로 공간 설정 payload에 실려 간다.
 void apiSetCrossoverFrequency({required double freq}) =>
     RustLib.instance.api.crateApiSimpleApiSetCrossoverFrequency(freq: freq);
-
-void apiSetLfeChannel({BigInt? channel}) =>
-    RustLib.instance.api.crateApiSimpleApiSetLfeChannel(channel: channel);
 
 class ChannelTuningParams {
   final int channel;

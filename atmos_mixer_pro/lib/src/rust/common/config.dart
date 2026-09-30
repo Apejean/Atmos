@@ -143,12 +143,16 @@ class EqBand {
   final double qFactor;
   final EqType filterType;
 
+  /// 로우컷/하이컷 기울기(dB/oct): 12, 18, 24. 수동 추가(codegen 고장).
+  final int slopeDbPerOct;
+
   const EqBand({
     required this.enabled,
     required this.freq,
     required this.gain,
     required this.qFactor,
     required this.filterType,
+    this.slopeDbPerOct = 12,
   });
 
   @override
@@ -157,7 +161,8 @@ class EqBand {
       freq.hashCode ^
       gain.hashCode ^
       qFactor.hashCode ^
-      filterType.hashCode;
+      filterType.hashCode ^
+      slopeDbPerOct.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -168,7 +173,8 @@ class EqBand {
           freq == other.freq &&
           gain == other.gain &&
           qFactor == other.qFactor &&
-          filterType == other.filterType;
+          filterType == other.filterType &&
+          slopeDbPerOct == other.slopeDbPerOct;
 }
 
 enum EqType { lowCut, lowShelf, bell, notch, highShelf, highCut }

@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart' show visibleForTesting;
+import 'package:atmos_mixer_pro/core/state/engine_resync.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:atmos_mixer_pro/src/rust/api/simple.dart' as rust_api;
 import 'package:atmos_mixer_pro/src/rust/api/error.dart';
@@ -50,6 +51,9 @@ class ConfigNotifier extends Notifier<AppConfig?> {
       state = config;
       ref.read(tuningStateProvider.notifier).syncFromBackendConfig(config);
       await rust_api.apiInitAudioSystem(deviceName: config.deviceName);
+      // 새 믹서는 config.json에 없는 설정(청취 지점, 리버브, 채널별 팬·센드 등)을
+      // 모르므로 현재 상태를 다시 밀어 넣는다(engine_resync.dart 참고).
+      resyncEngineStateFromRef(ref);
       await rust_api.apiStartOscListener(port: config.oscPort);
 
       try {
@@ -141,6 +145,13 @@ class ConfigNotifier extends Notifier<AppConfig?> {
             deviceName: configToSave.deviceName,
           );
 
+          // 재동기화는 **엔진이 준비된 뒤에** 해야 한다.
+          //
+          // 예전에는 apiInitAudioSystem 직후, 준비 대기보다 먼저 재동기화를
+          // 호출했다. 그런데 그 시점에는 새 믹서가 아직 만들어지는 중이라
+          // 명령이 곧 교체될 믹서로 가거나 그냥 버려졌고, 그래서 재기동 후
+          // 설정이 간헐적으로 유실됐다(사용자가 컨트롤을 한 번 건드려야
+          // 값이 반영되는 증상).
           if (!(await rust_api.apiIsEngineReady())) {
             try {
               await rust_api
@@ -151,6 +162,8 @@ class ConfigNotifier extends Notifier<AppConfig?> {
               ref.read(globalErrorProvider.notifier).showError('오디오 엔진 연결 시간 초과 (Timeout). 오디오 장치 연결 상태를 확인해주세요.');
             }
           }
+
+          resyncEngineStateFromRef(ref);
           ref.read(tuningStateProvider.notifier).applyAllToBackend();
         }
 
@@ -365,6 +378,13 @@ class EngineState {
   final int outputChannelCount;
   final double shortTermLufs;
 
+  /// 마스터 리미터가 실제로 적용한 게인 리덕션(dB, 0 이상의 양수).
+  ///
+  /// Rust는 예전부터 EngineStateUpdate.gain_reduction_db로 실측값을 보내고
+  /// 있었는데 이 클래스에만 필드가 없어서 값이 끊겨 있었다. 그래서 대시보드
+  /// GR 미터가 shortTermLufs로 GR을 추정해 표시했다.
+  final double gainReductionDb;
+
   EngineState({
     this.activeRoomId,
     this.clearedRoomIds = const {},
@@ -374,6 +394,7 @@ class EngineState {
     this.masterMuteActive = false,
     this.outputChannelCount = 2,
     this.shortTermLufs = -70.0,
+    this.gainReductionDb = 0.0,
   });
 
   EngineState copyWith({
@@ -386,6 +407,7 @@ class EngineState {
     bool? masterMuteActive,
     int? outputChannelCount,
     double? shortTermLufs,
+    double? gainReductionDb,
   }) {
     return EngineState(
       activeRoomId: forceNullActiveRoom
@@ -398,6 +420,7 @@ class EngineState {
       masterMuteActive: masterMuteActive ?? this.masterMuteActive,
       outputChannelCount: outputChannelCount ?? this.outputChannelCount,
       shortTermLufs: shortTermLufs ?? this.shortTermLufs,
+      gainReductionDb: gainReductionDb ?? this.gainReductionDb,
     );
   }
 }
@@ -415,6 +438,7 @@ class EngineStateNotifier extends Notifier<EngineState> {
         playingTrackIds: update.playingTrackIds,
         outputChannelCount: update.outputChannelCount,
         shortTermLufs: update.shortTermLufs,
+        gainReductionDb: update.gainReductionDb,
       );
     });
     ref.onDispose(() => sub.cancel());

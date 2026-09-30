@@ -44,6 +44,9 @@ class BlueprintState extends Notifier<BlueprintData> {
     return const BlueprintData();
   }
 
+  /// 프로젝트 파일을 불러온 뒤 저장소를 다시 읽는다(core/state/project_file.dart).
+  Future<void> reloadFromPrefs() => _loadFromPrefs();
+
   Future<void> _loadFromPrefs() async {
     final prefs = await SharedPreferences.getInstance();
     final path = prefs.getString(_kImagePathKey);
