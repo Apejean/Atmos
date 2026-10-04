@@ -148,7 +148,7 @@ pub fn get_channel_names_win(_device_name_target: &str, num_channels: u32) -> Ve
     // 코드" 뿐이다.
     //
     // ## 왜 지금 구현하지 않았는가
-    // 1. 이 함수를 쓰는 cpal 0.15.x의 ASIO 백엔드(asio-sys 0.2.6)는 채널
+    // 1. 이 함수를 쓰는 cpal 0.16.0의 ASIO 백엔드(asio-sys 0.2.6, 0.15.x 때와 같다)는 채널
     //    "개수"만 공개 API로 노출한다(`Driver::channels()` ->
     //    `ASIOGetChannels`). 이름을 주는 `ASIOGetChannelInfo`는 크레이트
     //    내부에 비공개 함수(`asio_channel_info`, bindings/mod.rs:908)로만

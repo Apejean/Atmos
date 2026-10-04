@@ -151,6 +151,24 @@ fn 크로스오버_아래_저역은_서브로_가고_위_대역은_위성에_남
     assert!(sub < sat * 0.01, "1kHz가 서브로 샜다: 서브 {sub:.5}");
 }
 
+/// 확정 설정(80Hz·LR24)에서 50Hz·200Hz 톤이 나뉘는 양이 LR4 이론값과 맞는다.
+/// 저역 = 1/(1+(f/80)^4), 고역 = (f/80)^4/(1+(f/80)^4) 손 계산:
+/// 50Hz → 서브 -1.23dB·메인 -17.56dB, 200Hz → 서브 -32.05dB·메인 -0.22dB.
+#[test]
+fn 크로스오버_80hz에서_50hz와_200hz가_lr24_이론값대로_나뉜다() {
+    let tone_rms = AMP / 2.0f32.sqrt();
+    let db = |x: f32| 20.0 * (x / tone_rms).log10();
+    for (freq, want_sub, want_sat) in [(50.0, -1.23, -17.56), (200.0, -32.05, -0.22)] {
+        let mut m = mixer_playing_tone(freq);
+        enable_lfe(&mut m, Some(SUB));
+        set_crossover(&mut m, 80.0);
+        let (sat, sub) = settled_rms(&mut m);
+        println!("{freq}Hz: 서브 {:.2}dB (이론 {want_sub}) / 메인 {:.2}dB (이론 {want_sat})", db(sub), db(sat));
+        assert!((db(sub) - want_sub).abs() < 0.5, "{freq}Hz 서브 {:.2}dB, 이론 {want_sub}dB", db(sub));
+        assert!((db(sat) - want_sat).abs() < 0.5, "{freq}Hz 메인 {:.2}dB, 이론 {want_sat}dB", db(sat));
+    }
+}
+
 #[test]
 fn 크로스오버_주파수를_바꾸면_소리에서도_분할_지점이_따라_움직인다() {
     // 같은 100Hz 톤에 크로스오버만 바꾼다.
