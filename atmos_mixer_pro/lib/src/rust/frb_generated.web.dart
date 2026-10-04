@@ -70,9 +70,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   Trajectory dco_decode_box_autoadd_trajectory(dynamic raw);
 
   @protected
-  BigInt dco_decode_box_autoadd_usize(dynamic raw);
-
-  @protected
   ChannelSetting dco_decode_channel_setting(dynamic raw);
 
   @protected
@@ -91,10 +88,16 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   double dco_decode_f_32(dynamic raw);
 
   @protected
+  double dco_decode_f_64(dynamic raw);
+
+  @protected
   int dco_decode_i_32(dynamic raw);
 
   @protected
   List<String> dco_decode_list_String(dynamic raw);
+
+  @protected
+  List<bool> dco_decode_list_bool(dynamic raw);
 
   @protected
   List<ChannelTuningParams> dco_decode_list_channel_tuning_params(dynamic raw);
@@ -107,6 +110,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<OutputDeviceInfo> dco_decode_list_output_device_info(dynamic raw);
+
+  @protected
+  List<PlaybackPosition> dco_decode_list_playback_position(dynamic raw);
 
   @protected
   List<Point3D> dco_decode_list_point_3_d(dynamic raw);
@@ -144,13 +150,13 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   Trajectory? dco_decode_opt_box_autoadd_trajectory(dynamic raw);
 
   @protected
-  BigInt? dco_decode_opt_box_autoadd_usize(dynamic raw);
-
-  @protected
   OscMetricsDto dco_decode_osc_metrics_dto(dynamic raw);
 
   @protected
   OutputDeviceInfo dco_decode_output_device_info(dynamic raw);
+
+  @protected
+  PlaybackPosition dco_decode_playback_position(dynamic raw);
 
   @protected
   Point3D dco_decode_point_3_d(dynamic raw);
@@ -243,9 +249,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   Trajectory sse_decode_box_autoadd_trajectory(SseDeserializer deserializer);
 
   @protected
-  BigInt sse_decode_box_autoadd_usize(SseDeserializer deserializer);
-
-  @protected
   ChannelSetting sse_decode_channel_setting(SseDeserializer deserializer);
 
   @protected
@@ -268,10 +271,16 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   double sse_decode_f_32(SseDeserializer deserializer);
 
   @protected
+  double sse_decode_f_64(SseDeserializer deserializer);
+
+  @protected
   int sse_decode_i_32(SseDeserializer deserializer);
 
   @protected
   List<String> sse_decode_list_String(SseDeserializer deserializer);
+
+  @protected
+  List<bool> sse_decode_list_bool(SseDeserializer deserializer);
 
   @protected
   List<ChannelTuningParams> sse_decode_list_channel_tuning_params(
@@ -288,6 +297,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<OutputDeviceInfo> sse_decode_list_output_device_info(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<PlaybackPosition> sse_decode_list_playback_position(
     SseDeserializer deserializer,
   );
 
@@ -331,13 +345,13 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
-  BigInt? sse_decode_opt_box_autoadd_usize(SseDeserializer deserializer);
-
-  @protected
   OscMetricsDto sse_decode_osc_metrics_dto(SseDeserializer deserializer);
 
   @protected
   OutputDeviceInfo sse_decode_output_device_info(SseDeserializer deserializer);
+
+  @protected
+  PlaybackPosition sse_decode_playback_position(SseDeserializer deserializer);
 
   @protected
   Point3D sse_decode_point_3_d(SseDeserializer deserializer);
@@ -451,9 +465,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
-  void sse_encode_box_autoadd_usize(BigInt self, SseSerializer serializer);
-
-  @protected
   void sse_encode_channel_setting(
     ChannelSetting self,
     SseSerializer serializer,
@@ -481,10 +492,16 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_f_32(double self, SseSerializer serializer);
 
   @protected
+  void sse_encode_f_64(double self, SseSerializer serializer);
+
+  @protected
   void sse_encode_i_32(int self, SseSerializer serializer);
 
   @protected
   void sse_encode_list_String(List<String> self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_list_bool(List<bool> self, SseSerializer serializer);
 
   @protected
   void sse_encode_list_channel_tuning_params(
@@ -504,6 +521,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_list_output_device_info(
     List<OutputDeviceInfo> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_playback_position(
+    List<PlaybackPosition> self,
     SseSerializer serializer,
   );
 
@@ -565,14 +588,17 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
-  void sse_encode_opt_box_autoadd_usize(BigInt? self, SseSerializer serializer);
-
-  @protected
   void sse_encode_osc_metrics_dto(OscMetricsDto self, SseSerializer serializer);
 
   @protected
   void sse_encode_output_device_info(
     OutputDeviceInfo self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_playback_position(
+    PlaybackPosition self,
     SseSerializer serializer,
   );
 

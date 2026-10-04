@@ -14,6 +14,8 @@ pub struct DiskStreamer {
     pub sample_rate: u32,
     pub channels: u16,
     pub thread_handle: Option<std::thread::JoinHandle<()>>,
+    /// 루프 한 바퀴 길이(출력 프레임). 모르면 None.
+    pub loop_len_frames: Option<f64>,
 }
 
 impl Default for DiskStreamer {
@@ -25,6 +27,7 @@ impl Default for DiskStreamer {
             sample_rate: 48000,
             channels: 2,
             thread_handle: None,
+            loop_len_frames: None,
         }
     }
 }
@@ -40,6 +43,16 @@ impl Drop for DiskStreamer {
 
 impl DiskStreamer {
     pub fn new(file_path: String, is_loop: bool, target_sample_rate: u32) -> anyhow::Result<Self> {
+        Self::new_at(file_path, is_loop, target_sample_rate, 0.0)
+    }
+
+    /// `start_seconds`(파일 기준)부터 내보낸다. 재시작 복원이 멈춘 위치를 넘긴다.
+    pub fn new_at(
+        file_path: String,
+        is_loop: bool,
+        target_sample_rate: u32,
+        start_seconds: f64,
+    ) -> anyhow::Result<Self> {
         let (mut tx, rx) = RingBuffer::new(128);
         let is_running = Arc::new(CachePadded { value: AtomicBool::new(true) });
 
@@ -68,6 +81,13 @@ impl DiskStreamer {
         
         let needs_resampling = src_sample_rate != target_sample_rate;
         let output_sample_rate = if needs_resampling { target_sample_rate } else { src_sample_rate };
+        // 이 위치까지는 디코딩만 하고 버린다. 믹서가 세는 위치와 같게 출력(리샘플링 뒤) 프레임으로 센다.
+        let mut skip_samples =
+            (start_seconds.max(0.0) * output_sample_rate as f64).round() as usize * channels as usize;
+        let loop_len_frames = track
+            .codec_params
+            .n_frames
+            .map(|n| n as f64 * output_sample_rate as f64 / src_sample_rate as f64);
 
         let handle = std::thread::spawn(move || {
             let file = match std::fs::File::open(&path) {
@@ -201,35 +221,13 @@ impl DiskStreamer {
                                                 chunk.push(resampled[ch][frame]);
                                             }
                                         }
-                                        
-                                        // Send chunk
-                                        let mut item = chunk;
-                                        loop {
-                                            if !run_flag.value.load(Ordering::Relaxed) { break; }
-                                            match tx.push(item) {
-                                                Ok(_) => break,
-                                                Err(rtrb::PushError::Full(returned)) => {
-                                                    std::thread::sleep(std::time::Duration::from_millis(1));
-                                                    item = returned;
-                                                }
-                                            }
-                                        }
+                                        send_chunk(&mut tx, &run_flag, &mut skip_samples, chunk);
                                     }
                                 }
                             } else {
                                 let mut chunk = Vec::with_capacity(buf.samples().len());
                                 chunk.extend_from_slice(buf.samples());
-                                let mut item = chunk;
-                                loop {
-                                    if !run_flag.value.load(Ordering::Relaxed) { break; }
-                                    match tx.push(item) {
-                                        Ok(_) => break,
-                                        Err(rtrb::PushError::Full(returned)) => {
-                                            std::thread::sleep(std::time::Duration::from_millis(1));
-                                            item = returned;
-                                        }
-                                    }
-                                }
+                                send_chunk(&mut tx, &run_flag, &mut skip_samples, chunk);
                             }
                         }
                     }
@@ -244,6 +242,37 @@ impl DiskStreamer {
             sample_rate: output_sample_rate,
             channels,
             thread_handle: Some(handle),
+            loop_len_frames,
         })
+    }
+}
+
+/// 시작 위치까지의 샘플은 버리고 나머지를 링버퍼로 보낸다. 링이 차 있으면 자리가 날 때까지 기다린다(디코더 스레드).
+fn send_chunk(
+    tx: &mut rtrb::Producer<Vec<f32>>,
+    run_flag: &CachePadded<AtomicBool>,
+    skip_samples: &mut usize,
+    mut chunk: Vec<f32>,
+) {
+    if *skip_samples > 0 {
+        if chunk.len() <= *skip_samples {
+            *skip_samples -= chunk.len();
+            return;
+        }
+        chunk.drain(..*skip_samples);
+        *skip_samples = 0;
+    }
+    let mut item = chunk;
+    loop {
+        if !run_flag.value.load(Ordering::Relaxed) {
+            break;
+        }
+        match tx.push(item) {
+            Ok(_) => break,
+            Err(rtrb::PushError::Full(returned)) => {
+                std::thread::sleep(std::time::Duration::from_millis(1));
+                item = returned;
+            }
+        }
     }
 }

@@ -99,8 +99,16 @@ class _AtmosMixerProAppState extends ConsumerState<AtmosMixerProApp>
     // 다시 밀어 넣는다. 이 경로는 Dart가 재기동을 요청한 게 아니라서 위의
     // 명시적 호출들로는 덮이지 않는다.
     ref.listen(deviceEventStreamProvider, (previous, next) {
-      if (next.value == 'EngineReady') {
+      final event = next.value;
+      if (event == 'EngineReady') {
         resyncEngineStateFromWidgetRef(ref);
+      }
+      // 엔진이 스스로 재시작했다(워치독·장치 오류). 설정을 다시 밀어 넣은 뒤 알려야 Rust가
+      // 멈춘 위치부터 재생을 이어 튼다(rust core::restart_resume).
+      final seq = event == null ? null : parseEngineRestartedSeq(event);
+      if (seq != null) {
+        resyncEngineStateFromWidgetRef(ref);
+        apiAckEngineRestart(seq: seq);
       }
     });
 

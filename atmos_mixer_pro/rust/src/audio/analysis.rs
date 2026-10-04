@@ -3,7 +3,11 @@ use std::sync::atomic::Ordering;
 use crate::core::state::GLOBAL_STATE;
 use crate::audio::rta::RtaAnalyzer;
 
-pub fn start_analysis_thread(mut rx: Consumer<f32>, sample_rate: u32, channels: usize) {
+pub fn start_analysis_thread(
+    mut rx: Consumer<f32>,
+    sample_rate: u32,
+    channels: usize,
+) -> std::thread::JoinHandle<()> {
     std::thread::spawn(move || {
         let mut rta_analyzer = RtaAnalyzer::new();
         {
@@ -40,6 +44,11 @@ pub fn start_analysis_thread(mut rx: Consumer<f32>, sample_rate: u32, channels: 
             let usable = (slots / ch_count) * ch_count;
 
             if usable == 0 {
+                // 엔진은 시작할 때마다 이 스레드를 새로 띄운다. 생산자(엔진의 믹서)가 사라졌는데
+                // 끝내지 않으면 워치독 재시작마다 5ms마다 깨어나는 스레드가 하나씩 쌓인다.
+                if rx.is_abandoned() {
+                    break;
+                }
                 std::thread::sleep(std::time::Duration::from_millis(5));
                 continue;
             }
@@ -101,5 +110,5 @@ pub fn start_analysis_thread(mut rx: Consumer<f32>, sample_rate: u32, channels: 
                 std::thread::sleep(std::time::Duration::from_millis(5));
             }
         }
-    });
+    })
 }

@@ -62,6 +62,9 @@ pub struct GlobalEngineState {
     /// 왼쪽 출력으로만 나갔다(실기 보고: "Ch1이 왼쪽에서만 들린다", "재스캔하고
     /// 다시 켜야 동작한다"). 새 믹서는 이 값으로 시작한다.
     pub binaural_enabled: AtomicBool,
+    /// 사용자가 켠 All Mute. 바이노럴과 같은 이유로 새 믹서가 이 값으로 시작한다. 음소거 상태는 Dart
+    /// 화면에만 있고 재동기화가 다시 보내지 않아, 예전에는 엔진이 스스로 재시작하면 음소거가 풀렸다.
+    pub master_mute: AtomicBool,
 }
 
 impl Default for GlobalEngineState {
@@ -118,6 +121,7 @@ impl GlobalEngineState {
             rta_magnitudes_ref: RwLock::new(None),
             is_failover_mode: AtomicBool::new(false),
             binaural_enabled: AtomicBool::new(false),
+            master_mute: AtomicBool::new(false),
         }
     }
 
@@ -218,6 +222,13 @@ impl GlobalEngineState {
     }
 }
 
+
+/// 재생 인스턴스 번호. 재생 목록과 커서 표(audio::playback_cursor)의 열쇠라 겹치면 안 되고, 0은 커서 표의
+/// 빈 칸 표시라 쓰지 않는다. 예전에는 시계(나노초)를 썼는데 macOS 해상도가 1µs라 동시 재생에서 겹쳤다.
+pub fn next_instance_id() -> u64 {
+    static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
+    NEXT.fetch_add(1, Ordering::Relaxed)
+}
 
 /// 오디오 스레드에서 쓰는 디버그 플래그.
 ///

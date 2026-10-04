@@ -246,6 +246,10 @@ pub struct SoundInstance {
     pub current_position: Option<crate::common::config::Point3D>,
     pub spatial_gains: Vec<f32>,
     pub spatial_gains_target: Vec<f32>,
+    /// 스트리밍: 지금 `stream_buffer` 앞까지 지나간 프레임 수(시작 위치 포함). 미리 로드한 데이터는 0.
+    pub position_base_frames: f64,
+    /// 루프 한 바퀴 길이(프레임). 모르면 None이라 위치를 바퀴 안으로 접지 못한다.
+    pub loop_len_frames: Option<f64>,
 }
 
 impl SoundInstance {
@@ -270,6 +274,13 @@ impl SoundInstance {
         // 채널에서 오브젝트 모드가 동작하지 않았다.
         spatial_channel_capacity: usize,
     ) -> Self {
+        let loop_len_frames = if is_loop {
+            streamer.as_ref().and_then(|s| s.loop_len_frames).or_else(|| {
+                data.as_ref().map(|d| (d.samples.len() / d.channels.max(1) as usize) as f64)
+            })
+        } else {
+            None
+        };
         let mut smoother = crate::audio::dsp::dsp_utils::GainSmoother::new(1.0, 0.01);
         smoother.set_target(volume);
 
@@ -300,6 +311,30 @@ impl SoundInstance {
             current_position,
             spatial_gains: vec![0.0; spatial_channel_capacity],
             spatial_gains_target: vec![0.0; spatial_channel_capacity],
+            position_base_frames: 0.0,
+            loop_len_frames,
+        }
+    }
+
+    /// 파일 기준 재생 위치(초). 루프면 한 바퀴 안의 위치다.
+    pub fn position_seconds(&self) -> f64 {
+        let mut frames = self.position_base_frames + self.cursor;
+        if let Some(len) = self.loop_len_frames {
+            if len > 0.0 {
+                frames %= len;
+            }
+        }
+        frames / self.stream_sample_rate.max(1) as f64
+    }
+
+    /// 파일의 `seconds` 지점부터 시작하게 한다(재시작 복원). 스트리밍이면
+    /// `DiskStreamer::new_at`이 그만큼 건너뛰고 시작해야 위치가 맞는다.
+    pub fn set_start_position(&mut self, seconds: f64) {
+        let frames = seconds.max(0.0) * self.stream_sample_rate as f64;
+        if self.stream_receiver.is_some() {
+            self.position_base_frames = frames;
+        } else {
+            self.cursor = frames;
         }
     }
 }

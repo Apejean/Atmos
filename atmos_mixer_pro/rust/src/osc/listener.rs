@@ -274,6 +274,7 @@ fn handle_packet(packet: OscPacket, debouncer: &OscDebouncer) {
                             return;
                         }
 
+                        crate::core::restart_resume::cancel_room(&room_id);
                         crate::core::state::GLOBAL_STATE.clear_playing_tracks();
                         let _ = crate::core::state::GLOBAL_STATE.command_sender.send(
                             crate::common::commands::AudioCommand::ClearRoom {
@@ -321,11 +322,7 @@ fn handle_packet(packet: OscPacket, debouncer: &OscDebouncer) {
                                         drop(playing);
 
                                         if !is_playing {
-                                            let instance_id = std::time::SystemTime::now()
-                                                .duration_since(std::time::UNIX_EPOCH)
-                                                .unwrap()
-                                                .as_nanos()
-                                                as u64;
+                                            let instance_id = crate::core::state::next_instance_id();
                                             crate::core::state::GLOBAL_STATE
                                                 .add_playing_track(instance_id, next_t.id.clone());
                                             let _ = crate::core::state::GLOBAL_STATE
@@ -387,11 +384,7 @@ fn handle_packet(packet: OscPacket, debouncer: &OscDebouncer) {
                                     cache.get(&t.file_path).cloned()
                                 };
                                 if let Some(data) = data_opt {
-                                    let instance_id = std::time::SystemTime::now()
-                                        .duration_since(std::time::UNIX_EPOCH)
-                                        .unwrap()
-                                        .as_nanos()
-                                        as u64;
+                                    let instance_id = crate::core::state::next_instance_id();
                                     crate::core::state::GLOBAL_STATE
                                         .add_playing_track(instance_id, t.id.clone());
                                     let _ = crate::core::state::GLOBAL_STATE.command_sender.send(
@@ -420,12 +413,9 @@ fn handle_packet(packet: OscPacket, debouncer: &OscDebouncer) {
                         if !check_gating(&room_id, config.is_exhibition_mode) {
                             return;
                         }
-                        let _ = crate::core::state::GLOBAL_STATE.command_sender.send(
-                            crate::common::commands::AudioCommand::StopTrack {
-                                room_id: hash_id(&room_id),
-                                track_id: hash_id(&track_id),
-                            },
-                        );
+                        // 대시보드 정지와 같은 경로다. 재생 목록에서 바로 빼야 그 직후 엔진이 스스로
+                        // 재시작해도 스냅샷이 이 트랙을 다시 틀지 않는다(core::restart_resume).
+                        let _ = crate::api::simple::api_stop_track(room_id, track_id);
                     }
                 }
             } else {

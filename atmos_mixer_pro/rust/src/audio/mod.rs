@@ -19,3 +19,4 @@ pub mod hrtf_eq;
 pub mod offline;
 pub mod crossover;
 pub mod bass_route;
+pub mod playback_cursor;

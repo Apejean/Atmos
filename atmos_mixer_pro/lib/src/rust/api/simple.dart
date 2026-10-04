@@ -9,8 +9,10 @@ import '../osc/metrics.dart';
 import 'error.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `ENGINE_ACTIVE`, `ENGINE_GENERATION`, `ENGINE_THREAD`, `STREAM_STATUS_SINK`, `VU_THREAD_RUNNING`
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `deref`, `deref`, `deref`, `deref`, `deref`, `fmt`, `fmt`, `initialize`, `initialize`, `initialize`, `initialize`, `initialize`
+// These functions are ignored because they are not marked as `pub`: `apply_enabled_channels`, `init_audio_system`, `play_track_from`, `sim_band_from_json`, `stop_audio_engine`, `with_start`
+// These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `ENGINE_ACTIVE`, `ENGINE_THREAD`, `STREAM_STATUS_SINK`, `VU_THREAD_RUNNING`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `deref`, `deref`, `deref`, `deref`, `fmt`, `fmt`, `fmt`, `initialize`, `initialize`, `initialize`, `initialize`
+// These functions have error during generation (see debug logs or enable `stop_on_error: true` for more details): `build_play_track_command`
 
 Future<void> apiUpdateSingleBandEq({
   required BigInt channelIndex,
@@ -38,6 +40,32 @@ Future<void> apiUpdateSoundSourcePosition({
   x: x,
   y: y,
   z: z,
+);
+
+/// Output Config(`mono_configs`/`stereo_configs`/`multi_configs`)로부터 믹서 출력 게이트
+/// (`GLOBAL_STATE.enabled_channels`)에 쓸 0-based 활성화 벡터를 계산하는 순수 함수.
+///
+/// ## 0/1-based 규약 (OUTPUT_CHANNEL_MAPPING_UNIFICATION_SPEC.md 3절)
+/// `config.json`의 세 맵은 키가 **1-based**(사용자에게 보이는 채널 번호)이고,
+/// 반환하는 `Vec<bool>`과 `GLOBAL_STATE.enabled_channels`는 **0-based**(CPAL `hw_ch` 인덱스)이다.
+/// 이 변환(`ch as usize - 1`)은 이 함수 안에서만 일어난다 — 호출부에서 다시 변환하지 말 것.
+///
+/// ## 그룹별 채널 개방 규칙
+/// - Mono: `ch-1`, `ch`(1-based 페어) 두 채널을 연다 — 기존 "모노 1개가 L/R 페어를 연다" 설계 유지.
+/// - Stereo: 위와 동일한 페어 개방(기존 동작 유지, 이번 수정 범위 아님).
+/// - Multi: 시작 채널(`ch-1`, 0-based)부터 하드웨어 마지막 채널까지 전체 구간을 연다.
+///   `ChannelSetting`에는 그룹이 몇 채널짜리인지(N) 저장되지 않고, 실제로 몇 채널을 쓸지는
+///   재생되는 파일의 채널 수에 따라 트랙별 라우팅(믹서 쓰기 단계)에서 결정되므로, 이 게이트는
+///   "시작 채널 이후로는 무엇이 와도 막지 않는다"는 상한만 담당한다(SPEC 3.1절).
+///
+/// 세 맵이 모두 비어 있으면(사용자가 Output Config를 아직 건드리지 않음) 하위호환을 위해
+/// 전 채널을 개방한다.
+Future<List<bool>> computeEnabledChannels({
+  required AppConfig config,
+  required BigInt hwLen,
+}) => RustLib.instance.api.crateApiSimpleComputeEnabledChannels(
+  config: config,
+  hwLen: hwLen,
 );
 
 Future<AppConfig> apiGetConfig({required String path}) =>
@@ -147,6 +175,14 @@ Future<void> apiInitAudioSystem({String? deviceName}) => RustLib.instance.api
 
 Future<void> apiStartAudioEngine({String? deviceName}) => RustLib.instance.api
     .crateApiSimpleApiStartAudioEngine(deviceName: deviceName);
+
+/// 재생 중인 트랙별 재생 위치(초). 오디오 스레드가 원자 칸에 적어 둔 값을 읽기만 한다.
+Future<List<PlaybackPosition>> apiGetPlaybackPositions() =>
+    RustLib.instance.api.crateApiSimpleApiGetPlaybackPositions();
+
+/// Dart가 `seq`번 엔진 재시작 뒤 재동기화를 마쳤다고 알린다(core::restart_resume).
+Future<void> apiAckEngineRestart({required int seq}) =>
+    RustLib.instance.api.crateApiSimpleApiAckEngineRestart(seq: seq);
 
 Future<bool> apiIsEngineReady() =>
     RustLib.instance.api.crateApiSimpleApiIsEngineReady();
@@ -347,12 +383,15 @@ void apiSetChannelSpatialReverb({
   dryWet: dryWet,
 );
 
-/// LFE +10dB 토글. 서브 채널 자기 신호(.1 LFE 트랙)를 120Hz 로우패스 이후에 +10dB.
+/// LFE +10dB 토글(베이스 매니지먼트 패널). 서브 채널 자기 신호(.1 LFE 트랙)를 120Hz
+/// 로우패스 **이후**에 +10dB 올린다. 메인에서 넘어온 저역에는 걸지 않는다.
+/// 서브 레벨은 원래 최종 출력단이나 하드웨어에서 맞추고, 이건 바이노럴 미리듣기나
+/// 소프트웨어로 맞춰야 할 때 쓴다.
 void apiSetLfeBoostEnabled({required bool enabled}) =>
     RustLib.instance.api.crateApiSimpleApiSetLfeBoostEnabled(enabled: enabled);
 
 /// 베이스 매니지먼트 크로스오버 주파수(모든 방 공통). 서브우퍼 지정은 방별이라
-/// 스피커 속성(`is_subwoofer`)으로 공간 설정 payload에 실려 간다.
+/// 스피커 속성으로 공간 설정 payload에 실려 온다(api_update_spatial_config_json).
 void apiSetCrossoverFrequency({required double freq}) =>
     RustLib.instance.api.crateApiSimpleApiSetCrossoverFrequency(freq: freq);
 
@@ -457,6 +496,25 @@ class OutputDeviceInfo {
           name == other.name &&
           maxChannels == other.maxChannels &&
           channelNames == other.channelNames;
+}
+
+/// 재생 중인 트랙의 파일 기준 재생 위치. 루프는 한 바퀴 안의 위치다.
+class PlaybackPosition {
+  final String trackId;
+  final double seconds;
+
+  const PlaybackPosition({required this.trackId, required this.seconds});
+
+  @override
+  int get hashCode => trackId.hashCode ^ seconds.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is PlaybackPosition &&
+          runtimeType == other.runtimeType &&
+          trackId == other.trackId &&
+          seconds == other.seconds;
 }
 
 class SpatialConfigPayload {

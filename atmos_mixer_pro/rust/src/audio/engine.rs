@@ -554,6 +554,8 @@ impl AudioEngine {
     /// pause가 실패하는 상황이면 옛 스트림이 계속 돈다. 그러면 옛 콜백과 새 콜백이 같은 명령 큐를
     /// 나눠 먹어서 재생은 한쪽, 정지는 다른 쪽으로 가 소리가 멈추지 않았다(실기 로그: 워치독 재시작
     /// 뒤에만 정지 실패, 전체 정지도 일부만 멈춤, 살아 있는 믹서 3개). 옛 세대는 명령에 손대지 않는다.
+    /// cpal 0.16.0에서 순환 참조는 없어졌지만(test_engine_drop_releases_stream), 세대를 올린 뒤 옛
+    /// 엔진이 drop되기까지(엔진 스레드는 100ms마다 세대를 본다) 옛 콜백이 공용 명령 큐를 가져가지 않게 둔다.
     pub fn begin_callback(
         mixer: &mut AudioMixer,
         rx: &crossbeam_channel::Receiver<AudioCommand>,
