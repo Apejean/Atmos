@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:atmos_mixer_pro/core/state/global_state.dart';
 import 'package:atmos_mixer_pro/core/state/engine_resync.dart';
@@ -5,6 +7,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:atmos_mixer_pro/src/rust/frb_generated.dart';
 import 'package:atmos_mixer_pro/src/rust/api/simple.dart';
+import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart'
+    show ExternalLibrary;
 
 import 'package:atmos_mixer_pro/features/splash/screens/audio_init_splash_screen.dart';
 import 'package:atmos_mixer_pro/features/exhibition/state/acoustic_sync_provider.dart';
@@ -13,7 +17,20 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // Initialize rust bridge
-  await RustLib.init();
+  //
+  // macOS에서는 앱 번들 안 프레임워크를 직접 연다. 기본 로더는 작업 디렉터리 기준
+  // rust/target/release/에 dylib이 있으면 번들보다 그것을 먼저 여는데, 그 파일은
+  // `cargo build --release`를 직접 돌려야만 갱신된다. 그래서 프로젝트 폴더에서
+  // `flutter run`하면 방금 빌드한 Rust 대신 옛 Rust가 실렸다(API가 같으면 조용히,
+  // 다르면 content hash 오류로 시작 실패). 생성 파일(frb_generated.dart)의
+  // ioDirectory를 고치면 codegen이 덮어쓰므로 여기서 정한다.
+  await RustLib.init(
+    externalLibrary: Platform.isMacOS
+        ? ExternalLibrary.open(
+            'rust_lib_atmos_mixer_pro.framework/rust_lib_atmos_mixer_pro',
+          )
+        : null,
+  );
 
   // Initialize window_manager for frameless kiosk mode
   await windowManager.ensureInitialized();
