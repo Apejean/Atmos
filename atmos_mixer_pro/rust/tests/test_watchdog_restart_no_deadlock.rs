@@ -2,7 +2,7 @@
 //!
 //! 실기 사고: 워치독이 발동한 뒤 오디오가 75분간 무음이었다. 원인은 엔진
 //! 스레드가 **자기 자신을 join**하는 교착이었다. 엔진 스레드가 직접
-//! `api_init_audio_system`을 부르면
+//! `init_audio_system`(`api_init_audio_system`의 본체)을 부르면
 //!   - 새로 띄운 스레드는 `ENGINE_THREAD`에 담긴 핸들(= 부른 쪽 스레드)을 join하고
 //!   - 부른 쪽 스레드는 `rx_init.recv()`로 `engine.start()` 결과를 기다린다
 //! 서로를 기다리므로 스트림이 다시 열리지 않는다(앱 로그에 `Stream:` 줄이
@@ -32,12 +32,12 @@ fn 자동재연결은_엔진스레드에서_직접_호출되면_안된다() {
          엔진 스레드가 ENGINE_THREAD의 자기 핸들을 join해 영구 교착된다",
     );
     let call_at = region
-        .find("api_init_audio_system(")
-        .expect("자동 재연결 블록에서 api_init_audio_system 호출을 찾을 수 없다");
+        .find("init_audio_system(")
+        .expect("자동 재연결 블록에서 init_audio_system 호출을 찾을 수 없다");
 
     assert!(
         spawn_at < call_at,
-        "api_init_audio_system이 std::thread::spawn보다 먼저 나온다 = \
+        "init_audio_system이 std::thread::spawn보다 먼저 나온다 = \
          엔진 스레드가 직접 재기동을 수행한다 = 자기 join 교착(무음 사고 재발)"
     );
 }

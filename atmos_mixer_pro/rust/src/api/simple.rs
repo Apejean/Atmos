@@ -327,6 +327,25 @@ pub fn build_play_track_command(
 }
 
 pub fn api_play_track(room_id: String, track_id: String) -> Result<(), AtmosError> {
+    play_track_from(room_id, track_id, 0.0)
+}
+
+/// 재생 명령의 인스턴스를 `seconds` 지점부터 시작하게 한다(0이면 그대로).
+fn with_start(mut cmd: AudioCommand, seconds: f64) -> AudioCommand {
+    if seconds > 0.0 {
+        if let AudioCommand::PlayTrack { instance, .. } = &mut cmd {
+            instance.set_start_position(seconds);
+        }
+    }
+    cmd
+}
+
+/// `start_seconds`(파일 기준)부터 재생한다. 재시작 복원(core::restart_resume)이 멈춘 위치를 넘긴다.
+pub(crate) fn play_track_from(
+    room_id: String,
+    track_id: String,
+    start_seconds: f64,
+) -> Result<(), AtmosError> {
     if crate::core::state::debug_flags::trace_cmd() {
         eprintln!("[CMD] 재생 요청 room={room_id} track={track_id}");
     }
@@ -337,10 +356,7 @@ pub fn api_play_track(room_id: String, track_id: String) -> Result<(), AtmosErro
     if let Some(config) = config_guard.as_ref() {
         if let Some(room) = config.rooms.iter().find(|r| r.id == room_id) {
             if let Some(track) = room.tracks.iter().find(|t| t.id == track_id) {
-                let instance_id = std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap_or(std::time::Duration::from_secs(0))
-                    .as_nanos() as u64;
+                let instance_id = crate::core::state::next_instance_id();
 
                 let _ = GLOBAL_STATE
                     .command_sender
@@ -370,10 +386,11 @@ pub fn api_play_track(room_id: String, track_id: String) -> Result<(), AtmosErro
                         .engine_sample_rate
                         .load(std::sync::atomic::Ordering::Relaxed);
                     // Start DiskStreamer for BGM or streaming tracks
-                    match crate::audio::streaming::DiskStreamer::new(
+                    match crate::audio::streaming::DiskStreamer::new_at(
                         track.file_path.clone(),
                         track.is_loop,
                         target_sr,
+                        start_seconds,
                     ) {
                         Ok(streamer) => {
                             let sample_rate = streamer.sample_rate;
@@ -384,7 +401,7 @@ pub fn api_play_track(room_id: String, track_id: String) -> Result<(), AtmosErro
                             GLOBAL_STATE.add_playing_track(instance_id, track_id.clone());
                             GLOBAL_STATE
                                 .command_sender
-                                .send(build_play_track_command(
+                                .send(with_start(build_play_track_command(
                                     instance_id,
                                     hash_id(&room_id),
                                     hash_id(&track_id),
@@ -399,7 +416,7 @@ pub fn api_play_track(room_id: String, track_id: String) -> Result<(), AtmosErro
                                     track.output_channel as usize,
                                     track.output_stereo,
                                     None,
-                                ))
+                                ), start_seconds))
                                 .map_err(|e| AtmosError {
                                     message: e.to_string(),
                                 })?;
@@ -438,7 +455,7 @@ pub fn api_play_track(room_id: String, track_id: String) -> Result<(), AtmosErro
                         GLOBAL_STATE.add_playing_track(instance_id, track_id.clone());
                         GLOBAL_STATE
                             .command_sender
-                            .send(build_play_track_command(
+                            .send(with_start(build_play_track_command(
                                 instance_id,
                                 hash_id(&room_id),
                                 hash_id(&track_id),
@@ -453,7 +470,7 @@ pub fn api_play_track(room_id: String, track_id: String) -> Result<(), AtmosErro
                                 track.output_channel as usize,
                                 track.output_stereo,
                                 None,
-                            ))
+                            ), start_seconds))
                             .map_err(|e| AtmosError {
                                 message: e.to_string(),
                             })?;
@@ -468,7 +485,7 @@ pub fn api_play_track(room_id: String, track_id: String) -> Result<(), AtmosErro
                         GLOBAL_STATE.add_playing_track(instance_id, track_id.clone());
                         GLOBAL_STATE
                             .command_sender
-                            .send(build_play_track_command(
+                            .send(with_start(build_play_track_command(
                                 instance_id,
                                 hash_id(&room_id),
                                 hash_id(&track_id),
@@ -483,7 +500,7 @@ pub fn api_play_track(room_id: String, track_id: String) -> Result<(), AtmosErro
                                 track.output_channel as usize,
                                 track.output_stereo,
                                 None,
-                            ))
+                            ), start_seconds))
                             .map_err(|e| AtmosError {
                                 message: e.to_string(),
                             })?;
@@ -514,7 +531,7 @@ pub fn api_play_track(room_id: String, track_id: String) -> Result<(), AtmosErro
                                 GLOBAL_STATE.add_playing_track(instance_id, track_id.clone());
                                 GLOBAL_STATE
                                     .command_sender
-                                    .send(build_play_track_command(
+                                    .send(with_start(build_play_track_command(
                                         instance_id,
                                         hash_id(&room_id),
                                         hash_id(&track_id),
@@ -529,7 +546,7 @@ pub fn api_play_track(room_id: String, track_id: String) -> Result<(), AtmosErro
                                         track.output_channel as usize,
                                         track.output_stereo,
                                         None,
-                                    ))
+                                    ), start_seconds))
                                     .map_err(|e| AtmosError {
                                         message: e.to_string(),
                                     })?;
@@ -555,6 +572,7 @@ pub fn api_play_track(room_id: String, track_id: String) -> Result<(), AtmosErro
 }
 
 pub fn api_stop_track(room_id: String, track_id: String) -> Result<(), AtmosError> {
+    crate::core::restart_resume::cancel_track(&track_id);
     if crate::core::state::debug_flags::trace_cmd() {
         eprintln!("[CMD] 정지 요청 room={room_id} track={track_id}");
     }
@@ -572,6 +590,7 @@ pub fn api_stop_track(room_id: String, track_id: String) -> Result<(), AtmosErro
 }
 
 pub fn api_stop_all() -> Result<(), AtmosError> {
+    crate::core::restart_resume::cancel_all();
     if crate::core::state::debug_flags::trace_cmd() {
         eprintln!("[CMD] 전체 정지 요청");
     }
@@ -621,6 +640,7 @@ pub fn api_clear_room(room_id: String) -> Result<(), AtmosError> {
         }
         *guard = None;
     }
+    crate::core::restart_resume::cancel_room(&room_id);
     {
         let mut guard = GLOBAL_STATE
             .playing_track_ids
@@ -646,6 +666,10 @@ pub fn api_clear_room(room_id: String) -> Result<(), AtmosError> {
 }
 
 pub fn api_set_master_mute(muted: bool) -> Result<(), AtmosError> {
+    // 엔진이 재시작돼도 유지되도록 전역에 먼저 기록한다(state.rs 주석 참고).
+    GLOBAL_STATE
+        .master_mute
+        .store(muted, std::sync::atomic::Ordering::Relaxed);
     GLOBAL_STATE
         .command_sender
         .send(AudioCommand::SetMasterMute { muted })
@@ -811,8 +835,21 @@ pub fn api_create_stream_status_stream(sink: StreamSink<String>) {
 }
 
 pub fn api_init_audio_system(device_name: Option<String>) -> Result<(), AtmosError> {
-    api_stop_audio_engine();
+    // 사용자가 엔진을 직접 다시 띄우면 재시작 복원 대기는 버린다(core::restart_resume).
+    // 세대를 먼저 올려야 감시 루프의 스냅샷이 버린 뒤에 끼어들지 못한다.
+    stop_audio_engine();
+    crate::core::restart_resume::cancel_all();
+    start_audio_system(device_name)
+}
 
+/// 자동 재연결(재기동 스레드)용 기동. 재시작 복원 대기를 지킨다.
+fn init_audio_system(device_name: Option<String>) -> Result<(), AtmosError> {
+    stop_audio_engine();
+    start_audio_system(device_name)
+}
+
+/// 엔진 기동 본체. 부르기 전에 `stop_audio_engine`으로 세대를 올려 둔다.
+fn start_audio_system(device_name: Option<String>) -> Result<(), AtmosError> {
     let rx = crate::core::state::GLOBAL_STATE.command_receiver.clone();
 
     let gen = ENGINE_GENERATION.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1;
@@ -1005,6 +1042,9 @@ pub fn api_init_audio_system(device_name: Option<String>) -> Result<(), AtmosErr
                 if crate::core::state::debug_flags::trace_cmd() {
                     eprintln!("[CMD] 엔진 종료 세대={gen}");
                 }
+                // 세대가 그대로면 자기 재시작(워치독·장치 오류·장치 목록 변화)이다. 옛 엔진을
+                // 버리기 전에 재생 상태를 떠 둔다(core::restart_resume, 세대는 그 안에서 확인한다).
+                crate::core::restart_resume::take_snapshot(gen);
                 drop(engine);
                 ENGINE_ACTIVE.store(false, std::sync::atomic::Ordering::SeqCst);
                 broadcast_stream_status("Stopped".to_string());
@@ -1017,7 +1057,7 @@ pub fn api_init_audio_system(device_name: Option<String>) -> Result<(), AtmosErr
                 // If it wasn't a manual stop, auto restart
                 if ENGINE_GENERATION.load(std::sync::atomic::Ordering::SeqCst) == gen {
                     // 재기동은 반드시 **별도 스레드**에서 해야 한다. 이 코드를 실행하는
-                    // 주체가 엔진 스레드 자신이기 때문이다. api_init_audio_system은
+                    // 주체가 엔진 스레드 자신이기 때문이다. init_audio_system은
                     // ENGINE_THREAD에 들어 있는 핸들(= 바로 이 스레드)을 새 스레드에서
                     // join한 뒤, 자신은 rx_init.recv()로 engine.start() 결과를 기다린다.
                     // 그래서 여기서 직접 부르면 새 스레드는 이 스레드의 종료를 기다리고
@@ -1035,13 +1075,19 @@ pub fn api_init_audio_system(device_name: Option<String>) -> Result<(), AtmosErr
                         }
                         println!("🔄 [디버깅] 자동 재연결(Hot-Reload) 수행!");
                         broadcast_stream_status("HotReloading".to_string());
-                        if let Err(_e) = api_init_audio_system(restart_device) {
-                            // Emergency Failover
-                            println!("🚨 [Failover] 장치 재연결 실패. WASAPI 기본 장치로 강제 비상 전환!");
-                            crate::core::state::GLOBAL_STATE
-                                .is_failover_mode
-                                .store(true, std::sync::atomic::Ordering::Relaxed);
-                            let _ = api_init_audio_system(None); // None forces default OS device
+                        let started = match init_audio_system(restart_device) {
+                            Ok(()) => true,
+                            Err(_e) => {
+                                // Emergency Failover
+                                println!("🚨 [Failover] 장치 재연결 실패. WASAPI 기본 장치로 강제 비상 전환!");
+                                crate::core::state::GLOBAL_STATE
+                                    .is_failover_mode
+                                    .store(true, std::sync::atomic::Ordering::Relaxed);
+                                init_audio_system(None).is_ok() // None forces default OS device
+                            }
+                        };
+                        if started {
+                            crate::core::restart_resume::resume_after_resync();
                         }
                     });
                 }
@@ -1071,6 +1117,38 @@ pub fn api_start_audio_engine(device_name: Option<String>) {
     let _ = api_init_audio_system(device_name);
 }
 
+/// 재생 중인 트랙의 파일 기준 재생 위치. 루프는 한 바퀴 안의 위치다.
+#[derive(Debug, Clone)]
+pub struct PlaybackPosition {
+    pub track_id: String,
+    pub seconds: f64,
+}
+
+/// 재생 중인 트랙별 재생 위치(초). 오디오 스레드가 원자 칸에 적어 둔 값을 읽기만 한다.
+pub fn api_get_playback_positions() -> Vec<PlaybackPosition> {
+    let playing = GLOBAL_STATE
+        .playing_track_ids
+        .read()
+        .unwrap_or_else(|e| e.into_inner())
+        .clone();
+    let mut out: Vec<PlaybackPosition> = crate::audio::playback_cursor::CURSOR_TABLE
+        .snapshot()
+        .into_iter()
+        .filter_map(|(instance_id, seconds)| {
+            playing
+                .get(&instance_id)
+                .map(|track_id| PlaybackPosition { track_id: track_id.clone(), seconds })
+        })
+        .collect();
+    out.sort_by(|a, b| a.track_id.cmp(&b.track_id).then(a.seconds.total_cmp(&b.seconds)));
+    out
+}
+
+/// Dart가 `seq`번 엔진 재시작 뒤 재동기화를 마쳤다고 알린다(core::restart_resume).
+pub fn api_ack_engine_restart(seq: u32) {
+    crate::core::restart_resume::ack(seq);
+}
+
 pub fn api_is_engine_ready() -> bool {
     if !ENGINE_ACTIVE.load(std::sync::atomic::Ordering::SeqCst) {
         return false;
@@ -1079,6 +1157,11 @@ pub fn api_is_engine_ready() -> bool {
 }
 
 pub fn api_stop_audio_engine() {
+    stop_audio_engine();
+    crate::core::restart_resume::cancel_all();
+}
+
+fn stop_audio_engine() {
     let _ = ENGINE_GENERATION.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
     println!("✅ [디버깅] 백엔드 오디오 엔진 명시적 종료 지시 완료. (비동기 종료 진행)");
     broadcast_stream_status("Stopped".to_string());
@@ -1104,6 +1187,10 @@ pub fn api_create_device_event_stream(sink: StreamSink<String>) {
         // 앞의 둘은 항상 5초 타임아웃으로 빠졌고(사용자에게 "오디오 엔진 연결
         // 시간 초과" 오류까지 표시), 마지막 하나는 실행된 적 없는 죽은 코드였다.
         let mut last_ready = false;
+        // 자기 재시작 순번. 바뀔 때마다 알린다 — 준비 상태 폴링과 달리 짧은 재기동도 놓치지 않고,
+        // 순번이 매번 달라 Dart 쪽에서 같은 값으로 걸러지지 않는다.
+        let mut last_restart_seq =
+            crate::core::restart_resume::RESTART_SEQ.load(std::sync::atomic::Ordering::Acquire);
         loop {
             // 준비 상태가 false -> true로 바뀌면 알린다. last_ready가 false로
             // 시작하므로, 스트림을 만든 시점에 이미 준비돼 있으면 첫 폴링에서
@@ -1115,6 +1202,14 @@ pub fn api_create_device_event_stream(sink: StreamSink<String>) {
                 break; // Stop thread if port is closed
             }
             last_ready = ready;
+            let restart_seq =
+                crate::core::restart_resume::RESTART_SEQ.load(std::sync::atomic::Ordering::Acquire);
+            if restart_seq != last_restart_seq {
+                last_restart_seq = restart_seq;
+                if sink.add(format!("EngineRestarted:{restart_seq}")).is_err() {
+                    break; // Stop thread if port is closed
+                }
+            }
 
             let current_err = GLOBAL_STATE
                 .engine_error
@@ -1131,7 +1226,8 @@ pub fn api_create_device_event_stream(sink: StreamSink<String>) {
                 }
                 last_err = current_err;
             }
-            std::thread::sleep(std::time::Duration::from_millis(500));
+            // 재시작 알림 지연은 재개 전 무음 길이에 그대로 더해진다.
+            std::thread::sleep(std::time::Duration::from_millis(100));
         }
     });
 }

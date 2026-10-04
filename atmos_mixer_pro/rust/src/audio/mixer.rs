@@ -360,6 +360,12 @@ impl AudioMixer {
         mixer.binaural.enabled = crate::core::state::GLOBAL_STATE
             .binaural_enabled
             .load(std::sync::atomic::Ordering::Relaxed);
+        mixer.master_mute = crate::core::state::GLOBAL_STATE
+            .master_mute
+            .load(std::sync::atomic::Ordering::Relaxed);
+
+        // 새 엔진의 믹서다. 옛 엔진이 남긴 위치를 지우고, 표를 여기(오디오 스레드 밖)서 초기화해 둔다.
+        crate::audio::playback_cursor::CURSOR_TABLE.clear_all();
 
         mixer
     }
@@ -663,7 +669,9 @@ impl AudioMixer {
                         instance.is_playing = false;
                         continue;
                     }
-                } else {
+                } else if instance.stream_receiver.is_none() || !instance.stream_buffer.is_empty() {
+                    // 스트리밍은 첫 묶음이 오기 전에는 올리지 않는다. 재개는 시작 위치까지 디코딩해 버린
+                    // 뒤에야 첫 묶음이 와서, 그동안 올라가 버리면 파형 중간에서 큰 크기로 시작한다(딸깍).
                     instance.fade_weight += 1.0 / fade_frames as f32;
                     if instance.fade_weight > 1.0 {
                         instance.fade_weight = 1.0;
@@ -695,6 +703,7 @@ impl AudioMixer {
                             Ok(new_chunk) => {
                                 instance.anti_click_multiplier = 1.0;
                                 let frames_in_chunk = (instance.stream_buffer.len() / channels) as f64;
+                                instance.position_base_frames += frames_in_chunk;
                                 let old_chunk = std::mem::replace(&mut instance.stream_buffer, new_chunk);
                                 if let Err(e) = self.buf_gc_tx.try_send(old_chunk) {
                                     let v = e.into_inner();
@@ -883,6 +892,15 @@ impl AudioMixer {
             }
         }
         
+        // 재생 위치를 표에 알린다(재시작 복원·위치 조회). 원자 저장뿐이다.
+        let cursors = &*crate::audio::playback_cursor::CURSOR_TABLE;
+        for &i in active_instances.iter() {
+            match &self.instances[i] {
+                Some(inst) if inst.is_playing => cursors.publish(i, inst.instance_id, inst.position_seconds()),
+                _ => cursors.clear(i),
+            }
+        }
+
         self.temp_vals = temp_vals;
         self.temp_active_instances = active_instances;
 

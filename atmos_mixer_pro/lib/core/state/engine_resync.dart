@@ -54,3 +54,10 @@ void resyncEngineStateFromWidgetRef(WidgetRef ref) => resyncEngineStateToBackend
       bass: ref.read(bassManagementProvider.notifier),
       tuning: ref.read(tuningStateProvider.notifier),
     );
+
+/// 장치 이벤트 "EngineRestarted:<순번>"(엔진이 스스로 재시작함)에서 순번을 꺼낸다. 아니면 null.
+int? parseEngineRestartedSeq(String event) {
+  const prefix = 'EngineRestarted:';
+  if (!event.startsWith(prefix)) return null;
+  return int.tryParse(event.substring(prefix.length));
+}

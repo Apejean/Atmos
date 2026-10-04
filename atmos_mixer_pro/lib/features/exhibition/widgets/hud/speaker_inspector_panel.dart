@@ -141,6 +141,7 @@ class _SpeakerInspectorPanelState extends ConsumerState<SpeakerInspectorPanel> {
                   onChanged(middle);
                 },
                 child: Slider(
+                  key: ValueKey('inspector_slider_$label'),
                   value: value.clamp(min, max),
                   min: min,
                   max: max,
@@ -740,6 +741,7 @@ class _SpeakerInspectorPanelState extends ConsumerState<SpeakerInspectorPanel> {
                       children: [
                         const Text('Set as LFE Subwoofer', style: TextStyle(color: Colors.white70, fontSize: 12)),
                         Switch(
+                          key: const ValueKey('inspector_lfe_switch'),
                           value: isLfe,
                           activeThumbColor: const Color(0xFFFF5722),
                           onChanged: (val) {

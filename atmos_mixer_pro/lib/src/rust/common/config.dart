@@ -143,7 +143,8 @@ class EqBand {
   final double qFactor;
   final EqType filterType;
 
-  /// 로우컷/하이컷 기울기(dB/oct): 12, 18, 24. 수동 추가(codegen 고장).
+  /// 로우컷/하이컷의 기울기(dB/oct): 12, 18, 24. 벨·쉘프·노치에서는 무시한다.
+  /// 예전 config.json에는 이 필드가 없으므로 #[serde(default)]로 12가 들어간다.
   final int slopeDbPerOct;
 
   const EqBand({
@@ -152,7 +153,7 @@ class EqBand {
     required this.gain,
     required this.qFactor,
     required this.filterType,
-    this.slopeDbPerOct = 12,
+    required this.slopeDbPerOct,
   });
 
   @override
