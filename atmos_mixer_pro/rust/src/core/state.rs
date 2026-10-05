@@ -169,19 +169,14 @@ impl GlobalEngineState {
     pub fn log(&self, msg: String) {
         println!("{}", msg);
 
-        // Write to log file
-        let mut dir = std::env::temp_dir();
-        dir.push("atmos_mixer_pro_logs");
-        let _ = std::fs::create_dir_all(&dir);
-        dir.push("atmos_mixer_pro.log");
-        if let Ok(mut file) = std::fs::OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(&dir)
-        {
-            let time = chrono::Local::now().format("%Y-%m-%d %H:%M:%S");
-            let _ = std::io::Write::write_fmt(&mut file, format_args!("[{}] {}\n", time, msg));
-        }
+        // 로그 파일에 남긴다. 크기를 넘으면 뒤로 밀어 개수를 제한한다(core::log_file).
+        let time = chrono::Local::now().format("%Y-%m-%d %H:%M:%S");
+        let _ = crate::core::log_file::append_line(
+            &crate::core::log_file::log_dir(),
+            &format!("[{}] {}", time, msg),
+            crate::core::log_file::MAX_LOG_BYTES,
+            crate::core::log_file::KEEP_ROTATED,
+        );
     }
 
     pub fn add_playing_track(&self, instance_id: u64, track_id: String) {

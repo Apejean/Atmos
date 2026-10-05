@@ -1,7 +1,13 @@
 #define MyAppName "Atmos Mixer Pro"
-#define MyAppVersion "1.0.41"
 #define MyAppPublisher "Atmos"
 #define MyAppExeName "atmos_mixer_pro.exe"
+; The version is read from the built exe. Flutter writes pubspec.yaml's version into the exe's
+; ProductVersion, so the installer always matches the app. The path uses the same base as [Files].
+#define MyAppExePath AddBackslash(SourcePath) + "build\windows\x64\runner\Release\" + MyAppExeName
+#define MyAppVersion GetStringFileInfo(MyAppExePath, "ProductVersion")
+#if MyAppVersion == ""
+  #error Could not read the version from the built exe. Run "flutter build windows" first.
+#endif
 
 [Setup]
 AppId={{D37EAB59-7A77-4E2C-964B-FEFA2C3058D6}
