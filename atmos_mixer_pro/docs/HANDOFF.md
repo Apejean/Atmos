@@ -61,6 +61,7 @@
 
 - 크로스오버 **80Hz · LR24(24dB/oct) 유지**. 서브 저음이 메인 자리에서 들리는 건 의도된 상태("서브가 메인 뒤로 사라짐"). 120/150Hz 상향, 48dB/oct 모두 하지 않는다.
 - 채널 번호는 사용자에게 CH1부터 말한다(내부 channel은 0부터).
+- **현장 PC는 Windows다(2026-10-05).** 지금 되는 기능은 Windows에서도 동일하게 동작해야 하고, **3D 방 뷰어는 무조건 Windows에 들어간다.** 메뉴 형태·종료 경로·절전 방지와 로그 경로 구현 방식 같은 OS 고유 차이는 허용한다. 설계는 macOS에서 하고 현장 운영은 Windows에서 한다.
 
 ## ⚠️ Windows 미검증 (실기에서 먼저 확인할 것)
 
@@ -76,6 +77,14 @@ Windows 실기에서 먼저 빌드·실행해 확인해야 하는 항목:
 7. **로그 내보내기 바탕화면 경로(2026-10-05)** — PowerShell로 `[Environment]::GetFolderPath('Desktop')`을 묻는다. OneDrive로 바탕화면이 옮겨진 PC에서 맞는 폴더에 저장되는지 확인 필요.
 8. **installer 버전(2026-10-05)** — `installer.iss`가 빌드된 exe의 `ProductVersion`을 읽는다(ISPP `GetStringFileInfo`). exe 경로는 기존 `[Files]`와 같은 기준(스크립트 폴더)이다. 그런데 `[Files]`의 `build\...` 경로는 스크립트가 있는 `windows\` 폴더 기준이라 그대로는 파일을 못 찾을 수 있다(예전부터 그랬다). 설치 파일을 만들 때 실제로 어떻게 빌드하는지 확인 필요.
 
+9. **ASIO 재시작 순서와 장치 목록 검사** — ASIO는 한 번에 하나만 열린다. 옛 엔진을 닫고 새 엔진을 여는 순서와, 재생 중 3초마다 하는 장치 목록 검사(`get_hosts`, ASIO 스캔 타임아웃 있음)가 ASIO 사용 중에도 안전한지 확인된 적이 없다.
+10. **작업 집합·스레드 우선순위** — `apply_windows_admin_optimizations`는 관리자 계정일 때만 MMCSS 승격과 작업 집합 500MB~2GB 고정을 건다. 큰 WAV 캐시(10분 4채널 약 470MB)와 메모리 증가가 상한에 닿는지, 일반 계정이면 드롭아웃이 없는지 미확인.
+11. **방화벽** — OSC가 `0.0.0.0`으로 열려(`osc/listener.rs`) 무인 PC의 첫 실행에서 허용 창이 뜬다. 허용하지 않으면 외부 OSC가 막힌다.
+12. **메뉴 항목 동일성** — macOS는 네이티브 메뉴(Settings·Preferences 포함), Windows는 Material 메뉴로 따로 구현돼 있다. Windows 메뉴 구간(`dashboard_screen.dart` 415줄~)에서 Settings·Preferences가 보이지 않았다. 화면 다른 곳에 있는지 확인 필요.
+13. **종료 경로** — `onWindowClose`는 엔진 정지를 1.5초까지만 기다린다. ASIO 해제에 충분한지 미확인.
+
+점검 절차와 결과 기록 양식은 `docs/WINDOWS_FIELD_CHECKLIST.md`다(3D 방 뷰어, ASIO, 방화벽, 로그, 메뉴, 프로젝트 파일 이식성, 감시·재실행 포함).
+
 오디오 인터페이스 인식 설계는 macOS·Windows 둘 다 하드코딩 없이 그 순간 시스템에 등록된 장치를 스캔하는 구조로 일관되다(`get_hosts()` — macOS는 CoreAudio만, Windows는 ASIO+WASAPI 둘 다 스캔). 이 부분은 설계 검토 완료, 실기 검증만 남음.
 
 ## 남은 일
@@ -85,7 +94,7 @@ Windows 실기에서 먼저 빌드·실행해 확인해야 하는 항목:
    - 앱 기동과 3D 방 뷰어: `webview_flutter`에 Windows 구현이 없어 동작하지 않을 가능성이 가장 크다.
    - ASIO·Dante 장치 스캔과 12ch 출력.
    - 장치를 뽑았다 꽂는 재시작.
-3. **충돌 후 자동 재실행(Windows, 설계 필요)**: 로그인 때 자동 실행은 installer가 이미 등록한다(HKCU Run 키). 앱이 죽었을 때 다시 띄우는 것은 없다. 작업 스케줄러 또는 작은 감시 프로그램 중 방식을 정해야 한다.
+3. **충돌 후 자동 재실행(Windows) — 코드 완료, macOS 확인 중·Windows 미검증**: 설계 `docs/superpowers/specs/2026-10-05-crash-relaunch-supervisor-design.md`, 구현 계획 `docs/superpowers/plans/2026-10-05-crash-relaunch-supervisor.md`(12개 작업, "구현 상태" 표가 기준). 별도 Rust 감시 프로그램(`atmos_supervisor`)이 앱의 신호 파일(`app.lock`, `app.pid`, `heartbeat`, `clean_exit`)로 충돌·멈춤을 판단해 앱을 다시 띄우고 공연을 멈춘 위치부터 이어 간다. 운영자가 일부러 닫으면 다시 띄우지 않는다. 로그인 자동 실행은 환경설정 "로그인할 때 공연 자동 시작"(기본 켜짐)으로 정하고, CI는 PR마다 Windows 빌드를 돌리게 한다. 진행: 계획의 Task 1~11 코드가 끝났다(구현 세션 보고: 감시 크레이트 테스트 21개, 앱 Rust `cargo test` 78개 바이너리, `flutter test` 158개 통과, clippy·analyze 새 경고 없음, Windows 대상 감시 크레이트 clippy 통과. macOS 릴리스 앱의 소리 없는 실제 확인 12개와 `integration_test/app_flow_test.dart` 0~6단계도 통과했고, 이 확인에서 `--app` 상대 경로 버그를 찾아 고쳤다). 남은 것: 소리가 나는 macOS 시나리오(`kill -9` 뒤 이어 가기, `kill -STOP`, 창 닫기)는 사용자가 옆에서 `tool/supervisor_e2e_macos.sh`로, Windows는 새 PR 트리거의 첫 Windows 빌드와 현장 점검표. Windows 점검은 `docs/WINDOWS_FIELD_CHECKLIST.md`. 사용자 결정 대기: installer 방화벽 규칙, WebView2 런타임 설치.
 4. **트랙 경로 이식성(설계 필요)**: 프로젝트 파일(.atmos)은 엔진 설정 JSON이라 트랙 오디오 경로가 macOS 절대 경로(`/Users/...`)로 저장된다. Windows PC에서 열면 파일을 못 찾는다. 오디오 파일을 현장 PC로 옮기는 방식에 맞춰, 프로젝트 폴더나 지정한 오디오 폴더에서 파일 이름으로 다시 연결하는 방식을 정해야 한다. 도면 이미지 경로도 같다.
 5. **현재 config 정리(사용자 확인)**
    - OSC 주소가 겹친다. 모든 트랙이 `/play`·`/stop`, 모든 방이 `/room/clear`이고, 테마 시작·시스템 리셋 주소는 비어 있다. 앱은 같은 주소면 마지막 것만 기억한다. 그래서 `/room/clear`는 빈 방 '5전시'를 비우고, `/play`는 방 2 마지막 트랙만 튼다. OSC로 방·트랙을 제어할 수 없는 상태다. 앱에 중복 주소 경고가 있으면 좋겠다.
@@ -104,6 +113,10 @@ Windows 실기에서 먼저 빌드·실행해 확인해야 하는 항목:
    - 긴 파일을 먼 위치에서 재개하면 시작 위치까지 디코딩해 버리는 시간만큼(리샘플이 필요한 파일은 수 초) 늦게 나온다. `DiskStreamer::new_at`에 symphonia seek를 쓰면 줄일 수 있다.
    - 자기 재시작 때 Dart 재동기화가 두 번 돈다(`EngineReady`와 `EngineRestarted` 둘 다).
 9. **Windows 채널 이름(ASIO)**: 사용자가 나중에 하기로 보류. `rust/src/audio/channel_names.rs`의 실행 계획(A안 asio-sys 패치, B안 직접 FFI)은 cpal 0.16.0에서도 유효하다(asio-sys 0.2.6 그대로).
+10. **3D 방 뷰어 Windows 구현(필수, 사용자 결정 2026-10-05)**: `webview_flutter`(4.14.1)는 Android·iOS·macOS만 지원하고 Windows 구현이 없다. 지금 Windows에서는 `ThreeJsEngineService.initialize()`가 try/catch로 오류를 로그만 남겨 앱은 뜨지만, 스피커 배치 화면의 `Dynamic3DRoom`은 컨트롤러가 없어 로딩 스피너만 돈다. 스피커 선택(`_selectedInspectorSpeakerId`)이 3D 탭에 의존하므로 현장의 채널↔스피커 연동이 막힐 수 있다. 교체 범위는 작다: 웹뷰 API는 `three_js_engine_provider.dart` 한 클래스와 `dynamic_3d_room.dart:178`의 `WebViewWidget` 한 곳이고, Dart→JS는 `loadRequest`·`runJavaScript`, JS→Dart는 `window.SpeakerBridge.postMessage(JSON)` 세 곳(`studio_engine.html` 663·760·777줄)이다. 에셋은 전부 로컬(`three.min.js` 등, 약 5.7MB)이고 `127.0.0.1` 로컬 서버로 서빙한다. 권장: macOS는 `webview_flutter`를 그대로 두고 Windows만 WebView2 기반 구현을 붙이는 얇은 인터페이스(같은 HTML + 호환 shim). 후보는 `webview_windows` 0.4.0(WebView2, 2년 전 버전, 오프스크린 캡처 방식이라 WebGL 성능 확인 필요)과 `flutter_inappwebview` 6.1.5(Windows·macOS 지원, 24개월 전 버전). 패키지는 Windows PC에서 작은 실험(WebGL 프레임 속도, 스피커 드래그의 Dart 왕복, 카메라 전환)으로 정한다. WebView2 런타임이 Windows 10 PC에 없을 수 있어 installer에서 설치나 확인이 필요하다(사용자 결정).
+11. **v1.1.3 태그와 main의 버전 차이(사용자 확인)**: `v1.1.3`은 `main`의 조상이 아니다(8/26에 갈라졌고 `main`에 없는 커밋이 32개: `c2bd1d0` println!→log_print! 교체, `5033735` 닫기 버튼·Cmd+Q, `7411d31` 캘리브레이션 자동 계산, `5ef4c92` 리버브 API 연결 등). `main`의 앱 버전은 1.1.2로 v1.1.3보다 낮다. 의도한 것인지, 현장에 설치된 버전이 무엇인지 확인한다. `main` 계통에서 Windows CI가 마지막으로 성공한 시점은 `v1.1.2`다.
+12. **Windows `cargo test` 가드**: `rust/tests/test_analysis_thread_idle_cpu.rs`와 `rust/tests/diag_engine_restart_leak.rs`가 유닉스 전용 `libc::getrusage`를 가드 없이 쓴다. Windows에서는 `cargo test`가 이 두 시험 때문에 컴파일되지 않는다. `#[cfg(unix)]` 가드를 추가하면 장치가 필요 없는 DSP 시험을 Windows CI에서 돌려 수치 일치를 자동으로 확인할 수 있다.
+13. **Windows 로더**: `lib/main.dart`는 `Platform.isMacOS`에서만 번들 프레임워크를 직접 연다(커밋 c7d2fd2). Windows는 기본 로더라 개발 PC에서 프로젝트 폴더로 `flutter run`하면 `rust/target/release/rust_lib_atmos_mixer_pro.dll`이 남아 있을 때 옛 Rust가 실릴 수 있다. 설치된 앱은 exe 옆의 dll을 열어 해당 없다. Windows도 번들 dll을 직접 여는 방안을 검토한다.
 
 ## 운용 메모
 
