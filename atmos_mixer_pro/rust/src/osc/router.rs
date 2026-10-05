@@ -9,7 +9,7 @@ pub enum OscAction {
     SetMasterVolume(String),
     PlayTrack(String, String),
     StopTrack(String, String),
-    ThemeStart(String, Vec<String>),
+    ThemeStart,
     SystemReset,
 }
 
@@ -30,13 +30,7 @@ pub fn get_osc_action(addr: &str, config: &AppConfig, config_version: u64) -> Op
     let mut new_map = HashMap::new();
     
     if !config.theme_start_osc_address.is_empty() {
-        let mut track_ids = vec![];
-        let mut first_room_id = String::new();
-        if let Some(first_room) = config.rooms.first() {
-            first_room_id = first_room.id.clone();
-            track_ids = first_room.tracks.iter().filter(|t| t.is_loop).map(|t| t.id.clone()).collect();
-        }
-        new_map.insert(config.theme_start_osc_address.clone(), OscAction::ThemeStart(first_room_id, track_ids));
+        new_map.insert(config.theme_start_osc_address.clone(), OscAction::ThemeStart);
     }
     
     if !config.system_reset_osc_address.is_empty() {

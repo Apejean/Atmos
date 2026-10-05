@@ -1,0 +1,16 @@
+[package]
+name = "atmos_supervisor"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+# 감시 기록 시각을 앱 로그(chrono::Local)와 같은 현지 시각으로 남긴다.
+chrono = { version = "0.4.45", default-features = false, features = ["clock"] }
+
+# 넘겨받은 앱(감시가 띄우지 않은 프로세스)이 살아 있는지 보고 강제 종료한다.
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_System_Threading"] }
