@@ -8,6 +8,7 @@
 
 | 항목 | 결과 | 확인하는 테스트 |
 |---|---|---|
+| 프로젝트를 열 때 트랙·도면 경로 다시 연결(남은 일 4번 구현, 브랜치 `feat/project-media-relink`, 2026-10-05 기준 미커밋) | **동작**: ① 저장된 경로에 파일이 있으면 그대로 쓴다. ② 없으면 `.atmos`가 있는 폴더와 그 하위 폴더에서 같은 파일 이름을 찾아 연결한다(대소문자 무시, 경로 구분자 `/`·`\` 모두 인식, 같은 이름이 여러 개면 원래 경로와 상위 폴더 이름이 가장 많이 겹치는 파일, 같으면 얕은 쪽, 숨김 파일·폴더(`._` 포함)는 보지 않고 16단계 깊이까지). ③ 그래도 못 찾은 파일이 있으면 "파일 N개를 찾지 못했습니다" 대화상자를 띄운다. "폴더 고르기"는 고른 폴더에서 같은 방법으로 찾고, "그대로 열기"는 그대로 연다. ④ 끝까지 못 찾은 파일은 원래 경로를 두고, 연 뒤 목록을 보여 주며 앱 로그에도 남긴다. ⑤ 다시 연결한 경로는 이 PC의 `config.json`과 도면 설정에 저장한다(저장 방식은 그 PC의 절대 경로로 그대로). ⑥ macOS 메뉴와 Windows 메뉴에 두 번 들어 있던 "Load Project" 코드를 대시보드의 `_loadProject` 하나로 합쳤다. **파일**: `rust/src/core/media_relink.rs`(`MediaFinder`, `relink_tracks`, `file_name_of`), `rust/src/api/project.rs`(`api_relink_track_paths`, `api_find_media`, `RelinkedConfig`), `lib/core/state/project_media.dart`, `lib/features/dashboard/widgets/missing_media_dialog.dart`, `dashboard_screen.dart`. **검증(구현 세션 보고)**: Rust 새 테스트 6개, `flutter test` 162개, 실제 앱 런타임 통합 테스트 2개(다시 연결 → 엔진이 그 경로의 오디오를 미리 읽음, 폴더 묻기 경로), `app_flow_test` 0~6단계 회귀 통과. 대화상자의 "폴더 고르기"를 실제로 누르는 것과 Windows에서 여는 것은 확인하지 못했다. | `test_media_relink`(Rust 6개), `test/project_media_test.dart`(4개), `integration_test/project_media_relink_test.dart`(2개) |
 | 무인 운영 기본기(Windows 기준 우선순위 3·4번 중 바로 할 수 있던 것) | **로그 회전**: 로그 파일이 10MB를 넘으면 뒤로 밀고 최대 5개(약 50MB)만 남긴다(`core/log_file.rs`). 로그 내보내기는 밀린 파일까지 복사한다. **로그 내보내기 위치**: Windows는 셸이 아는 실제 바탕화면(OneDrive로 옮겨진 경우 포함)을 쓰고, 못 찾으면 폴더를 묻는다(`lib/core/utils/log_export_dir.dart`). **절전 방지**: 앱이 켜져 있는 동안 시스템 절전을 막는다(화면은 꺼져도 됨). Windows는 `SetThreadExecutionState`, macOS는 `caffeinate -i -w <pid>`(`core/keep_awake.rs`, `api_init_app`에서 시작). **installer 버전**: 빌드된 exe의 `ProductVersion`(= pubspec 버전)에서 읽는다(예전에는 `1.0.41` 고정). Windows 쪽은 CI·실기로 아직 확인 못 함 | `test_log_rotation`, `test_keep_awake`(macOS), `test/log_export_dir_test.dart` |
 | OSC로 루프·스트리밍 트랙이 안 나오고, OSC로 방을 비운 뒤 다음 방 BGM이 안 나옴. 방 비우기가 모든 방의 재생 목록을 지움 | OSC 재생과 다음 방 BGM 자동 재생은 대시보드와 같은 `api_play_track` 경로를 탄다(예전에는 RAM 캐시만 봤는데 루프·스트리밍 트랙은 거기 없다). 방 비우기(대시보드·OSC)는 그 방 트랙만 재생 목록에서 뺀다(엔진도 그 방만 멈춘다). 그래서 다른 방 BGM이 목록에서 사라졌다가 자동 승격 때 겹쳐 두 번 나오는 일도 없다 | `test_osc_room_routing`(실제 OSC 리스너에 UDP로 보냄) |
 | 엔진이 스스로 재시작하면 재생이 사라짐(화면은 재생 중으로 남음) | 재생 중이던 트랙을 **멈춘 위치부터 자동으로** 다시 튼다(`rust/src/core/restart_resume.rs`). 감시 루프가 재시작을 정한 직후(옛 엔진 drop 전) 재생 목록·커서를 떠 두고, 새 엔진이 뜨면 `EngineRestarted:<순번>` 이벤트 → Dart 재동기화(서브 라우팅·FX) → `apiAckEngineRestart` → Rust 재개(응답이 2초 안에 없으면 그대로 재개). 기다리는 사이 트랙 정지·전체 정지·방 비우기(대시보드·OSC 모두)는 재개를 취소하고, 재개가 도는 도중의 정지도 이긴다. 최종 리뷰(2026-10-04)로 보강: All Mute가 엔진 재시작에도 유지되고, 스트리밍 재개는 첫 묶음이 올 때까지 페이드를 멈춰 딸깍이 없고, OSC 정지는 재생 목록에서 바로 빠지고, 인스턴스 번호는 시계 대신 전역 카운터다. 실측: 위치 6.01→9.64초(흐른 시간 4.30초 — 재시작 동안 앞으로 건너뛰지 않음), CH1 −34.23→−34.23·CH2 −31.39→−31.46dBFS, 재시작 알림→재개 107ms 동안 디지털 무음 | `test_restart_resume`, `test_restart_resume_races`, `test_master_mute_survives_restart`, `test_stream_resume_onset`, 통합 테스트 5단계 |
@@ -61,6 +62,7 @@
 
 - 크로스오버 **80Hz · LR24(24dB/oct) 유지**. 서브 저음이 메인 자리에서 들리는 건 의도된 상태("서브가 메인 뒤로 사라짐"). 120/150Hz 상향, 48dB/oct 모두 하지 않는다.
 - 채널 번호는 사용자에게 CH1부터 말한다(내부 channel은 0부터).
+- **프로젝트를 옮기는 방식(2026-10-05).** 오디오와 도면을 `.atmos` 파일과 같은 폴더(하위 폴더 가능)에 담아 옮긴다. 설계는 채팅으로 승인받았고 별도 스펙·계획 문서는 없다.
 - **현장 PC는 Windows다(2026-10-05).** 지금 되는 기능은 Windows에서도 동일하게 동작해야 하고, **3D 방 뷰어는 무조건 Windows에 들어간다.** 메뉴 형태·종료 경로·절전 방지와 로그 경로 구현 방식 같은 OS 고유 차이는 허용한다. 설계는 macOS에서 하고 현장 운영은 Windows에서 한다.
 
 ## ⚠️ Windows 미검증 (실기에서 먼저 확인할 것)
@@ -82,6 +84,7 @@ Windows 실기에서 먼저 빌드·실행해 확인해야 하는 항목:
 11. **방화벽** — OSC가 `0.0.0.0`으로 열려(`osc/listener.rs`) 무인 PC의 첫 실행에서 허용 창이 뜬다. 허용하지 않으면 외부 OSC가 막힌다.
 12. **메뉴 항목 동일성** — macOS는 네이티브 메뉴(Settings·Preferences 포함), Windows는 Material 메뉴로 따로 구현돼 있다. Windows 메뉴 구간(`dashboard_screen.dart` 415줄~)에서 Settings·Preferences가 보이지 않았다. 화면 다른 곳에 있는지 확인 필요.
 13. **종료 경로** — `onWindowClose`는 엔진 정지를 1.5초까지만 기다린다. ASIO 해제에 충분한지 미확인.
+14. **프로젝트 열 때 미디어 다시 연결** — macOS에서 저장한 `.atmos`와 오디오·도면 폴더를 옮겨 Windows에서 열었을 때 연결되는지(경로 구분자 `\`, 대소문자, 한글·공백 경로), 대화상자와 "폴더 고르기"가 Windows에서 정상인지 확인된 적이 없다.
 
 점검 절차와 결과 기록 양식은 `docs/WINDOWS_FIELD_CHECKLIST.md`다(3D 방 뷰어, ASIO, 방화벽, 로그, 메뉴, 프로젝트 파일 이식성, 감시·재실행 포함).
 
@@ -95,7 +98,7 @@ Windows 실기에서 먼저 빌드·실행해 확인해야 하는 항목:
    - ASIO·Dante 장치 스캔과 12ch 출력.
    - 장치를 뽑았다 꽂는 재시작.
 3. **충돌 후 자동 재실행(Windows) — 코드 완료, macOS 확인 중·Windows 미검증**: 설계 `docs/superpowers/specs/2026-10-05-crash-relaunch-supervisor-design.md`, 구현 계획 `docs/superpowers/plans/2026-10-05-crash-relaunch-supervisor.md`(12개 작업, "구현 상태" 표가 기준). 별도 Rust 감시 프로그램(`atmos_supervisor`)이 앱의 신호 파일(`app.lock`, `app.pid`, `heartbeat`, `clean_exit`)로 충돌·멈춤을 판단해 앱을 다시 띄우고 공연을 멈춘 위치부터 이어 간다. 운영자가 일부러 닫으면 다시 띄우지 않는다. 로그인 자동 실행은 환경설정 "로그인할 때 공연 자동 시작"(기본 켜짐)으로 정하고, CI는 PR마다 Windows 빌드를 돌리게 한다. 진행: 계획의 Task 1~11 코드가 끝났다(구현 세션 보고: 감시 크레이트 테스트 21개, 앱 Rust `cargo test` 78개 바이너리, `flutter test` 158개 통과, clippy·analyze 새 경고 없음, Windows 대상 감시 크레이트 clippy 통과. macOS 릴리스 앱의 소리 없는 실제 확인 12개와 `integration_test/app_flow_test.dart` 0~6단계도 통과했고, 이 확인에서 `--app` 상대 경로 버그를 찾아 고쳤다). 남은 것: 소리가 나는 macOS 시나리오(`kill -9` 뒤 이어 가기, `kill -STOP`, 창 닫기)는 사용자가 옆에서 `tool/supervisor_e2e_macos.sh`로, Windows는 새 PR 트리거의 첫 Windows 빌드와 현장 점검표. Windows 점검은 `docs/WINDOWS_FIELD_CHECKLIST.md`. 사용자 결정 대기: installer 방화벽 규칙, WebView2 런타임 설치.
-4. **트랙 경로 이식성(설계 필요)**: 프로젝트 파일(.atmos)은 엔진 설정 JSON이라 트랙 오디오 경로가 macOS 절대 경로(`/Users/...`)로 저장된다. Windows PC에서 열면 파일을 못 찾는다. 오디오 파일을 현장 PC로 옮기는 방식에 맞춰, 프로젝트 폴더나 지정한 오디오 폴더에서 파일 이름으로 다시 연결하는 방식을 정해야 한다. 도면 이미지 경로도 같다.
+4. **트랙·도면 경로 이식성 — 구현됨(미커밋), Windows 확인 대기**: 프로젝트를 열 때 파일을 못 찾으면 `.atmos` 폴더에서 같은 이름으로 다시 연결한다(동작과 파일은 위 "최근 끝난 일" 첫 행). 오디오와 도면을 `.atmos`와 같은 폴더에 담아 옮기는 방식이 사용자 결정이다. 남은 것: ① Windows PC에서 실제로 여는 확인(`docs/WINDOWS_FIELD_CHECKLIST.md` 9절). ② 대화상자의 "폴더 고르기"를 사람이 실제로 눌러 보는 확인(화면 조작 도구가 없어 자동 확인이 안 된다). 저장 방식은 바꾸지 않았다(다시 연결한 경로는 이 PC의 절대 경로로 `config.json`과 도면 설정에 저장된다).
 5. **현재 config 정리(사용자 확인)**
    - OSC 주소가 겹친다. 모든 트랙이 `/play`·`/stop`, 모든 방이 `/room/clear`이고, 테마 시작·시스템 리셋 주소는 비어 있다. 앱은 같은 주소면 마지막 것만 기억한다. 그래서 `/room/clear`는 빈 방 '5전시'를 비우고, `/play`는 방 2 마지막 트랙만 튼다. OSC로 방·트랙을 제어할 수 없는 상태다. 앱에 중복 주소 경고가 있으면 좋겠다.
    - 테마 1 BGM이 CH1로 나가는데 스피커 배치에서 CH1이 서브다. 그래서 80Hz 아래만 나간다(헤드폰으로 거의 안 들림, −45~−49dBFS). 메인(CH2)으로 보내려던 것인지 확인 필요.
