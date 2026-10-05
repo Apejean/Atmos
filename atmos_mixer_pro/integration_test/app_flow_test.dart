@@ -248,8 +248,12 @@ void main() {
         reason: '5단계: 재시작 알림보다 재개가 먼저였다(재동기화 전에 재생, R3)');
     // 재시작 이벤트 뒤부터 재개 전까지 디지털 무음(옛 DSP 소리·클릭 없음).
     for (final ch in [Fixture.subChannel, Fixture.mainChannel]) {
+      // 대기 구간은 100ms 남짓이라 기계가 바쁘면(재동기화로 Dart가 잠깐 막힘) 그 안에 표본이 없을 수 있다.
+      // VU 스트림이 살아 있는지는 앞뒤 0.5초까지 넓혀 본다(멈춘 스트림을 무음으로 착각하지 않게).
+      final around = vu.samplesDb(ch, restartedAt.subtract(const Duration(milliseconds: 500)),
+          resumedAt.add(const Duration(milliseconds: 500)));
+      expect(around, isNotEmpty, reason: '5단계: 재시작 앞뒤로 CH${ch + 1} VU 표본이 없다(VU 스트림 멈춤)');
       final window = vu.samplesDb(ch, restartedAt, resumedAt.subtract(const Duration(milliseconds: 20)));
-      expect(window, isNotEmpty, reason: '5단계: 재시작 이벤트와 재개 사이에 CH${ch + 1} VU 표본이 없다');
       final loud = window.where((db) => db > silenceDb).length;
       expect(loud, 0, reason: '5단계: 재시작 이벤트 후 재개 전 CH${ch + 1}에서 소리가 났다($loud개 표본)');
     }

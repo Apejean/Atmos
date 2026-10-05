@@ -275,7 +275,7 @@ fn handle_packet(packet: OscPacket, debouncer: &OscDebouncer) {
                         }
 
                         crate::core::restart_resume::cancel_room(&room_id);
-                        crate::core::state::GLOBAL_STATE.clear_playing_tracks();
+                        crate::core::state::GLOBAL_STATE.remove_playing_tracks_of_room(&room_id);
                         let _ = crate::core::state::GLOBAL_STATE.command_sender.send(
                             crate::common::commands::AudioCommand::ClearRoom {
                                 room_id: hash_id(&room_id),
@@ -302,51 +302,15 @@ fn handle_packet(packet: OscPacket, debouncer: &OscDebouncer) {
                                 next_id
                             ));
 
-                            // Auto-play bgm
+                            // 다음 방 BGM(루프)은 대시보드와 같은 재생 경로로 튼다. 예전에는 RAM 캐시(sound_cache)에서만
+                            // 찾았는데 루프 트랙은 스트리밍이라 거기 없어서 아무것도 나오지 않았다. 이미 재생 중인
+                            // 루프는 api_play_track이 다시 틀지 않는다.
                             if let Some(next_r) = config.rooms.iter().find(|r| r.id == next_id) {
                                 for next_t in next_r.tracks.iter().filter(|t| t.is_loop) {
-                                    let data_opt = {
-                                        let cache_guard = crate::core::state::GLOBAL_STATE
-                                            .sound_cache
-                                            .read()
-                                            .unwrap_or_else(|e| e.into_inner());
-                                        cache_guard.get(&next_t.file_path).cloned()
-                                    };
-                                    if let Some(data) = data_opt {
-                                        let playing = crate::core::state::GLOBAL_STATE
-                                            .playing_track_ids
-                                            .read()
-                                            .unwrap_or_else(|e| e.into_inner());
-                                        let is_playing =
-                                            playing.values().any(|id| id == &next_t.id);
-                                        drop(playing);
-
-                                        if !is_playing {
-                                            let instance_id = crate::core::state::next_instance_id();
-                                            crate::core::state::GLOBAL_STATE
-                                                .add_playing_track(instance_id, next_t.id.clone());
-                                            let _ = crate::core::state::GLOBAL_STATE
-                                                .command_sender
-                                                .send(
-                                                    crate::api::simple::build_play_track_command(
-                                                        instance_id,
-                                                        hash_id(&next_id),
-                                                        hash_id(&next_t.id),
-                                                        next_t.id.clone(),
-                                                        Some(data.clone()),
-                                                        None,
-                                                        data.sample_rate,
-                                                        data.channels,
-                                                        next_t.is_loop,
-                                                        next_t.volume,
-                                                        next_r.volume,
-                                                        next_t.output_channel as usize,
-                                                        next_t.output_stereo,
-                                                        None,
-                                                    ),
-                                                );
-                                        }
-                                    }
+                                    let _ = crate::api::simple::api_play_track(
+                                        next_id.clone(),
+                                        next_t.id.clone(),
+                                    );
                                 }
                             }
                         } else {
@@ -373,41 +337,9 @@ fn handle_packet(packet: OscPacket, debouncer: &OscDebouncer) {
                         if !check_gating(&room_id, config.is_exhibition_mode) {
                             return;
                         }
-
-                        if let Some(r) = config.rooms.iter().find(|x| x.id == room_id) {
-                            if let Some(t) = r.tracks.iter().find(|x| x.id == track_id) {
-                                let data_opt = {
-                                    let cache = crate::core::state::GLOBAL_STATE
-                                        .sound_cache
-                                        .read()
-                                        .unwrap_or_else(|e| e.into_inner());
-                                    cache.get(&t.file_path).cloned()
-                                };
-                                if let Some(data) = data_opt {
-                                    let instance_id = crate::core::state::next_instance_id();
-                                    crate::core::state::GLOBAL_STATE
-                                        .add_playing_track(instance_id, t.id.clone());
-                                    let _ = crate::core::state::GLOBAL_STATE.command_sender.send(
-                                        crate::api::simple::build_play_track_command(
-                                            instance_id,
-                                            hash_id(&room_id),
-                                            hash_id(&track_id),
-                                            t.id.clone(),
-                                            Some(data.clone()),
-                                            None,
-                                            data.sample_rate,
-                                            data.channels,
-                                            t.is_loop,
-                                            t.volume,
-                                            r.volume,
-                                            t.output_channel as usize,
-                                            t.output_stereo,
-                                            None,
-                                        ),
-                                    );
-                                }
-                            }
-                        }
+                        // 대시보드와 같은 재생 경로다. 예전에는 RAM 캐시(sound_cache)에서만 찾아서 루프·스트리밍
+                        // 트랙(캐시에 없음)은 OSC로 틀어도 아무것도 나오지 않았다.
+                        let _ = crate::api::simple::api_play_track(room_id, track_id);
                     }
                     OscAction::StopTrack(room_id, track_id) => {
                         if !check_gating(&room_id, config.is_exhibition_mode) {
