@@ -641,13 +641,7 @@ pub fn api_clear_room(room_id: String) -> Result<(), AtmosError> {
         *guard = None;
     }
     crate::core::restart_resume::cancel_room(&room_id);
-    {
-        let mut guard = GLOBAL_STATE
-            .playing_track_ids
-            .write()
-            .unwrap_or_else(|e| e.into_inner());
-        guard.clear();
-    }
+    GLOBAL_STATE.remove_playing_tracks_of_room(&room_id);
     GLOBAL_STATE.broadcast_state();
 
     let _lock = GLOBAL_STATE

@@ -212,6 +212,28 @@ impl GlobalEngineState {
         }
     }
 
+    /// 방 비우기: 그 방 트랙만 재생 목록에서 뺀다. 엔진의 ClearRoom도 그 방 인스턴스만 멈춘다.
+    /// 예전에는 목록 전체를 지워서 다른 방이 계속 재생 중인데 목록에서 사라졌다(재시작 복원과 루프
+    /// 중복 방지가 이 목록을 본다).
+    pub fn remove_playing_tracks_of_room(&self, room_id: &str) {
+        let track_ids: Vec<String> = self
+            .config
+            .read()
+            .unwrap_or_else(|e| e.into_inner())
+            .as_ref()
+            .and_then(|c| c.rooms.iter().find(|r| r.id == room_id))
+            .map(|r| r.tracks.iter().map(|t| t.id.clone()).collect())
+            .unwrap_or_default();
+        let _lock = self.broadcast_lock.lock().unwrap_or_else(|e| e.into_inner());
+        let mut guard = self.playing_track_ids.write().unwrap_or_else(|e| e.into_inner());
+        let initial_len = guard.len();
+        guard.retain(|_, v| !track_ids.contains(v));
+        if guard.len() != initial_len {
+            drop(guard);
+            self.broadcast_state();
+        }
+    }
+
     pub fn clear_playing_tracks(&self) {
         let _lock = self.broadcast_lock.lock().unwrap_or_else(|e| e.into_inner());
         {
