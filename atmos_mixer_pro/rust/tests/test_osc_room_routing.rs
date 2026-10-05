@@ -1,6 +1,7 @@
 //! OSC 재생·방 비우기 경로. 실제 OSC 리스너에 UDP로 보낸다. 전역 상태를 쓰므로 테스트는 하나다.
 //! - OSC 재생은 대시보드와 같은 경로라 루프·스트리밍 트랙도 나온다.
 //! - 방 비우기(OSC·대시보드)는 그 방 트랙만 재생 목록에서 빼고, OSC로 다음 방에 넘어가면 그 방 BGM(루프)을 튼다.
+//! - OSC 테마 시작은 전체 정지 뒤 첫 방을 활성으로 하고 그 방 루프만 튼다(감시 재실행과 같은 함수).
 use rosc::{encoder, OscMessage, OscPacket, OscType};
 use rust_lib_atmos_mixer_pro::api::simple::{
     api_clear_room, api_play_track, api_set_active_room, api_start_osc_listener,
@@ -105,6 +106,7 @@ fn osc_재생은_루프와_스트리밍도_틀고_방_비우기는_그_방만_�
     let config = AppConfig {
         osc_port: port,
         is_exhibition_mode: true,
+        theme_start_osc_address: "/theme/start".into(),
         rooms: vec![
             room(
                 "a",
@@ -164,6 +166,12 @@ fn osc_재생은_루프와_스트리밍도_틀고_방_비우기는_그_방만_�
     std::thread::sleep(Duration::from_millis(300)); // 같은 주소를 250ms 안에 다시 받으면 무시한다
     send("/a/clear");
     wait_until("OSC로 방 A를 비웠는데 다음 방 B의 BGM이 자동으로 나오지 않았다", || has("lb"));
+
+    // 6) OSC 테마 시작: 전체 정지 뒤 첫 방(A)을 활성으로 하고 그 방 루프만 튼다
+    send("/theme/start");
+    wait_until("OSC 테마 시작 뒤 첫 방 A가 활성이고 그 방 루프만 돌아야 한다", || {
+        GLOBAL_STATE.active_room_id.read().unwrap().as_deref() == Some("a") && playing() == vec!["la".to_string()]
+    });
 
     drained_plays();
     let _ = std::fs::remove_dir_all(&dir);

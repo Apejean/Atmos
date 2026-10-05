@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:atmos_mixer_pro/core/state/engine_resync.dart';
+import 'package:atmos_mixer_pro/core/state/launch_mode.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:atmos_mixer_pro/core/theme/colors.dart';
@@ -26,6 +28,8 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
   String _selectedDriverType = 'WASAPI';
   bool _isDeviceManuallyChanged = false;
   bool _isScanning = false;
+  // 이 컴퓨터의 운영 설정이라 config.json이 아니라 환경설정(SharedPreferences)에 둔다.
+  bool _autoResumeOnLogon = true;
   final Map<String, int> _trackChannels = {};
 
   String _getDriverType(String? deviceName) {
@@ -67,6 +71,9 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    loadAutoResumeOnLogon().then((value) {
+      if (mounted) setState(() => _autoResumeOnLogon = value);
+    });
     // clone config for editing
     final currentConfig = ref.read(configProvider);
     _tempConfig = currentConfig != null
@@ -378,6 +385,7 @@ oscWhitelist: _tempConfig.oscWhitelist,
       globalTrajectory: _tempConfig.globalTrajectory,
       roomZones: _tempConfig.roomZones,
     );
+    unawaited(saveAutoResumeOnLogon(_autoResumeOnLogon));
     ref.read(configProvider.notifier).saveConfig(finalConfig);
     Navigator.of(context).pop();
   }
@@ -1171,6 +1179,38 @@ oscWhitelist: _tempConfig.oscWhitelist,
 
 
 
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            const SizedBox(
+              width: 120,
+              child: Text(
+                '로그인할 때\n공연 자동 시작',
+                style: TextStyle(
+                  color: Colors.white70,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
+              ),
+            ),
+            Switch(
+              value: _autoResumeOnLogon,
+              activeTrackColor: AppColors.primaryNeon.withValues(alpha: 0.5),
+              activeThumbColor: AppColors.primaryNeon,
+              onChanged: (val) => setState(() => _autoResumeOnLogon = val),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              _autoResumeOnLogon ? 'On' : 'Off',
+              style: TextStyle(
+                color: _autoResumeOnLogon
+                    ? AppColors.primaryNeon
+                    : Colors.white54,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
         const SizedBox(height: 24),
         const Text(
           '출력 채널 구성 (Channel Config)',

@@ -11,7 +11,15 @@ on:
   push:
     tags:
       - 'v*'
+  # PR마다 Windows·macOS 빌드를 돌린다. 릴리스는 태그에서만 한다.
+  pull_request:
+    branches: [main]
   workflow_dispatch:
+
+# 같은 PR에 커밋이 또 올라오면 앞선 빌드를 취소한다.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   build:
@@ -42,7 +50,13 @@ jobs:
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
         with:
-          workspaces: atmos_mixer_pro/rust
+          workspaces: |
+            atmos_mixer_pro/rust
+            atmos_mixer_pro/supervisor
+
+      # 감시 프로그램(충돌·멈춤 뒤 앱을 다시 띄움). Windows에서도 돌려 넘겨받기(프로세스 핸들) 경로를 확인한다.
+      - name: Supervisor tests
+        run: cargo test --manifest-path atmos_mixer_pro/supervisor/Cargo.toml
         
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
@@ -96,6 +110,14 @@ jobs:
       - name: Build
         run: ${{ matrix.build_cmd }}
         working-directory: atmos_mixer_pro
+
+      # 감시 프로그램을 앱 옆에 둔다. installer의 바로가기·로그인 자동 실행이 이것을 띄운다.
+      - name: Add supervisor to Release (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          cargo build --release --manifest-path atmos_mixer_pro/supervisor/Cargo.toml
+          Copy-Item atmos_mixer_pro/supervisor/target/release/atmos_supervisor.exe atmos_mixer_pro/build/windows/x64/runner/Release/
         
       - name: Archive Release (Windows)
         if: matrix.os == 'windows-latest'

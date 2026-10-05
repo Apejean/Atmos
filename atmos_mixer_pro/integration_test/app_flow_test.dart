@@ -42,7 +42,7 @@ void main() {
     final cwd = Directory.current;
     Directory.current = fixture.root;
     addTearDown(() => Directory.current = cwd);
-    await app.main();
+    await app.main(const []);
     await pumpUntil(tester, () => find.byType(DashboardScreen).evaluate().isNotEmpty,
         timeout: const Duration(seconds: 30), reason: '0단계: 30초 안에 대시보드가 뜨지 않았다');
     final container = ProviderScope.containerOf(tester.element(find.byType(app.AtmosMixerProApp)));

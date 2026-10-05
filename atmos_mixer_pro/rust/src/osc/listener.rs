@@ -256,18 +256,9 @@ fn handle_packet(packet: OscPacket, debouncer: &OscDebouncer) {
                         crate::core::state::GLOBAL_STATE
                             .log("OSC Triggered: System Reset".to_string());
                     }
-                    OscAction::ThemeStart(first_room, track_ids) => {
-                        let _ = crate::api::simple::api_stop_all();
-                        if !first_room.is_empty() {
-                            let _ =
-                                crate::api::simple::api_set_active_room(Some(first_room.clone()));
-                            for track_id in track_ids {
-                                let _ = crate::api::simple::api_play_track(
-                                    first_room.clone(),
-                                    track_id,
-                                );
-                            }
-                        }
+                    OscAction::ThemeStart => {
+                        // 감시가 다시 띄운 앱이 이어 갈 수 없을 때와 같은 동작이다(api::show).
+                        let _ = crate::api::show::api_theme_start();
                     }
                     OscAction::ClearRoom(room_id) => {
                         if !check_gating(&room_id, config.is_exhibition_mode) {

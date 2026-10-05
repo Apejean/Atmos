@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:atmos_mixer_pro/features/dashboard/screens/dashboard_screen.dart';
 import 'package:atmos_mixer_pro/core/state/global_state.dart';
+import 'package:atmos_mixer_pro/core/state/launch_mode.dart';
+import 'package:atmos_mixer_pro/src/rust/api/show.dart' as show_api;
 import 'package:atmos_mixer_pro/src/rust/api/simple.dart' as rust_api;
 import 'package:atmos_mixer_pro/features/settings/widgets/tuning_modal.dart';
 import 'package:atmos_mixer_pro/features/exhibition/state/three_js_engine_provider.dart';
@@ -57,6 +59,8 @@ class _AudioInitSplashScreenState extends ConsumerState<AudioInitSplashScreen> {
       // Apply tuning settings after engine starts
       ref.read(tuningStateProvider.notifier).applyAllToBackend();
 
+      await _resumeShowIfLaunchedForIt();
+
       _navigateToDashboard();
     } catch (e) {
       if (mounted) {
@@ -67,6 +71,21 @@ class _AudioInitSplashScreenState extends ConsumerState<AudioInitSplashScreen> {
       }
       // Optionally redirect to preferences even on error after a delay
       Future.delayed(const Duration(seconds: 3), _navigateToPreferences);
+    }
+  }
+
+  /// 감시 프로그램이 다시 띄웠거나 로그인 자동 실행이면 공연을 이어 간다(rust api::show). 멈춘 위치부터
+  /// 다시 틀고, 이어 갈 수 없으면 첫 방 테마로 시작한다. 사람이 켰으면 대기한다.
+  Future<void> _resumeShowIfLaunchedForIt() async {
+    final resume = shouldResumeShow(
+      args: ref.read(launchArgsProvider),
+      resumeOnLogon: await loadAutoResumeOnLogon(),
+    );
+    if (!resume) return;
+    try {
+      await show_api.apiResumeShow();
+    } catch (e) {
+      // 이어 가지 못해도 앱은 계속 쓴다(이유는 Rust가 앱 로그에 남긴다).
     }
   }
 

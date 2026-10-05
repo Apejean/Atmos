@@ -8,7 +8,9 @@
 
 import 'api/acoustics.dart';
 import 'api/error.dart';
+import 'api/lifecycle.dart';
 import 'api/scene.dart';
+import 'api/show.dart';
 import 'api/simple.dart';
 import 'common/config.dart';
 import 'dart:async';
@@ -175,6 +177,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   SpatialConfigPayload dco_decode_spatial_config_payload(dynamic raw);
+
+  @protected
+  StartupDecision dco_decode_startup_decision(dynamic raw);
 
   @protected
   TrackConfig dco_decode_track_config(dynamic raw);
@@ -376,6 +381,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   SpatialConfigPayload sse_decode_spatial_config_payload(
     SseDeserializer deserializer,
   );
+
+  @protected
+  StartupDecision sse_decode_startup_decision(SseDeserializer deserializer);
 
   @protected
   TrackConfig sse_decode_track_config(SseDeserializer deserializer);
@@ -626,6 +634,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_spatial_config_payload(
     SpatialConfigPayload self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_startup_decision(
+    StartupDecision self,
     SseSerializer serializer,
   );
 

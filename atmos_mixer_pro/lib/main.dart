@@ -1,11 +1,15 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:atmos_mixer_pro/core/state/global_state.dart';
 import 'package:atmos_mixer_pro/core/state/engine_resync.dart';
+import 'package:atmos_mixer_pro/core/state/launch_mode.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:atmos_mixer_pro/src/rust/frb_generated.dart';
+import 'package:atmos_mixer_pro/src/rust/api/lifecycle.dart';
+import 'package:atmos_mixer_pro/src/rust/api/show.dart';
 import 'package:atmos_mixer_pro/src/rust/api/simple.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart'
     show ExternalLibrary;
@@ -13,7 +17,7 @@ import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart'
 import 'package:atmos_mixer_pro/features/splash/screens/audio_init_splash_screen.dart';
 import 'package:atmos_mixer_pro/features/exhibition/state/acoustic_sync_provider.dart';
 
-Future<void> main() async {
+Future<void> main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // Initialize rust bridge
@@ -31,6 +35,19 @@ Future<void> main() async {
           )
         : null,
   );
+
+  // 시작 관문(rust api::lifecycle). 창을 띄우기 전에 감시 프로그램으로 넘기거나, 이미 떠 있으면 끝낸다.
+  switch (await apiStartupGate(args: args)) {
+    case StartupDecision.handedToSupervisor:
+      exit(0);
+    case StartupDecision.duplicate:
+      exit(3);
+    case StartupDecision.proceed:
+      break;
+  }
+  // 지난 공연 상태를 읽어 두고 5초마다 저장을 시작한다(rust api::show). 이어 가기(스플래시)는
+  // 여기서 읽어 둔 상태를 쓰므로, 저장이 파일을 덮어써도 멈춘 위치를 잃지 않는다.
+  await apiStartShowState(dir: await showStateDir());
 
   // Initialize window_manager for frameless kiosk mode
   await windowManager.ensureInitialized();
@@ -50,7 +67,10 @@ Future<void> main() async {
     await windowManager.focus();
   });
 
-  runApp(const ProviderScope(child: AtmosMixerProApp()));
+  runApp(ProviderScope(
+    overrides: [launchArgsProvider.overrideWithValue(args)],
+    child: const AtmosMixerProApp(),
+  ));
 }
 
 class AtmosMixerProApp extends ConsumerStatefulWidget {
@@ -62,20 +82,45 @@ class AtmosMixerProApp extends ConsumerStatefulWidget {
 
 class _AtmosMixerProAppState extends ConsumerState<AtmosMixerProApp>
     with WindowListener {
+  Timer? _heartbeat;
+  bool _heartbeatInFlight = false;
+
   @override
   void initState() {
     super.initState();
     windowManager.addListener(this);
+    // 감시 프로그램이 이 앱이 응답하는지 본다(rust api::lifecycle). 3D 로딩과 상관없이 바로 시작한다.
+    _beat();
+    _heartbeat = Timer.periodic(const Duration(seconds: 2), (_) => _beat());
+  }
+
+  /// 앞 호출이 아직 안 끝났으면 건너뛴다. Rust가 막혀 있으면 하트비트가 끊겨야 감시가 알아챈다.
+  Future<void> _beat() async {
+    if (_heartbeatInFlight) return;
+    _heartbeatInFlight = true;
+    try {
+      await apiHeartbeat();
+    } catch (_) {
+      // 이번 하트비트를 못 썼다. 다음 주기에 다시 쓴다.
+    } finally {
+      _heartbeatInFlight = false;
+    }
   }
 
   @override
   void dispose() {
+    _heartbeat?.cancel();
     windowManager.removeListener(this);
     super.dispose();
   }
 
   @override
   void onWindowClose() async {
+    // 운영자가 닫는다. 감시 프로그램이 다시 띄우지 않도록 엔진을 멈추기 전에 표시한다(rust api::lifecycle).
+    await Future.any([
+      apiMarkCleanExit(),
+      Future.delayed(const Duration(milliseconds: 500)),
+    ]);
     // Explicitly release ASIO hardware locks and cleanly stop audio engine
     // Adding timeout guard to prevent ghost processes
     await Future.any([
