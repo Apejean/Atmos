@@ -8,6 +8,8 @@ use crate::frb_generated::StreamSink;
 #[flutter_rust_bridge::frb(init)]
 pub fn api_init_app() {
     flutter_rust_bridge::setup_default_user_utils();
+    // 무인 운영 중 시스템이 잠들지 않게 한다(앱이 켜져 있는 동안).
+    crate::core::keep_awake::prevent_system_sleep();
     // (Removed start_osc_server to prevent port 8000/8001 conflict.
     // The main OSC listener handles everything now.)
 }
@@ -1941,20 +1943,20 @@ pub fn api_get_device_channel_names(
 }
 
 pub fn api_export_logs(destination_dir: String) -> Result<(), AtmosError> {
-    let mut dir = std::env::temp_dir();
-    dir.push("atmos_mixer_pro_logs");
-    dir.push("atmos_mixer_pro.log");
-    if dir.exists() {
-        let dest_path = std::path::Path::new(&destination_dir).join("atmos_mixer_pro.log");
-        std::fs::copy(&dir, &dest_path).map_err(|e| AtmosError {
-            message: format!("Failed to copy log file: {}", e),
-        })?;
-        Ok(())
-    } else {
-        Err(AtmosError {
+    // 지금 로그와 뒤로 밀린 로그(core::log_file)를 모두 복사한다.
+    let copied = crate::core::log_file::export_to(
+        &crate::core::log_file::log_dir(),
+        std::path::Path::new(&destination_dir),
+    )
+    .map_err(|e| AtmosError {
+        message: format!("Failed to copy log file: {}", e),
+    })?;
+    if copied == 0 {
+        return Err(AtmosError {
             message: "Log file does not exist".to_string(),
-        })
+        });
     }
+    Ok(())
 }
 
 pub fn api_play_all_loop_tracks() -> Result<(), AtmosError> {

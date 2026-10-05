@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:atmos_mixer_pro/core/theme/colors.dart';
 import 'package:atmos_mixer_pro/core/state/global_state.dart';
 import 'package:atmos_mixer_pro/core/utils/channel_routing.dart';
+import 'package:atmos_mixer_pro/core/utils/log_export_dir.dart';
 import 'package:atmos_mixer_pro/features/dashboard/widgets/room_card.dart';
 import 'package:atmos_mixer_pro/features/settings/widgets/preferences_modal.dart';
 import 'package:atmos_mixer_pro/features/settings/widgets/tuning_modal.dart';
@@ -313,17 +314,15 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 label: 'Export Log',
                 onSelected: () async {
                   try {
-                    String dest = '';
-                    if (Platform.isWindows) {
-                      dest = '${Platform.environment['USERPROFILE']}\\Desktop';
-                    } else {
-                      dest = '${Platform.environment['HOME']}/Desktop';
-                    }
+                    // 바탕화면을 못 찾으면(OneDrive로 옮겨진 경우 등) 폴더를 묻는다.
+                    final dest = await desktopDirForLogExport() ??
+                        await FilePicker.getDirectoryPath(dialogTitle: '로그를 저장할 폴더');
+                    if (dest == null) return;
                     await rust_api.apiExportLogs(destinationDir: dest);
                     if (context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('바탕화면에 로그가 저장되었습니다.'),
+                        SnackBar(
+                          content: Text('로그를 저장했습니다: $dest'),
                           backgroundColor: AppColors.success,
                         ),
                       );
@@ -556,18 +555,15 @@ oscWhitelist: config.oscWhitelist,
                   MenuItemButton(
                     onPressed: () async {
                       try {
-                        String dest = '';
-                        if (Platform.isWindows) {
-                          dest =
-                              '${Platform.environment['USERPROFILE']}\\Desktop';
-                        } else {
-                          dest = '${Platform.environment['HOME']}/Desktop';
-                        }
+                        // 바탕화면을 못 찾으면(OneDrive로 옮겨진 경우 등) 폴더를 묻는다.
+                        final dest = await desktopDirForLogExport() ??
+                            await FilePicker.getDirectoryPath(dialogTitle: '로그를 저장할 폴더');
+                        if (dest == null) return;
                         await rust_api.apiExportLogs(destinationDir: dest);
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('바탕화면에 로그가 저장되었습니다.'),
+                            SnackBar(
+                              content: Text('로그를 저장했습니다: $dest'),
                               backgroundColor: AppColors.success,
                             ),
                           );
