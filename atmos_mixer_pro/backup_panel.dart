@@ -529,7 +529,7 @@ class _SpeakerInspectorPanelState extends ConsumerState<SpeakerInspectorPanel> {
                       const Text('Set as LFE Subwoofer', style: TextStyle(color: Colors.white70, fontSize: 12)),
                       Switch(
                         value: isLfe,
-                        activeColor: const Color(0xFFFF5722),
+                        activeThumbColor: const Color(0xFFFF5722),
                         onChanged: (val) {
                           ref.read(speakerLayoutProvider.notifier).setSubwoofer(speaker.id, val);
                         },
