@@ -9,6 +9,7 @@
 ## 사용법
 
 - 위에서 아래 순서로 따라 한다. 앞 절이 실패하면(빌드·설치·기동) 뒤 절은 의미가 없다.
+- Windows 개발 PC의 Claude 세션으로 진행할 때는 `docs/windows/WINDOWS_HARNESS.md`를 따른다(P6이 이 점검표를 묶음으로 나눠 진행하고, 결과는 그 하네스의 RESULTS.md에 먼저 적은 뒤 결과 PR로 이 문서에 옮긴다).
 - 각 항목은 `[ ]`에 결과를 적는다: `OK` / `실패(증상)` / `해당 없음`. 맨 아래 "결과 기록"에 PC 정보와 함께 정리한다.
 - 로그 위치: 앱 로그 `%TEMP%\atmos_mixer_pro_logs\atmos_mixer_pro.log`(밀린 파일 `.1`~`.4`), 감시 기록 `%TEMP%\atmos_mixer_pro_logs\supervisor.log`. 신호 파일(`app.lock`, `app.pid`, `heartbeat`, `clean_exit`, `supervisor.lock`)도 같은 폴더다.
 - 앱 메뉴 "Export Log"로 로그를 바탕화면에 내보낼 수 있다(아래 6절에서 이 기능 자체를 점검한다).

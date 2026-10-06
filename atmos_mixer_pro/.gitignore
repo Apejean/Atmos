@@ -43,3 +43,8 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Windows installer: Inno Setup output and the temporary Release copy that installer.iss reads
+# (docs/windows/WINDOWS_HARNESS.md P5 Z5)
+/windows/Output/
+/windows/build/
