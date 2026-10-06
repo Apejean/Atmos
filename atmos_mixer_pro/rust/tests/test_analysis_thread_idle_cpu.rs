@@ -12,6 +12,9 @@
 //! 이 테스트는 스레드를 띄워놓고 아무 데이터도 넣지 않은 뒤, 이 프로세스가
 //! 실제로 소비한 CPU 시간을 측정한다. 바쁜 회전이면 측정 구간과 비슷한 CPU
 //! 시간을 쓰고, 제대로 쉬면 거의 쓰지 않는다.
+//!
+//! CPU 시간은 유닉스의 getrusage로 잰다. Windows에서는 이 파일을 빼야 `cargo test`가 컴파일된다.
+#![cfg(unix)]
 
 use rust_lib_atmos_mixer_pro::audio::analysis::start_analysis_thread;
 use std::time::{Duration, Instant};
