@@ -20,9 +20,6 @@ import 'package:atmos_mixer_pro/features/dashboard/widgets/resampler_status_badg
 import 'package:atmos_mixer_pro/features/dashboard/widgets/binaural_toggle_badge.dart';
 import 'package:atmos_mixer_pro/features/exhibition/state/acoustic_sync_provider.dart';
 import 'package:atmos_mixer_pro/features/exhibition/state/spatial_sync_provider.dart';
-import 'package:atmos_mixer_pro/features/dashboard/widgets/rta_spectrum_overlay.dart';
-import 'package:atmos_mixer_pro/features/dashboard/widgets/multitrack_timeline.dart';
-import 'package:atmos_mixer_pro/features/dashboard/widgets/advanced_physics_panel.dart';
 import 'package:atmos_mixer_pro/features/exhibition/screens/speaker_canvas_screen.dart'
     as atmos_exhibition;
 import 'package:atmos_mixer_pro/features/dashboard/widgets/safety_alert_border.dart';
