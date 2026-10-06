@@ -341,8 +341,11 @@ impl AudioEngine {
         let err_fn = |err: cpal::StreamError| {
             eprintln!("an error occurred on stream: {}", err);
             let err_str = err.to_string();
-            let is_disconnect =
-                err_str.contains("DeviceNotAvailable") || err_str.contains("kAsioResetRequest");
+            // 장치 유실은 오류 종류로 본다. 표시 문구("The requested device is no longer available…")에는
+            // "DeviceNotAvailable"이 없어서, 문자열만 보면 놓치고 1초 뒤 워치독이 대신 잡았다(실기 2026-10-07).
+            let is_disconnect = matches!(err, cpal::StreamError::DeviceNotAvailable)
+                || err_str.contains("DeviceNotAvailable")
+                || err_str.contains("kAsioResetRequest");
             if is_disconnect {
                 crate::core::state::GLOBAL_STATE
                     .device_needs_reset

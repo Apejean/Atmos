@@ -835,6 +835,8 @@ pub fn api_init_audio_system(device_name: Option<String>) -> Result<(), AtmosErr
     // 세대를 먼저 올려야 감시 루프의 스냅샷이 버린 뒤에 끼어들지 못한다.
     stop_audio_engine();
     crate::core::restart_resume::cancel_all();
+    // 비상 전환 뒤 이 장치가 돌아오면 이름을 지정해 다시 연다(core::device_return).
+    crate::core::device_return::remember_requested_device(device_name.clone());
     start_audio_system(device_name)
 }
 
@@ -932,12 +934,16 @@ fn start_audio_system(device_name: Option<String>) -> Result<(), AtmosError> {
                 // 켜고 리스캔해서 다시 잡고 재생해도 소리가 안 남"). 상태 배너도 같은
                 // 이유로 계속 떴다.
                 //
-                // 폴백 경로는 api_init_audio_system(None)으로 호출되므로 여기서 해제되지
-                // 않는다. 즉 "기본 장치로 임시 전환된 상태"는 그대로 유지된다.
-                if requested_explicit_device {
-                    crate::core::state::GLOBAL_STATE
+                // 폴백 경로는 장치 이름 없이(None) 열리므로 여기서 해제되지 않는다. 즉 "기본 장치로
+                // 임시 전환된 상태"는 그대로 유지된다. 설정의 장치가 돌아오면 자기 재시작이 그 이름을
+                // 지정해 열어 여기서 풀린다(core::device_return).
+                if requested_explicit_device
+                    && crate::core::state::GLOBAL_STATE
                         .is_failover_mode
-                        .store(false, std::sync::atomic::Ordering::Relaxed);
+                        .swap(false, std::sync::atomic::Ordering::Relaxed)
+                {
+                    crate::core::state::GLOBAL_STATE
+                        .log("비상 전환 해제: 지정한 장치로 다시 열었다(출력 감쇠 해제)".to_string());
                 }
 
                 if crate::core::state::GLOBAL_STATE
@@ -963,7 +969,7 @@ fn start_audio_system(device_name: Option<String>) -> Result<(), AtmosError> {
                         .device_needs_reset
                         .load(std::sync::atomic::Ordering::Acquire)
                     {
-                        println!("⚠️ [디버깅] ASIO 장치 핫리로드 요청 수신 (kAsioResetRequest)");
+                        println!("⚠️ [디버깅] 장치 유실·재설정 요청 수신 (DeviceNotAvailable / kAsioResetRequest)");
                         crate::core::state::GLOBAL_STATE
                             .device_needs_reset
                             .store(false, std::sync::atomic::Ordering::Release);
@@ -1063,11 +1069,37 @@ fn start_audio_system(device_name: Option<String>) -> Result<(), AtmosError> {
                     // 리스캔의 apiInitAudioSystem await도 끝나지 않음).
                     // 여기서 스레드를 띄우고 즉시 반환하면 이 스레드가 종료되므로
                     // 새 스레드의 join이 풀린다.
-                    let restart_device = device_name.clone();
+                    let current_device = device_name.clone();
                     std::thread::spawn(move || {
                         std::thread::sleep(std::time::Duration::from_millis(100)); // Fast auto hot-reload
                         if ENGINE_GENERATION.load(std::sync::atomic::Ordering::SeqCst) != gen {
                             return; // 그 사이 사용자가 직접 정지/재기동했다
+                        }
+                        // 비상 엔진(기본 장치)이면 설정의 장치가 돌아왔는지 보고, 돌아왔으면 이름을 지정해 연다.
+                        // 그래야 비상 감쇠가 풀린다(core::device_return).
+                        let failover = crate::core::state::GLOBAL_STATE
+                            .is_failover_mode
+                            .load(std::sync::atomic::Ordering::Relaxed);
+                        let requested = crate::core::device_return::requested_device();
+                        let available: Vec<String> = if failover && requested.is_some() {
+                            api_get_output_devices()
+                                .map(|devices| devices.into_iter().map(|d| d.name).collect())
+                                .unwrap_or_default()
+                        } else {
+                            Vec::new()
+                        };
+                        let restart_device = crate::core::device_return::device_for_self_restart(
+                            current_device.as_deref(),
+                            failover,
+                            requested.as_deref(),
+                            &available,
+                        );
+                        if restart_device != current_device {
+                            if let Some(ref name) = restart_device {
+                                crate::core::state::GLOBAL_STATE.log(format!(
+                                    "비상 전환 해제 시도: 설정의 장치 '{name}'가 돌아와 이름을 지정해 다시 연다"
+                                ));
+                            }
                         }
                         println!("🔄 [디버깅] 자동 재연결(Hot-Reload) 수행!");
                         broadcast_stream_status("HotReloading".to_string());
@@ -1076,6 +1108,9 @@ fn start_audio_system(device_name: Option<String>) -> Result<(), AtmosError> {
                             Err(_e) => {
                                 // Emergency Failover
                                 println!("🚨 [Failover] 장치 재연결 실패. WASAPI 기본 장치로 강제 비상 전환!");
+                                crate::core::state::GLOBAL_STATE.log(
+                                    "비상 전환: 장치를 다시 열지 못해 기본 장치로 임시 전환한다(출력 −40dB)".to_string(),
+                                );
                                 crate::core::state::GLOBAL_STATE
                                     .is_failover_mode
                                     .store(true, std::sync::atomic::Ordering::Relaxed);
