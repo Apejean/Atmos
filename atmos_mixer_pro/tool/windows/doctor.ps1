@@ -63,6 +63,9 @@ if ($vsPath) {
 } else {
   Add-Row 'Visual Studio C++' 'FAIL' 'no Visual Studio with "Desktop development with C++"'
 }
+# env.ps1이 넣는 VS 개발자 환경. 없으면 asio-sys가 vcvarsall.bat을 C:\Program Files에서만 찾다 멈춘다.
+$st = 'FAIL'; if ($env:VCINSTALLDIR) { $st = 'PASS' }
+Add-Row 'VS developer env (asio-sys)' $st "VCINSTALLDIR=$env:VCINSTALLDIR"
 
 foreach ($name in @('RUSTUP_HOME', 'CARGO_HOME', 'PUB_CACHE', 'LIBCLANG_PATH', 'CPAL_ASIO_DIR')) {
   $u = [Environment]::GetEnvironmentVariable($name, 'User')
@@ -80,13 +83,19 @@ Test-Tool 'cargo clippy' 'cargo' @('clippy', '-V') -Optional
 $lib = Join-Path $env:LIBCLANG_PATH 'libclang.dll'
 $st = 'FAIL'; if (Test-Path $lib) { $st = 'PASS' }
 Add-Row 'libclang.dll (ASIO bindgen)' $st $lib
-$asioH = $null
-if (Test-Path $env:CPAL_ASIO_DIR) {
-  $asioH = Get-ChildItem -Path $env:CPAL_ASIO_DIR -Recurse -Filter 'asio.h' -ErrorAction SilentlyContinue | Select-Object -First 1
+# asio-sys 0.2.6은 CPAL_ASIO_DIR 바로 아래의 common, host, host\pc만 쓴다. 한 단계 더 깊이 풀려 있으면 빌드가 실패한다.
+$asioDir = $env:CPAL_ASIO_DIR
+$asioMiss = @(@('common\asio.h', 'host\asiodrivers.h', 'host\pc') | Where-Object { -not (Test-Path (Join-Path $asioDir $_)) })
+if ($asioMiss.Count -eq 0) {
+  Add-Row 'ASIO SDK (CPAL_ASIO_DIR)' 'PASS' $asioDir
+} else {
+  $d = "missing under ${asioDir}: " + ($asioMiss -join ', ')
+  if (Test-Path $asioDir) {
+    $deeper = Get-ChildItem -Path $asioDir -Recurse -Filter 'asio.h' -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($deeper) { $d += " (asio.h is at $($deeper.FullName); point CPAL_ASIO_DIR at the folder that holds common and host)" }
+  }
+  Add-Row 'ASIO SDK (CPAL_ASIO_DIR)' 'FAIL' $d
 }
-$st = 'FAIL'; $d = $env:CPAL_ASIO_DIR
-if ($asioH) { $st = 'PASS'; $d = $asioH.FullName }
-Add-Row 'ASIO SDK (asio.h)' $st $d
 
 Test-Tool 'flutter' 'flutter' @('--version') '^Flutter \d'
 $dl = Find-Line 'dart' @('--version') 'Dart SDK version'
