@@ -6,6 +6,7 @@
 import 'api/acoustics.dart';
 import 'api/error.dart';
 import 'api/lifecycle.dart';
+import 'api/project.dart';
 import 'api/scene.dart';
 import 'api/show.dart';
 import 'api/simple.dart';
@@ -166,6 +167,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   (int, ChannelSetting) dco_decode_record_u_32_channel_setting(dynamic raw);
+
+  @protected
+  RelinkedConfig dco_decode_relinked_config(dynamic raw);
 
   @protected
   RoomConfig dco_decode_room_config(dynamic raw);
@@ -368,6 +372,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   (int, ChannelSetting) sse_decode_record_u_32_channel_setting(
     SseDeserializer deserializer,
   );
+
+  @protected
+  RelinkedConfig sse_decode_relinked_config(SseDeserializer deserializer);
 
   @protected
   RoomConfig sse_decode_room_config(SseDeserializer deserializer);
@@ -620,6 +627,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_record_u_32_channel_setting(
     (int, ChannelSetting) self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_relinked_config(
+    RelinkedConfig self,
     SseSerializer serializer,
   );
 

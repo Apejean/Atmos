@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:atmos_mixer_pro/core/state/engine_resync.dart';
 import 'package:atmos_mixer_pro/core/state/project_file.dart';
+import 'package:atmos_mixer_pro/core/state/project_media.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
@@ -13,6 +14,7 @@ import 'package:atmos_mixer_pro/features/dashboard/widgets/room_card.dart';
 import 'package:atmos_mixer_pro/features/settings/widgets/preferences_modal.dart';
 import 'package:atmos_mixer_pro/features/settings/widgets/tuning_modal.dart';
 import 'package:atmos_mixer_pro/features/dashboard/widgets/osc_monitor_dialog.dart';
+import 'package:atmos_mixer_pro/features/dashboard/widgets/missing_media_dialog.dart';
 import 'package:atmos_mixer_pro/features/dashboard/widgets/master_limiter_meter.dart';
 import 'package:atmos_mixer_pro/features/dashboard/widgets/resampler_status_badge.dart';
 import 'package:atmos_mixer_pro/features/dashboard/widgets/binaural_toggle_badge.dart';
@@ -177,6 +179,95 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     );
   }
 
+  /// 프로젝트 파일(.atmos)을 연다. macOS 메뉴와 Windows 메뉴가 같이 쓴다.
+  /// 다른 PC에서 저장한 프로젝트면 트랙 오디오·도면 경로를 이 PC의 파일로 다시 연결한다
+  /// (core/state/project_media.dart). 프로젝트 폴더에서 못 찾은 파일이 있으면 폴더를 묻는다.
+  Future<void> _loadProject(BuildContext context) async {
+    final FilePickerResult? result = await FilePicker.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['atmos'],
+    );
+    final path = result?.files.single.path;
+    if (path == null || !context.mounted) return;
+    _showLoading(context);
+    try {
+      final imported = await rust_api.apiGetConfig(path: path);
+      final rawBlueprint = readExhibitionSection(await File(path).readAsString())?['blueprint_image_path'];
+      final media = await relinkProjectMedia(
+        config: imported,
+        blueprintPath: rawBlueprint is String && rawBlueprint.isNotEmpty ? rawBlueprint : null,
+        projectDir: File(path).parent.path,
+        askFolder: (missing) async {
+          // 로딩 창을 닫고 묻는다. 답을 받으면 다시 띄운다.
+          if (!context.mounted) return null;
+          Navigator.of(context).pop();
+          final folder = await askMediaFolder(context, missing);
+          if (context.mounted) _showLoading(context);
+          return folder;
+        },
+      );
+      final importedConfig = media.config;
+      await rust_api.apiStopAll();
+      if (context.mounted) {
+        ref.read(engineStateProvider.notifier).reset();
+        ref.read(configProvider.notifier).saveConfig(importedConfig);
+        ref
+            .read(tuningStateProvider.notifier)
+            .syncFromBackendConfig(importedConfig, treatAsManual: true);
+
+        // 엔진 설정에 없는 설계 데이터(스피커 배치·방·리버브·베이스
+        // 매니지먼트·궤적·청사진·채널 튜닝)를 같은 파일에서 복원한다.
+        // 설계 데이터가 없는 예전 파일이면 건너뛴다.
+        if (await restoreExhibitionDataFromFile(path)) {
+          // 도면 경로는 복원한 값 대신 이 PC에서 찾은 경로를 쓴다.
+          await storeBlueprintPath(media.blueprintPath);
+          await reloadExhibitionProvidersFromWidgetRef(ref);
+          resyncEngineStateFromWidgetRef(ref);
+        }
+
+        try {
+          await rust_api.apiPreloadAllSounds(config: importedConfig);
+        } catch (e) {
+          // ignore preload error
+        }
+
+        if (context.mounted) {
+          Navigator.of(context).pop(); // dismiss dialog
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('프리셋이 성공적으로 로드되었습니다.'),
+              backgroundColor: AppColors.success,
+            ),
+          );
+          if (media.missing.isNotEmpty) await showMissingMedia(context, media.missing);
+        }
+      }
+    } catch (e) {
+      if (context.mounted) {
+        Navigator.of(context).pop(); // dismiss dialog
+        ref.read(globalErrorProvider.notifier).showError('설정 불러오기 실패: $e');
+      }
+    }
+  }
+
+  void _showLoading(BuildContext context) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const AlertDialog(
+        backgroundColor: AppColors.background,
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircularProgressIndicator(color: AppColors.primaryNeon),
+            SizedBox(height: 16),
+            Text('Loading large audio assets...', style: TextStyle(color: Colors.white)),
+          ],
+        ),
+      ),
+    );
+  }
+
   List<PlatformMenuItem> _buildMenus(BuildContext context) {
     return [
       PlatformMenu(
@@ -186,85 +277,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             members: [
               PlatformMenuItem(
                 label: 'Load Project',
-                onSelected: () async {
-                  FilePickerResult? result = await FilePicker.pickFiles(
-                    type: FileType.custom,
-                    allowedExtensions: ['atmos'],
-                  );
-                  if (result != null && result.files.single.path != null) {
-                    if (context.mounted) {
-                      showDialog(
-                        context: context,
-                        barrierDismissible: false,
-                        builder: (context) => const AlertDialog(
-                          backgroundColor: AppColors.background,
-                          content: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              CircularProgressIndicator(
-                                color: AppColors.primaryNeon,
-                              ),
-                              SizedBox(height: 16),
-                              Text(
-                                'Loading large audio assets...',
-                                style: TextStyle(color: Colors.white),
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    }
-                    try {
-                      final importedConfig = await rust_api.apiGetConfig(
-                        path: result.files.single.path!,
-                      );
-                      await rust_api.apiStopAll();
-                      if (context.mounted) {
-                        ref.read(engineStateProvider.notifier).reset();
-                        ref
-                            .read(configProvider.notifier)
-                            .saveConfig(importedConfig);
-                        ref
-                            .read(tuningStateProvider.notifier)
-                            .syncFromBackendConfig(importedConfig, treatAsManual: true);
-
-                        // 엔진 설정에 없는 설계 데이터(스피커 배치·방·리버브·베이스
-                        // 매니지먼트·궤적·청사진·채널 튜닝)를 같은 파일에서 복원한다.
-                        // 설계 데이터가 없는 예전 파일이면 건너뛴다.
-                        if (await restoreExhibitionDataFromFile(
-                            result.files.single.path!)) {
-                          await reloadExhibitionProvidersFromWidgetRef(ref);
-                          resyncEngineStateFromWidgetRef(ref);
-                        }
-
-                        try {
-                          await rust_api.apiPreloadAllSounds(
-                            config: importedConfig,
-                          );
-                        } catch (e) {
-                          // ignore preload error
-                        }
-
-                        if (context.mounted) {
-                          Navigator.of(context).pop(); // dismiss dialog
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('프리셋이 성공적으로 로드되었습니다.'),
-                              backgroundColor: AppColors.success,
-                            ),
-                          );
-                        }
-                      }
-                    } catch (e) {
-                      if (context.mounted) {
-                        Navigator.of(context).pop(); // dismiss dialog
-                        ref
-                            .read(globalErrorProvider.notifier)
-                            .showError('설정 불러오기 실패: $e');
-                      }
-                    }
-                  }
-                },
+                onSelected: () => _loadProject(context),
               ),
               PlatformMenuItem(
                 label: 'Save Project',
@@ -431,84 +444,7 @@ oscWhitelist: config.oscWhitelist,
               SubmenuButton(
                 menuChildren: [
                   MenuItemButton(
-                    onPressed: () async {
-                      FilePickerResult? result = await FilePicker.pickFiles(
-                        type: FileType.custom,
-                        allowedExtensions: ['atmos'],
-                      );
-                      if (result != null && result.files.single.path != null) {
-                        if (context.mounted) {
-                          showDialog(
-                            context: context,
-                            barrierDismissible: false,
-                            builder: (context) => const AlertDialog(
-                              backgroundColor: AppColors.background,
-                              content: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  CircularProgressIndicator(
-                                    color: AppColors.primaryNeon,
-                                  ),
-                                  SizedBox(height: 16),
-                                  Text(
-                                    'Loading large audio assets...',
-                                    style: TextStyle(color: Colors.white),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
-                        }
-                        try {
-                          final importedConfig = await rust_api.apiGetConfig(
-                            path: result.files.single.path!,
-                          );
-                          await rust_api.apiStopAll();
-                          if (context.mounted) {
-                            ref.read(engineStateProvider.notifier).reset();
-                            ref
-                                .read(configProvider.notifier)
-                                .saveConfig(importedConfig);
-                            ref
-                                .read(tuningStateProvider.notifier)
-                                .syncFromBackendConfig(importedConfig, treatAsManual: true);
-
-                            // 엔진 설정에 없는 설계 데이터를 같은 파일에서 복원한다
-                            // (core/state/project_file.dart). macOS 메뉴 쪽과 같은 처리.
-                            if (await restoreExhibitionDataFromFile(
-                                result.files.single.path!)) {
-                              await reloadExhibitionProvidersFromWidgetRef(ref);
-                              resyncEngineStateFromWidgetRef(ref);
-                            }
-
-                            try {
-                              await rust_api.apiPreloadAllSounds(
-                                config: importedConfig,
-                              );
-                            } catch (e) {
-                              // ignore preload error
-                            }
-
-                            if (context.mounted) {
-                              Navigator.of(context).pop(); // dismiss dialog
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('프리셋이 성공적으로 로드되었습니다.'),
-                                  backgroundColor: AppColors.success,
-                                ),
-                              );
-                            }
-                          }
-                        } catch (e) {
-                          if (context.mounted) {
-                            Navigator.of(context).pop(); // dismiss dialog
-                            ref
-                                .read(globalErrorProvider.notifier)
-                                .showError('설정 불러오기 실패: $e');
-                          }
-                        }
-                      }
-                    },
+                    onPressed: () => _loadProject(context),
                     child: const Text('Load Project'),
                   ),
                   MenuItemButton(
