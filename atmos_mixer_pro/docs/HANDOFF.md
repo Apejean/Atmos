@@ -1,4 +1,4 @@
-# 작업 인계 (2026-10-05 기준)
+# 작업 인계 (2026-10-06 기준)
 
 새 세션에서 "docs/HANDOFF.md 보고 이어서 해줘"로 시작하면 된다. 설계 결정의 근거는 각 스펙 문서와 테스트 주석에 있다.
 
@@ -8,7 +8,7 @@
 
 | 항목 | 결과 | 확인하는 테스트 |
 |---|---|---|
-| 프로젝트를 열 때 트랙·도면 경로 다시 연결(남은 일 4번 구현, 브랜치 `feat/project-media-relink`, 2026-10-05 기준 미커밋) | **동작**: ① 저장된 경로에 파일이 있으면 그대로 쓴다. ② 없으면 `.atmos`가 있는 폴더와 그 하위 폴더에서 같은 파일 이름을 찾아 연결한다(대소문자 무시, 경로 구분자 `/`·`\` 모두 인식, 같은 이름이 여러 개면 원래 경로와 상위 폴더 이름이 가장 많이 겹치는 파일, 같으면 얕은 쪽, 숨김 파일·폴더(`._` 포함)는 보지 않고 16단계 깊이까지). ③ 그래도 못 찾은 파일이 있으면 "파일 N개를 찾지 못했습니다" 대화상자를 띄운다. "폴더 고르기"는 고른 폴더에서 같은 방법으로 찾고, "그대로 열기"는 그대로 연다. ④ 끝까지 못 찾은 파일은 원래 경로를 두고, 연 뒤 목록을 보여 주며 앱 로그에도 남긴다. ⑤ 다시 연결한 경로는 이 PC의 `config.json`과 도면 설정에 저장한다(저장 방식은 그 PC의 절대 경로로 그대로). ⑥ macOS 메뉴와 Windows 메뉴에 두 번 들어 있던 "Load Project" 코드를 대시보드의 `_loadProject` 하나로 합쳤다. **파일**: `rust/src/core/media_relink.rs`(`MediaFinder`, `relink_tracks`, `file_name_of`), `rust/src/api/project.rs`(`api_relink_track_paths`, `api_find_media`, `RelinkedConfig`), `lib/core/state/project_media.dart`, `lib/features/dashboard/widgets/missing_media_dialog.dart`, `dashboard_screen.dart`. **검증(구현 세션 보고)**: Rust 새 테스트 6개, `flutter test` 162개, 실제 앱 런타임 통합 테스트 2개(다시 연결 → 엔진이 그 경로의 오디오를 미리 읽음, 폴더 묻기 경로), `app_flow_test` 0~6단계 회귀 통과. 대화상자의 "폴더 고르기"를 실제로 누르는 것과 Windows에서 여는 것은 확인하지 못했다. | `test_media_relink`(Rust 6개), `test/project_media_test.dart`(4개), `integration_test/project_media_relink_test.dart`(2개) |
+| 프로젝트를 열 때 트랙·도면 경로 다시 연결(남은 일 4번 구현, PR #10으로 2026-10-06 병합) | **동작**: ① 저장된 경로에 파일이 있으면 그대로 쓴다. ② 없으면 `.atmos`가 있는 폴더와 그 하위 폴더에서 같은 파일 이름을 찾아 연결한다(대소문자 무시, 경로 구분자 `/`·`\` 모두 인식, 같은 이름이 여러 개면 원래 경로와 상위 폴더 이름이 가장 많이 겹치는 파일, 같으면 얕은 쪽, 숨김 파일·폴더(`._` 포함)는 보지 않고 16단계 깊이까지). ③ 그래도 못 찾은 파일이 있으면 "파일 N개를 찾지 못했습니다" 대화상자를 띄운다. "폴더 고르기"는 고른 폴더에서 같은 방법으로 찾고, "그대로 열기"는 그대로 연다. ④ 끝까지 못 찾은 파일은 원래 경로를 두고, 연 뒤 목록을 보여 주며 앱 로그에도 남긴다. ⑤ 다시 연결한 경로는 이 PC의 `config.json`과 도면 설정에 저장한다(저장 방식은 그 PC의 절대 경로로 그대로). ⑥ macOS 메뉴와 Windows 메뉴에 두 번 들어 있던 "Load Project" 코드를 대시보드의 `_loadProject` 하나로 합쳤다. **파일**: `rust/src/core/media_relink.rs`(`MediaFinder`, `relink_tracks`, `file_name_of`), `rust/src/api/project.rs`(`api_relink_track_paths`, `api_find_media`, `RelinkedConfig`), `lib/core/state/project_media.dart`, `lib/features/dashboard/widgets/missing_media_dialog.dart`, `dashboard_screen.dart`. **검증(구현 세션 보고)**: Rust 새 테스트 6개, `flutter test` 162개, 실제 앱 런타임 통합 테스트 2개(다시 연결 → 엔진이 그 경로의 오디오를 미리 읽음, 폴더 묻기 경로), `app_flow_test` 0~6단계 회귀 통과. 대화상자의 "폴더 고르기"를 실제로 누르는 것과 Windows에서 여는 것은 확인하지 못했다. | `test_media_relink`(Rust 6개), `test/project_media_test.dart`(4개), `integration_test/project_media_relink_test.dart`(2개) |
 | 무인 운영 기본기(Windows 기준 우선순위 3·4번 중 바로 할 수 있던 것) | **로그 회전**: 로그 파일이 10MB를 넘으면 뒤로 밀고 최대 5개(약 50MB)만 남긴다(`core/log_file.rs`). 로그 내보내기는 밀린 파일까지 복사한다. **로그 내보내기 위치**: Windows는 셸이 아는 실제 바탕화면(OneDrive로 옮겨진 경우 포함)을 쓰고, 못 찾으면 폴더를 묻는다(`lib/core/utils/log_export_dir.dart`). **절전 방지**: 앱이 켜져 있는 동안 시스템 절전을 막는다(화면은 꺼져도 됨). Windows는 `SetThreadExecutionState`, macOS는 `caffeinate -i -w <pid>`(`core/keep_awake.rs`, `api_init_app`에서 시작). **installer 버전**: 빌드된 exe의 `ProductVersion`(= pubspec 버전)에서 읽는다(예전에는 `1.0.41` 고정). Windows 쪽은 CI·실기로 아직 확인 못 함 | `test_log_rotation`, `test_keep_awake`(macOS), `test/log_export_dir_test.dart` |
 | OSC로 루프·스트리밍 트랙이 안 나오고, OSC로 방을 비운 뒤 다음 방 BGM이 안 나옴. 방 비우기가 모든 방의 재생 목록을 지움 | OSC 재생과 다음 방 BGM 자동 재생은 대시보드와 같은 `api_play_track` 경로를 탄다(예전에는 RAM 캐시만 봤는데 루프·스트리밍 트랙은 거기 없다). 방 비우기(대시보드·OSC)는 그 방 트랙만 재생 목록에서 뺀다(엔진도 그 방만 멈춘다). 그래서 다른 방 BGM이 목록에서 사라졌다가 자동 승격 때 겹쳐 두 번 나오는 일도 없다 | `test_osc_room_routing`(실제 OSC 리스너에 UDP로 보냄) |
 | 엔진이 스스로 재시작하면 재생이 사라짐(화면은 재생 중으로 남음) | 재생 중이던 트랙을 **멈춘 위치부터 자동으로** 다시 튼다(`rust/src/core/restart_resume.rs`). 감시 루프가 재시작을 정한 직후(옛 엔진 drop 전) 재생 목록·커서를 떠 두고, 새 엔진이 뜨면 `EngineRestarted:<순번>` 이벤트 → Dart 재동기화(서브 라우팅·FX) → `apiAckEngineRestart` → Rust 재개(응답이 2초 안에 없으면 그대로 재개). 기다리는 사이 트랙 정지·전체 정지·방 비우기(대시보드·OSC 모두)는 재개를 취소하고, 재개가 도는 도중의 정지도 이긴다. 최종 리뷰(2026-10-04)로 보강: All Mute가 엔진 재시작에도 유지되고, 스트리밍 재개는 첫 묶음이 올 때까지 페이드를 멈춰 딸깍이 없고, OSC 정지는 재생 목록에서 바로 빠지고, 인스턴스 번호는 시계 대신 전역 카운터다. 실측: 위치 6.01→9.64초(흐른 시간 4.30초 — 재시작 동안 앞으로 건너뛰지 않음), CH1 −34.23→−34.23·CH2 −31.39→−31.46dBFS, 재시작 알림→재개 107ms 동안 디지털 무음 | `test_restart_resume`, `test_restart_resume_races`, `test_master_mute_survives_restart`, `test_stream_resume_onset`, 통합 테스트 5단계 |
@@ -56,7 +56,7 @@
 | 재개 뒤에 온 OSC 방 비우기 | 옛 방 트랙이 잠깐 재개됐다가 방 비우기로 멈춤(최종 상태 정상) |
 | OSC 시스템 리셋 | ✅ 무음 |
 | `ATMOS_TRACE_CMD` 로그 대조 | ✅ 엔진 종료·시작 세대가 짝을 이루고 재개 재생이 새 세대 뒤에 나온다. 재동기화 명령이 두 번씩 나간다(남은 일 4) |
-| 테마 루프 65분(BGM 11.6초 루프, 44.1kHz → 48kHz 리샘플) | ✅ 엔진 재시작 0, 무음 구간 0, BGM 빠짐 0, VU 공백 0. CH2 레벨 −29.4~−23.6dBFS로 유지 · ⚠️ 메모리 912→1059MB(남은 일 2) |
+| 테마 루프 65분(BGM 11.6초 루프, 44.1kHz → 48kHz 리샘플) | ✅ 엔진 재시작 0, 무음 구간 0, BGM 빠짐 0, VU 공백 0. CH2 레벨 −29.4~−23.6dBFS로 유지 · ⚠️ 메모리 912→1059MB(남은 일 6) |
 
 ## 확정된 결정 (다시 제안하지 말 것)
 
@@ -92,18 +92,25 @@ Windows 실기에서 먼저 빌드·실행해 확인해야 하는 항목:
 
 ## 남은 일
 
-1. **Windows CI 빌드 확인(사용자)**: CI는 태그(`v*`) 푸시 때만 돌고 마지막이 2026-08-26이다. 그 뒤 cpal 0.16(ASIO), 재시작 복원, 절전 방지(`Win32_System_Power`)가 Windows에서 컴파일되는지 아무도 확인하지 않았다. GitHub Actions의 "Build and Release" → "Run workflow"(main)로 실행한다. 릴리스 단계는 태그에서만 돌아 배포는 일어나지 않는다. Claude는 이 실행이 권한상 막혀 있다(자동 모드 분류기: 공개 표면 생성).
+1. **Windows CI 빌드 — 확인됨(2026-10-05)**: CI(`.github/workflows/build_release.yml`)가 이제 `main` 대상 PR마다 돈다(PR #8에서 추가). PR #8·#10의 Windows·macOS 빌드가 통과해 cpal 0.16(ASIO), 재시작 복원, 절전 방지(`Win32_System_Power`)가 Windows에서 컴파일되는 것을 확인했다. Windows CI는 감시 크레이트 `cargo test`, 앱 Rust `cargo check`, 앱 빌드만 하고 앱의 `cargo test`·`flutter test`는 돌리지 않는다(12번). 배포(릴리스 단계)는 여전히 태그(`v*`)에서만 돈다.
 2. **Windows PC 실기 확인(사용자가 Windows PC 앞에서)**: 위 "⚠️ Windows 미검증" 목록 전부. 특히 다음 세 가지다.
    - 앱 기동과 3D 방 뷰어: `webview_flutter`에 Windows 구현이 없어 동작하지 않을 가능성이 가장 크다.
    - ASIO·Dante 장치 스캔과 12ch 출력.
    - 장치를 뽑았다 꽂는 재시작.
 3. **충돌 후 자동 재실행(Windows) — 코드 완료, macOS 확인 중·Windows 미검증**: 설계 `docs/superpowers/specs/2026-10-05-crash-relaunch-supervisor-design.md`, 구현 계획 `docs/superpowers/plans/2026-10-05-crash-relaunch-supervisor.md`(12개 작업, "구현 상태" 표가 기준). 별도 Rust 감시 프로그램(`atmos_supervisor`)이 앱의 신호 파일(`app.lock`, `app.pid`, `heartbeat`, `clean_exit`)로 충돌·멈춤을 판단해 앱을 다시 띄우고 공연을 멈춘 위치부터 이어 간다. 운영자가 일부러 닫으면 다시 띄우지 않는다. 로그인 자동 실행은 환경설정 "로그인할 때 공연 자동 시작"(기본 켜짐)으로 정하고, CI는 PR마다 Windows 빌드를 돌리게 한다. 진행: 계획의 Task 1~11 코드가 끝났다(구현 세션 보고: 감시 크레이트 테스트 21개, 앱 Rust `cargo test` 78개 바이너리, `flutter test` 158개 통과, clippy·analyze 새 경고 없음, Windows 대상 감시 크레이트 clippy 통과. macOS 릴리스 앱의 소리 없는 실제 확인 12개와 `integration_test/app_flow_test.dart` 0~6단계도 통과했고, 이 확인에서 `--app` 상대 경로 버그를 찾아 고쳤다). 남은 것: 소리가 나는 macOS 시나리오(`kill -9` 뒤 이어 가기, `kill -STOP`, 창 닫기)는 사용자가 옆에서 `tool/supervisor_e2e_macos.sh`로, Windows는 새 PR 트리거의 첫 Windows 빌드와 현장 점검표. Windows 점검은 `docs/WINDOWS_FIELD_CHECKLIST.md`. 사용자 결정 대기: installer 방화벽 규칙, WebView2 런타임 설치.
-4. **트랙·도면 경로 이식성 — 구현됨(미커밋), Windows 확인 대기**: 프로젝트를 열 때 파일을 못 찾으면 `.atmos` 폴더에서 같은 이름으로 다시 연결한다(동작과 파일은 위 "최근 끝난 일" 첫 행). 오디오와 도면을 `.atmos`와 같은 폴더에 담아 옮기는 방식이 사용자 결정이다. 남은 것: ① Windows PC에서 실제로 여는 확인(`docs/WINDOWS_FIELD_CHECKLIST.md` 9절). ② 대화상자의 "폴더 고르기"를 사람이 실제로 눌러 보는 확인(화면 조작 도구가 없어 자동 확인이 안 된다). 저장 방식은 바꾸지 않았다(다시 연결한 경로는 이 PC의 절대 경로로 `config.json`과 도면 설정에 저장된다).
+4. **트랙·도면 경로 이식성 — 구현·병합됨(PR #10), Windows 확인 대기**: 프로젝트를 열 때 파일을 못 찾으면 `.atmos` 폴더에서 같은 이름으로 다시 연결한다(동작과 파일은 위 "최근 끝난 일" 첫 행). 오디오와 도면을 `.atmos`와 같은 폴더에 담아 옮기는 방식이 사용자 결정이다. 남은 것: ① Windows PC에서 실제로 여는 확인(`docs/WINDOWS_FIELD_CHECKLIST.md` 9절). ② 대화상자의 "폴더 고르기"를 사람이 실제로 눌러 보는 확인(화면 조작 도구가 없어 자동 확인이 안 된다). 저장 방식은 바꾸지 않았다(다시 연결한 경로는 이 PC의 절대 경로로 `config.json`과 도면 설정에 저장된다).
 5. **현재 config 정리(사용자 확인)**
    - OSC 주소가 겹친다. 모든 트랙이 `/play`·`/stop`, 모든 방이 `/room/clear`이고, 테마 시작·시스템 리셋 주소는 비어 있다. 앱은 같은 주소면 마지막 것만 기억한다. 그래서 `/room/clear`는 빈 방 '5전시'를 비우고, `/play`는 방 2 마지막 트랙만 튼다. OSC로 방·트랙을 제어할 수 없는 상태다. 앱에 중복 주소 경고가 있으면 좋겠다.
    - 테마 1 BGM이 CH1로 나가는데 스피커 배치에서 CH1이 서브다. 그래서 80Hz 아래만 나간다(헤드폰으로 거의 안 들림, −45~−49dBFS). 메인(CH2)으로 보내려던 것인지 확인 필요.
    - 10분짜리 4채널 24bit WAV(테마 1 세 번째 트랙)를 통째로 RAM에 올린다(약 470MB). 긴 단발 트랙은 스트리밍으로 두는 편이 낫다.
-6. **메모리 증가 원인 가리기**: 65분 동안 RSS가 912→1059MB로 분당 2.2MB(시간당 약 133MB) 꾸준히 늘었다. 12시간이면 약 1.6GB다. 디버그 빌드에 테스트 하네스가 같이 돈 측정이라 Rust 엔진인지 Dart·테스트 쪽인지 아직 모른다. 스트리밍 묶음 GC 채널은 전용 스레드가 비우고 있어 그 경로는 아니다. Rust만 도는 장시간 루프(`diag_*` 같은 수동 테스트)와 릴리스 앱으로 다시 재서 가린다.
+6. **메모리 증가 원인 가리기 — Rust 엔진은 늘지 않음, 앱 쪽 원인은 측정 중**: 처음 측정(65분 동안 RSS 912→1059MB, 분당 2.2MB, 12시간이면 약 1.6GB)은 디버그 빌드에 테스트 하네스가 같이 돈 것이었다. 2026-10-06에 나눠서 다시 쟀다(macOS Intel, Scarlett 6i6 12ch 48kHz).
+   - 엔진만 20분 — 48kHz 스트리밍 루프 2개 + 미리 불러온 단발 10초마다: 힙 +0.010MB/분, RSS 평평.
+   - 엔진만 25분 — 실제 테마 BGM과 같은 44.1kHz 스테레오 11.6초 루프(재생 중 리샘플) + 48kHz 루프 + 단발, `api_theme_start`로 시작: 힙 +0.008MB/분, phys_footprint 87→87MB.
+   - 릴리스 앱 20분, 재생 없음(실제 config): RSS +0.016MB/분(Dart GC로 416~431MB 톱니), 웹뷰 48MB 그대로.
+   - 릴리스 앱 25분, 무음 테마 루프(실제 config 복사본에서 방 1만, BGM을 같은 형식의 무음으로, OSC 테마 시작): RSS +0.36MB/분, phys_footprint 145→148MB(+0.29MB/분), 웹뷰 20MB 그대로.
+   - 결론: Rust 엔진(스피커 설정 없는 기본 설정)은 늘지 않는다. 릴리스 앱은 재생 중에만 분당 약 0.3MB(12시간 약 200MB) 늘고, 이는 디버그·통합 테스트 측정(2.2MB/분)의 약 1/7이다.
+   - 남은 것: 앱 안에서 느는 것이 Dart 힙인지 네이티브(실제 12채널 스피커 설정의 DSP — 엔진 진단에는 없었다 — 또는 Flutter 엔진)인지 가르는 측정(진행 중).
+   - 엔진 진단 실행: `rust/`에서 `DIAG_MINUTES=20 cargo test --test diag_playback_memory -- --ignored --nocapture`(`rust/tests/diag_playback_memory.rs`, macOS 전용, 기본 출력 장치를 무음 트랙으로 연다).
 7. **실제 장치를 뽑았다 꽂는 재시작(macOS)**: 결함 주입·워치독 경로는 확인했지만, Scarlett 케이블을 실제로 뽑았다 꽂을 때(장치 유실 → 기본 장치로 비상 전환 → 다시 연결)는 아직이다. 사용자가 장치 옆에 있어야 한다.
 8. **사용자 결정이 필요한 발견**(통합 테스트를 만들며 발견, 고치지 않음):
    - 대시보드 Start는 모든 방의 루프를 틀고, OSC 테마 시작은 첫 방의 루프만 튼다. 의도된 차이인지 확인 필요.
@@ -118,15 +125,16 @@ Windows 실기에서 먼저 빌드·실행해 확인해야 하는 항목:
 9. **Windows 채널 이름(ASIO)**: 사용자가 나중에 하기로 보류. `rust/src/audio/channel_names.rs`의 실행 계획(A안 asio-sys 패치, B안 직접 FFI)은 cpal 0.16.0에서도 유효하다(asio-sys 0.2.6 그대로).
 10. **3D 방 뷰어 Windows 구현(필수, 사용자 결정 2026-10-05)**: `webview_flutter`(4.14.1)는 Android·iOS·macOS만 지원하고 Windows 구현이 없다. 지금 Windows에서는 `ThreeJsEngineService.initialize()`가 try/catch로 오류를 로그만 남겨 앱은 뜨지만, 스피커 배치 화면의 `Dynamic3DRoom`은 컨트롤러가 없어 로딩 스피너만 돈다. 스피커 선택(`_selectedInspectorSpeakerId`)이 3D 탭에 의존하므로 현장의 채널↔스피커 연동이 막힐 수 있다. 교체 범위는 작다: 웹뷰 API는 `three_js_engine_provider.dart` 한 클래스와 `dynamic_3d_room.dart:178`의 `WebViewWidget` 한 곳이고, Dart→JS는 `loadRequest`·`runJavaScript`, JS→Dart는 `window.SpeakerBridge.postMessage(JSON)` 세 곳(`studio_engine.html` 663·760·777줄)이다. 에셋은 전부 로컬(`three.min.js` 등, 약 5.7MB)이고 `127.0.0.1` 로컬 서버로 서빙한다. 권장: macOS는 `webview_flutter`를 그대로 두고 Windows만 WebView2 기반 구현을 붙이는 얇은 인터페이스(같은 HTML + 호환 shim). 후보는 `webview_windows` 0.4.0(WebView2, 2년 전 버전, 오프스크린 캡처 방식이라 WebGL 성능 확인 필요)과 `flutter_inappwebview` 6.1.5(Windows·macOS 지원, 24개월 전 버전). 패키지는 Windows PC에서 작은 실험(WebGL 프레임 속도, 스피커 드래그의 Dart 왕복, 카메라 전환)으로 정한다. WebView2 런타임이 Windows 10 PC에 없을 수 있어 installer에서 설치나 확인이 필요하다(사용자 결정).
 11. **v1.1.3 태그와 main의 버전 차이(사용자 확인)**: `v1.1.3`은 `main`의 조상이 아니다(8/26에 갈라졌고 `main`에 없는 커밋이 32개: `c2bd1d0` println!→log_print! 교체, `5033735` 닫기 버튼·Cmd+Q, `7411d31` 캘리브레이션 자동 계산, `5ef4c92` 리버브 API 연결 등). `main`의 앱 버전은 1.1.2로 v1.1.3보다 낮다. 의도한 것인지, 현장에 설치된 버전이 무엇인지 확인한다. `main` 계통에서 Windows CI가 마지막으로 성공한 시점은 `v1.1.2`다.
-12. **Windows `cargo test` 가드**: `rust/tests/test_analysis_thread_idle_cpu.rs`와 `rust/tests/diag_engine_restart_leak.rs`가 유닉스 전용 `libc::getrusage`를 가드 없이 쓴다. Windows에서는 `cargo test`가 이 두 시험 때문에 컴파일되지 않는다. `#[cfg(unix)]` 가드를 추가하면 장치가 필요 없는 DSP 시험을 Windows CI에서 돌려 수치 일치를 자동으로 확인할 수 있다.
-13. **Windows 로더**: `lib/main.dart`는 `Platform.isMacOS`에서만 번들 프레임워크를 직접 연다(커밋 c7d2fd2). Windows는 기본 로더라 개발 PC에서 프로젝트 폴더로 `flutter run`하면 `rust/target/release/rust_lib_atmos_mixer_pro.dll`이 남아 있을 때 옛 Rust가 실릴 수 있다. 설치된 앱은 exe 옆의 dll을 열어 해당 없다. Windows도 번들 dll을 직접 여는 방안을 검토한다.
+12. **Windows `cargo test` 가드 — ✅ 완료(2026-10-06, 커밋 3273b83)**: `rust/tests/test_analysis_thread_idle_cpu.rs`에 `#![cfg(unix)]`를 붙였다(유닉스 `getrusage`로 CPU 시간을 잰다). `diag_engine_restart_leak.rs`에는 이미 `#![cfg(target_os = "macos")]`가 있었다(ccf776e, 10-04). 새 수동 진단 `diag_playback_memory.rs`도 macOS 전용이다. Windows에서 `cargo test`가 실제로 컴파일되는지는 아직 확인하지 못했다(Windows CI는 빌드만 한다). Windows CI에 `cargo test --no-run` 단계를 넣을지는 사용자 결정이다.
+13. **Windows 로더 — ✅ 완료(2026-10-06, 커밋 d926a30)**: `lib/core/utils/rust_library.dart`의 `bundledRustLibrary()`. macOS는 기존대로 앱 번들 프레임워크를, Windows는 실행 파일(`Platform.resolvedExecutable`) 옆의 `rust_lib_atmos_mixer_pro.dll`을 직접 연다(없으면 기본 로더). 개발 PC에서 프로젝트 폴더로 `flutter run -d windows`해도 `rust/target/release/`의 옛 dll이 실리지 않는다. 경로 계산은 `test/rust_library_path_test.dart`가 확인한다. Windows에서 실제로 실리는 dll 확인은 현장 점검표 10절.
 
 ## 운용 메모
 
 - 스테레오·멀티 트랙은 서브우퍼가 아닌 채널부터 라우팅한다. 서브로 간 채널은 크로스오버 아래만 남는다.
 - 추적 로그: `ATMOS_TRACE_CMD=1`로 앱을 실행하면 재생/정지 요청, 인스턴스 정리, 엔진 시작/종료(세대), 베이스 라우팅이 stderr에 찍힌다.
-- 수동 진단(자동 테스트 아님): `rust/tests/diag_theme1_track4.rs`, `rust/tests/diag_theme1_multitrack.rs`, `rust/tests/diag_engine_restart_leak.rs` — 파일 머리 주석에 실행법.
+- 수동 진단(자동 테스트 아님): `rust/tests/diag_theme1_track4.rs`, `rust/tests/diag_theme1_multitrack.rs`, `rust/tests/diag_engine_restart_leak.rs`, `rust/tests/diag_playback_memory.rs`(재생 중 엔진 메모리) — 파일 머리 주석에 실행법.
 - 디스크 여유가 적으면 전체 `cargo test`가 ENOSPC로 실패한다(테스트 바이너리마다 최적화+디버그 정보라 수 GB 필요).
-- **프로젝트 폴더에서 `flutter run -d macos`로 띄운 앱이 옛 Rust를 싣던 문제는 고쳤다(c7d2fd2).** FRB 기본 로더는 작업 디렉터리 기준 `rust/target/release/librust_lib_atmos_mixer_pro.dylib`을 앱 번들보다 먼저 연다. 그래서 `cargo build --release`로 남은 옛 빌드(2026-09-28)가 실렸다 — API가 같으면 조용히, 다르면 "Content hash … different" 오류로. 이제 macOS의 `main.dart`가 번들 프레임워크를 직접 연다. 2026-10-03 이전에 `flutter run`으로 확인한 동작은 옛 Rust였을 수 있다.
+- **프로젝트 폴더에서 `flutter run -d macos`로 띄운 앱이 옛 Rust를 싣던 문제는 고쳤다(c7d2fd2).** FRB 기본 로더는 작업 디렉터리 기준 `rust/target/release/librust_lib_atmos_mixer_pro.dylib`을 앱 번들보다 먼저 연다. 그래서 `cargo build --release`로 남은 옛 빌드(2026-09-28)가 실렸다 — API가 같으면 조용히, 다르면 "Content hash … different" 오류로. 이제 `lib/core/utils/rust_library.dart`가 macOS는 번들 프레임워크를, Windows는 실행 파일 옆의 dll을 직접 연다(남은 일 13). 2026-10-03 이전에 `flutter run`으로 확인한 동작은 옛 Rust였을 수 있다.
 - 엔진을 (재)기동하면 출력은 부팅 뮤트 램프(3초)로 0에서 커진다. 재시작 직후 레벨을 잴 때는 3초 뒤에 잰다.
 - 통합 테스트는 기계가 바쁘면(예: Claude 앱 화면이 CPU를 크게 쓸 때) VU 전달이 들쭉날쭉해진다. 5단계는 재개 대기 구간(약 100ms) 안의 표본 수가 아니라 앞뒤 0.5초 구간으로 VU 스트림이 살아 있는지 본다.
+- **측정용으로 macOS 앱을 다른 홈에서 띄울 때**: `CFFIXED_USER_HOME`로 앱을 띄우면 `config.json`·상태 파일은 그 홈으로 가지만, 환경설정(SharedPreferences, NSUserDefaults)은 실제 `~/Library/Preferences/com.example.atmosMixerPro.plist`에 쓴다. 2026-10-06 측정 때 이 때문에 실제 환경설정의 `flutter.tuning_state`가 바뀌어 측정 전 백업으로 되돌렸다. 또 `defaults import com.example.atmosMixerPro`는 컨테이너(`~/Library/Containers/com.example.atmosMixerPro`)가 있으면 그쪽 plist에 쓰므로, 실제 파일을 고칠 때는 도메인 대신 plist 전체 경로를 준다.

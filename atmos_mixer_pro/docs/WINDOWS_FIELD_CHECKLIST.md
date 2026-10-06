@@ -1,6 +1,6 @@
 # Windows 현장 점검표
 
-- 날짜: 2026-10-05
+- 날짜: 2026-10-05 (2026-10-06 갱신)
 - 대상: Windows PC(현장 PC 또는 같은 구성의 시험 PC)
 - 기준(사용자 결정, 2026-10-05): **현장 PC는 Windows이고, 지금 되는 기능은 Windows에서도 동일하게 동작해야 한다. 3D 방 뷰어는 반드시 들어간다.** 메뉴 형태, 종료 경로, 절전 방지·로그 경로 구현 방식 같은 OS 고유 차이는 허용한다.
 - 이 점검표의 내용은 코드를 읽어 만든 것이다. **Windows에서 실행해 본 적이 없다.** "예상"으로 적은 것도 설계상 기대일 뿐 확인된 사실이 아니다. 결과가 다르면 HANDOFF "Windows 미검증"에 적는다.
@@ -16,7 +16,7 @@
 
 ## 0. 빌드와 설치
 
-- [ ] **Windows CI 빌드.** `main`(또는 PR 트리거가 생긴 뒤의 PR)에 대한 "Build and Release" 빌드가 Windows·macOS 모두 성공한다. 8/26 이후 `cpal` 0.16(ASIO), `rusqlite` bundled, 재시작 복원, 절전 방지(`Win32_System_Power`), 새 `windows` 크레이트 기능이 Windows에서 컴파일되는 첫 확인이다. 실패하면 로그를 HANDOFF에 붙인다.
+- [ ] **Windows CI 빌드.** `main`(또는 PR 트리거가 생긴 뒤의 PR)에 대한 "Build and Release" 빌드가 Windows·macOS 모두 성공한다. 8/26 이후 `cpal` 0.16(ASIO), `rusqlite` bundled, 재시작 복원, 절전 방지(`Win32_System_Power`), 새 `windows` 크레이트 기능이 Windows에서 컴파일되는 첫 확인이다. 실패하면 로그를 HANDOFF에 붙인다. → PR #8·#10(2026-10-05)에서 통과했다. 이후 `main` 대상 PR마다 자동으로 돈다.
 - [ ] **설치.** `AtmosMixerPro_Setup.exe`로 설치된다. 설치된 앱의 버전과 설치 목록의 버전이 같다(installer가 빌드된 exe의 `ProductVersion`을 읽는다. `pubspec.yaml` 버전은 1.1.2). installer 스크립트의 `build\...` 경로가 `windows\` 폴더 기준이라 그대로는 파일을 못 찾을 수 있다는 HANDOFF 8번 항목도 설치 파일을 만들면서 확인한다.
 - [ ] **WebView2 런타임.** 3D 방 뷰어에 필요하다. 설정 > 앱 > 설치된 앱에서 "Microsoft Edge WebView2 런타임"이 있는지 본다(없으면 7절에서 3D가 뜨지 않는 것이 정상이다). Windows 10 PC에는 없을 수 있다. 현장이 오프라인이면 설치 파일 안에 런타임 설치 단계가 필요하다(사용자 결정, 계획 문서의 "사용자 결정이 필요한 것").
 - [ ] **앱 기동.** 앱이 뜨고 스플래시를 지나 대시보드가 나온다. 로그에 `ASIO Load Error`나 패닉이 없다.
@@ -95,7 +95,7 @@ macOS에서 실측한 값(Scarlett 6i6 12ch, 48kHz)과 비교한다. Windows에�
 
 ## 9. 프로젝트 파일 이식성 (설계 PC → 현장 PC)
 
-사용자 결정(2026-10-05): 오디오와 도면을 `.atmos` 파일과 같은 폴더(하위 폴더 가능)에 담아 옮긴다. 프로젝트를 열 때 저장된 경로에 파일이 없으면 `.atmos` 폴더에서 같은 파일 이름으로 다시 연결한다(구현됨, 브랜치 `feat/project-media-relink`에서 Windows 확인 전).
+사용자 결정(2026-10-05): 오디오와 도면을 `.atmos` 파일과 같은 폴더(하위 폴더 가능)에 담아 옮긴다. 프로젝트를 열 때 저장된 경로에 파일이 없으면 `.atmos` 폴더에서 같은 파일 이름으로 다시 연결한다(구현됨, PR #10으로 병합, Windows 확인 전).
 
 - [ ] **준비.** macOS에서 프로젝트를 저장하고, `.atmos`와 오디오·도면을 같은 폴더(하위 폴더 가능)에 담아 USB로 Windows PC에 옮긴다.
 - [ ] **그대로 열기.** Windows에서 메뉴 "Load Project"로 연다(macOS 네이티브 메뉴와 Windows Material 메뉴 모두 대시보드의 같은 `_loadProject`를 부르므로 Windows 메뉴에서 연다). 못 찾은 파일 대화상자 없이 열리고, 트랙이 재생되고, 도면이 보인다.
@@ -109,8 +109,8 @@ macOS에서 실측한 값(Scarlett 6i6 12ch, 48kHz)과 비교한다. Windows에�
 ## 10. 자동 테스트를 Windows에서 돌려 보기 (개발 PC)
 
 - [ ] **통합 테스트.** `flutter test integration_test/app_flow_test.dart -d windows`를 시도한다. 부팅, 재생·정지, 스피커 배치·인스펙터, 스피커 이동·FX, 서브 라우팅, 재시작 복원, 테마 시작 단계 중 어느 단계가 실패하는지 적는다. 실패하는 단계가 macOS와 동일하지 않은 지점이다. 이 테스트는 기본 출력 장치(`device_name: null`)를 쓰는데 Windows에서는 WASAPI 기본 장치가 되고, 3D에 의존하는 단계는 3D 구현 전에는 실패할 가능성이 크다.
-- [ ] **Rust 테스트.** `cargo test`는 Windows에서 컴파일되지 않을 수 있다. `test_analysis_thread_idle_cpu.rs`와 `diag_engine_restart_leak.rs`가 유닉스 전용 `getrusage`를 가드 없이 쓴다(HANDOFF "남은 일"). 가드를 추가한 뒤 장치가 필요 없는 DSP 테스트가 Windows에서도 같은 수치로 통과하는지 본다.
-- [ ] **로더.** 앱 로더는 macOS만 번들 라이브러리를 직접 연다(`main.dart`). Windows 개발 PC에서 프로젝트 폴더로 `flutter run`했을 때 `rust/target/release/rust_lib_atmos_mixer_pro.dll`이 남아 있으면 옛 Rust가 실릴 수 있다. 설치된 앱은 exe 옆의 dll을 열어 해당 없다.
+- [ ] **Rust 테스트.** `rust/`에서 `cargo test`가 Windows에서 컴파일되고 통과하는지 본다. 유닉스·macOS 전용 시험은 Windows에서 빠진다(`test_analysis_thread_idle_cpu.rs`는 `#![cfg(unix)]`, `diag_engine_restart_leak.rs`·`diag_playback_memory.rs`는 `#![cfg(target_os = "macos")]`, HANDOFF 12번). 장치가 필요 없는 DSP 테스트가 macOS와 같은 수치로 통과하는지 본다.
+- [ ] **로더.** Windows 앱은 실행 파일 옆의 `rust_lib_atmos_mixer_pro.dll`을 직접 연다(`lib/core/utils/rust_library.dart`, HANDOFF 13번). 개발 PC에서 프로젝트 폴더로 `flutter run -d windows`했을 때 `rust/target/release`의 옛 dll이 아니라 방금 빌드한 dll이 실리는지 본다. 앱이 떠 있는 동안 PowerShell에서 `(Get-Process atmos_mixer_pro).Modules | Where-Object ModuleName -eq 'rust_lib_atmos_mixer_pro.dll' | Select-Object FileName`이 `build\windows\x64\runner\Debug\`(또는 `Release\`) 아래 경로를 보여야 한다.
 
 ## 11. 사람이 직접 확인해야 하는 것
 
