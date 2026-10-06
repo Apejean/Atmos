@@ -367,7 +367,7 @@ Z6 깨끗한 PC(선택): 개발 PC에는 Visual Studio가 VC++ 런타임을 깔�
 | C 장치·청음 | 3절, 2절 ASIO 뽑기, 5절 OSC 수신, 7절(W1 뒤), 11절, X8 | 현장 오디오 인터페이스와 ASIO 드라이버, 스피커·헤드폰, 외부 OSC 장비 | 장치 연결·뽑기, 청음, 외부 OSC 보내기 |
 | D 장시간·로그인·업그레이드 | 4절, 1절, 2절 업그레이드, X7 | 설치본, `monitor.ps1` | 로그아웃·로그인, 절전·깨우기, 관리자 `powercfg /requests` |
 
-HANDOFF "⚠️ Windows 미검증" 1~14를 확인하는 곳:
+HANDOFF "⚠️ Windows 미검증" 1~15를 확인하는 곳:
 
 | HANDOFF | 내용 | 확인하는 곳 |
 |---|---|---|
@@ -385,6 +385,7 @@ HANDOFF "⚠️ Windows 미검증" 1~14를 확인하는 곳:
 | 12 | 메뉴 동일성 | 8절 |
 | 13 | 종료 경로(엔진 정지 1.5초) | 2절 창 정상 닫기 |
 | 14 | 프로젝트 미디어 다시 연결 | 9절 |
+| 15 | 비상 전환과 원래 장치로 돌아오기(USB 30초 넘게 뽑기) | 3절 비상 전환과 복귀 |
 
 묶음별 요령:
 
@@ -397,7 +398,7 @@ HANDOFF "⚠️ Windows 미검증" 1~14를 확인하는 곳:
   - 감시(장치 무관 항목): 작업 관리자 강제 종료는 `Stop-Process -Name atmos_mixer_pro -Force`와 같다 → 몇 초 뒤 `--auto-relaunched`로 다시 뜨는지(`Get-CimInstance Win32_Process` CommandLine)와 공연 위치. 일시 중단은 사용자가 리소스 모니터(`resmon`) → CPU → 프로세스 우클릭 → "프로세스 일시 중단". 항목마다 `collect-logs.ps1 -Label 2-<번호>`.
   - 3D(W1 전): 스피너만 돌고 앱은 죽지 않으며 하트비트가 정상인지 적는다.
 - **E**: `D:\AtmosProjects\<한글 이름 폴더>\`처럼 한글·공백이 든 경로에도 둔다. 열기 전에 `backup-appdata.ps1 -Label before-E`.
-- **C**: 현장 장비의 ASIO 드라이버는 사용자가 설치한다. ASIO는 한 번에 한 프로그램만 연다(다른 DAW·앱을 끈다). ASIO 리셋은 드라이버 제어판에서 버퍼 크기를 바꾸거나 장치를 뽑았다 꽂는다. 청음 결과는 사용자의 말을 그대로 적는다(등급 ⑤).
+- **C**: 현장 장비의 ASIO 드라이버는 사용자가 설치한다. ASIO는 한 번에 한 프로그램만 연다(다른 DAW·앱을 끈다). ASIO 리셋은 드라이버 제어판에서 버퍼 크기를 바꾸거나 장치를 뽑았다 꽂는다. 비상 전환과 복귀(HANDOFF ⚠️ 15)는 USB를 30초 넘게 뽑았다가 다시 꽂고, 앱 로그의 "비상 전환"·"비상 전환 해제" 줄과 그 사이 무음 길이를 기록한다. 청음 결과는 사용자의 말을 그대로 적는다(등급 ⑤).
 - **D**
   - 12시간: 사용자가 바로가기로 띄워 공연을 시작 → `Start-Process powershell -WindowStyle Minimized -ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-File','D:\dev\Atmos\atmos_mixer_pro\tool\windows\monitor.ps1','-Hours','12'` → 끝나면 CSV로 작업 집합 증가(MB/분), 감시 재실행 횟수, 로그 크기를 정리한다. 메모리는 macOS 릴리스 앱의 재생 중 분당 0.09~0.3MB(12시간 약 65~200MB)와 비교하고, 12시간에 수백 MB 넘게 늘면 사용자에게 알리고 Flutter DevTools(프로필 모드)로 화면 그리기 쪽을 보자고 제안한다(HANDOFF 6). 사용자가 다음에 "장시간 결과 확인해"라고 하면 이어서 한다.
   - 절전 방지: 사용자가 관리자 명령 프롬프트에서 `powercfg /requests` → SYSTEM에 앱. 절전 → 깨우기 뒤 앱이 살아 있다.

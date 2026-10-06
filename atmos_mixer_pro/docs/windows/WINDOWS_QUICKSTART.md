@@ -81,11 +81,11 @@ Copy-Item supervisor\target\release\atmos_supervisor.exe build\windows\x64\runne
 
 ## 5. 빌드 뒤 확인 순서 (우선순위)
 
-기준은 `docs/WINDOWS_FIELD_CHECKLIST.md`와 HANDOFF "⚠️ Windows 미검증" 1~14다.
+기준은 `docs/WINDOWS_FIELD_CHECKLIST.md`와 HANDOFF "⚠️ Windows 미검증" 1~15다.
 
 1. 앱이 뜨는지 — 새 로더가 exe 옆 dll을 여는지(점검표 0절 앱 기동, 10절 로더)
 2. 소리 — WASAPI 기본 장치, 그다음 현장 ASIO 장비와 12ch 출력(3절)
-3. 재시작 복원 — ASIO 리셋, 장치 뽑았다 꽂기(3절)
+3. 재시작 복원 — ASIO 리셋, 장치 뽑았다 꽂기, 30초 넘게 뽑았을 때 비상 전환(−40dB)과 다시 꽂았을 때 원래 크기로 복귀(3절)
 4. 충돌 후 자동 재실행 — 감시 프로그램(2절)
 5. 절전 방지 — 관리자 명령 프롬프트 `powercfg /requests`(4절)
 6. 로그 내보내기 경로 — OneDrive로 옮겨진 바탕화면, 한글 "바탕 화면"(6절)
