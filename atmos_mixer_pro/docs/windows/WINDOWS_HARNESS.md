@@ -397,7 +397,7 @@ HANDOFF "⚠️ Windows 미검증" 1~14를 확인하는 곳:
 - **E**: `D:\AtmosProjects\<한글 이름 폴더>\`처럼 한글·공백이 든 경로에도 둔다. 열기 전에 `backup-appdata.ps1 -Label before-E`.
 - **C**: 현장 장비의 ASIO 드라이버는 사용자가 설치한다. ASIO는 한 번에 한 프로그램만 연다(다른 DAW·앱을 끈다). ASIO 리셋은 드라이버 제어판에서 버퍼 크기를 바꾸거나 장치를 뽑았다 꽂는다. 청음 결과는 사용자의 말을 그대로 적는다(등급 ⑤).
 - **D**
-  - 12시간: 사용자가 바로가기로 띄워 공연을 시작 → `Start-Process powershell -WindowStyle Minimized -ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-File','D:\dev\Atmos\atmos_mixer_pro\tool\windows\monitor.ps1','-Hours','12'` → 끝나면 CSV로 작업 집합 증가(MB/분, macOS 릴리스 앱 재생 중 약 0.3MB/분과 비교), 감시 재실행 횟수, 로그 크기를 정리한다. 사용자가 다음에 "장시간 결과 확인해"라고 하면 이어서 한다.
+  - 12시간: 사용자가 바로가기로 띄워 공연을 시작 → `Start-Process powershell -WindowStyle Minimized -ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-File','D:\dev\Atmos\atmos_mixer_pro\tool\windows\monitor.ps1','-Hours','12'` → 끝나면 CSV로 작업 집합 증가(MB/분), 감시 재실행 횟수, 로그 크기를 정리한다. 메모리는 macOS 릴리스 앱의 재생 중 분당 0.09~0.3MB(12시간 약 65~200MB)와 비교하고, 12시간에 수백 MB 넘게 늘면 사용자에게 알리고 Flutter DevTools(프로필 모드)로 화면 그리기 쪽을 보자고 제안한다(HANDOFF 6). 사용자가 다음에 "장시간 결과 확인해"라고 하면 이어서 한다.
   - 절전 방지: 사용자가 관리자 명령 프롬프트에서 `powercfg /requests` → SYSTEM에 앱. 절전 → 깨우기 뒤 앱이 살아 있다.
   - 로그인 자동 실행: 로그아웃 전에 PROGRESS "재개 지점"을 적는다. 다시 로그인해 Claude를 열고 "이어서"를 받으면 `supervisor.log`·앱 로그로 확인한다.
   - 업그레이드: 공연 중 새 설치 파일 실행 → 감시 → 앱 순서로 끝나는지(`supervisor.log`), 파일 잠금 오류가 없는지.

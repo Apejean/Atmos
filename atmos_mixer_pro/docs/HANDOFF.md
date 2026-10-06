@@ -1,4 +1,4 @@
-# 작업 인계 (2026-10-06 기준)
+# 작업 인계 (2026-10-07 기준)
 
 새 세션에서 "docs/HANDOFF.md 보고 이어서 해줘"로 시작하면 된다. 설계 결정의 근거는 각 스펙 문서와 테스트 주석에 있다.
 
@@ -103,13 +103,14 @@ Windows 실기에서 먼저 빌드·실행해 확인해야 하는 항목:
    - OSC 주소가 겹친다. 모든 트랙이 `/play`·`/stop`, 모든 방이 `/room/clear`이고, 테마 시작·시스템 리셋 주소는 비어 있다. 앱은 같은 주소면 마지막 것만 기억한다. 그래서 `/room/clear`는 빈 방 '5전시'를 비우고, `/play`는 방 2 마지막 트랙만 튼다. OSC로 방·트랙을 제어할 수 없는 상태다. 앱에 중복 주소 경고가 있으면 좋겠다.
    - 테마 1 BGM이 CH1로 나가는데 스피커 배치에서 CH1이 서브다. 그래서 80Hz 아래만 나간다(헤드폰으로 거의 안 들림, −45~−49dBFS). 메인(CH2)으로 보내려던 것인지 확인 필요.
    - 10분짜리 4채널 24bit WAV(테마 1 세 번째 트랙)를 통째로 RAM에 올린다(약 470MB). 긴 단발 트랙은 스트리밍으로 두는 편이 낫다.
-6. **메모리 증가 원인 가리기 — Rust 엔진은 늘지 않음, 앱 쪽 원인은 측정 중**: 처음 측정(65분 동안 RSS 912→1059MB, 분당 2.2MB, 12시간이면 약 1.6GB)은 디버그 빌드에 테스트 하네스가 같이 돈 것이었다. 2026-10-06에 나눠서 다시 쟀다(macOS Intel, Scarlett 6i6 12ch 48kHz).
+6. **메모리 증가 원인 가리기 — 측정 완료: Rust 엔진은 늘지 않고, 릴리스 앱은 재생 중 분당 0.09~0.3MB**: 처음 측정(65분 동안 RSS 912→1059MB, 분당 2.2MB, 12시간이면 약 1.6GB)은 디버그 빌드에 테스트 하네스가 같이 돈 것이었다. 2026-10-06에 나눠서 다시 쟀다(macOS Intel, Scarlett 6i6 12ch 48kHz).
    - 엔진만 20분 — 48kHz 스트리밍 루프 2개 + 미리 불러온 단발 10초마다: 힙 +0.010MB/분, RSS 평평.
    - 엔진만 25분 — 실제 테마 BGM과 같은 44.1kHz 스테레오 11.6초 루프(재생 중 리샘플) + 48kHz 루프 + 단발, `api_theme_start`로 시작: 힙 +0.008MB/분, phys_footprint 87→87MB.
    - 릴리스 앱 20분, 재생 없음(실제 config): RSS +0.016MB/분(Dart GC로 416~431MB 톱니), 웹뷰 48MB 그대로.
    - 릴리스 앱 25분, 무음 테마 루프(실제 config 복사본에서 방 1만, BGM을 같은 형식의 무음으로, OSC 테마 시작): RSS +0.36MB/분, phys_footprint 145→148MB(+0.29MB/분), 웹뷰 20MB 그대로.
-   - 결론: Rust 엔진(스피커 설정 없는 기본 설정)은 늘지 않는다. 릴리스 앱은 재생 중에만 분당 약 0.3MB(12시간 약 200MB) 늘고, 이는 디버그·통합 테스트 측정(2.2MB/분)의 약 1/7이다.
-   - 남은 것: 앱 안에서 느는 것이 Dart 힙인지 네이티브(실제 12채널 스피커 설정의 DSP — 엔진 진단에는 없었다 — 또는 Flutter 엔진)인지 가르는 측정(진행 중).
+   - 릴리스 앱 30분, 무음 테마 루프, 번들 ID 복사본으로 환경설정까지 분리(2026-10-06 23:30~00:00): phys_footprint 145→146MB(처음 6분) → 7분째 그래픽 메모리가 풀려(graphics 32→20MB, IOAccelerator 5→2MB) 128MB → 30분째 130MB(+0.09MB/분). 앱 RSS는 같은 구간 +0.07MB/분. 종류별로 꾸준히 는 것은 MALLOC_SMALL 26.0→27.1MB(+0.04MB/분)뿐이고, MALLOC_LARGE 35MB, IOKit 16MB, VM_ALLOCATE(Dart 힙으로 보임) 13~16MB는 그대로였다. 두 릴리스 재생 측정 모두 화면은 켜져 있었다(사용자의 caffeinate가 화면 꺼짐을 막았다). 7분째 그래픽 메모리가 풀린 이유는 확인하지 못했다.
+   - 결론: Rust 엔진은 늘지 않는다. 릴리스 앱은 재생 중 분당 0.09~0.3MB(1차 +0.29, 2차 +0.09) 늘고, Dart 힙과 큰 할당은 그대로이며 MALLOC_SMALL만 조금씩 는다. 12시간이면 약 65~200MB다. 처음의 2.2MB/분은 디버그 빌드·테스트 하네스 영향이었다.
+   - 측정은 여기서 마친다(사용자 지시로 시간 제한). 최종 확인은 현장 Windows PC의 Release 12시간 연속 재생(`docs/WINDOWS_FIELD_CHECKLIST.md` 4절)이다. 12시간에 수백 MB 넘게 늘면 그때 Flutter DevTools(프로필 모드)로 화면 그리기 쪽을 본다.
    - 엔진 진단 실행: `rust/`에서 `DIAG_MINUTES=20 cargo test --test diag_playback_memory -- --ignored --nocapture`(`rust/tests/diag_playback_memory.rs`, macOS 전용, 기본 출력 장치를 무음 트랙으로 연다).
 7. **실제 장치를 뽑았다 꽂는 재시작(macOS)**: 결함 주입·워치독 경로는 확인했지만, Scarlett 케이블을 실제로 뽑았다 꽂을 때(장치 유실 → 기본 장치로 비상 전환 → 다시 연결)는 아직이다. 사용자가 장치 옆에 있어야 한다.
 8. **사용자 결정이 필요한 발견**(통합 테스트를 만들며 발견, 고치지 않음):
@@ -137,4 +138,4 @@ Windows 실기에서 먼저 빌드·실행해 확인해야 하는 항목:
 - **프로젝트 폴더에서 `flutter run -d macos`로 띄운 앱이 옛 Rust를 싣던 문제는 고쳤다(c7d2fd2).** FRB 기본 로더는 작업 디렉터리 기준 `rust/target/release/librust_lib_atmos_mixer_pro.dylib`을 앱 번들보다 먼저 연다. 그래서 `cargo build --release`로 남은 옛 빌드(2026-09-28)가 실렸다 — API가 같으면 조용히, 다르면 "Content hash … different" 오류로. 이제 `lib/core/utils/rust_library.dart`가 macOS는 번들 프레임워크를, Windows는 실행 파일 옆의 dll을 직접 연다(남은 일 13). 2026-10-03 이전에 `flutter run`으로 확인한 동작은 옛 Rust였을 수 있다.
 - 엔진을 (재)기동하면 출력은 부팅 뮤트 램프(3초)로 0에서 커진다. 재시작 직후 레벨을 잴 때는 3초 뒤에 잰다.
 - 통합 테스트는 기계가 바쁘면(예: Claude 앱 화면이 CPU를 크게 쓸 때) VU 전달이 들쭉날쭉해진다. 5단계는 재개 대기 구간(약 100ms) 안의 표본 수가 아니라 앞뒤 0.5초 구간으로 VU 스트림이 살아 있는지 본다.
-- **측정용으로 macOS 앱을 다른 홈에서 띄울 때**: `CFFIXED_USER_HOME`로 앱을 띄우면 `config.json`·상태 파일은 그 홈으로 가지만, 환경설정(SharedPreferences, NSUserDefaults)은 실제 `~/Library/Preferences/com.example.atmosMixerPro.plist`에 쓴다. 2026-10-06 측정 때 이 때문에 실제 환경설정의 `flutter.tuning_state`가 바뀌어 측정 전 백업으로 되돌렸다. 또 `defaults import com.example.atmosMixerPro`는 컨테이너(`~/Library/Containers/com.example.atmosMixerPro`)가 있으면 그쪽 plist에 쓰므로, 실제 파일을 고칠 때는 도메인 대신 plist 전체 경로를 준다.
+- **측정용으로 macOS 앱을 다른 홈에서 띄울 때**: `CFFIXED_USER_HOME`로 앱을 띄우면 `config.json`·상태 파일은 그 홈으로 가지만, 환경설정(SharedPreferences, NSUserDefaults)은 실제 `~/Library/Preferences/com.example.atmosMixerPro.plist`에 쓴다. 2026-10-06 측정 때 이 때문에 실제 환경설정의 `flutter.tuning_state`가 바뀌어 측정 전 백업으로 되돌렸다. 또 `defaults import com.example.atmosMixerPro`는 컨테이너(`~/Library/Containers/com.example.atmosMixerPro`)가 있으면 그쪽 plist에 쓰므로, 실제 파일을 고칠 때는 도메인 대신 plist 전체 경로를 준다. 환경설정까지 분리하는 방법은 2차 측정(2026-10-06)에서 확인했다: 릴리스 앱을 `ditto`로 복사 → `plutil`로 `CFBundleIdentifier`를 `com.example.atmosMixerPro.memdiag`로 바꿈 → `codesign --force --deep --sign -`(원본도 adhoc 서명) → `CFFIXED_USER_HOME`(파일)과 `TMPDIR`(로그·신호 파일)을 함께 주고 실행. 끝나면 `defaults delete com.example.atmosMixerPro.memdiag`로 시험 도메인을 지운다.
