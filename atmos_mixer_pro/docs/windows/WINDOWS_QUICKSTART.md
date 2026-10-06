@@ -57,8 +57,9 @@
 도구는 하네스 P2대로 설치되어 있어야 한다. `.github/workflows/build_release.yml`의 Windows 작업(PR #8·#10·#12에서 통과)을 로컬 명령으로 옮긴 것이다.
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File D:\dev\Atmos\atmos_mixer_pro\tool\windows\setup-env.ps1   # 한 번만, 그 뒤 새 창
-. D:\dev\Atmos\atmos_mixer_pro\tool\windows\env.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File D:\dev\Atmos\atmos_mixer_pro\tool\windows\setup-env.ps1   # 한 번만
+powershell -NoProfile -ExecutionPolicy Bypass             # 이 셸에서만 스크립트 실행 허용(시스템 정책은 그대로)
+. D:\dev\Atmos\atmos_mixer_pro\tool\windows\env.ps1        # 도구 경로 + Visual Studio 개발자 환경
 cd D:\dev\Atmos\atmos_mixer_pro
 cargo test --manifest-path supervisor\Cargo.toml             # CI: Supervisor tests
 flutter pub get                                              # CI: Install dependencies
@@ -68,6 +69,7 @@ cargo build --release --manifest-path supervisor\Cargo.toml  # CI: Add superviso
 Copy-Item supervisor\target\release\atmos_supervisor.exe build\windows\x64\runner\Release\
 ```
 
+- env.ps1을 점 소싱하지 않은 창(일반 PowerShell, VS Code 터미널)에서 빌드하면 ASIO 빌드가 `Could not find vcvarsall.bat`으로 멈춘다. Visual Studio를 D:에 설치했기 때문이다(asio-sys는 `C:\Program Files`만 찾는다). env.ps1이 개발자 환경을 넣는다.
 - 실행: `build\windows\x64\runner\Release\atmos_supervisor.exe`(감시 프로그램이 앱을 띄운다). 앱 exe를 직접 띄워도 옆에 감시 exe가 있으면 감시로 넘어간다. 끌 때는 창을 닫는다(X).
 - 개발 PC 확인(HANDOFF 12): `Push-Location rust; cargo test --no-run; Pop-Location`이 컴파일되는지.
 - 설치 파일: `installer.iss`가 `windows\` 폴더 기준으로 `build\...`를 찾는 문제(HANDOFF ⚠️ 8)가 있어 고치기 전에는 이렇게 우회한다(`windows\build`, `windows\Output`은 커밋하지 않는다).

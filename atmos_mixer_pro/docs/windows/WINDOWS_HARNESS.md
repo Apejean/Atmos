@@ -122,6 +122,7 @@ D:\VS\2022\Community  D:\VS\Shared  D:\VS\Cache   Visual Studio
 ### 3.6 도구 쓰는 법
 - 서브에이전트·워크플로(여러 에이전트)를 쓰지 않는다. 혼자 순서대로 한다(사용자 결정, 토큰 비용).
 - 셸: PowerShell 도구가 있으면 그것을 쓴다. Git Bash뿐이면 Windows 명령·스크립트는 `MSYS_NO_PATHCONV=1 powershell -NoProfile -ExecutionPolicy Bypass -File <스크립트> ...`로 부르고, 경로는 `D:/dev/...`처럼 `/`로 쓰거나 작은따옴표로 감싼다. Git Bash는 따옴표 밖의 `\`를 지우고, `/v`·`/MIR` 같은 스위치를 경로로 바꾼다.
+- Windows 기본 실행 정책(Restricted)에서는 `.ps1` 실행과 점 소싱이 막힌다. 정책은 바꾸지 않고 그 실행에만 허용한다: 스크립트는 `powershell -NoProfile -ExecutionPolicy Bypass -File <스크립트>`, 점 소싱이 필요한 즉석 명령은 `powershell -NoProfile -ExecutionPolicy Bypass -Command "& { . 'D:/dev/Atmos/atmos_mixer_pro/tool/windows/env.ps1'; <명령> }"`, 증거가 필요하면 `run.ps1`.
 - 증거가 필요한 명령은 `run.ps1`로 돌린다(10절). 출력 전체가 `D:\dev\logs\<날짜>\<게이트>_<시각>.log`에 남는다.
 - 8분 넘게 걸릴 수 있는 명령(첫 `cargo test`, 첫 `flutter build`, 통합 테스트)은 백그라운드로 돌리고 로그 파일로 확인한다(도구 한 번의 제한 시간은 10분).
 - 앱을 오래 띄워 두는 시험(감시·장시간·로그인)은 사용자가 바로가기나 탐색기로 띄운다. Claude 셸의 자식으로 띄운 프로세스는 셸이 정리될 때 같이 꺼질 수 있다.
@@ -151,7 +152,7 @@ D:\VS\2022\Community  D:\VS\Shared  D:\VS\Cache   Visual Studio
 powershell -NoProfile -ExecutionPolicy Bypass -File D:/dev/Atmos/atmos_mixer_pro/tool/windows/run.ps1 -Gate <게이트> -Cwd <폴더> -Run "<명령>"
 ```
 
-`<이름>.ps1 <인자>`는 `tool/windows/` 아래 스크립트를 같은 방식(`-File`)으로 부른다는 뜻이다. 대화형 PowerShell 블록은 먼저 `. D:\dev\Atmos\atmos_mixer_pro\tool\windows\env.ps1`을 점 소싱한다.
+`<이름>.ps1 <인자>`는 `tool/windows/` 아래 스크립트를 같은 방식(`-File`)으로 부른다는 뜻이다. 대화형 PowerShell 블록은 먼저 `. D:\dev\Atmos\atmos_mixer_pro\tool\windows\env.ps1`을 점 소싱한다. env.ps1은 도구 경로와 함께 Visual Studio 개발자 환경도 넣는다(K17). 실행 정책 때문에 점 소싱이 막히면 3.6.
 
 ### P0 사용자 사전 준비 — Windows Claude는 확인만 (G0)
 
@@ -203,6 +204,7 @@ winget install --id Microsoft.VisualStudio.2022.Community -e --source winget --a
 
 - `--path cache=`·`shared=`는 이 PC에 VS를 처음 설치할 때만 적용된다.
 - 이미 VS가 있으면 `doctor.ps1`의 Visual Studio 행을 보고 워크로드만 더한다: `& "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\setup.exe" modify --installPath "<설치 경로>" --add Microsoft.VisualStudio.Workload.NativeDesktop --includeRecommended --passive --norestart`
+- VS를 D:에 두면 asio-sys 0.2.6이 `vcvarsall.bat`을 찾지 못한다(`VCINSTALLDIR`이 없으면 `C:\Program Files` 아래만 찾는다). `env.ps1`이 VS 개발자 환경을 넣어 이를 피하므로, Rust·Flutter 빌드는 env.ps1을 점 소싱한 셸이나 `run.ps1`에서만 한다(K17).
 
 2-3 Rust(CI도 stable. `rust/.cargo/config.toml`이 Windows에서 `+crt-static`을 건다):
 
@@ -228,10 +230,10 @@ Invoke-WebRequest https://download.steinberg.net/sdk_downloads/ASIO-SDK_2.3.4_20
 Expand-Archive D:\dev\downloads\asiosdk.zip -DestinationPath D:\dev\sdk\_asio -Force
 $inner = Get-ChildItem D:\dev\sdk\_asio -Directory | Select-Object -First 1
 Move-Item $inner.FullName D:\dev\sdk\asiosdk
-Get-ChildItem D:\dev\sdk\asiosdk -Recurse -Filter asio.h | Select-Object -First 1 FullName
+Test-Path D:\dev\sdk\asiosdk\common\asio.h, D:\dev\sdk\asiosdk\host\asiodrivers.h   # 둘 다 True
 ```
 
-CI처럼 압축 안 첫 폴더를 `CPAL_ASIO_DIR`로 쓴다. 구조가 다르면 `common\asio.h`가 있는 SDK 최상위를 가리키게 맞춘다.
+CI처럼 압축 안 첫 폴더를 `CPAL_ASIO_DIR`로 쓴다. asio-sys 0.2.6은 `CPAL_ASIO_DIR` 바로 아래의 `common`, `host`, `host\pc`만 쓰므로, 한 단계 더 깊이 풀렸으면 `common`이 들어 있는 폴더를 `D:\dev\sdk\asiosdk`로 옮긴다.
 
 2-6 Flutter:
 
@@ -427,7 +429,7 @@ HANDOFF "⚠️ Windows 미검증" 1~14를 확인하는 곳:
 | W5 | Windows CI에 `cargo test --no-run`(사용자 결정 뒤) | CI 통과 |
 | W6 | Windows에서만 실패하는 `cargo test`·`flutter test`·clippy 경고 | 원인별 PR, macOS 불변 |
 | W7 | ASIO 채널 이름 | 보류. 사용자가 풀 때까지 시작하지 않는다(HANDOFF 9) |
-| W8 | 이 하네스 고치기 | 실제로 틀린 명령·스크립트를 `win/harness-fixes` PR로 |
+| W8 | 이 하네스 고치기 | 실제로 틀린 명령·스크립트를 `win/harness-fixes` PR로. macOS에서 미리 고친 것(2026-10-07: doctor의 ASIO 경로 확인, env.ps1의 VS 개발자 환경)이 맞는지도 처음 실행에서 본다(G2 doctor, G4-03 `cargo check`) |
 
 - **W2**: `integration_test/support/probes.dart:166`의 `expectNoOtherAppInstance()`가 `pgrep -f atmos_mixer_pro.app/...`를 부른다. Windows에서는 `tasklist /FI "IMAGENAME eq atmos_mixer_pro.exe" /FO CSV /NH`로 같은 이름의 프로세스를 세되 테스트 자신(`dart:io`의 `pid`)은 빼고, `atmos_supervisor.exe`도 없어야 한다. `integration_test/project_media_relink_test.dart:112`의 `externalLibrary: Platform.isMacOS ? ... : null`은 `bundledRustLibrary()`(`lib/core/utils/rust_library.dart`)로 맞춘다. 두 파일 머리 주석의 실행 안내에 `-d windows`를 더한다. PR에 macOS에서 `app_flow_test` 0~6단계를 다시 돌려 달라는 Mac 세션 요청을 쓴다.
 - **W3**: `windows/installer.iss`의 `MyAppExePath = AddBackslash(SourcePath) + "build\windows\x64\runner\Release\" + ...`와 `[Files]`의 `Source: "build\windows\x64\runner\Release\..."`는 스크립트 폴더(`atmos_mixer_pro\windows\`) 기준이라 `atmos_mixer_pro\windows\build\...`를 찾는다 → 버전을 못 읽어 `#error Could not read the version`. 최소 수정: 맨 위에 `#ifndef ReleaseDir` / `#define ReleaseDir AddBackslash(SourcePath) + "..\build\windows\x64\runner\Release"` / `#endif`를 두고 `MyAppExePath`와 `[Files]`의 두 `Source`를 `{#ReleaseDir}\...`로 바꾼다. CI zip으로 만들 때는 `ISCC /DReleaseDir=<폴더> windows\installer.iss`.
@@ -512,6 +514,7 @@ HANDOFF "⚠️ Windows 미검증" 1~14를 확인하는 곳:
 | K14 | Git for Windows 기본 `core.autocrlf=true`(CI와 같다) | 바꾸지 않는다. 텍스트 픽스처를 바이트로 비교하는 테스트가 실패하면 이것부터 의심 |
 | K15 | CI의 pdfx CMake 패치는 지금 할 일이 없다(pdfx 의존성 없음) | CMake 버전 오류가 나면 8절 |
 | K16 | `v1.1.3` 태그는 `main`의 조상이 아니다(HANDOFF 11) | 현장 설치본 버전을 볼 때 주의 |
+| K17 | asio-sys 0.2.6은 `VCINSTALLDIR`이 없으면 `vcvarsall.bat`을 `C:\Program Files` 아래에서만 찾는다 → VS를 D:에 두면 `Could not find vcvarsall.bat`으로 빌드가 멈춘다(CI는 VS가 C:에 있어 해당 없음) | env.ps1이 VS 개발자 환경(`vcvarsall.bat amd64`)을 넣는다. 빌드는 env.ps1을 점 소싱한 셸·`run.ps1`·"Developer PowerShell for VS 2022"에서 |
 
 ## 8. 문제 해결
 
@@ -530,12 +533,13 @@ HANDOFF "⚠️ Windows 미검증" 1~14를 확인하는 곳:
 | 앱이 뜨자마자 꺼짐, `VCRUNTIME140_1.dll was not found` | VC++ 런타임(X1, `collect-logs.ps1`의 이벤트) |
 | 경로가 너무 김 | `git config --global core.longpaths true`, 그래도 나면 사용자가 LongPathsEnabled(관리자) |
 | 빌드가 매우 느림 | Defender 실시간 검사. `D:\dev` 예외는 사용자 판단 |
-| `.ps1` 실행이 막힘 | `powershell -NoProfile -ExecutionPolicy Bypass -File ...`로 부른다(정책은 바꾸지 않는다) |
+| `.ps1` 실행·점 소싱이 막힘 | 실행 정책(Restricted). `-ExecutionPolicy Bypass`로 그 실행에만 허용한다(3.6). 정책은 바꾸지 않는다 |
 | 출력의 한글이 깨짐 | env.ps1의 UTF-8 설정, run.ps1의 `chcp 65001` |
 | `gh run download` 404 | `gh auth status`, 아티팩트 보관 기간 만료 → 사용자가 CI를 다시 돌린다 |
 | `flutter test ... -d windows`에서 장치 없음 | `flutter devices`에 Windows가 있는지, `flutter config --enable-windows-desktop` |
 | 환경변수가 옛 값 | Claude 앱을 트레이까지 종료하고 다시 열기, 또는 env.ps1 점 소싱 |
 | rustup-init이 Visual Studio 설치를 묻는다 | VS를 먼저 설치(P2 순서) |
+| asio-sys 빌드: `Could not find vcvarsall.bat` | VS 개발자 환경 없이 빌드했다(K17). env.ps1을 점 소싱한 셸이나 `run.ps1`에서 다시 |
 | Git Bash에서 `/MIR`·`/v` 같은 스위치가 경로로 바뀜 | `MSYS_NO_PATHCONV=1`을 앞에 붙이거나 PowerShell로 |
 
 ## 9. 템플릿
@@ -738,7 +742,7 @@ HANDOFF "⚠️ Windows 미검증" 1~14를 확인하는 곳:
 
 | 스크립트 | 하는 일 | 예 | 종료 코드 |
 |---|---|---|---|
-| `env.ps1` | 점 소싱: 환경변수·PATH·UTF-8 출력·TLS 1.2, `$Atmos` 경로 표 | `. D:\dev\Atmos\atmos_mixer_pro\tool\windows\env.ps1` | — |
+| `env.ps1` | 점 소싱: 환경변수·PATH·Visual Studio 개발자 환경·UTF-8 출력·TLS 1.2, `$Atmos` 경로 표 | `. D:\dev\Atmos\atmos_mixer_pro\tool\windows\env.ps1` | — |
 | `setup-env.ps1` | 사용자 환경변수·PATH 저장(PATH는 REG_EXPAND_SZ 유지), 하네스 폴더 만들기 | `setup-env.ps1` | 0 |
 | `run.ps1` | 명령을 cmd로 돌려 출력 전체를 `D:\dev\logs`에 | `run.ps1 -Gate G4-03_cargo_check -Cwd D:\dev\Atmos\atmos_mixer_pro\rust -Run "cargo check"` | 명령의 종료 코드 |
 | `doctor.ps1` | 도구·설정 점검 표(G2) | `doctor.ps1` | FAIL 있으면 1 |
