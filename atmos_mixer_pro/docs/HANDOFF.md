@@ -86,14 +86,14 @@ Windows 실기에서 먼저 빌드·실행해 확인해야 하는 항목:
 13. **종료 경로** — `onWindowClose`는 엔진 정지를 1.5초까지만 기다린다. ASIO 해제에 충분한지 미확인.
 14. **프로젝트 열 때 미디어 다시 연결** — macOS에서 저장한 `.atmos`와 오디오·도면 폴더를 옮겨 Windows에서 열었을 때 연결되는지(경로 구분자 `\`, 대소문자, 한글·공백 경로), 대화상자와 "폴더 고르기"가 Windows에서 정상인지 확인된 적이 없다.
 
-점검 절차와 결과 기록 양식은 `docs/WINDOWS_FIELD_CHECKLIST.md`다(3D 방 뷰어, ASIO, 방화벽, 로그, 메뉴, 프로젝트 파일 이식성, 감시·재실행 포함).
+점검 절차와 결과 기록 양식은 `docs/WINDOWS_FIELD_CHECKLIST.md`다(3D 방 뷰어, ASIO, 방화벽, 로그, 메뉴, 프로젝트 파일 이식성, 감시·재실행 포함). Windows PC에서 개발 환경을 갖추고 빌드·점검을 진행하는 순서(Windows의 Claude 세션이 따르는 하네스)는 `docs/windows/WINDOWS_HARNESS.md`, 사람이 먼저 읽는 짧은 안내와 시작 프롬프트는 `docs/windows/WINDOWS_QUICKSTART.md`다.
 
 오디오 인터페이스 인식 설계는 macOS·Windows 둘 다 하드코딩 없이 그 순간 시스템에 등록된 장치를 스캔하는 구조로 일관되다(`get_hosts()` — macOS는 CoreAudio만, Windows는 ASIO+WASAPI 둘 다 스캔). 이 부분은 설계 검토 완료, 실기 검증만 남음.
 
 ## 남은 일
 
 1. **Windows CI 빌드 — 확인됨(2026-10-05)**: CI(`.github/workflows/build_release.yml`)가 이제 `main` 대상 PR마다 돈다(PR #8에서 추가). PR #8·#10의 Windows·macOS 빌드가 통과해 cpal 0.16(ASIO), 재시작 복원, 절전 방지(`Win32_System_Power`)가 Windows에서 컴파일되는 것을 확인했다. Windows CI는 감시 크레이트 `cargo test`, 앱 Rust `cargo check`, 앱 빌드만 하고 앱의 `cargo test`·`flutter test`는 돌리지 않는다(12번). 배포(릴리스 단계)는 여전히 태그(`v*`)에서만 돈다.
-2. **Windows PC 실기 확인(사용자가 Windows PC 앞에서)**: 위 "⚠️ Windows 미검증" 목록 전부. 특히 다음 세 가지다.
+2. **Windows PC 실기 확인(사용자가 Windows PC 앞에서)**: 위 "⚠️ Windows 미검증" 목록 전부. 진행 방법은 `docs/windows/WINDOWS_QUICKSTART.md`. 특히 다음 세 가지다.
    - 앱 기동과 3D 방 뷰어: `webview_flutter`에 Windows 구현이 없어 동작하지 않을 가능성이 가장 크다.
    - ASIO·Dante 장치 스캔과 12ch 출력.
    - 장치를 뽑았다 꽂는 재시작.
