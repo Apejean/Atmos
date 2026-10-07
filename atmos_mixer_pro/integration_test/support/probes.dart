@@ -152,7 +152,13 @@ class PlayingProbe {
 Future<void> tapSpeakerNode(ProviderContainer container, String speakerId) async {
   final engine = container.read(threeJsEngineProvider);
   final message = jsonEncode({'type': 'SPEAKER_SELECTED', 'speakerId': speakerId});
-  await engine.controller!.runJavaScript('SpeakerBridge.postMessage(${jsonEncode(message)});');
+  final js = 'SpeakerBridge.postMessage(${jsonEncode(message)});';
+  final windowsController = engine.windowsController;
+  if (windowsController != null) {
+    await windowsController.executeScript(js);
+  } else {
+    await engine.controller!.runJavaScript(js);
+  }
 }
 
 /// 디버그 빌드에만 있는 결함 주입 훅(rust/src/test_hooks.rs). 워치독과 같은 자기 재시작을 일으킨다.

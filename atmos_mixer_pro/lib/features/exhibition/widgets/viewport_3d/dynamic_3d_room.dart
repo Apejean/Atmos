@@ -2,6 +2,7 @@ import "dart:convert";
 import "package:flutter/material.dart";
 import "package:flutter_riverpod/flutter_riverpod.dart";
 import "package:webview_flutter/webview_flutter.dart";
+import "package:webview_windows/webview_windows.dart" as win;
 
 import "package:atmos_mixer_pro/features/exhibition/state/speaker_layout_state.dart";
 import "package:atmos_mixer_pro/features/exhibition/state/blueprint_state.dart";
@@ -35,10 +36,14 @@ class _Dynamic3DRoomState extends ConsumerState<Dynamic3DRoom> {
   String _selectedView = "Auto";
   StreamSubscription<String>? _speakerSub;
   StreamSubscription<Map<String, dynamic>>? _speakerMovedSub;
+  late final ThreeJsEngineService _engine;
 
   @override
   void initState() {
     super.initState();
+    // 이 화면이 보이는 동안만 3D를 그린다(Windows WebView2는 화면 밖에서도 그리므로).
+    _engine = ref.read(threeJsEngineProvider);
+    _engine.setViewVisible(true);
     _speakerSub = ref.read(threeJsEngineProvider).onSpeakerTapped.listen((id) {
       if (widget.onSpeakerTapped != null) {
         widget.onSpeakerTapped!(id);
@@ -68,6 +73,7 @@ class _Dynamic3DRoomState extends ConsumerState<Dynamic3DRoom> {
   void dispose() {
     _speakerSub?.cancel();
     _speakerMovedSub?.cancel();
+    _engine.setViewVisible(false);
     super.dispose();
   }
 
@@ -158,24 +164,48 @@ class _Dynamic3DRoomState extends ConsumerState<Dynamic3DRoom> {
             child: Consumer(
               builder: (context, ref, child) {
                 final engine = ref.read(threeJsEngineProvider);
-                
-                return ValueListenableBuilder<bool>(
-                  valueListenable: engine.isEngineReadyNotifier,
-                  builder: (context, isReady, child) {
-                    if (engine.controller == null || !isReady) {
-                      return const Center(
-                        child: CircularProgressIndicator(
-                          valueColor: AlwaysStoppedAnimation<Color>(Colors.lightBlueAccent),
+
+                return ValueListenableBuilder<String?>(
+                  valueListenable: engine.unavailableReasonNotifier,
+                  builder: (context, unavailableReason, child) {
+                    // Windows에서 WebView2를 쓸 수 없으면 스피너 대신 이유를 보인다(앱은 계속 동작).
+                    if (unavailableReason != null) {
+                      return Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(24),
+                          child: Text(
+                            unavailableReason,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(color: Colors.white70, fontSize: 13),
+                          ),
                         ),
                       );
                     }
-                    
-                    // Immediately sync scene data on first display if ready
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      if (mounted) _syncSceneData();
-                    });
 
-                    return WebViewWidget(controller: engine.controller!);
+                    return ValueListenableBuilder<bool>(
+                      valueListenable: engine.isEngineReadyNotifier,
+                      builder: (context, isReady, child) {
+                        if (!engine.hasView || !isReady) {
+                          return const Center(
+                            child: CircularProgressIndicator(
+                              valueColor: AlwaysStoppedAnimation<Color>(Colors.lightBlueAccent),
+                            ),
+                          );
+                        }
+
+                        // Immediately sync scene data on first display if ready
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (mounted) _syncSceneData();
+                        });
+
+                        // macOS: webview_flutter, Windows: WebView2(webview_windows). 같은 HTML이다.
+                        final windowsController = engine.windowsController;
+                        if (windowsController != null) {
+                          return win.Webview(windowsController);
+                        }
+                        return WebViewWidget(controller: engine.controller!);
+                      },
+                    );
                   },
                 );
               },

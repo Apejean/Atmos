@@ -502,7 +502,7 @@ HANDOFF "⚠️ Windows 미검증" 1~15를 확인하는 곳:
 
 | # | 내용 | 대응 |
 |---|---|---|
-| K1 | 3D 방 뷰어 Windows 구현 없음 → 스피너만 돈다 | 지금은 정상. W1 |
+| K1 | 3D 방 뷰어 Windows 구현 없음 → 스피너만 돈다 | W1(`win/3d-viewer-webview2`, WebView2) 이전 빌드에서는 정상. W1 이후에는 3D가 떠야 하고, 안 뜨면 WebView2 런타임(doctor 2-7)부터 본다 |
 | K2 | `app_flow_test` 0단계가 `pgrep`(probes.dart:166)이라 Windows에서 바로 실패 | W2 |
 | K3 | `project_media_relink_test`는 Windows에서 기본 로더 → `rust\target\release` dll이 있으면 옛 Rust | 그 dll을 두지 않는다(preflight). W2 |
 | K4 | `installer.iss` 경로(HANDOFF ⚠️ 8) → ISCC `#error Could not read the version` | Z5 우회, W3 |
