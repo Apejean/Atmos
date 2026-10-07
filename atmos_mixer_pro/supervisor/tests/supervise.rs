@@ -1,5 +1,7 @@
 //! 감시 프로그램을 실제 프로세스로 띄워 확인한다. 앱 대신 가짜 앱(src/bin/fake_app.rs)을 띄운다.
-//! 판단 시간은 짧게 준다(멈춤·첫 하트비트·오디오 멈춤 2초, 확인 0.1초, 첫 대기 0.2초).
+//! 판단 시간은 짧게 준다(멈춤·오디오 멈춤 2초, 확인 0.1초, 첫 대기 0.2초). 첫 하트비트 기한만 10초다.
+//! 감시는 앱을 띄운 순간부터 첫 하트비트를 기다리므로, 러너가 바쁘거나 백신이 새 exe를 검사해 가짜 앱이
+//! 늦게 뜨면 2초로는 멀쩡한 앱을 "시작 중 멈춤"으로 보고 다시 띄웠다(CI에서 두 테스트가 이렇게 실패했다).
 //! 테스트마다 폴더가 따로라 함께 돌아도 된다.
 use atmos_supervisor::heartbeat::{read_pid, APP_LOCK, APP_PID};
 use std::path::{Path, PathBuf};
@@ -67,7 +69,7 @@ fn supervisor_with_app(
         .arg(app)
         .arg("--dir")
         .arg(dir)
-        .args(["--hang-secs", "2", "--first-heartbeat-secs", "2", "--audio-stall-secs", "2"])
+        .args(["--hang-secs", "2", "--first-heartbeat-secs", "10", "--audio-stall-secs", "2"])
         .args(["--tick-ms", "100", "--backoff-min-ms", "200"])
         .args(extra)
         .env("FAKE_DIR", dir)
@@ -174,7 +176,8 @@ fn 하트비트가_멈추면_강제_종료하고_다시_띄운다() {
 #[test]
 fn 하트비트가_한_번도_안_오면_첫_하트비트_기한_뒤_다시_띄운다() {
     let dir = fresh_dir("silent");
-    let mut sup = supervisor(&dir, &[], &[("FAKE_FIRST", "silent"), ("FAKE_NEXT", "clean")]);
+    // 이 테스트만 첫 하트비트 기한을 짧게 준다(뒤에 준 인자가 기본값을 덮는다).
+    let mut sup = supervisor(&dir, &["--first-heartbeat-secs", "2"], &[("FAKE_FIRST", "silent"), ("FAKE_NEXT", "clean")]);
     sup.wait_exit(20, "하트비트 없는 앱을 다시 띄웠고 그 앱이 닫혔는데 감시가 끝나지 않았다");
     assert_eq!(launch_args(&dir), vec!["--supervised", "--supervised --auto-relaunched"]);
     assert!(log_text(&dir).contains("시작 중 멈춤"), "{}", log_text(&dir));
@@ -265,7 +268,7 @@ fn 중복_실행으로_끝나면_떠_있는_앱을_넘겨받는다() {
 fn 감시가_이미_돌면_두_번째는_앱을_한_번_띄워_기존_창을_앞으로_가져오고_끝난다() {
     let dir = fresh_dir("second");
     let mut first = supervisor(&dir, &[], &[("FAKE_FIRST", "ok")]);
-    wait_until("첫 앱이 뜨지 않았다", 10, || app_pid(&dir).is_some());
+    wait_until("첫 앱이 뜨지 않았다", 20, || app_pid(&dir).is_some());
     let mut second = supervisor(&dir, &[], &[]);
     let status = second.wait_exit(5, "두 번째 감시가 바로 끝나지 않았다");
     assert!(status.success(), "{status:?}");
