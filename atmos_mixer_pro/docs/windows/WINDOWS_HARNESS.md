@@ -427,7 +427,7 @@ HANDOFF "⚠️ Windows 미검증" 1~15를 확인하는 곳:
 | W | 작업 | 수용 기준 |
 |---|---|---|
 | W1 | 3D 방 뷰어 Windows 구현(필수) | 6절 |
-| W2 | 통합 테스트 Windows 이식 | `app_flow_test -d windows` 0·1단계 통과(2단계는 W1 전까지 실패 기록), macOS 동작 불변 |
+| W2 | 통합 테스트 Windows 이식 | `app_flow_test -d windows` 0·1단계 통과(2단계는 W1 전까지 실패 기록), macOS 동작 불변. PR #27로 병합됨(2026-10-07). macOS: `project_media_relink_test` 통과, **`app_flow_test` 0~6단계 재확인은 미완료**(빌드 중 오디오 인터페이스를 빼서 중단, 변경이 주석·Windows 분기뿐이라 회귀 가능성은 낮음) |
 | W3 | installer 경로 수정(HANDOFF ⚠️ 8) | 저장소 빌드와 CI 폴더 둘 다로 설치 파일 생성 → 설치 → 실행 → 제거 |
 | W4 | 런타임·배포(사용자 결정 뒤) | 결정대로 |
 | W5 | Windows CI에 `cargo test --no-run`(사용자 결정 뒤) | CI 통과 |
