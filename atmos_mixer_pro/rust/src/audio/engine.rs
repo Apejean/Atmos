@@ -593,21 +593,15 @@ impl AudioEngine {
                     // 왔다. 여기서는 풀 슬롯에 옮겨 담기만 한다(할당 없음).
                     let instance = *instance;
 
-                    let mut found_idx = None;
-                    for (i, slot) in mixer.instances.iter_mut().enumerate() {
-                        if slot.is_none() {
-                            found_idx = Some(i);
-                            if let Some(old) = slot.replace(instance) {
-                                let _ = mixer.gc_sender.try_send(old);
-                            }
-                            break;
-                        }
-                    }
-                    if let Some(i) = found_idx {
+                    if let Some(i) = mixer.instances.iter().position(|slot| slot.is_none()) {
+                        mixer.instances[i] = Some(instance);
                         mixer.temp_room_vols_target[i] = room_volume;
                         mixer.temp_room_vols[i] = room_volume;
                     } else {
-                        // Mixer object pool full
+                        // 풀이 가득 찼다. 울리지 못하는 인스턴스는 정리 스레드로 넘긴다(거기서 해제하고 재생 목록의
+                        // id도 지운다). 여기서 버리면 메모리 해제와 디코더 스레드 join이 콜백 안에서 일어난다.
+                        // 정리 채널까지 가득 찬 극단적인 경우에만 돌려받은 인스턴스가 여기서 해제된다.
+                        let _ = mixer.gc_sender.try_send(instance);
                     }
                 }
                 AudioCommand::StopTrack { room_id, track_id } => {
