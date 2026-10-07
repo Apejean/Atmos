@@ -105,4 +105,4 @@ Copy-Item supervisor\target\release\atmos_supervisor.exe build\windows\x64\runne
 - v1.1.3 태그와 `main`의 버전 차이(현장에 설치된 버전 확인)
 - Windows CI에 `cargo test`(`--no-run`) 단계 추가
 - ASIO 채널 이름(보류)
-- Windows 실행 뒤 정할 것: VC++ 런타임 포함 방식, 코드 서명(SmartScreen), 앱 데이터 폴더 이름(`com.example`)
+- Windows 실행 뒤 정할 것: VC++ 런타임 포함 방식, 코드 서명(결정됨: 하지 않고 백신 예외, HANDOFF 확정된 결정), 앱 데이터 폴더 이름(`com.example`)
