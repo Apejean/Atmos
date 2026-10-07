@@ -19,7 +19,7 @@
 
 - [ ] **Windows CI 빌드.** `main`(또는 PR 트리거가 생긴 뒤의 PR)에 대한 "Build and Release" 빌드가 Windows·macOS 모두 성공한다. 8/26 이후 `cpal` 0.16(ASIO), `rusqlite` bundled, 재시작 복원, 절전 방지(`Win32_System_Power`), 새 `windows` 크레이트 기능이 Windows에서 컴파일되는 첫 확인이다. 실패하면 로그를 HANDOFF에 붙인다. → PR #8·#10(2026-10-05)에서 통과했다. 이후 `main` 대상 PR마다 자동으로 돈다.
 - [ ] **설치.** `AtmosMixerPro_Setup.exe`로 설치된다. 설치된 앱의 버전과 설치 목록의 버전이 같다(installer가 빌드된 exe의 `ProductVersion`을 읽는다. `pubspec.yaml` 버전은 1.1.2). installer 스크립트의 `build\...` 경로가 `windows\` 폴더 기준이라 그대로는 파일을 못 찾을 수 있다는 HANDOFF 8번 항목도 설치 파일을 만들면서 확인한다.
-- [ ] **WebView2 런타임.** 3D 방 뷰어에 필요하다. 설정 > 앱 > 설치된 앱에서 "Microsoft Edge WebView2 런타임"이 있는지 본다(없으면 7절에서 3D가 뜨지 않는 것이 정상이다). Windows 10 PC에는 없을 수 있다. 현장이 오프라인이면 설치 파일 안에 런타임 설치 단계가 필요하다(사용자 결정, 계획 문서의 "사용자 결정이 필요한 것").
+- [ ] **WebView2 런타임.** 3D 방 뷰어에 필요하다. 설정 > 앱 > 설치된 앱에서 "Microsoft Edge WebView2 런타임"이 있는지 본다(없으면 7절에서 3D가 뜨지 않는 것이 정상이다). Windows 10 PC에는 없을 수 있다. 설치 파일이 런타임이 없을 때 오프라인으로 설치한다(2026-10-08 결정, Evergreen Standalone 포함). 설치 로그(`%TEMP%\Setup Log *.txt`)의 "Prerequisite …" 줄로 설치했는지 건너뛰었는지 본다.
 - [ ] **앱 기동.** 앱이 뜨고 스플래시를 지나 대시보드가 나온다. 로그에 `ASIO Load Error`나 패닉이 없다.
 
 ## 1. 로그인 자동 실행과 이어 가기 (구현 후 점검)
@@ -69,7 +69,7 @@ macOS에서 실측한 값(Scarlett 6i6 12ch, 48kHz)과 비교한다. Windows에�
 
 ## 5. 네트워크 (OSC)
 
-- [ ] **방화벽 허용 창.** 첫 실행에서 Windows Defender 방화벽 허용 창이 뜬다(OSC가 `0.0.0.0`으로 열린다). 허용하지 않은 상태에서 외부 컨트롤러의 OSC가 수신되지 않는지 확인한다. 무인 PC에서는 설치 때 규칙을 넣을지 사용자 결정이 필요하다.
+- [ ] **방화벽 허용 창.** OSC가 `0.0.0.0`(UDP)으로 열린다. 설치 파일이 규칙 2개(`Atmos Mixer Pro OSC`: 개인·도메인 네트워크 전체 허용, `Atmos Mixer Pro OSC (public, local subnet)`: 공용 네트워크는 같은 서브넷만)를 넣으므로 설치본 첫 실행에서 허용 창이 뜨지 않아야 한다(2026-10-08 결정). "고급 보안이 포함된 Windows Defender 방화벽"의 인바운드 규칙에서 두 규칙을 확인하고, 제거하면 사라지는지 본다. 개발 빌드(Debug, CI 폴더)는 exe 경로가 달라 창이 뜬다.
 - [ ] **OSC 수신.** 외부에서 설정된 포트로 `/theme/start`, 트랙 재생·정지, 방 비우기를 보내 동작한다. 같은 주소가 겹치면 마지막 것만 기억한다(HANDOFF 남은 일 5번).
 
 ## 6. 로그

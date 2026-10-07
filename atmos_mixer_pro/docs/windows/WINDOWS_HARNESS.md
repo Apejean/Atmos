@@ -354,9 +354,10 @@ Z5 설치 파일(HANDOFF ⚠️ 8):
   ```
   → `atmos_mixer_pro\windows\Output\AtmosMixerPro_Setup.exe`. `windows\build`·`windows\Output`은 .gitignore에 있다.
 - W3 뒤: `D:\dev\InnoSetup6\ISCC.exe /DReleaseDir=D:\dev\artifacts\<run>\app D:\dev\Atmos\atmos_mixer_pro\windows\installer.iss`
+- W4 뒤: ISCC 전에 `powershell -NoProfile -ExecutionPolicy Bypass -File D:\dev\Atmos\atmos_mixer_pro\tool\windows\fetch-redist.ps1`로 Microsoft 재배포 파일(VC++ 런타임, WebView2 Evergreen Standalone)을 `atmos_mixer_pro\windows\redist`에 받는다(커밋하지 않음, Microsoft 서명 확인). 없으면 ISCC가 `#error Missing Microsoft redistributables`로 멈춘다. 설치 파일은 약 250MB가 된다.
 - 설치 자체의 점검은 P6-A(점검표 0절 "설치")에서 한다.
 
-Z6 깨끗한 PC(선택): 개발 PC에는 Visual Studio가 VC++ 런타임을 깔아 두어 "런타임 없는 현장 PC"를 흉내 낼 수 없다. Windows 11 Pro 이상이면 사용자가 "Windows 샌드박스" 기능을 켜고(재부팅) 그 안에서 zip 폴더의 감시 exe를 실행해 본다. 결과로 W4(런타임 포함 방식)를 제안한다.
+Z6 깨끗한 PC(선택): 개발 PC에는 Visual Studio가 VC++ 런타임을 깔아 두어 "런타임 없는 현장 PC"를 흉내 낼 수 없다. Windows 10 Pro(1903 이상)·Windows 11 Pro면 사용자가 "Windows 샌드박스" 기능을 켜고(재부팅) 그 안에서 설치 파일을 실행해 VC++·WebView2 런타임이 설치되고 앱이 뜨는지 본다(W4 확인).
 
 ### P6 현장 점검표 진행
 
@@ -429,7 +430,7 @@ HANDOFF "⚠️ Windows 미검증" 1~15를 확인하는 곳:
 | W1 | 3D 방 뷰어 Windows 구현(필수) | 6절 |
 | W2 | 통합 테스트 Windows 이식 | `app_flow_test -d windows` 0·1단계 통과(2단계는 W1 전까지 실패 기록), macOS 동작 불변. PR #27로 병합됨(2026-10-07). macOS: `project_media_relink_test` 통과, `app_flow_test` 0~6단계 macOS 재확인도 2026-10-08에 통과(main 40af57b, #30 이후 코드, 결과는 #30 댓글) |
 | W3 | installer 경로 수정(HANDOFF ⚠️ 8) | 저장소 빌드와 CI 폴더 둘 다로 설치 파일 생성 → 설치 → 실행 → 제거 |
-| W4 | 런타임·배포(사용자 결정 뒤) | 결정대로 |
+| W4 | 런타임·배포(사용자 결정 뒤) | 결정대로(2026-10-08 결정: HANDOFF 확정된 결정 "Windows 설치 파일"). 런타임이 있는 PC: 설치 로그에 두 런타임 "already installed", 방화벽 규칙 2개 생성, 첫 실행 허용 창 없음, 제거 때 규칙 삭제. 런타임 없는 PC: Z6에서 두 런타임 설치 후 앱·3D 기동. → 2026-10-08 이 PC(런타임 있음, 네트워크 공용): 업그레이드·제거·조용한 재설치 모두 종료 코드 0, 두 런타임 건너뜀, 규칙 2개 생성(제거 때 0개), 첫 실행 창 없음(사용자 확인). Z6는 아직 |
 | W5 | Windows CI에 `cargo test --no-run`(사용자 결정 뒤) | CI 통과 |
 | W6 | Windows에서만 실패하는 `cargo test`·`flutter test`·clippy 경고 | 원인별 PR, macOS 불변 |
 | W7 | ASIO 채널 이름 | 보류. 사용자가 풀 때까지 시작하지 않는다(HANDOFF 9) |
@@ -437,7 +438,7 @@ HANDOFF "⚠️ Windows 미검증" 1~15를 확인하는 곳:
 
 - **W2**: `integration_test/support/probes.dart:166`의 `expectNoOtherAppInstance()`가 `pgrep -f atmos_mixer_pro.app/...`를 부른다. Windows에서는 `tasklist /FI "IMAGENAME eq atmos_mixer_pro.exe" /FO CSV /NH`로 같은 이름의 프로세스를 세되 테스트 자신(`dart:io`의 `pid`)은 빼고, `atmos_supervisor.exe`도 없어야 한다. `integration_test/project_media_relink_test.dart:112`의 `externalLibrary: Platform.isMacOS ? ... : null`은 `bundledRustLibrary()`(`lib/core/utils/rust_library.dart`)로 맞춘다. 두 파일 머리 주석의 실행 안내에 `-d windows`를 더한다. PR에 macOS에서 `app_flow_test` 0~6단계를 다시 돌려 달라는 Mac 세션 요청을 쓴다.
 - **W3**: `windows/installer.iss`의 `MyAppExePath = AddBackslash(SourcePath) + "build\windows\x64\runner\Release\" + ...`와 `[Files]`의 `Source: "build\windows\x64\runner\Release\..."`는 스크립트 폴더(`atmos_mixer_pro\windows\`) 기준이라 `atmos_mixer_pro\windows\build\...`를 찾는다 → 버전을 못 읽어 `#error Could not read the version`. 최소 수정: 맨 위에 `#ifndef ReleaseDir` / `#define ReleaseDir AddBackslash(SourcePath) + "..\build\windows\x64\runner\Release"` / `#endif`를 두고 `MyAppExePath`와 `[Files]`의 두 `Source`를 `{#ReleaseDir}\...`로 바꾼다. CI zip으로 만들 때는 `ISCC /DReleaseDir=<폴더> windows\installer.iss`.
-- **W4**: VC++ 런타임(X1·Z6 결과로 installer에 vc_redist 포함 또는 DLL 동봉), WebView2 런타임(오프라인 현장이면 Evergreen Standalone 설치 파일 포함), 방화벽 규칙(설치 때 넣을지). 결정 전에는 구현하지 않고 근거만 정리해 제안한다.
+- **W4**: VC++ 런타임(X1·Z6 결과로 installer에 vc_redist 포함 또는 DLL 동봉), WebView2 런타임(오프라인 현장이면 Evergreen Standalone 설치 파일 포함), 방화벽 규칙(설치 때 넣을지). 결정 전에는 구현하지 않고 근거만 정리해 제안한다. → 2026-10-08 결정·구현: `tool\windows\fetch-redist.ps1`이 `VC_redist.x64.exe`(최신 지원판, 14.51)와 WebView2 Standalone x64를 받고, `installer.iss`가 레지스트리로 확인해 없거나 오래됐을 때만 설치한다(VC++는 64·32비트 보기 중 높은 버전, WebView2는 `pv`). 방화벽은 앱 exe 기준 UDP 수신 규칙 2개(개인·도메인 전체, 공용은 `localsubnet`)를 넣고, 첫 실행 창이 남긴 같은 exe의 규칙은 먼저 지운다. 제거 때 지운다.
 - **W5**: G4-05 결과(이 PC에서 `cargo test --no-run`이 되는지)를 근거로 `.github/workflows/build_release.yml` Windows 작업에 `cargo test --no-run`(atmos_mixer_pro/rust) 단계를 넣자고 제안한다. CI 시간이 늘어난다는 점도 적는다.
 
 ### P8 보고·마무리
@@ -506,11 +507,11 @@ HANDOFF "⚠️ Windows 미검증" 1~15를 확인하는 곳:
 | K2 | `app_flow_test` 0단계가 `pgrep`(probes.dart:166)이라 Windows에서 바로 실패 | W2 |
 | K3 | `project_media_relink_test`는 Windows에서 기본 로더 → `rust\target\release` dll이 있으면 옛 Rust | 그 dll을 두지 않는다(preflight). W2 |
 | K4 | `installer.iss` 경로(HANDOFF ⚠️ 8) → ISCC `#error Could not read the version` | Z5 우회, W3 |
-| K5 | VC++ 런타임 의존 미확인 | X1, Z6, W4 |
+| K5 | VC++ 런타임 의존 미확인 | X1, Z6, W4(설치 파일이 VC++ 재배포 패키지를 넣는다. CI zip을 설치 없이 쓰면 여전히 런타임이 필요) |
 | K6 | Debug 빌드의 Rust 엔진은 느려 끊길 수 있다 | 소리 품질은 Release로 |
 | K7 | 감시 프로그램이 꺼진 앱을 다시 띄운다. 대기 중 충돌 뒤 다시 뜨면 첫 방 테마로 시작(소리) | 감시 먼저 끈다(3.4) |
 | K8 | 설치하면 로그인할 때마다 공연이 시작된다(HKCU Run, 기본 켜짐) | 시험 뒤 사용자에게 묻는다 |
-| K9 | 방화벽 허용 창은 exe 경로마다 따로 뜬다(Debug, CI 폴더, 설치 폴더) | "첫 실행" 점검은 설치본으로 |
+| K9 | 방화벽 허용 창은 exe 경로마다 따로 뜬다(Debug, CI 폴더, 설치 폴더) | "첫 실행" 점검은 설치본으로. W4 뒤 설치본은 규칙이 미리 들어가 창이 뜨지 않아야 한다 |
 | K10 | 앱 데이터 폴더가 `com.example`(Runner.rc 기본값)이고 개발 빌드·CI zip·설치본이 같이 쓴다 | 시험 전 백업. 이름 변경은 현장 데이터 이전이 필요해 사용자 결정 |
 | K11 | ASIO는 한 번에 한 프로그램만 연다 | 다른 DAW·앱·다른 Atmos를 끈다 |
 | K12 | CI는 앱의 `cargo test`·`flutter test`를 돌리지 않는다 | Windows 테스트 결과의 근거는 이 PC뿐이다 |
@@ -752,6 +753,7 @@ HANDOFF "⚠️ Windows 미검증" 1~15를 확인하는 곳:
 | `doctor.ps1` | 도구·설정 점검 표(G2) | `doctor.ps1` | FAIL 있으면 1 |
 | `preflight.ps1` | 실행 중인 Atmos, 디스크, 옛 dll, git 상태 | `preflight.ps1` | FAIL 있으면 1 |
 | `fetch-artifact.ps1` | CI zip 받기·풀기·필수 파일·해시·exe 버전 | `fetch-artifact.ps1 -Pr 12` | MISS 있으면 1 |
+| `fetch-redist.ps1` | 설치 파일에 넣을 VC++·WebView2 재배포 파일 받기(`windows\redist`, 서명·버전·SHA256 기록) | `fetch-redist.ps1` / `-Force` | 서명 이상·실패 1 |
 | `deps.ps1` | exe·dll의 의존 DLL, VC++ 런타임 표시 | `deps.ps1 -Dir <폴더>` | 0 |
 | `backup-appdata.ps1` | 앱 데이터·로그·HKCU Run 백업/되돌리기 | `-Label before-E` / `-Restore <백업 폴더>` | 실패 1 |
 | `collect-logs.ps1` | 로그·신호 파일·오류 이벤트·WER·프로세스 상태 묶음 | `-Label 2-1 -Hours 2` | 0 |
@@ -761,10 +763,11 @@ HANDOFF "⚠️ Windows 미검증" 1~15를 확인하는 곳:
 
 | 결정 | 지금 | 근거 |
 |---|---|---|
-| 3D 뷰어 Windows 구현 방식(패키지) | W1 실험 뒤 제안 | HANDOFF 10 |
-| WebView2 런타임 배포(오프라인 현장이면 설치 파일에 포함) | 대기 | 점검표 0·7절 |
-| installer 방화벽 규칙(무인 PC 첫 실행 창) | 대기 | 점검표 5절 |
-| VC++ 런타임 포함 방식 | X1·Z6 뒤 | X1 |
+| 3D 뷰어 Windows 구현 방식(패키지) | `webview_windows`(WebView2)로 구현·병합(PR #30) | HANDOFF 10 |
+| WebView2 런타임 배포(오프라인 현장이면 설치 파일에 포함) | 결정(2026-10-08): Evergreen Standalone 포함, 없을 때만 설치 | HANDOFF 확정된 결정 |
+| installer 방화벽 규칙(무인 PC 첫 실행 창) | 결정(2026-10-08): 개인·도메인 UDP 허용, 공용은 같은 서브넷 | HANDOFF 확정된 결정 |
+| VC++ 런타임 포함 방식 | 결정(2026-10-08): 재배포 패키지 포함, 없거나 오래됐을 때만 설치 | HANDOFF 확정된 결정 |
+| 코드 서명 | 결정(2026-10-08): 지금은 백신 예외 절차, 나중에 인증서 구매 가능 | HANDOFF 확정된 결정 |
 | Windows CI에 `cargo test --no-run` 단계 | G4-05 뒤 | HANDOFF 12 |
 | ASIO 채널 이름 | 보류(시작하지 않음) | HANDOFF 9 |
 | v1.1.3 태그와 `main` 버전 차이(현장 설치 버전) | 대기 | HANDOFF 11 |
