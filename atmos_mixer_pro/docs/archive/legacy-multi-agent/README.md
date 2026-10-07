@@ -11,8 +11,8 @@
 | `loop.md` | `docs/03_Protocols_and_Workflows/` | 범용 자율 감독 루프 점검표 |
 | `task.md` | `docs/02_Planning_and_Specs/` | 빈 파일(`PAN_DEG_AND_EARLY_REFLECTIONS_SPEC.md`가 참조하던 진단 문서 자리) |
 
-서브에이전트 정의 `atmos_mixer_pro/.claude/agents/`(커밋된 5개)도 옛 방식이지만 그 자리에 둔다.
+서브에이전트 정의 `atmos_mixer_pro/.claude/agents/`의 나머지 4개(`back-engineer.md`, `front-engineer.md`, `system-architect.md`, `test-runner.md`)도 옛 방식이지만 그 자리에 둔다. `code-reviewer.md`는 사용자 결정(2026-10-07)으로 그 자리에서 빼고 아래 수정본을 보관했다. 커밋된 원래 `code-reviewer.md`(23줄)는 git 기록(afc06a4)에 있다.
 
 `claude-agents-uncommitted/`: 공유 작업 폴더에 커밋되지 않은 채 남아 있던 두 파일(2026-10-01 01:59 생성, 이 프로젝트 Claude Code 세션 기록에 쓴 흔적 없음)을 2026-10-07에 그대로 보관했다.
-- `code-reviewer.md`: 커밋된 `.claude/agents/code-reviewer.md`를 크게 늘린 수정본(커밋본은 원래대로 둠).
+- `code-reviewer.md`: 커밋된 `.claude/agents/code-reviewer.md`를 크게 늘린 수정본(커밋본 대비 +170/−13).
 - `check.md`: 위 수정본의 복사본에 `name`만 `check`로 바꾼 것.
