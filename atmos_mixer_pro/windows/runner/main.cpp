@@ -38,6 +38,12 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
     ::DispatchMessage(&msg);
   }
 
+  // window_manager's destroy() only posts WM_QUIT, so the window is still alive
+  // here. Tear it down now, in the same order as a normal close (engine first,
+  // then the window), instead of from the destructors: there the engine went
+  // away before the window and flutter_windows.dll crashed on exit (0xc0000005).
+  window.Destroy();
+
   ::CoUninitialize();
   return EXIT_SUCCESS;
 }
