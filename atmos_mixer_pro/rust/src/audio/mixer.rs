@@ -723,7 +723,14 @@ impl AudioMixer {
                                 frac = (idx_f - (idx_base as f64)) as f32;
                                 idx_i = idx_base * channels;
                             }
-                            Err(rtrb::PopError::Empty) => {}
+                            Err(rtrb::PopError::Empty) => {
+                                // 디코더 스레드가 끝났고(파일 끝·오류) 남은 묶음도 없으면 이 스트림은 끝났다.
+                                // 묶음이 늦을 뿐이면 보내는 쪽이 살아 있다. 보내는 쪽이 끝난 뒤에는 더 들어오지
+                                // 않으므로 비어 있는지는 그다음에 본다. 둘 다 원자 읽기다(할당·잠금 없음).
+                                if !instance.is_stopping && stream_rx.is_abandoned() && stream_rx.is_empty() {
+                                    instance.is_stopping = true;
+                                }
+                            }
                         }
                     }
 
