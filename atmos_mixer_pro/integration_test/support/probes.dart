@@ -5,6 +5,7 @@ import 'dart:io';
 import 'dart:math';
 
 import 'package:atmos_mixer_pro/core/state/global_state.dart';
+import 'package:atmos_mixer_pro/core/utils/rust_library.dart' show windowsBundledRustDllPath;
 import 'package:atmos_mixer_pro/features/exhibition/state/three_js_engine_provider.dart';
 import 'package:flutter/foundation.dart' show setEquals;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -157,19 +158,44 @@ Future<void> tapSpeakerNode(ProviderContainer container, String speakerId) async
 /// 디버그 빌드에만 있는 결함 주입 훅(rust/src/test_hooks.rs). 워치독과 같은 자기 재시작을 일으킨다.
 /// FRB와 같은 Rust 프레임워크에서 심볼을 찾는다.
 void requestEngineRecovery() {
-  final lib = DynamicLibrary.open('rust_lib_atmos_mixer_pro.framework/rust_lib_atmos_mixer_pro');
+  final lib = DynamicLibrary.open(
+    Platform.isWindows
+        ? windowsBundledRustDllPath(Platform.resolvedExecutable)
+        : 'rust_lib_atmos_mixer_pro.framework/rust_lib_atmos_mixer_pro',
+  );
   lib.lookupFunction<Void Function(), void Function()>('atmos_test_request_engine_recovery')();
 }
 
 /// 0단계 사전 확인: 이 테스트 앱 말고 다른 Atmos 앱이 떠 있으면 실패한다.
 Future<void> expectNoOtherAppInstance() async {
+  final others = Platform.isWindows ? await _windowsAppPids() : await _macosAppPids();
+  if (others.isNotEmpty) {
+    fail('0단계: 다른 Atmos 앱 인스턴스(pid ${others.join(', ')})가 실행 중이다. 종료한 뒤 다시 실행하라.');
+  }
+}
+
+/// macOS: 테스트 자신을 뺀 Atmos 앱 프로세스 PID.
+Future<List<String>> _macosAppPids() async {
   final r = await Process.run('pgrep', ['-f', 'atmos_mixer_pro.app/Contents/MacOS/atmos_mixer_pro']);
-  final others = (r.stdout as String)
+  return (r.stdout as String)
       .split('\n')
       .map((s) => s.trim())
       .where((s) => s.isNotEmpty && s != '$pid')
       .toList();
-  if (others.isNotEmpty) {
-    fail('0단계: 다른 Atmos 앱 인스턴스(pid ${others.join(', ')})가 실행 중이다. 종료한 뒤 다시 실행하라.');
+}
+
+/// Windows: 테스트 자신을 뺀 앱·감시 프로세스 PID. tasklist CSV 한 줄이 `"이미지","PID",…`다.
+/// 없으면 CSV가 아니라 안내 문장이 나오므로 따옴표로 시작하는 줄만 본다.
+Future<List<String>> _windowsAppPids() async {
+  final found = <String>[];
+  for (final image in ['atmos_mixer_pro.exe', 'atmos_supervisor.exe']) {
+    final r = await Process.run('tasklist', ['/FI', 'IMAGENAME eq $image', '/FO', 'CSV', '/NH']);
+    for (final line in (r.stdout as String).split('\n')) {
+      final fields = line.trim().split('","');
+      if (!line.trim().startsWith('"') || fields.length < 2) continue;
+      final p = fields[1].replaceAll('"', '');
+      if (p != '$pid') found.add(p);
+    }
   }
+  return found;
 }

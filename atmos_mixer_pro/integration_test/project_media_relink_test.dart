@@ -1,6 +1,6 @@
 // 다른 PC에서 저장한 프로젝트를 이 PC에서 열 때 트랙 오디오·도면 경로 다시 연결(실제 Rust 라이브러리).
 // 화면은 띄우지 않고 프로젝트 열기가 부르는 함수만 실제로 부른다. 소리는 나지 않고, 실제 설정(config.json)과
-// 환경설정은 건드리지 않는다. 실행: flutter test integration_test/project_media_relink_test.dart -d macos
+// 환경설정은 건드리지 않는다. 실행: flutter test integration_test/project_media_relink_test.dart -d macos (Windows: -d windows)
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -9,7 +9,7 @@ import 'package:atmos_mixer_pro/core/state/project_media.dart';
 import 'package:atmos_mixer_pro/src/rust/api/simple.dart' as rust_api;
 import 'package:atmos_mixer_pro/src/rust/common/config.dart';
 import 'package:atmos_mixer_pro/src/rust/frb_generated.dart';
-import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart' show ExternalLibrary;
+import 'package:atmos_mixer_pro/core/utils/rust_library.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 
@@ -108,11 +108,7 @@ void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
   setUpAll(() async {
-    await RustLib.init(
-      externalLibrary: Platform.isMacOS
-          ? ExternalLibrary.open('rust_lib_atmos_mixer_pro.framework/rust_lib_atmos_mixer_pro')
-          : null,
-    );
+    await RustLib.init(externalLibrary: bundledRustLibrary());
   });
 
   test('다른 PC에서 저장한 프로젝트를 열면 프로젝트 폴더의 파일로 다시 연결되고 엔진이 그 파일을 읽는다', () async {
