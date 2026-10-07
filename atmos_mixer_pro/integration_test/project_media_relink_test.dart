@@ -83,9 +83,13 @@ AppConfig _config(List<TrackConfig> tracks) => AppConfig(
       globalReverbDecay: 1.0,
     );
 
+/// 이 PC의 파일 경로를 그 OS의 구분자로 잇는다. 다시 연결된 경로는 폴더를 훑어 찾으므로
+/// Windows에서는 `\`로 돌아온다(현장에서 파일 선택 창이 주는 경로도 같다).
+String _p(List<String> parts) => parts.join(Platform.pathSeparator);
+
 /// 디자이너 PC(macOS)에서 저장한 것처럼, 이 PC에 없는 경로가 든 프로젝트 파일을 만든다.
 Future<String> _writeProject(Directory dir, List<TrackConfig> tracks, String blueprintPath) async {
-  final path = '${dir.path}/project.atmos';
+  final path = _p([dir.path, 'project.atmos']);
   await rust_api.apiSaveConfig(path: path, config: _config(tracks));
   final merged = injectExhibitionSection(await File(path).readAsString(), {'blueprint_image_path': blueprintPath});
   await File(path).writeAsString(merged);
@@ -114,11 +118,11 @@ void main() {
   test('다른 PC에서 저장한 프로젝트를 열면 프로젝트 폴더의 파일로 다시 연결되고 엔진이 그 파일을 읽는다', () async {
     final root = await Directory.systemTemp.createTemp('atmos_relink_it_');
     addTearDown(() => root.delete(recursive: true));
-    final project = await Directory('${root.path}/USB/Exhibit').create(recursive: true);
-    final bgm = File('${project.path}/audio/room1/BGM.wav');
+    final project = await Directory(_p([root.path, 'USB', 'Exhibit'])).create(recursive: true);
+    final bgm = File(_p([project.path, 'audio', 'room1', 'BGM.wav']));
     await bgm.create(recursive: true);
     await bgm.writeAsBytes(_wav());
-    final plan = File('${project.path}/plan/floor.png');
+    final plan = File(_p([project.path, 'plan', 'floor.png']));
     await plan.create(recursive: true);
     await plan.writeAsBytes([0x89, 0x50, 0x4E, 0x47]);
 
@@ -138,8 +142,8 @@ void main() {
   test('프로젝트 폴더에 없는 파일은 고른 폴더에서 찾고, 끝까지 없는 파일은 목록으로 남는다', () async {
     final root = await Directory.systemTemp.createTemp('atmos_relink_it_');
     addTearDown(() => root.delete(recursive: true));
-    final project = await Directory('${root.path}/project').create(recursive: true);
-    final other = File('${root.path}/audio_on_d/sfx/door.wav');
+    final project = await Directory(_p([root.path, 'project'])).create(recursive: true);
+    final other = File(_p([root.path, 'audio_on_d', 'sfx', 'door.wav']));
     await other.create(recursive: true);
     await other.writeAsBytes(_wav());
 
@@ -151,7 +155,7 @@ void main() {
     List<String>? asked;
     final media = await _open(path, (missing) async {
       asked = missing;
-      return '${root.path}/audio_on_d';
+      return _p([root.path, 'audio_on_d']);
     });
     expect(asked, [
       '/Users/designer/Exhibit/sfx/door.wav',
