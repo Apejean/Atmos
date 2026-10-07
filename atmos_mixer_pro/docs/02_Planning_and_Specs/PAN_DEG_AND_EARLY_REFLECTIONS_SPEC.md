@@ -3,7 +3,7 @@
 - 작성일: 2026-09-09
 - 작성자: @Architect (system-architect)
 - 조사 방법: `rust/src/audio/mixer.rs`, `rust/src/audio/dsp.rs`, `rust/src/audio/acoustic.rs`, `rust/src/audio/reverb.rs`, `rust/src/common/config.rs`, `rust/src/common/commands.rs`, `rust/src/audio/engine.rs`, `rust/src/api/simple.rs`, `lib/features/exhibition/models/speaker_node.dart`, `lib/features/exhibition/models/room_zone.dart`, `lib/features/exhibition/state/{speaker_layout_state,room_zone_state}.dart`, `lib/features/exhibition/widgets/hud/speaker_inspector_panel.dart` 전수 대조.
-- 전제: `docs/02_Planning_and_Specs/task.md`가 진단한 P0/P1 이슈와 무관한 신규 기능 설계이며, 본 문서에서 발견된 기존 결함은 4장에 별도 기재하고 본 작업 범위에서 제외한다.
+- 전제: `docs/02_Planning_and_Specs/task.md`(지금은 빈 파일로 `docs/archive/legacy-multi-agent/task.md`에 보관)가 진단한 P0/P1 이슈와 무관한 신규 기능 설계이며, 본 문서에서 발견된 기존 결함은 4장에 별도 기재하고 본 작업 범위에서 제외한다.
 
 ---
 
