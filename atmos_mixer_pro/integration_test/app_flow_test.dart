@@ -1,6 +1,6 @@
 // 앱 흐름 통합 테스트(설계: docs/superpowers/specs/2026-10-01-app-flow-integration-test-design.md).
-// 실제 앱을 띄워 시스템 기본 출력 장치로 −30dBFS 톤을 낸다. macOS 실기 전용, 수동 실행:
-//   flutter test integration_test/app_flow_test.dart -d macos
+// 실제 앱을 띄워 시스템 기본 출력 장치로 −30dBFS 톤을 낸다. macOS·Windows 실기 전용, 수동 실행:
+//   flutter test integration_test/app_flow_test.dart -d macos   (Windows: -d windows)
 import 'dart:io';
 
 import 'package:atmos_mixer_pro/core/state/global_state.dart';
