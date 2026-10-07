@@ -32,6 +32,12 @@ set(CMAKE_CXX_FLAGS_PROFILE "${CMAKE_CXX_FLAGS_RELEASE}")
 # Use Unicode for all projects.
 add_definitions(-DUNICODE -D_UNICODE)
 
+# webview_windows 0.4.0 (3D room viewer, WebView2) still builds with /await and
+# <experimental/coroutine>, which newer MSVC (14.51, Visual Studio 18 on the CI
+# image) rejects with STL1011 unless this is defined. Remove it once the plugin
+# moves to C++20 coroutines.
+add_definitions(-D_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS)
+
 # Compilation settings that should be applied to most targets.
 #
 # Be cautious about adding new options here, as plugins use this function by
