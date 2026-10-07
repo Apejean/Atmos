@@ -11,9 +11,10 @@ fn fresh_dir(tag: &str) -> PathBuf {
     dir
 }
 
-/// [root] 아래에 빈 파일을 만들고 경로를 돌려준다.
+/// [root] 아래에 빈 파일을 만들고 경로를 돌려준다. [relative]의 `/`는 그 OS의 구분자로 잇는다
+/// (다시 연결된 경로는 폴더를 훑어 찾으므로 Windows에서는 `\`로 돌아온다).
 fn touch(root: &Path, relative: &str) -> PathBuf {
-    let path = root.join(relative);
+    let path = relative.split('/').fold(root.to_path_buf(), |p, part| p.join(part));
     std::fs::create_dir_all(path.parent().unwrap()).unwrap();
     std::fs::write(&path, b"").unwrap();
     path
