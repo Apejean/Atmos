@@ -33,7 +33,11 @@ flutter_rust_bridge_codegen generate        # rust/src/api/ 바꿨을 때만
 - **Main → Sub 전달**: 대화 내역을 붙이지 않고 다음만 보낸다 — 목표, 범위·대상 파일, 건드리지 말 것, 관련 문서, 완료 조건, 검증(Main이 이미 돌린 결과 포함). Sub는 나머지를 이 파일·HANDOFF·코드에서 찾는다.
 - **Sub 에스컬레이션**: API 계약(FRB `rust/src/api/`)·`config.json` 구조·엔진 구조 변경, 광범위한 수정, 원인 불명, 요구와 구조 충돌, 3법칙 위반 발견 시 억지로 진행하지 않고 Main에 보고한다: 현재 작업 / 발견 / 근거 / 위험 / 권하는 다음 단계.
 - **검증 보고**: 실행한 명령과 결과 수치만 보고한다. 돌리지 않은 검증을 통과라고 쓰지 않는다.
-- **Git**: 공유 작업 폴더(`/Users/Allweno/Projects/GitHub/atmos`)의 다른 세션 미커밋 파일은 건드리지 않고 임시 worktree에서 커밋한다. `.DS_Store`, `.claude/agents/*`, `rust/.ua/`, `rust/data/`는 커밋에서 뺀다.
+- **Git**: 공유 작업 폴더(`/Users/Allweno/Projects/GitHub/atmos`)의 다른 세션 미커밋 파일은 건드리지 않고 임시 worktree나 임시 인덱스로 커밋한다. `.DS_Store`, `.claude/agents/*`, `rust/.ua/`, `rust/data/`는 커밋에서 뺀다.
+  - 커밋 메시지는 영어, PR 본문은 한국어. 문서 변경도 기능 브랜치에서 PR로 올린다.
+  - 병합은 머지 커밋. 코드 PR은 CI(windows·macos) 통과 뒤 병합하고, 병합 뒤 브랜치를 지운다.
+  - 충돌은 양쪽 내용을 모두 살린다(한쪽 일괄 선택 금지). 이미 병합된 문서는 origin/main 쪽을 우선한다.
+- **세션 간 협업**: Sub→Main 보고와 Main→Sub 지시는 세션 메시지로. Main이 넘기지 않은 다른 세션의 PR은 사용자 확인 뒤 병합한다. 다른 세션의 작업 폴더·브랜치는 사용자가 그 세션을 보관한 뒤 정리한다(세션 보관은 사용자가 한다).
 
 ## 모델 선택 (역할과 모델은 분리, 모델별 세션은 만들지 않는다)
 - **Haiku**: 탐색, 단순 분류·문서 정리.

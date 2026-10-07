@@ -126,7 +126,7 @@ D:\VS\2022\Community  D:\VS\Shared  D:\VS\Cache   Visual Studio
 - 증거가 필요한 명령은 `run.ps1`로 돌린다(10절). 출력 전체가 `D:\dev\logs\<날짜>\<게이트>_<시각>.log`에 남는다.
 - 8분 넘게 걸릴 수 있는 명령(첫 `cargo test`, 첫 `flutter build`, 통합 테스트)은 백그라운드로 돌리고 로그 파일로 확인한다(도구 한 번의 제한 시간은 10분).
 - 앱을 오래 띄워 두는 시험(감시·장시간·로그인)은 사용자가 바로가기나 탐색기로 띄운다. Claude 셸의 자식으로 띄운 프로세스는 셸이 정리될 때 같이 꺼질 수 있다.
-- `.mcp.json`의 agentmemory MCP는 Node.js가 있어야 뜬다. 이 PC의 기억은 Mac과 공유되지 않으므로 결정과 인계는 PROGRESS.md와 GitHub에 남긴다. MCP 승인 창은 사용자 판단으로 거절해도 된다.
+- `.mcp.json`의 agentmemory MCP는 쓰지 않는다(Mac에서도 꺼 두었고 CLAUDE.md에서도 뺐다). 승인 창이 뜨면 거절한다. 결정과 인계는 PROGRESS.md와 GitHub에 남긴다.
 
 ## 4. 앱이 쓰는 Windows 경로
 
@@ -193,7 +193,7 @@ G1: 클론 완료, `main`에 1907e73 포함. 여기서부터 `tool/windows/` 스
 | 2-6 | Flutter stable | — |
 | 2-7 | WebView2 런타임 확인(W1에 필요) | 없으면 설치 확인 |
 | 2-8 | Inno Setup 6 | UAC |
-| 2-9 | (선택) Node.js LTS — agentmemory MCP용: `winget install --id OpenJS.NodeJS.LTS -e --source winget` | UAC |
+| 2-9 | (생략) Node.js LTS — agentmemory MCP용이었으나 agentmemory는 쓰지 않는다 | — |
 | 2-10 | (선택) `cargo install flutter_rust_bridge_codegen --version 2.12.0 --locked` — `rust/src/api`를 바꿀 때만 | — |
 
 2-2 Visual Studio. Flutter Windows 빌드는 Visual Studio 2022의 "C++를 사용한 데스크톱 개발" 워크로드와 그 기본 구성요소가 필요하다(Build Tools가 아니라 Visual Studio로 맞춘다). 설치 전에 사용자에게 Community 라이선스(조직 규모·매출 조건)로 이 PC에서 써도 되는지 확인받는다.
