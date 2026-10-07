@@ -4,11 +4,12 @@
 - 대상: Windows PC에서 개발 모드로 일하는 Claude Code 세션(아래 "Windows Claude")과 그 옆의 사용자. 사람이 먼저 읽는 짧은 안내와 시작 프롬프트는 [`WINDOWS_QUICKSTART.md`](WINDOWS_QUICKSTART.md)에 있다.
 - 목적: 현장(전시 운영) PC는 Windows다. macOS에서 만든 기능이 Windows에서도 똑같이 동작하는지 이 PC에서 빌드·자동 테스트·현장 점검으로 확인하고, Windows에만 필요한 작업(3D 방 뷰어 등)을 한다.
 - 이 문서와 `tool/windows/*.ps1`은 macOS에서 코드를 읽고 쓴 것이다. **Windows에서 실행해 본 적이 없다.** 명령이 틀리면 고쳐 쓰고, 고친 내용은 W8로 이 문서와 스크립트에 되돌린다.
+- 저장소 루트 `CLAUDE.md`(PR #17, Main/Sub 방식)에 맞췄다. 이 문서와 CLAUDE.md가 다르면 CLAUDE.md가 우선이다.
 - 표기: "HANDOFF n"은 `docs/HANDOFF.md` "남은 일" n번, "HANDOFF ⚠️ n"은 같은 문서 "⚠️ Windows 미검증" n번이다. "점검표 n절"은 `docs/WINDOWS_FIELD_CHECKLIST.md`의 n절이다.
 
 ## 0. 지금 할 일
 
-1. 이 문서를 끝까지 읽는다. 저장소 루트 `CLAUDE.md`, `atmos_mixer_pro/docs/HANDOFF.md`, `atmos_mixer_pro/docs/WINDOWS_FIELD_CHECKLIST.md`(아래 "점검표")도 읽는다.
+1. CLAUDE.md의 읽는 순서대로 저장소 루트 `CLAUDE.md` → `atmos_mixer_pro/docs/HANDOFF.md`를 먼저 읽고, 이 문서와 `atmos_mixer_pro/docs/WINDOWS_FIELD_CHECKLIST.md`(아래 "점검표")를 끝까지 읽는다. 그 밖의 문서는 작업과 관련 있을 때만 연다.
 2. `D:\dev\harness\PROGRESS.md`가 있으면 거기 적힌 "다음 할 일"부터, 없으면 P0부터 한다.
 3. 단계는 5절의 순서대로 한다. 게이트를 통과해야 다음으로 간다. 게이트가 실패하면 원인을 찾아 고치고, 사용자 조치가 필요하면 정확히 요청하고 기다린다.
 4. 게이트마다 PROGRESS.md를 갱신하고 사용자에게 한국어로 짧게 보고한다(9.6 형식).
@@ -18,12 +19,11 @@
 
 ### 1.1 전체 흐름
 
-```
-macOS                          GitHub (Apejean/Atmos)                 Windows 개발 PC
-Main 세션: macOS 코드·측정  ──PR──▶ main ◀──PR (win/*)──  Windows Claude: 빌드·테스트·점검·Windows 작업
-Sub 세션: 병합·문서·검토   ◀── PR 본문·댓글, HANDOFF.md ──▶  사용자: UAC·장치·청음·결정
-                               Actions: PR마다 Windows·macOS 빌드 → zip 아티팩트(P5)
-```
+- macOS Main 세션: 요구 이해·계획·설계·디버깅·macOS 실기 → 결과를 Sub에 넘긴다.
+- macOS Sub 세션: 브랜치·커밋·PR·CI 확인·병합, HANDOFF·점검표 기록.
+- GitHub `Apejean/Atmos`: `main`, PR 본문·댓글, HANDOFF.md, Actions(PR마다 Windows·macOS 빌드 → zip 아티팩트, P5).
+- Windows Claude(이 문서): 빌드·테스트·점검·Windows 작업 → `win/*` PR.
+- 사용자: UAC·장치·청음·결정, Mac 세션과 Windows 세션 사이 전달.
 
 Windows Claude는 Mac 세션에 직접 말할 수 없다. 오가는 길은 GitHub(PR·댓글·문서)와 사용자뿐이다.
 
@@ -32,7 +32,7 @@ Windows Claude는 Mac 세션에 직접 말할 수 없다. 오가는 길은 GitHu
 | 층 | 위치 | 하는 일 | 저장소에 |
 |---|---|---|---|
 | 규칙 | `%USERPROFILE%\.claude\CLAUDE.md` | 이 PC 전용 규칙(9.1). 이 PC의 모든 세션에 자동으로 실린다 | 아니오 |
-| 규칙 | `D:\dev\Atmos\CLAUDE.md` | 저장소 공통 규칙(DSP 3법칙, 코딩 규칙) | 예 |
+| 규칙 | `D:\dev\Atmos\CLAUDE.md`, `.claude\rules\*.md` | 저장소 공통 규칙(오디오 스레드 3법칙, 작업 방식·에스컬레이션·검증 보고, 모델 선택, 문서 갱신 시점, 코딩 규칙). Rust·Flutter 세부 규칙은 `.claude\rules\`에 있고 그 경로를 다룰 때 자동으로 실린다 | 예 |
 | 권한 | `D:\dev\Atmos\.claude\settings.local.json` | 허용·확인·금지 명령, 저장소 밖 하네스 폴더 접근(9.2) | 아니오 |
 | 절차 | `docs/windows/WINDOWS_HARNESS.md`(이 문서), `WINDOWS_QUICKSTART.md` | 단계·게이트·명령 | 예 |
 | 실행 | `tool/windows/*.ps1` | 환경·점검·실행 기록·아티팩트·백업·로그·자원 기록(10절) | 예 |
@@ -69,8 +69,8 @@ D:\VS\2022\Community  D:\VS\Shared  D:\VS\Cache   Visual Studio
 |---|---|---|
 | Windows Claude | 개발 환경 구축, 빌드·자동 테스트, CI zip 검사, 점검표 진행·기록, Windows 전용 작업(5절 P7), 결과 PR | `main`에 직접 푸시, 사용자 지시 없는 병합, macOS 동작을 바꾸는 변경, 시스템·보안 설정 변경 |
 | 사용자 | UAC 승인, 라이선스 동의, 시스템 설정(개발자 모드·Defender·방화벽·전원), gh 로그인, 장치 연결·청음, 재부팅·로그인 시험, 결정(11절) | |
-| Mac Main 세션 | macOS 기능 개발·측정, macOS 회귀 확인 | |
-| Mac Sub 세션 | PR 병합, 문서·인계 정리, 검토 | |
+| Mac Main 세션 | 요구 이해, 계획·위험도 판단, 설계·디버깅, macOS 실기 시험, Sub 결과 검수, HANDOFF 갱신 판단(CLAUDE.md) | |
+| Mac Sub 세션 | Main이 넘긴 일의 브랜치·커밋·PR·CI 확인·병합, HANDOFF·점검표 기록, 범위가 정해진 구현과 검증(CLAUDE.md) | |
 
 - Mac 세션에 부탁할 일은 PR 본문 "Mac 세션 확인 요청" 절이나 PR 댓글로 남기고, 사용자에게 "Mac에 전달해 주세요"라고 알린다.
 - 큰 작업(W1 등)은 시작할 때 Draft PR을 먼저 열어 작업 중임을 알린다. 시작 전에 `gh pr list --repo Apejean/Atmos --state all --search "<주제>"`와 `git branch -r`로 같은 작업이 있는지 본다. 있으면 그 브랜치를 받아 Windows 검증만 한다.
@@ -82,7 +82,7 @@ D:\VS\2022\Community  D:\VS\Shared  D:\VS\Cache   Visual Studio
 - 사용자에게 보이는 답·보고·질문은 한국어. 코드·명령·커밋 메시지는 영어.
 - 채널 번호는 사용자에게 CH1부터 말한다(내부 channel은 0부터, CH = 내부 + 1).
 - 확인 등급을 구분해 말한다: ① CI 빌드 통과 ② 이 PC 빌드·자동 테스트 통과 ③ 이 PC 실행 확인(소리 없음) ④ 장치로 확인(소리) ⑤ 사람이 들어 확인. macOS에서 확인한 것을 Windows 보증으로 말하지 않는다.
-- 실패는 출력 그대로(로그 경로 포함) 보고한다. 건너뛴 것은 건너뛰었다고, 추정은 추정이라고 말한다.
+- 실패는 출력 그대로(로그 경로 포함) 보고한다. 건너뛴 것은 건너뛰었다고, 추정은 추정이라고 말한다. 검증은 실행한 명령과 결과 수치로만 보고하고, 돌리지 않은 검증을 통과라고 쓰지 않는다(CLAUDE.md).
 
 ### 3.2 확정된 결정 — 다시 제안하지 않는다
 - 크로스오버 **80Hz·LR24(24dB/oct)** 유지. 서브 저음이 메인 자리에서 들리는 것은 의도된 상태다. 120/150Hz, 48dB/oct는 제안하지 않는다.
@@ -93,12 +93,13 @@ D:\VS\2022\Community  D:\VS\Shared  D:\VS\Cache   Visual Studio
 - ASIO 채널 이름 작업은 사용자가 보류했다. 시작하지 않는다.
 
 ### 3.3 코드
-- 저장소 `CLAUDE.md`를 따른다: 오디오 스레드 3법칙(할당 금지·블로킹 금지·파라미터 보간), Rust 주석·문서 한국어, 운영 오디오 코드 `unwrap()` 금지, 외과적 변경, 단순함 우선, 검증 가능한 목표(실패하는 테스트 → 고침 → 통과).
+- 저장소 `CLAUDE.md`와 `.claude/rules/`(Rust·Flutter 세부)를 따른다: 오디오 스레드 3법칙(할당 금지·블로킹 금지·보간), Rust 주석·문서 한국어, 운영 오디오 코드 `unwrap()` 금지, `config.json`은 Rust `AppConfig`와 Dart 모델 1:1, 외과적 변경(요청 없는 추상화·재정렬·서식 변경 없음), 가능하면 실패하는 테스트 → 수정 → 통과.
+- CLAUDE.md의 에스컬레이션 조건(API 계약 `rust/src/api/`·`config.json` 구조·엔진 구조 변경, 광범위한 수정, 원인 불명, 요구와 구조의 충돌, 3법칙 위반 발견)에 걸리면 억지로 진행하지 않고 사용자에게 보고한다: 현재 작업 / 발견 / 근거 / 위험 / 권하는 다음 단계. Mac 세션의 판단이 필요하면 같은 내용을 PR 본문 "Mac 세션 확인 요청"에 쓴다.
 - Windows 전용 코드는 `#[cfg(target_os = "windows")]`(Rust), `Platform.isWindows`(Dart)로 나눠 macOS 동작을 바꾸지 않는다. 바뀌게 되면 PR에 그 사실과 Mac 세션 확인 요청을 쓴다.
 - 새 패키지는 macOS 빌드에 주는 영향(플러그인 등록 여부)을 PR에 적는다.
-- `flutter analyze` 새 이슈 0, `cargo clippy` 새 경고 0. 기존 것(macOS에서 잰 현재 `main`: analyze 5건, Rust lib clippy 26건)은 건드리지 않고 목록만 남긴다.
-- `rust/src/api/`를 바꾸면 `flutter_rust_bridge_codegen generate`(2.12.0)로 바인딩을 다시 만든다.
-- `CLAUDE.md`, `.claude/agents/`, `.agents/`는 사용자가 요청할 때만 고친다.
+- `flutter analyze`는 0건을 유지한다(CLAUDE.md, 현재 `main` 0건). `cargo clippy`는 새 경고 0, 기존 lib 경고 26건(macOS 기준)은 건드리지 않고 목록만 남긴다.
+- `rust/src/api/`를 바꾸는 것은 API 계약 변경이다(Dart 바인딩 재생성 필요). 위 에스컬레이션대로 먼저 보고하고, 승인되면 `flutter_rust_bridge_codegen generate`(2.12.0)로 바인딩을 다시 만든다.
+- `CLAUDE.md`와 `.claude/rules/`는 사용자가 요청할 때만 고친다. 옛 다중 에이전트 방식의 문서(`.agents/`, `.gemini/`, 서브에이전트 정의 `atmos_mixer_pro/.claude/agents/`, `docs/03_Protocols_and_Workflows/`의 `AGENT_WORKFLOW_AND_SPECIFICATION_MASTER.md`·`CLAUDE_CODE_SETUP_GUIDE.md`·`loop.md`)는 따르지 않는다(CLAUDE.md).
 
 ### 3.4 안전
 - 빌드·장치 시험 전에 `preflight.ps1`. Atmos가 실행 중이면 사용자에게 먼저 묻는다(사용자의 청음·장시간 확인일 수 있다).
@@ -117,16 +118,18 @@ D:\VS\2022\Community  D:\VS\Shared  D:\VS\Cache   Visual Studio
 - 커밋은 사용자가 요청했거나 이 문서의 단계가 정한 때만 한다. 메시지는 영어 Conventional Commits(`fix(windows): ...`, `test: ...`, `docs: ...`)에 Claude Code가 정한 공동 작성자 줄을 붙인다.
 - PR은 `main` 대상, 본문은 한국어(9.5). 병합은 사용자가 지시할 때만, 머지 커밋으로 한다.
 - 문서 변경은 그 기능 브랜치에 같이 넣는다. 충돌은 양쪽 내용을 살린다. 이미 `main`에 병합된 문서는 `origin/main` 쪽을 기준으로 한다.
-- 커밋하지 않는 것: `D:\dev\logs`·`artifacts`·`backups`의 내용, `windows\Output\`, `windows\build\`, `.claude\settings.local.json`, 빌드 산출물, 측정용 임시 코드.
+- 문서는 일이 생겼을 때만 고친다(CLAUDE.md): HANDOFF는 작업 완료·범위 변경·중요한 발견·막힘·사용자 결정이 있을 때, 스펙·설계 문서는 실제 구조가 바뀔 때만. 새 문서보다 기존 문서 갱신이 먼저다.
+- 커밋하지 않는 것: `D:\dev\logs`·`artifacts`·`backups`의 내용, `windows\Output\`, `windows\build\`, `.claude\settings.local.json`, 빌드 산출물, 측정용 임시 코드, 그리고 CLAUDE.md의 제외 목록(`.DS_Store`, `.claude/agents/*`, `rust/.ua/`, `rust/data/`).
 
 ### 3.6 도구 쓰는 법
-- 서브에이전트·워크플로(여러 에이전트)를 쓰지 않는다. 혼자 순서대로 한다(사용자 결정, 토큰 비용).
+- 서브에이전트·워크플로(여러 에이전트)를 쓰지 않는다. 혼자 순서대로 한다(CLAUDE.md, 토큰 비용).
+- 모델은 CLAUDE.md "모델 선택"을 따르고, 세션 모델은 사용자가 앱에서 바꾼다. 3D 뷰어(W1, WebView2·FFI 경계)와 장치·재시작 디버깅은 Opus, 일반 빌드·테스트·기록은 Sonnet이 맞다. 모델을 올리기 전에 조사·컨텍스트·테스트 부족이 원인인지 먼저 보고, 바꾸는 편이 낫다고 보면 사용자에게 권한다.
 - 셸: PowerShell 도구가 있으면 그것을 쓴다. Git Bash뿐이면 Windows 명령·스크립트는 `MSYS_NO_PATHCONV=1 powershell -NoProfile -ExecutionPolicy Bypass -File <스크립트> ...`로 부르고, 경로는 `D:/dev/...`처럼 `/`로 쓰거나 작은따옴표로 감싼다. Git Bash는 따옴표 밖의 `\`를 지우고, `/v`·`/MIR` 같은 스위치를 경로로 바꾼다.
 - Windows 기본 실행 정책(Restricted)에서는 `.ps1` 실행과 점 소싱이 막힌다. 정책은 바꾸지 않고 그 실행에만 허용한다: 스크립트는 `powershell -NoProfile -ExecutionPolicy Bypass -File <스크립트>`, 점 소싱이 필요한 즉석 명령은 `powershell -NoProfile -ExecutionPolicy Bypass -Command "& { . 'D:/dev/Atmos/atmos_mixer_pro/tool/windows/env.ps1'; <명령> }"`, 증거가 필요하면 `run.ps1`.
 - 증거가 필요한 명령은 `run.ps1`로 돌린다(10절). 출력 전체가 `D:\dev\logs\<날짜>\<게이트>_<시각>.log`에 남는다.
 - 8분 넘게 걸릴 수 있는 명령(첫 `cargo test`, 첫 `flutter build`, 통합 테스트)은 백그라운드로 돌리고 로그 파일로 확인한다(도구 한 번의 제한 시간은 10분).
 - 앱을 오래 띄워 두는 시험(감시·장시간·로그인)은 사용자가 바로가기나 탐색기로 띄운다. Claude 셸의 자식으로 띄운 프로세스는 셸이 정리될 때 같이 꺼질 수 있다.
-- `.mcp.json`의 agentmemory MCP는 Node.js가 있어야 뜬다. 이 PC의 기억은 Mac과 공유되지 않으므로 결정과 인계는 PROGRESS.md와 GitHub에 남긴다. MCP 승인 창은 사용자 판단으로 거절해도 된다.
+- `.mcp.json`의 agentmemory MCP는 쓰지 않는다(Mac에서도 꺼 두었고 CLAUDE.md에서도 뺐다). 승인 창이 뜨면 거절한다. 결정과 인계는 PROGRESS.md와 GitHub에 남긴다.
 
 ## 4. 앱이 쓰는 Windows 경로
 
@@ -193,7 +196,7 @@ G1: 클론 완료, `main`에 1907e73 포함. 여기서부터 `tool/windows/` 스
 | 2-6 | Flutter stable | — |
 | 2-7 | WebView2 런타임 확인(W1에 필요) | 없으면 설치 확인 |
 | 2-8 | Inno Setup 6 | UAC |
-| 2-9 | (선택) Node.js LTS — agentmemory MCP용: `winget install --id OpenJS.NodeJS.LTS -e --source winget` | UAC |
+| 2-9 | (생략) Node.js LTS — agentmemory MCP용이었으나 agentmemory는 쓰지 않는다 | — |
 | 2-10 | (선택) `cargo install flutter_rust_bridge_codegen --version 2.12.0 --locked` — `rust/src/api`를 바꿀 때만 | — |
 
 2-2 Visual Studio. Flutter Windows 빌드는 Visual Studio 2022의 "C++를 사용한 데스크톱 개발" 워크로드와 그 기본 구성요소가 필요하다(Build Tools가 아니라 Visual Studio로 맞춘다). 설치 전에 사용자에게 Community 라이선스(조직 규모·매출 조건)로 이 PC에서 써도 되는지 확인받는다.
@@ -256,7 +259,7 @@ flutter doctor -v
 winget install --id JRSoftware.InnoSetup -e --source winget --override "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP- /DIR=D:\dev\InnoSetup6"
 ```
 
-G2: `run G2_doctor "powershell -NoProfile -ExecutionPolicy Bypass -File D:\dev\Atmos\atmos_mixer_pro\tool\windows\doctor.ps1"` → `FAIL=0`(WARN 허용: WebView2·Inno·Node), `run G2_flutter_doctor "flutter doctor -v"` → Windows Version·Visual Studio 통과.
+G2: `run G2_doctor "powershell -NoProfile -ExecutionPolicy Bypass -File D:\dev\Atmos\atmos_mixer_pro\tool\windows\doctor.ps1"` → `FAIL=0`(WARN 허용: WebView2·Inno), `run G2_flutter_doctor "flutter doctor -v"` → Windows Version·Visual Studio 통과.
 
 ### P3 하네스 설치와 재시작 (G3)
 
@@ -283,7 +286,7 @@ $env:CARGO_HOME; $env:PUB_CACHE; $env:LIBCLANG_PATH; (Get-Command flutter).Sourc
 | G4-04_clippy | 앱\rust | `cargo clippy --all-targets` | 경고 목록. Windows에서만 나는 새 경고는 W6 후보 |
 | G4-05_test_compile | 앱\rust | `cargo test --no-run` | exit 0이면 HANDOFF 12 확인 완료 |
 | G4-06_cargo_test | 앱\rust | `cargo test -- --nocapture` | 실패 목록. macOS는 전부 통과하므로 실패는 Windows 차이(W6) |
-| G4-07_analyze | 앱 | `flutter analyze` | 새 이슈 0(현재 `main` 기존 5건, PR #11 병합 뒤 0) |
+| G4-07_analyze | 앱 | `flutter analyze` | 0건(CLAUDE.md 기준, `main`은 PR #11 이후 0건) |
 | G4-08_flutter_test | 앱 | `flutter test` | macOS 163개 통과가 기준. 실패 목록(W6) |
 | G4-09_build_debug | 앱 | `flutter build windows --debug` | `build\windows\x64\runner\Debug\atmos_mixer_pro.exe` |
 | G4-10 | — | 아래 PowerShell(개발 실행·로더) | 실린 dll이 exe 옆 것 |
@@ -573,8 +576,8 @@ HANDOFF "⚠️ Windows 미검증" 1~15를 확인하는 곳:
 - ASIO 채널 이름 작업은 보류(시작하지 않는다).
 
 ## 일하는 방식
-- 서브에이전트·워크플로(여러 에이전트)를 쓰지 않는다. 혼자 순서대로 한다.
-- 저장소 CLAUDE.md의 DSP 3법칙, Rust 주석 한국어, 운영 오디오 코드 unwrap 금지, 외과적 변경을 지킨다.
+- 저장소 CLAUDE.md와 .claude\rules를 따른다(3법칙, 에스컬레이션, 검증 보고, 모델 선택, 문서 갱신 시점, 코딩 규칙). 서브에이전트·워크플로는 쓰지 않고 혼자 순서대로 한다.
+- 기억 도구(agentmemory MCP)는 쓰지 않는다. 진행은 PROGRESS.md, 오래 필요한 지식은 저장소 문서에 남긴다.
 - 오래 걸리는 명령(첫 cargo test, flutter build, 통합 테스트)은 백그라운드로 돌리고 로그로 확인한다.
 - Git Bash에서 Windows 명령·스크립트를 부를 때는 MSYS_NO_PATHCONV=1을 앞에 붙이고 경로는 D:/dev/...로 쓴다.
 
@@ -584,8 +587,8 @@ HANDOFF "⚠️ Windows 미검증" 1~15를 확인하는 곳:
 - PR 본문은 한국어(요약/변경/검증(Windows 증거)/macOS 영향/Mac 세션 확인 요청/남은 일·결정).
 - 큰 작업은 Draft PR을 먼저 연다. 문서 변경은 그 기능 브랜치에 같이 넣는다. 충돌은 양쪽을 살리고, 이미 병합된 문서는 origin/main 쪽을 기준으로 한다.
 - Mac 세션(Main·Sub)에는 직접 연락할 수 없다. 요청은 PR 본문·댓글에 쓰고 사용자에게 "Mac에 전달해 주세요"라고 알린다.
-- 커밋하지 않는 것: D:\dev\logs·artifacts·backups, windows\Output, windows\build, .claude\settings.local.json, 빌드 산출물.
-- 저장소 CLAUDE.md, .claude\agents, .agents는 사용자가 요청할 때만 고친다.
+- 커밋하지 않는 것: D:\dev\logs·artifacts·backups, windows\Output, windows\build, .claude\settings.local.json, 빌드 산출물, .DS_Store, .claude\agents, rust\.ua, rust\data.
+- 저장소 CLAUDE.md와 .claude\rules는 사용자가 요청할 때만 고친다. 옛 다중 에이전트 문서(.agents, .gemini, .claude\agents 등)는 따르지 않는다.
 
 ## 안전
 - %APPDATA%\com.example\atmos_mixer_pro와 %TEMP%\atmos_mixer_pro_logs는 사용자의 실제 데이터다. 바꾸는 시험 전에 backup-appdata.ps1, 되돌리기·삭제는 사용자 확인 뒤.

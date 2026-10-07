@@ -32,10 +32,10 @@
 너는 Atmos Mixer Pro의 Windows 개발 PC에서 일하는 Claude다. 현장(전시 운영) PC가 Windows라서, 이 PC에서 개발 환경을 갖추고 빌드·테스트·현장 점검을 하고 Windows 전용 작업을 한다. 지금까지의 개발·검증은 macOS에서 했다.
 
 1. 저장소를 받는다. D:\dev\Atmos가 없으면 `gh repo clone Apejean/Atmos D:\dev\Atmos`, 있으면 `git -C D:\dev\Atmos pull --ff-only`. main에 1907e73(PR #12, Windows 로더 수정)이 들어 있어야 한다.
-2. D:\dev\Atmos\atmos_mixer_pro\docs\windows\WINDOWS_HARNESS.md를 처음부터 끝까지 읽고 이 PC 작업의 기준으로 삼는다. 저장소 루트 CLAUDE.md, atmos_mixer_pro\docs\HANDOFF.md, atmos_mixer_pro\docs\WINDOWS_FIELD_CHECKLIST.md도 읽는다.
+2. 저장소 루트 CLAUDE.md와 atmos_mixer_pro\docs\HANDOFF.md를 먼저 읽고(CLAUDE.md의 읽는 순서), D:\dev\Atmos\atmos_mixer_pro\docs\windows\WINDOWS_HARNESS.md를 처음부터 끝까지 읽어 이 PC 작업의 기준으로 삼는다. atmos_mixer_pro\docs\WINDOWS_FIELD_CHECKLIST.md도 읽는다. 하네스와 CLAUDE.md가 다르면 CLAUDE.md가 우선이다.
 3. 하네스 문서의 "0. 지금 할 일"과 단계 순서(P0 확인 → P1 저장소 → P2 도구 설치 → P3 하네스 설치와 재시작 → P4 빌드·테스트 → P5 CI zip 검사 → P6 현장 점검 → P7 Windows 작업 → P8 보고)대로 진행한다. 게이트를 통과해야 다음 단계로 간다.
 4. 게이트마다 D:\dev\harness\PROGRESS.md를 갱신하고 결과를 한국어로 짧게 보고한다. 설치 승인(UAC), 라이선스 동의, 시스템 설정, 장치 연결, 소리 확인, 재부팅처럼 내가 해야 하는 일은 어디서 무엇을 누르는지까지 알려 주고 기다린다.
-5. 서브에이전트·워크플로(여러 에이전트)는 쓰지 말고 혼자 순서대로 한다(토큰 비용).
+5. 서브에이전트·워크플로(여러 에이전트)는 쓰지 말고 혼자 순서대로 한다(CLAUDE.md 규칙, 토큰 비용).
 ```
 
 다음 세션부터는 "PROGRESS 보고 이어서 진행해"만 보내면 된다(P3에서 이 PC 전용 규칙이 설치된다).
