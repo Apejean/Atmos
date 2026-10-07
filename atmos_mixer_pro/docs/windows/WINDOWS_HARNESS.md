@@ -99,7 +99,7 @@ D:\VS\2022\Community  D:\VS\Shared  D:\VS\Cache   Visual Studio
 - 새 패키지는 macOS 빌드에 주는 영향(플러그인 등록 여부)을 PR에 적는다.
 - `flutter analyze`는 0건을 유지한다(CLAUDE.md, 현재 `main` 0건). `cargo clippy`는 새 경고 0, 기존 lib 경고 26건(macOS 기준)은 건드리지 않고 목록만 남긴다.
 - `rust/src/api/`를 바꾸는 것은 API 계약 변경이다(Dart 바인딩 재생성 필요). 위 에스컬레이션대로 먼저 보고하고, 승인되면 `flutter_rust_bridge_codegen generate`(2.12.0)로 바인딩을 다시 만든다.
-- `CLAUDE.md`와 `.claude/rules/`는 사용자가 요청할 때만 고친다. 옛 다중 에이전트 방식의 문서(`.agents/`, `.gemini/`, 서브에이전트 정의 `atmos_mixer_pro/.claude/agents/`, `docs/03_Protocols_and_Workflows/`의 `AGENT_WORKFLOW_AND_SPECIFICATION_MASTER.md`·`CLAUDE_CODE_SETUP_GUIDE.md`·`loop.md`)는 따르지 않는다(CLAUDE.md).
+- `CLAUDE.md`와 `.claude/rules/`는 사용자가 요청할 때만 고친다. 옛 다중 에이전트 방식의 문서(`atmos_mixer_pro/docs/archive/legacy-multi-agent/`, 서브에이전트 정의 `atmos_mixer_pro/.claude/agents/`)는 따르지 않는다(CLAUDE.md).
 
 ### 3.4 안전
 - 빌드·장치 시험 전에 `preflight.ps1`. Atmos가 실행 중이면 사용자에게 먼저 묻는다(사용자의 청음·장시간 확인일 수 있다).
@@ -588,7 +588,7 @@ HANDOFF "⚠️ Windows 미검증" 1~15를 확인하는 곳:
 - 큰 작업은 Draft PR을 먼저 연다. 문서 변경은 그 기능 브랜치에 같이 넣는다. 충돌은 양쪽을 살리고, 이미 병합된 문서는 origin/main 쪽을 기준으로 한다.
 - Mac 세션(Main·Sub)에는 직접 연락할 수 없다. 요청은 PR 본문·댓글에 쓰고 사용자에게 "Mac에 전달해 주세요"라고 알린다.
 - 커밋하지 않는 것: D:\dev\logs·artifacts·backups, windows\Output, windows\build, .claude\settings.local.json, 빌드 산출물, .DS_Store, .claude\agents, rust\.ua, rust\data.
-- 저장소 CLAUDE.md와 .claude\rules는 사용자가 요청할 때만 고친다. 옛 다중 에이전트 문서(.agents, .gemini, .claude\agents 등)는 따르지 않는다.
+- 저장소 CLAUDE.md와 .claude\rules는 사용자가 요청할 때만 고친다. 옛 다중 에이전트 문서(atmos_mixer_pro\docs\archive\legacy-multi-agent, .claude\agents)는 따르지 않는다.
 
 ## 안전
 - %APPDATA%\com.example\atmos_mixer_pro와 %TEMP%\atmos_mixer_pro_logs는 사용자의 실제 데이터다. 바꾸는 시험 전에 backup-appdata.ps1, 되돌리기·삭제는 사용자 확인 뒤.
