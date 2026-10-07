@@ -1150,7 +1150,13 @@ impl AudioMixer {
             if let Some(inst) = slot {
                 if !inst.is_playing {
                     if let Some(old) = slot.take() {
-                        let _ = self.gc_sender.try_send(old);
+                        // 정리 채널이 가득 찼으면 버리지 않고 자리에 되돌려 다음 블록에 다시 보낸다. 여기서 버리면
+                        // 메모리 해제와(스트리밍이면) 디코더 스레드 join이 콜백 안에서 일어난다.
+                        // 받는 쪽이 끝났으면(정리 스레드 없음 — 시험용 믹서 등) 되돌려도 영영 못 보내므로 예전처럼
+                        // 여기서 버린다.
+                        if let Err(crossbeam_channel::TrySendError::Full(back)) = self.gc_sender.try_send(old) {
+                            *slot = Some(back);
+                        }
                     }
                 }
             }
