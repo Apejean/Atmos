@@ -121,7 +121,6 @@ $vc = Get-ItemProperty -LiteralPath 'HKLM:\SOFTWARE\Microsoft\VisualStudio\14.0\
 $d = 'not registered'
 if ($vc) { $d = "Installed=$($vc.Installed) Version=$($vc.Version)" }
 Add-Row 'VC++ runtime x64' 'INFO' $d
-Test-Tool 'node (agentmemory MCP)' 'node' @('-v') -Optional
 $ps = @(Get-Process -Name atmos_mixer_pro, atmos_supervisor -ErrorAction SilentlyContinue)
 $d = 'none'
 if ($ps.Count -gt 0) { $d = ($ps | ForEach-Object { '{0}#{1}' -f $_.ProcessName, $_.Id }) -join ', ' }
