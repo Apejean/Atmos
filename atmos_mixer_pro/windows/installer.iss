@@ -1,3 +1,8 @@
+; Folder with the built app (Release folder + supervisor exe). Default: the repository build, one level up
+; from this script. For the CI zip: ISCC /DReleaseDir=<folder> windows\installer.iss
+#ifndef ReleaseDir
+  #define ReleaseDir AddBackslash(SourcePath) + "..\build\windows\x64\runner\Release"
+#endif
 #define MyAppName "Atmos Mixer Pro"
 #define MyAppPublisher "Atmos"
 #define MyAppExeName "atmos_mixer_pro.exe"
@@ -5,11 +10,11 @@
 ; post-install launch start the supervisor, which then starts the app.
 #define SupervisorExeName "atmos_supervisor.exe"
 ; The version is read from the built exe. Flutter writes pubspec.yaml's version into the exe's
-; ProductVersion, so the installer always matches the app. The path uses the same base as [Files].
-#define MyAppExePath AddBackslash(SourcePath) + "build\windows\x64\runner\Release\" + MyAppExeName
+; ProductVersion, so the installer always matches the app. The path uses the same ReleaseDir as [Files].
+#define MyAppExePath AddBackslash(ReleaseDir) + MyAppExeName
 #define MyAppVersion GetStringFileInfo(MyAppExePath, "ProductVersion")
 #if MyAppVersion == ""
-  #error Could not read the version from the built exe. Run "flutter build windows" first.
+  #error Could not read the version from the built exe. Run "flutter build windows" first or pass /DReleaseDir.
 #endif
 
 [Setup]
@@ -33,9 +38,9 @@ Name: "korean"; MessagesFile: "compiler:Languages\Korean.isl"
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"
 
 [Files]
-Source: "build\windows\x64\runner\Release\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#ReleaseDir}\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
 ; The supervisor is copied next to the app by the build (CI copies it into the Release folder).
-Source: "build\windows\x64\runner\Release\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "{#ReleaseDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
 Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#SupervisorExeName}"; IconFilename: "{app}\{#MyAppExeName}"
