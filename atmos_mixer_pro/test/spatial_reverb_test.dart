@@ -59,4 +59,16 @@ void main() {
       expect(ch1AfterCopy.dryWetPercent, equals(35.0));
     });
   });
+
+  // 사용자 결정(2026-10-09): 리버브는 사용자가 MIX를 올려야 걸린다. 예전 기본값 80%는 새 설치·새
+  // 프로젝트에서 모든 출력에 홀 리버브를 걸었다.
+  test('새 상태의 ALL OUTPUTS 리버브 MIX 기본값은 0%다', () {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+
+    final state = container.read(spatialReverbProvider);
+    expect(state.getSettingsForChannel(0).dryWetPercent, equals(0.0));
+    expect(state.getSettingsForChannel(5).dryWetPercent, equals(0.0));
+    expect(SpatialReverbSettings.fromJson(const {}).dryWetPercent, equals(0.0));
+  });
 }

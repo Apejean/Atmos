@@ -508,7 +508,7 @@ HANDOFF "⚠️ Windows 미검증" 1~15를 확인하는 곳:
 | K3 | `project_media_relink_test`는 Windows에서 기본 로더 → `rust\target\release` dll이 있으면 옛 Rust | 그 dll을 두지 않는다(preflight). W2 |
 | K4 | `installer.iss` 경로(HANDOFF ⚠️ 8) → ISCC `#error Could not read the version` | Z5 우회, W3 |
 | K5 | VC++ 런타임 의존 미확인 | X1, Z6, W4(설치 파일이 VC++ 재배포 패키지를 넣는다. CI zip을 설치 없이 쓰면 여전히 런타임이 필요) |
-| K6 | Debug 빌드의 Rust 엔진은 느려 끊길 수 있다 | 소리 품질은 Release로 |
+| K6 | Debug 빌드의 Rust 엔진은 느려 끊길 수 있다. 다만 2026-10-08 Release에서도 소리가 늘어진 원인은 Debug가 아니라 비정규 실수(정지 뒤 리버브·필터 꼬리)·94채널 전체 처리·마스터 리버브였다(HANDOFF 최근 끝난 일 첫 행) | 소리 품질은 Release로. 늘어지면 앱 로그 "오디오 처리 부하" 줄부터 본다 |
 | K7 | 감시 프로그램이 꺼진 앱을 다시 띄운다. 대기 중 충돌 뒤 다시 뜨면 첫 방 테마로 시작(소리) | 감시 먼저 끈다(3.4) |
 | K8 | 설치하면 로그인할 때마다 공연이 시작된다(HKCU Run, 기본 켜짐) | 시험 뒤 사용자에게 묻는다 |
 | K9 | 방화벽 허용 창은 exe 경로마다 따로 뜬다(Debug, CI 폴더, 설치 폴더) | "첫 실행" 점검은 설치본으로. W4 뒤 설치본은 규칙이 미리 들어가 창이 뜨지 않아야 한다 |

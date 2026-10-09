@@ -244,6 +244,20 @@ class ThreeJsEngineService {
     executeJavaScript("window.updateEarLevel($level);");
   }
 
+  /// 창을 닫기 전에 Windows 웹뷰(WebView2)를 먼저 정리한다(macOS는 할 일이 없다).
+  ///
+  /// webview_windows는 플러그인이 소멸할 때 남은 웹뷰의 채널 처리기를 해제하는데
+  /// (`~WebviewBridge` → `SetMethodCallHandler(nullptr)`), 그때는 Flutter 엔진이 이미 없어
+  /// `flutter_windows.dll`(`FlutterDesktopMessengerSetCallback`)에서 접근 위반으로 죽었다
+  /// (창을 닫을 때마다 종료 코드 0xC0000005, 2026-10-09 Windows). 엔진이 살아 있을 때 dispose하면
+  /// 플러그인이 그때 웹뷰를 지운다.
+  Future<void> disposeWindowsWebview() async {
+    final controller = _windowsController;
+    if (controller == null) return;
+    _windowsController = null;
+    await controller.dispose();
+  }
+
   void dispose() {
     _server?.close(force: true);
     _windowsController?.dispose();

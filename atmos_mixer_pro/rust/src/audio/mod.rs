@@ -7,6 +7,7 @@ pub mod player;
 pub mod streaming;
 pub mod spatial;
 pub mod dsp;
+pub mod denormal;
 pub mod acoustic;
 pub mod eq_response;
 pub mod rta;

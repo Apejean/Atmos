@@ -127,6 +127,31 @@ fn apply_enabled_channels(config: &AppConfig) {
     for (slot, &value) in GLOBAL_STATE.enabled_channels.iter().zip(enabled.iter()) {
         slot.store(value, std::sync::atomic::Ordering::Relaxed);
     }
+    request_restart_if_processing_width_changed(config);
+}
+
+/// 출력 설정에서 켠 채널 범위가 바뀌어 믹서 처리 폭(core::processing_channels)이 달라지면 엔진을
+/// 다시 시작하게 한다. 믹서 폭은 엔진을 만들 때 정해지므로, 장치 유실과 같은 자기 재시작 경로를 쓴다
+/// (재생 상태를 떠 두었다가 멈춘 위치부터 이어 간다).
+fn request_restart_if_processing_width_changed(config: &AppConfig) {
+    use std::sync::atomic::Ordering;
+    if !ENGINE_ACTIVE.load(Ordering::SeqCst) {
+        return;
+    }
+    let hw_channels = GLOBAL_STATE.active_device_channels.load(Ordering::SeqCst) as usize;
+    let current = GLOBAL_STATE.processing_channels.load(Ordering::SeqCst) as usize;
+    if hw_channels == 0 || current == 0 {
+        return;
+    }
+    let wanted = crate::core::processing_channels::mixer_width(
+        crate::core::processing_channels::processing_channel_count(config, hw_channels),
+    );
+    if wanted != current {
+        GLOBAL_STATE.log(format!(
+            "출력 채널 범위가 바뀌어 믹서 처리 폭을 {current} → {wanted}채널로 바꾼다(엔진 다시 시작)"
+        ));
+        GLOBAL_STATE.device_needs_reset.store(true, Ordering::Release);
+    }
 }
 
 pub fn api_get_config(path: String) -> AppConfig {
@@ -959,6 +984,8 @@ fn start_audio_system(device_name: Option<String>) -> Result<(), AtmosError> {
                 let mut last_device_count: Option<usize> = None;
                 let mut last_device_names: Vec<String> = Vec::new();
                 let mut monitor_timer = 0;
+                let mut load_timer = 0;
+                let mut last_load_log: Option<std::time::Instant> = None;
 
                 loop {
                     if ENGINE_GENERATION.load(std::sync::atomic::Ordering::SeqCst) != gen {
@@ -1010,14 +1037,56 @@ fn start_audio_system(device_name: Option<String>) -> Result<(), AtmosError> {
                         break;
                     }
 
+                    // 오디오 처리 부하(10초마다): 처리 시간이 자기 버퍼 길이의 70%를 넘은 콜백이나, 앞
+                    // 콜백과의 간격이 자기 버퍼 길이의 1.5배를 넘은(장치가 이전 버퍼를 다시 냈을 수 있는)
+                    // 콜백이 있으면 앱 로그에 남긴다. 넘치면 소리가 끊기고 느려진다(2026-10-08 RME 94채널).
+                    // 같은 경고는 1분에 한 번만, 정상일 때는 10분에 한 번 요약을 남긴다.
+                    load_timer += 1;
+                    if load_timer >= 100 {
+                        load_timer = 0;
+                        let state = &crate::core::state::GLOBAL_STATE;
+                        let relaxed = std::sync::atomic::Ordering::Relaxed;
+                        let max_us = state.callback_max_us.swap(0, relaxed);
+                        let overruns = state.callback_overruns.swap(0, relaxed);
+                        let total_us = state.callback_total_us.swap(0, relaxed);
+                        let count = state.callback_count.swap(0, relaxed);
+                        let gap_max_us = state.callback_gap_max_us.swap(0, relaxed);
+                        let heavy = state.callback_heavy.swap(0, relaxed);
+                        let late = state.callback_late.swap(0, relaxed);
+                        let budget_us = state.callback_budget_us.load(relaxed);
+                        let avg_us = total_us.checked_div(count).unwrap_or(0);
+                        let warn = heavy > 0 || late > 0 || overruns > 0;
+                        let since_log = last_load_log.map(|t: std::time::Instant| t.elapsed());
+                        let due = match since_log {
+                            None => true,
+                            Some(e) if warn => e >= std::time::Duration::from_secs(60),
+                            Some(e) => e >= std::time::Duration::from_secs(600),
+                        };
+                        if budget_us > 0 && due {
+                            state.log(format!(
+                                "오디오 처리 부하{}: 최근 10초 콜백 {}회 평균 {:.1}ms · 최대 {:.1}ms / 예산 {:.1}ms, 예산 70% 넘음 {}회, 예산 초과 {}회, 늦은 콜백 {}회(간격 최대 {:.1}ms), 처리 채널 {}개{}",
+                                if warn { " 높음" } else { "" },
+                                count,
+                                f64::from(avg_us) / 1000.0,
+                                f64::from(max_us) / 1000.0,
+                                f64::from(budget_us) / 1000.0,
+                                heavy,
+                                overruns,
+                                late,
+                                f64::from(gap_max_us) / 1000.0,
+                                state.processing_channels.load(relaxed),
+                                if warn { " — 쓰지 않는 출력 채널을 끄거나 리버브를 줄이면 줄어든다" } else { "" },
+                            ));
+                            last_load_log = Some(std::time::Instant::now());
+                        }
+                    }
+
                     // Device Topology Monitoring (Every 3000ms = 30 * 100ms)
                     monitor_timer += 1;
                     if monitor_timer >= 30 {
                         monitor_timer = 0;
                         if !is_asio {
-                            if let Ok(devices) = api_get_output_devices() {
-                                let current_names: Vec<String> =
-                                    devices.into_iter().map(|d| d.name).collect();
+                            if let Some(current_names) = monitored_output_device_names() {
                                 if let Some(last_count) = last_device_count {
                                     if last_count != current_names.len()
                                         || last_device_names != current_names
@@ -1796,6 +1865,41 @@ pub fn api_get_output_devices() -> Result<Vec<OutputDeviceInfo>, AtmosError> {
             message: "Thread panicked during device lookup".to_string(),
         })
     })
+}
+
+/// 장치 목록 감시(엔진 점검 루프, 3초마다)가 비교할 출력 장치 이름. 읽지 못하면 None.
+///
+/// Windows에서는 WASAPI 장치만 센다. `api_get_output_devices`는 ASIO 목록도 읽는데, cpal은 ASIO
+/// 목록을 만들 때 설치된 ASIO 드라이버를 하나씩 전부 불러온다(Generic Low Latency, FL Studio, 장치
+/// 드라이버 등). WASAPI로 재생하는 동안 3초마다 그렇게 해서 Generic Low Latency ASIO 드라이버가
+/// 계속 떴다(2026-10-08 Windows 실기). 감시는 WASAPI로 재생할 때만 돌고 WASAPI 장치 변화만 보면 된다.
+fn monitored_output_device_names() -> Option<Vec<String>> {
+    #[cfg(target_os = "windows")]
+    {
+        std::thread::spawn(|| {
+            use windows::Win32::System::Com::{CoInitializeEx, COINIT_APARTMENTTHREADED};
+            unsafe {
+                let _ = CoInitializeEx(None, COINIT_APARTMENTTHREADED);
+            }
+            use cpal::traits::{DeviceTrait, HostTrait};
+            let devices = cpal::default_host().output_devices().ok()?;
+            Some(
+                devices
+                    .filter_map(|d| d.name().ok())
+                    .map(|n| format!("[WASAPI] {}", n.replace('\0', "").trim()))
+                    .collect::<Vec<String>>(),
+            )
+        })
+        .join()
+        .ok()
+        .flatten()
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        api_get_output_devices()
+            .ok()
+            .map(|devices| devices.into_iter().map(|d| d.name).collect())
+    }
 }
 
 /// 출력 장치 부재를 뜻하는 오류 메시지 접두사.
