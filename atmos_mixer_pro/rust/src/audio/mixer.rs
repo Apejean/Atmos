@@ -140,6 +140,7 @@ pub struct AudioMixer {
 
     pub master_clock: f64,
     pub spatializer: Option<crate::audio::spatial::Spatializer3D>,
+    /// 옛 마스터 리버브. 명령(SetSpatialReverb 등)은 값을 받아 두지만 출력에는 걸지 않는다(process 참고).
     pub reverb: crate::audio::reverb::VirtualRoomReverb,
     pub binaural: crate::audio::binaural::VirtualMixRoomBinaural,
     pub smoothed_trajectory_pos: Option<crate::common::config::Point3D>,
@@ -1039,18 +1040,10 @@ impl AudioMixer {
         // Apply Binaural Processing (De-interleaves, convolves, and re-interleaves to Ch0 & Ch1)
         self.binaural.process_interleaved(output, out_channels);
 
-        // Apply Global Reverb to Ch0 and Ch1
-        if out_channels >= 2 && self.reverb.mix > 0.0 {
-            for frame in 0..frames {
-                let idx_l = frame * out_channels + 0;
-                let idx_r = frame * out_channels + 1;
-                if idx_r < output.len() {
-                    let (rl, rr) = self.reverb.process_stereo(output[idx_l], output[idx_r]);
-                    output[idx_l] = rl;
-                    output[idx_r] = rr;
-                }
-            }
-        }
+        // 마스터 리버브(self.reverb)는 출력에 걸지 않는다(사용자 결정 2026-10-09). 예전에는 하드웨어
+        // CH1·CH2에만 ALL OUTPUTS 설정으로 걸려서, CH1·CH2 리버브를 0%로 내려도 홀 80%가 남았고
+        // L/R을 모노로 합쳐 넣어 CH2 소리가 CH1으로 샜다. 리버브는 채널 DSP의 채널별 리버브만 쓴다
+        // (바이노럴 앞이라 헤드폰 미리듣기에도 들어간다).
 
         if frames > 0 {
             self.bm_mix = bass_management_ramp_at(bm_start, bm_target, bm_step, frames - 1);

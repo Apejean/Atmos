@@ -49,6 +49,21 @@ pub struct GlobalEngineState {
     pub state_sink: RwLock<Option<StreamSink<EngineStateUpdate>>>,
 
     pub active_device_channels: AtomicU32,
+    /// 믹서가 처리하는 채널 수(core::processing_channels::mixer_width). 0이면 엔진이 아직 없다.
+    pub processing_channels: AtomicU32,
+    /// 오디오 콜백 처리 시간(µs). 콜백은 최댓값·예산 초과 횟수만 원자형으로 남기고,
+    /// 엔진 스레드의 점검 루프가 읽어서 비우며 부하가 높으면 앱 로그에 남긴다.
+    pub callback_max_us: AtomicU32,
+    pub callback_budget_us: AtomicU32,
+    pub callback_overruns: AtomicU32,
+    /// 점검 사이 콜백 처리 시간 합(µs)과 횟수(평균용), 콜백 시작 간격의 최댓값(µs).
+    pub callback_total_us: AtomicU32,
+    pub callback_count: AtomicU32,
+    pub callback_gap_max_us: AtomicU32,
+    /// 점검 사이 처리 시간이 자기 버퍼 길이(받은 프레임)의 70%를 넘은 콜백 수, 앞 콜백과의 간격이
+    /// 장치를 연 버퍼 길이의 1.5배를 넘은(장치가 늦게 불러 그 사이 이전 버퍼를 다시 냈을 수 있는) 콜백 수.
+    pub callback_heavy: AtomicU32,
+    pub callback_late: AtomicU32,
     pub engine_sample_rate: AtomicU32,
     pub is_exhibition_mode: AtomicBool,
     pub device_needs_reset: AtomicBool,
@@ -113,6 +128,15 @@ impl GlobalEngineState {
             broadcast_lock: std::sync::Mutex::new(()),
             state_sink: RwLock::new(None),
             active_device_channels: AtomicU32::new(0),
+            processing_channels: AtomicU32::new(0),
+            callback_max_us: AtomicU32::new(0),
+            callback_budget_us: AtomicU32::new(0),
+            callback_overruns: AtomicU32::new(0),
+            callback_total_us: AtomicU32::new(0),
+            callback_count: AtomicU32::new(0),
+            callback_gap_max_us: AtomicU32::new(0),
+            callback_heavy: AtomicU32::new(0),
+            callback_late: AtomicU32::new(0),
             engine_sample_rate: AtomicU32::new(48000),
             is_exhibition_mode: AtomicBool::new(false),
             device_needs_reset: AtomicBool::new(false),

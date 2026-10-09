@@ -148,7 +148,9 @@ class SpatialReverbSettings {
     this.chorusAmount = 0.02,
     this.reflectGainDb = 0.0,
     this.diffuseGainDb = 0.0,
-    this.dryWetPercent = 80.0,
+    // 리버브는 사용자가 MIX를 올려야 걸린다(사용자 결정 2026-10-09). 예전 기본값 80%는 새 설치·새
+    // 프로젝트에서 모든 출력에 홀 리버브를 걸었다.
+    this.dryWetPercent = 0.0,
   });
 
   SpatialReverbSettings copyWith({
@@ -327,27 +329,9 @@ class SpatialReverbNotifier extends Notifier<SpatialReverbState> {
         dryWet: settings.dryWetPercent / 100.0,
       );
     } catch (_) {}
-
-    // 마스터 버스 리버브(mixer.reverb, 하드웨어 ch0/ch1에 적용)는 언제나
-    // "ALL OUTPUTS"(채널 0) 설정을 따라야 한다.
-    //
-    // 예전에는 편집 중인 채널이 0일 때만 이 명령을 보냈다. 그래서 랙에서
-    // 특정 채널(예: CH 1)을 선택한 채 MIX를 0으로 내리면 그 채널의 리버브만
-    // 꺼지고 마스터 버스는 이전 값(기본 Hall 80%)에 그대로 남았다. 사용자
-    // 입장에서는 "믹스를 0으로 했는데도 리버브가 엄청 걸려있는" 상태가 된다
-    // (실기 확인: selectedChannel=1, ALL=80%, 편집한 CH1=0%).
-    final allSettings = state.channelSettings[0] ?? settings;
-    try {
-      rust_api.apiSetSpatialReverb(
-        isEnabled: allSettings.isEnabled,
-        roomSize: allSettings.roomSize,
-        decayTime: allSettings.decayTime,
-        preDelayMs: allSettings.preDelayMs,
-        damp: allSettings.damp,
-        density: allSettings.density,
-        dryWet: allSettings.dryWetPercent / 100.0,
-      );
-    } catch (_) {}
+    // 마스터 버스 리버브(apiSetSpatialReverb)는 보내지 않는다. 엔진이 더 이상 출력에 걸지 않는다
+    // (사용자 결정 2026-10-09, mixer.rs process 참고). 예전에는 ALL OUTPUTS 설정으로 하드웨어
+    // CH1·CH2에 걸려서, CH1·CH2를 0%로 내려도 리버브가 크게 남았다.
   }
 
   @override
