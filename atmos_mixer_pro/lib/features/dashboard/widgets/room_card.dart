@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:atmos_mixer_pro/core/state/global_state.dart';
 import 'package:atmos_mixer_pro/src/rust/api/simple.dart' as rust_api;
+import 'package:atmos_mixer_pro/features/dashboard/widgets/track_play_failure.dart';
 import 'package:desktop_drop/desktop_drop.dart';
 import 'package:atmos_mixer_pro/features/exhibition/state/room_zone_state.dart';
 import 'track_card.dart';
@@ -687,14 +688,9 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                                                       trackId: track.id,
                                                     );
                                                   } catch (e) {
-                                                    ref
-                                                        .read(
-                                                          globalErrorProvider
-                                                              .notifier,
-                                                        )
-                                                        .showError(
-                                                          '트랙 재생 실패: $e',
-                                                        );
+                                                    if (context.mounted) {
+                                                      showTrackPlayFailure(context, e);
+                                                    }
                                                   }
                                                 }
                                               }
@@ -738,9 +734,9 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                                   trackId: track.id,
                                 );
                               } catch (e) {
-                                ref
-                                    .read(globalErrorProvider.notifier)
-                                    .showError('트랙 재생 실패: $e');
+                                if (context.mounted) {
+                                  showTrackPlayFailure(context, e);
+                                }
                               }
                             },
                             onStop: () async {

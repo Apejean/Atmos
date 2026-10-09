@@ -134,4 +134,64 @@ void main() {
       expect(result.blueprintPath, isNull);
     });
   });
+
+  // 2026-10-10 Windows P6-E: 맥에서 저장한 프로젝트를 열자 엔진이 맥 장치를 30초 동안 찾으며 ASIO 드라이버를
+  // 반복해서 불러오고(Generic Low Latency ASIO 창 반복) 끝내 오류로 멈췄다. 이 PC에 없는 장치면 지금 장치를 쓴다.
+  group('프로젝트를 열 때 오디오 장치', () {
+    AppConfig cfg({String? device, required int buffer, required String tag}) => AppConfig(
+          oscPort: 8000,
+          deviceName: device,
+          bufferSize: buffer,
+          themeStartOscAddress: tag,
+          systemResetOscAddress: '',
+          monoConfigs: {},
+          stereoConfigs: {},
+          multiConfigs: {},
+          rooms: [],
+          roomZones: [],
+          isExhibitionMode: false,
+          masterHeadroomDb: 0.0,
+          peakLimiterEnabled: true,
+          oscWhitelist: const [],
+          globalReverbMix: 0.0,
+          globalReverbDecay: 1.0,
+        );
+    final current = cfg(device: '[ASIO] ASIO MADIface USB', buffer: 1024, tag: 'current');
+    const windowsDevices = ['[ASIO] ASIO MADIface USB', '[WASAPI] Analog (1+2) (RME UFX+ USB 3.0)'];
+
+    test('이 PC에 없는 장치(맥 장치)면 지금 장치와 버퍼를 쓰고 나머지는 프로젝트 값이다', () {
+      final mac = cfg(device: '[CoreAudio] Scarlett 6i6 USB', buffer: 256, tag: 'project');
+      final choice = deviceForImportedProject(imported: mac, current: current, available: windowsDevices);
+      expect(choice.keptCurrent, isTrue);
+      expect(choice.projectDevice, '[CoreAudio] Scarlett 6i6 USB');
+      expect(choice.config.deviceName, '[ASIO] ASIO MADIface USB');
+      expect(choice.config.bufferSize, 1024);
+      expect(choice.config.themeStartOscAddress, 'project', reason: '장치 말고는 프로젝트 설정을 그대로 쓴다');
+    });
+
+    test('이 PC에 있는 장치면 프로젝트의 장치와 버퍼를 쓴다', () {
+      final wasapi = cfg(device: '[WASAPI] Analog (1+2) (RME UFX+ USB 3.0)', buffer: 512, tag: 'project');
+      final choice = deviceForImportedProject(imported: wasapi, current: current, available: windowsDevices);
+      expect(choice.keptCurrent, isFalse);
+      expect(identical(choice.config, wasapi), isTrue);
+    });
+
+    test('지금 쓰는 장치와 같으면 목록에 없어도 그대로 쓴다', () {
+      final same = cfg(device: ' [ASIO] ASIO MADIface USB', buffer: 2048, tag: 'project');
+      final choice = deviceForImportedProject(imported: same, current: current, available: const []);
+      expect(choice.keptCurrent, isFalse);
+      expect(choice.config.bufferSize, 2048);
+    });
+
+    test('기본 장치(null)를 쓰는 프로젝트나 장치 목록을 모를 때는 프로젝트 값을 그대로 쓴다', () {
+      final defaultDevice = cfg(device: null, buffer: 256, tag: 'project');
+      expect(deviceForImportedProject(imported: defaultDevice, current: current, available: windowsDevices).keptCurrent,
+          isFalse);
+      final mac = cfg(device: '[CoreAudio] Scarlett 6i6 USB', buffer: 256, tag: 'project');
+      final unknown = deviceForImportedProject(imported: mac, current: current, available: null);
+      expect(unknown.keptCurrent, isFalse);
+      expect(unknown.config.deviceName, '[CoreAudio] Scarlett 6i6 USB');
+      expect(deviceForImportedProject(imported: mac, current: null, available: windowsDevices).keptCurrent, isFalse);
+    });
+  });
 }

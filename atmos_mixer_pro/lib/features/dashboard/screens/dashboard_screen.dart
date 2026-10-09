@@ -24,6 +24,7 @@ import 'package:atmos_mixer_pro/features/exhibition/screens/speaker_canvas_scree
     as atmos_exhibition;
 import 'package:atmos_mixer_pro/features/dashboard/widgets/safety_alert_border.dart';
 import 'package:atmos_mixer_pro/src/rust/api/simple.dart' as rust_api;
+import 'package:atmos_mixer_pro/features/dashboard/widgets/track_play_failure.dart';
 import 'package:atmos_mixer_pro/features/exhibition/state/room_zone_state.dart';
 import 'package:atmos_mixer_pro/features/exhibition/models/room_zone.dart' as exhibition_model;
 import 'package:atmos_mixer_pro/src/rust/common/config.dart';
@@ -203,7 +204,22 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           return folder;
         },
       );
-      final importedConfig = media.config;
+      // 프로젝트의 오디오 장치가 이 PC에 없으면(다른 OS·다른 PC에서 저장) 지금 장치를 그대로 쓴다
+      // (project_media.dart deviceForImportedProject 참고).
+      List<String>? available = GlobalDeviceCache.devices;
+      if (available == null) {
+        try {
+          available = (await rust_api.apiGetOutputDevices()).map((d) => d.name).toList();
+        } catch (_) {
+          available = null; // 목록을 모르면 프로젝트 값을 그대로 쓴다(예전 동작).
+        }
+      }
+      final device = deviceForImportedProject(
+        imported: media.config,
+        current: ref.read(configProvider),
+        available: available,
+      );
+      final importedConfig = device.config;
       await rust_api.apiStopAll();
       if (context.mounted) {
         ref.read(engineStateProvider.notifier).reset();
@@ -237,6 +253,24 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             ),
           );
           if (media.missing.isNotEmpty) await showMissingMedia(context, media.missing);
+          if (device.keptCurrent && context.mounted) {
+            await showDialog<void>(
+              context: context,
+              builder: (context) => AlertDialog(
+                backgroundColor: AppColors.background,
+                title: const Text('오디오 장치', style: TextStyle(color: Colors.white)),
+                content: Text(
+                  '프로젝트의 오디오 장치 "${device.projectDevice}"는 이 PC에 없어서 '
+                  '지금 장치 "${importedConfig.deviceName ?? '시스템 기본 장치'}"를 그대로 씁니다.\n'
+                  '다른 장치를 쓰려면 환경설정에서 고르세요.',
+                  style: const TextStyle(color: Colors.white70),
+                ),
+                actions: [
+                  TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('확인')),
+                ],
+              ),
+            );
+          }
         }
       }
     } catch (e) {
@@ -819,9 +853,9 @@ oscWhitelist: config.oscWhitelist,
                         try {
                           await rust_api.apiPlayAllLoopTracks();
                         } catch (e) {
-                          ref
-                              .read(globalErrorProvider.notifier)
-                              .showError('전시 모드 트랙 재생 실패: $e');
+                          if (context.mounted) {
+                            showTrackPlayFailure(context, e, prefix: '전시 모드 트랙 재생 실패');
+                          }
                         }
                       } else {
                         final firstRoom = config.rooms.first;
@@ -836,9 +870,9 @@ oscWhitelist: config.oscWhitelist,
                                 trackId: track.id,
                               );
                             } catch (e) {
-                              ref
-                                  .read(globalErrorProvider.notifier)
-                                  .showError('트랙 재생 실패: $e');
+                              if (context.mounted) {
+                                showTrackPlayFailure(context, e);
+                              }
                             }
                           }
                         }
