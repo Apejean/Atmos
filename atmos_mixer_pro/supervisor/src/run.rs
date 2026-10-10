@@ -44,9 +44,13 @@ pub struct Config {
     pub stable: Duration,
 }
 
-/// 앱 로그 폴더. 앱의 `core::log_file::log_dir()`(rust/src/core/log_file.rs)와 같아야 한다.
+/// 앱 로그 폴더. 앱의 `core::log_file::log_dir()`(rust/src/core/log_file.rs)와 같아야 한다 —
+/// 환경 변수 ATMOS_LOG_DIR이 있으면 앱과 감시 모두 그 폴더를 쓴다.
 pub fn default_dir() -> PathBuf {
-    std::env::temp_dir().join("atmos_mixer_pro_logs")
+    match std::env::var_os("ATMOS_LOG_DIR") {
+        Some(dir) if !dir.is_empty() => PathBuf::from(dir),
+        _ => std::env::temp_dir().join("atmos_mixer_pro_logs"),
+    }
 }
 
 impl Config {

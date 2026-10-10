@@ -16,9 +16,17 @@ pub const KEEP_ROTATED: usize = 4;
 /// 쓰기·회전·내보내기를 한 번에 하나만 한다(여러 스레드가 로그를 남긴다).
 static LOCK: Mutex<()> = Mutex::new(());
 
-/// 로그 폴더(임시 폴더 아래).
+/// 이 환경 변수가 있으면 로그 폴더를 그곳으로 바꾼다. `cargo test`·`cargo run`은 rust/.cargo/config.toml의
+/// `[env]`로 rust/target/test-logs를 받아, 개발 PC의 실제 앱 로그에 테스트 줄이 섞이지 않는다.
+/// 감시 프로그램(supervisor/src/run.rs `default_dir`)도 같은 변수를 본다.
+pub const LOG_DIR_ENV: &str = "ATMOS_LOG_DIR";
+
+/// 로그 폴더(임시 폴더 아래). [LOG_DIR_ENV]가 있으면 그 폴더.
 pub fn log_dir() -> PathBuf {
-    std::env::temp_dir().join("atmos_mixer_pro_logs")
+    match std::env::var_os(LOG_DIR_ENV) {
+        Some(dir) if !dir.is_empty() => PathBuf::from(dir),
+        _ => std::env::temp_dir().join("atmos_mixer_pro_logs"),
+    }
 }
 
 fn rotated(dir: &Path, n: usize) -> PathBuf {
