@@ -70,6 +70,18 @@ pub fn get_hosts(_target_prefix: Option<&str>) -> Result<Vec<cpal::Host>, String
     Ok(vec![cpal::default_host()])
 }
 
+/// ASIO 드라이버 하나만 불러 초기화해 보고 바로 내린다(인터페이스가 꺼져 있으면 초기화가 실패한다).
+/// cpal의 장치 목록과 달리 다른 드라이버는 건드리지 않는다.
+#[cfg(target_os = "windows")]
+fn asio_driver_opens(driver: &str) -> bool {
+    asio_sys::Asio::new().load_driver(driver).is_ok()
+}
+
+#[cfg(not(target_os = "windows"))]
+fn asio_driver_opens(_driver: &str) -> bool {
+    true
+}
+
 #[cfg(target_os = "windows")]
 pub fn apply_windows_admin_optimizations() {
     use windows::Win32::UI::Shell::IsUserAnAdmin;
@@ -143,10 +155,35 @@ impl AudioEngine {
             println!("🔥 [디버깅] 플러터 원본 요청: '{}'", name);
             println!("🔥 [디버깅] 공백 제거 후 타겟: '{}'", target_name);
 
+            // 기다려도 나타날 수 없는 이름은 찾지 않는다(core::device_search). ASIO 설치 목록은 드라이버를
+            // 불러오지 않고 읽는다.
+            #[cfg(target_os = "windows")]
+            let installed_asio = name.starts_with("[ASIO]").then(|| asio_sys::Asio::new().driver_names());
+            #[cfg(not(target_os = "windows"))]
+            let installed_asio: Option<Vec<String>> = None;
+            if let Some(reason) =
+                crate::core::device_search::reject_before_search(name, installed_asio.as_deref())
+            {
+                crate::core::state::GLOBAL_STATE.log(format!("장치를 찾지 않고 실패: {reason}"));
+                return Err(reason);
+            }
+            let asio_driver = installed_asio.as_ref().and_then(|names| {
+                names
+                    .iter()
+                    .find(|n| crate::core::device_search::clean_name(n) == target_name)
+                    .cloned()
+            });
+
             let start_time = std::time::Instant::now();
             let timeout_secs = 30;
+            let mut first_try = true;
             loop {
-                for host in &hosts {
+                // 처음 한 번은 목록을 그대로 훑는다(장치가 있으면 바로 열린다). 못 찾아 다시 볼 때 ASIO는 찾는
+                // 드라이버 하나만 먼저 불러 보고, 열릴 때만 목록을 훑는다 — 목록은 설치된 드라이버를 모두 불러와
+                // Generic Low Latency 같은 드라이버가 0.5초마다 창을 띄웠다.
+                let scan = first_try || asio_driver.as_deref().is_none_or(asio_driver_opens);
+                first_try = false;
+                for host in hosts.iter().filter(|_| scan) {
                     if let Ok(devices) = host.output_devices() {
                         for d in devices {
                             if let Ok(d_name) = d.name() {
@@ -193,6 +230,7 @@ impl AudioEngine {
             } else {
                 let error_msg = format!("Requested device '{}' not found after 30s. Available devices were not matched.", name);
                 eprintln!("{}", error_msg);
+                crate::core::state::GLOBAL_STATE.log(format!("장치를 30초 동안 찾지 못했다: {name}"));
                 return Err(error_msg);
             }
         } else {

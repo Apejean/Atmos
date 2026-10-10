@@ -6,23 +6,33 @@ use crate::common::config::AppConfig;
 use std::cmp::Reverse;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use unicode_normalization::UnicodeNormalization;
 
 /// 하위 폴더를 이 깊이까지만 내려간다(USB 루트처럼 큰 폴더를 끝없이 뒤지지 않게).
 const MAX_DEPTH: usize = 16;
+
+/// 이름 비교용 키: 유니코드 결합형(NFC)으로 맞춘 뒤 소문자. 맥에서 온 이름은 한글이 자소 분리형(NFD)이기도 해서
+/// Windows에서 만든 결합형 이름과 글자는 같아도 바이트가 다르다(HANDOFF 남은 일 14).
+fn match_key(name: &str) -> String {
+    if name.is_ascii() {
+        return name.to_lowercase();
+    }
+    name.nfc().collect::<String>().to_lowercase()
+}
 
 /// 경로의 마지막 이름. /와 \ 둘 다 구분자로 본다. 폴더 경로(구분자로 끝남)면 None.
 pub fn file_name_of(path: &str) -> Option<&str> {
     path.rsplit(['/', '\\']).next().filter(|name| !name.is_empty())
 }
 
-/// 경로의 상위 폴더 이름들(가까운 것부터, 소문자).
+/// 경로의 상위 폴더 이름들(가까운 것부터, 비교용 키).
 fn parent_names(path: &str) -> Vec<String> {
     let mut parts: Vec<&str> = path.split(['/', '\\']).filter(|part| !part.is_empty()).collect();
     parts.pop();
-    parts.iter().rev().map(|part| part.to_lowercase()).collect()
+    parts.iter().rev().map(|part| match_key(part)).collect()
 }
 
-/// 찾을 폴더 하나의 파일 목록(소문자 이름 → 경로들). 숨김 파일·폴더(macOS가 USB에 남기는 `._` 파일 포함)는
+/// 찾을 폴더 하나의 파일 목록(비교용 이름 → 경로들). 숨김 파일·폴더(macOS가 USB에 남기는 `._` 파일 포함)는
 /// 뺀다. 폴더 링크는 따라가지 않는다(서로 가리키는 링크로 끝없이 돌지 않게).
 struct FolderIndex {
     root: PathBuf,
@@ -47,7 +57,7 @@ impl FolderIndex {
                         stack.push((path, depth + 1));
                     }
                 } else if kind.is_file() || (kind.is_symlink() && path.is_file()) {
-                    by_name.entry(name.to_lowercase()).or_default().push(path);
+                    by_name.entry(match_key(&name)).or_default().push(path);
                 }
             }
         }
@@ -84,7 +94,7 @@ impl MediaFinder {
         if !original.is_empty() && Path::new(original).is_file() {
             return Some(PathBuf::from(original));
         }
-        let name = file_name_of(original)?.to_lowercase();
+        let name = match_key(file_name_of(original)?);
         for (dir, index) in self.dirs.iter().zip(self.indexes.iter_mut()) {
             let index = index.get_or_insert_with(|| FolderIndex::build(dir));
             if let Some(found) = index.best(original, &name) {

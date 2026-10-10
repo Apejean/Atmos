@@ -160,3 +160,36 @@ fn 여러_폴더를_주면_앞의_폴더를_먼저_찾는다() {
         let _ = std::fs::remove_dir_all(d);
     }
 }
+
+/// "한글"의 두 표기. 맥에서 온 이름은 자소 분리형(NFD)이기도 하고, Windows에서 만든 이름은 보통 결합형(NFC)이다.
+const HANGEUL_NFC: &str = "\u{D55C}\u{AE00}";
+const HANGEUL_NFD: &str = "\u{1112}\u{1161}\u{11AB}\u{1100}\u{1173}\u{11AF}";
+
+#[test]
+fn 한글_이름은_자소_분리형과_결합형을_같은_이름으로_본다() {
+    assert_ne!(HANGEUL_NFC, HANGEUL_NFD, "글자는 같고 바이트가 다른 두 표기");
+    let project = fresh_dir("hangul");
+    let nfc_on_disk = touch(&project, &format!("audio/{HANGEUL_NFC} loop.wav"));
+    let nfd_on_disk = touch(&project, &format!("sfx/{HANGEUL_NFD} door.wav"));
+    let mut config = config_with(&[
+        ("t1", &format!("/Users/designer/Exhibit/audio/{HANGEUL_NFD} loop.wav")),
+        ("t2", &format!(r"C:\Shows\Exhibit\sfx\{HANGEUL_NFC} DOOR.wav")),
+    ]);
+
+    let report = relink_tracks(&mut config, std::slice::from_ref(&project));
+    assert!(report.missing.is_empty(), "{:?}", report.missing);
+    assert_eq!(paths(&config), vec![s(&nfc_on_disk), s(&nfd_on_disk)], "찾은 파일은 디스크의 이름 그대로 쓴다");
+    let _ = std::fs::remove_dir_all(project);
+}
+
+#[test]
+fn 한글_폴더_이름도_표기와_상관없이_겹침을_센다() {
+    let project = fresh_dir("hangul_dirs");
+    touch(&project, "\u{AE30}\u{D0C0}/loop.wav"); // "기타" — 겹침을 못 세면 경로 순으로 이쪽이 뽑힌다
+    let wanted = touch(&project, &format!("{HANGEUL_NFC}/loop.wav"));
+    let mut config = config_with(&[("t1", &format!("/Users/designer/{HANGEUL_NFD}/loop.wav"))]);
+
+    relink_tracks(&mut config, std::slice::from_ref(&project));
+    assert_eq!(paths(&config), vec![s(&wanted)]);
+    let _ = std::fs::remove_dir_all(project);
+}

@@ -1,2 +1,7 @@
 [target.x86_64-pc-windows-msvc]
 rustflags = ["-C", "target-feature=+crt-static"]
+
+# cargo test·cargo run이 띄운 프로세스는 앱 로그를 rust/target/test-logs에 쓴다(core::log_file::LOG_DIR_ENV).
+# 개발 PC의 실제 앱 로그(%TEMP%·TMPDIR 아래 atmos_mixer_pro_logs)에 테스트 줄이 섞이지 않게 한다.
+[env]
+ATMOS_LOG_DIR = { value = "target/test-logs", relative = true }

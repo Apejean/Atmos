@@ -156,7 +156,7 @@ oscWhitelist: const [],
       _applyLoadedDevices(devices);
     } catch (e) {
       if (mounted) {
-        ref.read(globalErrorProvider.notifier).showError('장치 스캔 실패: $e');
+        ref.read(globalErrorProvider.notifier).showOperationError('장치 스캔 실패: ${errorText(e)}');
       }
     }
   }
@@ -205,7 +205,7 @@ oscWhitelist: const [],
       resyncEngineStateFromWidgetRef(ref);
     } catch (e) {
       if (mounted) {
-        ref.read(globalErrorProvider.notifier).showError('장치 스캔 실패: $e');
+        ref.read(globalErrorProvider.notifier).showOperationError('장치 스캔 실패: ${errorText(e)}');
       }
     } finally {
       if (mounted) {

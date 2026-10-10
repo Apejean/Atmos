@@ -5,7 +5,15 @@
 
 import '../common/config.dart';
 import '../frb_generated.dart';
+import 'error.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
+
+/// Load Project 전에 부른다. 프로젝트 파일을 앱 설정과 같은 규칙으로 해석해 보기만 하고 상태는 바꾸지 않는다.
+/// 읽을 수 없거나 Atmos 프로젝트가 아니면 이유를 돌려준다. `api_get_config`는 앱 자신의 config.json용이라 읽기에
+/// 실패하면 기본 설정을 돌려주고 엔진 설정·채널 튜닝까지 바꿔, 잘못 고른 파일로 지금 설정이 비워졌다
+/// (2026-10-10 Windows). 없는 파일을 기본 설정으로 만들거나 깨진 파일의 사본을 남기지도 않는다.
+Future<void> apiCheckProjectFile({required String path}) =>
+    RustLib.instance.api.crateApiProjectApiCheckProjectFile(path: path);
 
 /// 트랙 오디오 경로를 [search_dirs](앞의 것 먼저)와 그 하위 폴더에서 파일 이름으로 다시 연결한다.
 /// 저장된 경로에 파일이 있으면 그대로 둔다. 엔진 설정의 다른 값은 건드리지 않는다.

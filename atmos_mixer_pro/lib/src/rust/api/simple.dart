@@ -9,7 +9,7 @@ import '../osc/metrics.dart';
 import 'error.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These functions are ignored because they are not marked as `pub`: `apply_enabled_channels`, `init_audio_system`, `play_track_from`, `sim_band_from_json`, `start_audio_system`, `stop_audio_engine`, `with_start`
+// These functions are ignored because they are not marked as `pub`: `apply_enabled_channels`, `init_audio_system`, `monitored_output_device_names`, `play_track_from`, `request_restart_if_processing_width_changed`, `sim_band_from_json`, `start_audio_system`, `stop_audio_engine`, `with_start`
 // These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `ENGINE_ACTIVE`, `ENGINE_THREAD`, `STREAM_STATUS_SINK`, `VU_THREAD_RUNNING`
 // These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `deref`, `deref`, `deref`, `deref`, `fmt`, `fmt`, `fmt`, `initialize`, `initialize`, `initialize`, `initialize`
 // These functions have error during generation (see debug logs or enable `stop_on_error: true` for more details): `build_play_track_command`
