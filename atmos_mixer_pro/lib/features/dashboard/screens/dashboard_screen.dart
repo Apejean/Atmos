@@ -254,6 +254,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           );
           if (media.missing.isNotEmpty) await showMissingMedia(context, media.missing);
           if (device.keptCurrent && context.mounted) {
+            final shortfall = channelShortfallNotice(
+              projectHighest: highestProjectChannel(importedConfig),
+              deviceChannels: ref.read(engineStateProvider).outputChannelCount,
+            );
             await showDialog<void>(
               context: context,
               builder: (context) => AlertDialog(
@@ -261,7 +265,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 title: const Text('오디오 장치', style: TextStyle(color: Colors.white)),
                 content: Text(
                   '프로젝트의 오디오 장치 "${device.projectDevice}"는 이 PC에 없어서 '
-                  '지금 장치 "${importedConfig.deviceName ?? '시스템 기본 장치'}"를 그대로 씁니다.\n'
+                  '지금 장치 "${importedConfig.deviceName ?? '시스템 기본 장치'}"를 그대로 씁니다. '
+                  '채널은 번호 그대로 이 장치의 같은 채널로 나갑니다.\n'
+                  '${shortfall == null ? '' : '$shortfall\n'}'
                   '다른 장치를 쓰려면 환경설정에서 고르세요.',
                   style: const TextStyle(color: Colors.white70),
                 ),

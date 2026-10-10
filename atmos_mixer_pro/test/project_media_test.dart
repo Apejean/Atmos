@@ -194,4 +194,77 @@ void main() {
       expect(deviceForImportedProject(imported: mac, current: null, available: windowsDevices).keptCurrent, isFalse);
     });
   });
+
+  // 프로젝트가 지금 장치보다 많은 채널을 쓰면 장치 안내 창에 함께 알린다(2026-10-10 사용자 요청).
+  group('프로젝트가 쓰는 채널 수', () {
+    ChannelSetting on() => const ChannelSetting(
+        enabled: true, customName: '', delayMs: 0.0, eqBands: [], phaseInvert: false, gainDb: 0.0);
+    TrackConfig track(int outputChannel, {required bool stereo}) => TrackConfig(
+          id: 't$outputChannel',
+          name: 't',
+          filePath: '/x.wav',
+          volume: 1.0,
+          isLoop: false,
+          isStreaming: false,
+          outputChannel: outputChannel,
+          outputStereo: stereo,
+          playOscAddress: '',
+          stopOscAddress: '',
+        );
+    AppConfig project({
+      Map<int, ChannelSetting> mono = const {},
+      Map<int, ChannelSetting> stereo = const {},
+      Map<int, ChannelSetting> multi = const {},
+      List<TrackConfig> tracks = const [],
+    }) =>
+        AppConfig(
+          oscPort: 8000,
+          bufferSize: 1024,
+          themeStartOscAddress: '',
+          systemResetOscAddress: '',
+          monoConfigs: mono,
+          stereoConfigs: stereo,
+          multiConfigs: multi,
+          rooms: [
+            RoomConfig(
+              id: 'r',
+              name: 'r',
+              colorHex: 'FF0000',
+              volume: 1.0,
+              volumeOscAddress: '',
+              clearOscAddress: '',
+              tracks: tracks,
+            ),
+          ],
+          roomZones: const [],
+          isExhibitionMode: false,
+          masterHeadroomDb: 0.0,
+          peakLimiterEnabled: true,
+          oscWhitelist: const [],
+          globalReverbMix: 0.0,
+          globalReverbDecay: 1.0,
+        );
+
+    test('맥 프로젝트처럼 CH12까지 켰으면 12, 자리표 255는 세지 않는다', () {
+      final mac = project(
+        mono: {for (var k = 1; k <= 12; k++) k: on(), 255: on()},
+        stereo: {for (var k = 1; k <= 11; k += 2) k: on(), 255: on()},
+        multi: {1: on()},
+        tracks: [track(0, stereo: true), track(1, stereo: false)],
+      );
+      expect(highestProjectChannel(mac), 12);
+    });
+
+    test('트랙 출력도 센다(스테레오는 다음 채널까지)', () {
+      expect(highestProjectChannel(project(tracks: [track(6, stereo: true)])), 8);
+      expect(highestProjectChannel(project(tracks: [track(6, stereo: false)])), 7);
+    });
+
+    test('장치가 모자랄 때만 안내한다', () {
+      expect(channelShortfallNotice(projectHighest: 12, deviceChannels: 2),
+          '프로젝트는 CH12까지 쓰는데 지금 장치는 2채널이라 CH3~CH12는 소리가 나지 않습니다.');
+      expect(channelShortfallNotice(projectHighest: 12, deviceChannels: 94), isNull);
+      expect(channelShortfallNotice(projectHighest: 12, deviceChannels: 0), isNull, reason: '장치 채널 수를 모르면 말하지 않는다');
+    });
+  });
 }

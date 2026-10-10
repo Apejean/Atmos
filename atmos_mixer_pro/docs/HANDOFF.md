@@ -145,7 +145,7 @@ Windows 실기에서 먼저 빌드·실행해 확인해야 하는 항목:
 13. **Windows 로더 — ✅ 완료(2026-10-06, 커밋 d926a30)**: `lib/core/utils/rust_library.dart`의 `bundledRustLibrary()`. macOS는 기존대로 앱 번들 프레임워크를, Windows는 실행 파일(`Platform.resolvedExecutable`) 옆의 `rust_lib_atmos_mixer_pro.dll`을 직접 연다(없으면 기본 로더). 개발 PC에서 프로젝트 폴더로 `flutter run -d windows`해도 `rust/target/release/`의 옛 dll이 실리지 않는다. 경로 계산은 `test/rust_library_path_test.dart`가 확인한다. Windows에서 실제로 실리는 dll 확인은 현장 점검표 10절.
 14. **프로젝트 옮기기 후속(2026-10-10, P6-E에서 나옴)**:
    - **Export(사용자 요청)**: File 메뉴에 "Export Project"를 더해, 사용자가 정한 폴더 이름으로 `project.atmos`(설정·설계 데이터 전부) + `audio\`(쓰인 음원 복사본) + 도면이 있으면 `drawing\`을 한 폴더에 모은다(`D:\dev\Atmos_Project_for_Windows`와 같은 모양). 같은 이름의 다른 음원은 `이름 (2).wav`, 폴더가 있으면 덮어쓸지 묻기, 큰 파일 진행률, 맥·Windows 같은 동작. 맥 앱은 샌드박스가 꺼져 있어 복사에 권한 문제가 없다. File 메뉴가 맥용(`PlatformMenu`)과 Windows용 두 벌이라 둘 다 넣는다.
-   - **채널 수 안내**: 프로젝트가 지금 장치보다 많은 채널을 쓰면(예: 12채널 프로젝트를 2채널 장치에서) 장치 안내 창에 함께 알린다.
+   - ✅ **채널 수 안내**(같은 브랜치, 2026-10-10): 프로젝트가 지금 장치보다 많은 채널을 쓰면(예: 12채널 프로젝트를 2채널 장치에서) 장치 안내 창에 "CH3~CH12는 소리가 나지 않습니다"를 함께 알린다(`highestProjectChannel`, `channelShortfallNotice`). 이 PC 빌드·테스트까지 했고 실행 확인은 하지 않았다(지금 장치가 RME 94채널이라 안내가 나올 일이 없다).
    - **한글 파일 이름**: 다시 연결이 대소문자만 무시한다(`core/media_relink.rs`). 맥의 자소 분리형(NFD)과 Windows의 결합형(NFC)을 같게 보도록 이름을 맞춰 비교할지 — 실제 한글 이름 프로젝트로 먼저 확인.
    - **시작할 때 설정의 장치가 없을 때**: 프로젝트 열기는 고쳤지만, 앱을 켤 때 설정의 장치가 없으면 엔진이 여전히 30초 동안 장치를 찾으며 ASIO 드라이버를 0.5초마다 다시 불러온다(Generic Low Latency 창 반복). 다른 OS 장치 이름(`[CoreAudio]`를 Windows에서)은 바로 실패시키고, 찾는 동안은 해당 호스트만 훑게 할지.
    - **공용 "치명적 시스템 오류" 창**: 모든 오류가 엔진 고장 안내(케이블 확인·엔진 재시작)와 함께 이 창에 뜬다. 트랙 재생 실패는 알림으로 바꿨고, 나머지 오류도 종류에 맞게 나눌지.

@@ -82,6 +82,40 @@ ProjectDeviceChoice deviceForImportedProject({
   );
 }
 
+/// 프로젝트가 쓰는 가장 높은 채널(1부터 센 번호). 트랙 출력(스테레오는 다음 채널까지)과 출력 설정에서 켠
+/// 채널(모노 k, 스테레오 k·k+1, 멀티는 시작 채널 k)을 본다. 예전 화면이 남긴 255번 같은 자리표는 세지 않는다.
+/// 멀티 채널 파일의 실제 폭은 파일을 열어야 알 수 있어 시작 채널까지만 센다.
+int highestProjectChannel(AppConfig config) {
+  const placeholder = 255;
+  var highest = 0;
+  void see(int channel) {
+    if (channel < placeholder && channel > highest) highest = channel;
+  }
+
+  for (final room in config.rooms) {
+    for (final track in room.tracks) {
+      see(track.outputChannel + (track.outputStereo ? 2 : 1));
+    }
+  }
+  config.monoConfigs.forEach((k, s) {
+    if (s.enabled) see(k);
+  });
+  config.stereoConfigs.forEach((k, s) {
+    if (s.enabled && k < placeholder) see(k + 1);
+  });
+  config.multiConfigs.forEach((k, s) {
+    if (s.enabled) see(k);
+  });
+  return highest;
+}
+
+/// 프로젝트가 지금 장치보다 많은 채널을 쓰면 안내 문장을, 아니면 null을 돌려준다. 장치 채널 수를 모르면(0) null.
+String? channelShortfallNotice({required int projectHighest, required int deviceChannels}) {
+  if (deviceChannels <= 0 || projectHighest <= deviceChannels) return null;
+  return '프로젝트는 CH$projectHighest까지 쓰는데 지금 장치는 $deviceChannels채널이라 '
+      'CH${deviceChannels + 1}~CH$projectHighest는 소리가 나지 않습니다.';
+}
+
 typedef RelinkTracks = Future<project_api.RelinkedConfig> Function(AppConfig config, List<String> searchDirs);
 typedef FindMedia = Future<String?> Function(String path, List<String> searchDirs);
 
