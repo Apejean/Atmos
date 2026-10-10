@@ -7,6 +7,7 @@ import 'package:atmos_mixer_pro/src/rust/common/config.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:atmos_mixer_pro/core/state/global_state.dart';
+import 'package:atmos_mixer_pro/core/utils/osc_addresses.dart';
 import 'package:atmos_mixer_pro/src/rust/api/simple.dart' as rust_api;
 import 'package:atmos_mixer_pro/features/dashboard/widgets/track_play_failure.dart';
 import 'package:desktop_drop/desktop_drop.dart';
@@ -167,6 +168,9 @@ class _RoomCardState extends ConsumerState<RoomCard> {
     final idx = newRooms.indexWhere((r) => r.id == widget.room.id);
     if (idx != -1) {
       final newTracks = List<TrackConfig>.from(newRooms[idx].tracks);
+      // 새 트랙의 OSC 주소는 겹치지 않게 만든다(core/utils/osc_addresses.dart). 한 번에 여러 개를 넣어도 서로 다르다.
+      final usedOsc = oscAddressesInUse(currentConfig).toSet();
+      final roomNumber = oscRoomNumber(newRooms[idx], idx);
 
       for (final path in paths) {
         final name = path.split(RegExp(r'[\\/]')).last;
@@ -179,6 +183,7 @@ class _RoomCardState extends ConsumerState<RoomCard> {
           }
         } catch (_) {}
 
+        final osc = newTrackOscAddresses(roomNumber: roomNumber, firstTrack: newTracks.length + 1, used: usedOsc);
         final newTrack = TrackConfig(
           id: 'track_${DateTime.now().millisecondsSinceEpoch}_${math.Random().nextInt(1000)}',
           name: name,
@@ -188,8 +193,8 @@ class _RoomCardState extends ConsumerState<RoomCard> {
           isStreaming: isStreaming,
           outputChannel: 0,
           outputStereo: true,
-          playOscAddress: '/play',
-          stopOscAddress: '/stop',
+          playOscAddress: osc.play,
+          stopOscAddress: osc.stop,
         );
         newTracks.add(newTrack);
       }
