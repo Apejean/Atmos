@@ -21,6 +21,7 @@
 - [ ] **설치.** `AtmosMixerPro_Setup.exe`로 설치된다. 설치된 앱의 버전과 설치 목록의 버전이 같다(installer가 빌드된 exe의 `ProductVersion`을 읽는다. `pubspec.yaml` 버전은 1.1.2). installer 스크립트의 `build\...` 경로가 `windows\` 폴더 기준이라 그대로는 파일을 못 찾을 수 있다는 HANDOFF 8번 항목도 설치 파일을 만들면서 확인한다.
 - [ ] **WebView2 런타임.** 3D 방 뷰어에 필요하다. 설정 > 앱 > 설치된 앱에서 "Microsoft Edge WebView2 런타임"이 있는지 본다(없으면 7절에서 3D가 뜨지 않는 것이 정상이다). Windows 10 PC에는 없을 수 있다. 설치 파일이 런타임이 없을 때 오프라인으로 설치한다(2026-10-08 결정, Evergreen Standalone 포함). 설치 로그(`%TEMP%\Setup Log *.txt`)의 "Prerequisite …" 줄로 설치했는지 건너뛰었는지 본다.
 - [ ] **앱 기동.** 앱이 뜨고 스플래시를 지나 대시보드가 나온다. 로그에 `ASIO Load Error`나 패닉이 없다.
+- [ ] **서명 없는 설치 파일(사용자 결정 2026-10-08: 코드 서명 안 함, 백신 예외).** SmartScreen 창이 어떻게 뜨는지, "추가 정보 → 실행"으로 설치되는지, Defender·현장 백신이 설치 파일·앱·감시 프로그램(`atmos_supervisor.exe`)을 격리하는지 기록한다. 걸리면 앱 폴더를 예외로 넣고 다시 확인한다.
 
 ## 1. 로그인 자동 실행과 이어 가기 (구현 후 점검)
 
@@ -70,6 +71,7 @@ macOS에서 실측한 값(Scarlett 6i6 12ch, 48kHz)과 비교한다. Windows에�
 ## 5. 네트워크 (OSC)
 
 - [ ] **방화벽 허용 창.** OSC가 `0.0.0.0`(UDP)으로 열린다. 설치 파일이 규칙 2개(`Atmos Mixer Pro OSC`: 개인·도메인 네트워크 전체 허용, `Atmos Mixer Pro OSC (public, local subnet)`: 공용 네트워크는 같은 서브넷만)를 넣으므로 설치본 첫 실행에서 허용 창이 뜨지 않아야 한다(2026-10-08 결정). "고급 보안이 포함된 Windows Defender 방화벽"의 인바운드 규칙에서 두 규칙을 확인하고, 제거하면 사라지는지 본다. 개발 빌드(Debug, CI 폴더)는 exe 경로가 달라 창이 뜬다.
+- [ ] **OSC 네트워크 구성(사용자 확인 2026-10-08).** OSC 장비는 현장 PC와 같은 LAN·같은 서브넷에 둔다. 현장 PC 고정 IP, 네트워크 종류 "개인"(`Get-NetConnectionProfile`로 확인)을 확인하고, 현장 PC IP·OSC 장비 IP·포트를 결과 기록에 적는다. 서브넷이 다른 구성이면 라우터가 UDP를 넘기는지 따로 본다.
 - [ ] **OSC 수신.** 외부에서 설정된 포트로 `/theme/start`, 트랙 재생·정지, 방 비우기를 보내 동작한다. 같은 주소가 겹치면 마지막 것만 기억한다(HANDOFF 남은 일 5번).
 
 ## 6. 로그
