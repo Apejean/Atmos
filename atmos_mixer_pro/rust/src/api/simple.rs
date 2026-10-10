@@ -383,6 +383,22 @@ pub(crate) fn play_track_from(
     if let Some(config) = config_guard.as_ref() {
         if let Some(room) = config.rooms.iter().find(|r| r.id == room_id) {
             if let Some(track) = room.tracks.iter().find(|t| t.id == track_id) {
+                // 파일을 읽어야 하는데(스트리밍 시작, 캐시에 없음) 파일이 없으면 이유를 분명히 돌려주고 앱 로그에
+                // 남긴다. 예전에는 로딩 단계의 영어 오류만 돌아가 화면에는 "치명적 시스템 오류"로만 보였고 로그에는
+                // 아무것도 없었다(2026-10-10 Windows P6-E: 맥 프로젝트에서 못 찾은 파일을 재생). 메모리에 미리
+                // 읽어 둔 음원은 원본 파일이 없어도 재생한다.
+                let missing_file = || -> Option<AtmosError> {
+                    if std::path::Path::new(&track.file_path).exists() {
+                        return None;
+                    }
+                    GLOBAL_STATE.log(format!(
+                        "재생 실패: 파일을 찾을 수 없다 — 방 '{}' 트랙 '{}': {}",
+                        room.name, track.name, track.file_path
+                    ));
+                    Some(AtmosError {
+                        message: format!("파일을 찾을 수 없습니다: {}", track.file_path),
+                    })
+                };
                 let instance_id = crate::core::state::next_instance_id();
 
                 let _ = GLOBAL_STATE
@@ -409,6 +425,9 @@ pub(crate) fn play_track_from(
                         }
                     }
 
+                    if let Some(err) = missing_file() {
+                        return Err(err);
+                    }
                     let target_sr = GLOBAL_STATE
                         .engine_sample_rate
                         .load(std::sync::atomic::Ordering::Relaxed);
@@ -534,6 +553,9 @@ pub(crate) fn play_track_from(
                         return Ok(());
                     } else {
                         // Cache miss -> Load into RAM dynamically (obeys 100% RAM rule for SFX)
+                        if let Some(err) = missing_file() {
+                            return Err(err);
+                        }
                         let path = std::path::Path::new(&track.file_path);
                         if let Ok(metadata) = std::fs::metadata(path) {
                             if metadata.len() > 500 * 1024 * 1024 {
