@@ -2,6 +2,8 @@ import 'dart:io';
 import 'package:atmos_mixer_pro/core/state/engine_resync.dart';
 import 'package:atmos_mixer_pro/core/state/project_file.dart';
 import 'package:atmos_mixer_pro/core/state/project_media.dart';
+import 'package:atmos_mixer_pro/core/state/project_export.dart';
+import 'package:atmos_mixer_pro/features/dashboard/widgets/export_project_dialog.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
@@ -24,6 +26,7 @@ import 'package:atmos_mixer_pro/features/exhibition/screens/speaker_canvas_scree
     as atmos_exhibition;
 import 'package:atmos_mixer_pro/features/dashboard/widgets/safety_alert_border.dart';
 import 'package:atmos_mixer_pro/src/rust/api/simple.dart' as rust_api;
+import 'package:atmos_mixer_pro/features/dashboard/widgets/track_play_failure.dart';
 import 'package:atmos_mixer_pro/features/exhibition/state/room_zone_state.dart';
 import 'package:atmos_mixer_pro/features/exhibition/models/room_zone.dart' as exhibition_model;
 import 'package:atmos_mixer_pro/src/rust/common/config.dart';
@@ -203,7 +206,22 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           return folder;
         },
       );
-      final importedConfig = media.config;
+      // 프로젝트의 오디오 장치가 이 PC에 없으면(다른 OS·다른 PC에서 저장) 지금 장치를 그대로 쓴다
+      // (project_media.dart deviceForImportedProject 참고).
+      List<String>? available = GlobalDeviceCache.devices;
+      if (available == null) {
+        try {
+          available = (await rust_api.apiGetOutputDevices()).map((d) => d.name).toList();
+        } catch (_) {
+          available = null; // 목록을 모르면 프로젝트 값을 그대로 쓴다(예전 동작).
+        }
+      }
+      final device = deviceForImportedProject(
+        imported: media.config,
+        current: ref.read(configProvider),
+        available: available,
+      );
+      final importedConfig = device.config;
       await rust_api.apiStopAll();
       if (context.mounted) {
         ref.read(engineStateProvider.notifier).reset();
@@ -237,6 +255,30 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             ),
           );
           if (media.missing.isNotEmpty) await showMissingMedia(context, media.missing);
+          if (device.keptCurrent && context.mounted) {
+            final shortfall = channelShortfallNotice(
+              projectHighest: highestProjectChannel(importedConfig),
+              deviceChannels: ref.read(engineStateProvider).outputChannelCount,
+            );
+            await showDialog<void>(
+              context: context,
+              builder: (context) => AlertDialog(
+                backgroundColor: AppColors.background,
+                title: const Text('오디오 장치', style: TextStyle(color: Colors.white)),
+                content: Text(
+                  '프로젝트의 오디오 장치 "${device.projectDevice}"는 이 PC에 없어서 '
+                  '지금 장치 "${importedConfig.deviceName ?? '시스템 기본 장치'}"를 그대로 씁니다. '
+                  '채널은 번호 그대로 이 장치의 같은 채널로 나갑니다.\n'
+                  '${shortfall == null ? '' : '$shortfall\n'}'
+                  '다른 장치를 쓰려면 환경설정에서 고르세요.',
+                  style: const TextStyle(color: Colors.white70),
+                ),
+                actions: [
+                  TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('확인')),
+                ],
+              ),
+            );
+          }
         }
       }
     } catch (e) {
@@ -244,6 +286,52 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         Navigator.of(context).pop(); // dismiss dialog
         ref.read(globalErrorProvider.notifier).showError('설정 불러오기 실패: $e');
       }
+    }
+  }
+
+  /// File > Export Project: 정한 이름의 폴더에 project.atmos + audio/ + drawing/을 모은다
+  /// (core/state/project_export.dart, 사용자 요청 2026-10-10).
+  Future<void> _exportProject(BuildContext context) async {
+    final config = ref.read(configProvider);
+    if (config == null) return;
+    final parent = await FilePicker.getDirectoryPath(dialogTitle: '내보낼 위치(이 안에 새 폴더를 만듭니다)');
+    if (parent == null || !context.mounted) return;
+    final now = DateTime.now();
+    String two(int v) => v.toString().padLeft(2, '0');
+    final name = await askExportFolderName(
+      context,
+      parentDir: parent,
+      initial: 'Atmos_Project_${now.year}${two(now.month)}${two(now.day)}',
+    );
+    if (name == null || !context.mounted) return;
+    final target = Directory('$parent${Platform.pathSeparator}$name');
+    if (await target.exists() && !await target.list().isEmpty) {
+      if (!context.mounted || !await confirmExportIntoExisting(context, target.path)) return;
+    }
+    if (!context.mounted) return;
+    final status = ValueNotifier<String>('준비 중...');
+    showExportProgress(context, status);
+    try {
+      // 드래그·노브 조작은 저장이 300ms 미뤄져 있다. 먼저 끝낸다(Save Project와 같다).
+      await flushExhibitionSavesFromWidgetRef(ref);
+      final result = await exportProject(
+        parentDir: parent,
+        folderName: name,
+        config: config,
+        design: await collectExhibitionData(),
+        saveConfig: (path, cfg) => rust_api.apiSaveConfig(path: path, config: cfg),
+        onProgress: (done, total, file) => status.value =
+            file.isEmpty ? '프로젝트 파일을 쓰는 중...' : '파일 복사 ${done + 1}/$total: $file',
+      );
+      if (context.mounted) Navigator.of(context).pop(); // 진행 창
+      if (context.mounted) await showExportResult(context, result);
+    } catch (e) {
+      if (context.mounted) {
+        Navigator.of(context).pop(); // 진행 창
+        ref.read(globalErrorProvider.notifier).showError('프로젝트 내보내기 실패: $e');
+      }
+    } finally {
+      status.dispose();
     }
   }
 
@@ -315,6 +403,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     }
                   }
                 },
+              ),
+              PlatformMenuItem(
+                label: 'Export Project',
+                onSelected: () => _exportProject(context),
               ),
             ],
           ),
@@ -483,6 +575,10 @@ oscWhitelist: config.oscWhitelist,
                       }
                     },
                     child: const Text('Save Project'),
+                  ),
+                  MenuItemButton(
+                    onPressed: () => _exportProject(context),
+                    child: const Text('Export Project'),
                   ),
                   const Divider(),
                   MenuItemButton(
@@ -819,9 +915,9 @@ oscWhitelist: config.oscWhitelist,
                         try {
                           await rust_api.apiPlayAllLoopTracks();
                         } catch (e) {
-                          ref
-                              .read(globalErrorProvider.notifier)
-                              .showError('전시 모드 트랙 재생 실패: $e');
+                          if (context.mounted) {
+                            showTrackPlayFailure(context, e, prefix: '전시 모드 트랙 재생 실패');
+                          }
                         }
                       } else {
                         final firstRoom = config.rooms.first;
@@ -836,9 +932,9 @@ oscWhitelist: config.oscWhitelist,
                                 trackId: track.id,
                               );
                             } catch (e) {
-                              ref
-                                  .read(globalErrorProvider.notifier)
-                                  .showError('트랙 재생 실패: $e');
+                              if (context.mounted) {
+                                showTrackPlayFailure(context, e);
+                              }
                             }
                           }
                         }

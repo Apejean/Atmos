@@ -15,6 +15,7 @@ import 'package:atmos_mixer_pro/core/utils/rust_library.dart';
 
 import 'package:atmos_mixer_pro/features/splash/screens/audio_init_splash_screen.dart';
 import 'package:atmos_mixer_pro/features/exhibition/state/acoustic_sync_provider.dart';
+import 'package:atmos_mixer_pro/features/exhibition/state/three_js_engine_provider.dart';
 
 Future<void> main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -116,6 +117,17 @@ class _AtmosMixerProAppState extends ConsumerState<AtmosMixerProApp>
       apiStopAudioEngine(),
       Future.delayed(const Duration(milliseconds: 1500)),
     ]);
+    // 3D 웹뷰는 Flutter 엔진이 살아 있을 때 정리한다(Windows 종료 크래시,
+    // ThreeJsEngineService.disposeWindowsWebview 참고). 아직 만들지 않았으면 새로 만들지 않는다.
+    if (ref.exists(threeJsEngineProvider)) {
+      await Future.any([
+        ref
+            .read(threeJsEngineProvider)
+            .disposeWindowsWebview()
+            .catchError((Object _) {}),
+        Future.delayed(const Duration(milliseconds: 1000)),
+      ]);
+    }
     await windowManager.destroy();
   }
 

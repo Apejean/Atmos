@@ -9,6 +9,9 @@ pub fn start_analysis_thread(
     channels: usize,
 ) -> std::thread::JoinHandle<()> {
     std::thread::spawn(move || {
+        // 무음이 이어지면 LUFS·RTA 필터 상태도 비정규 실수가 되어 느려진다(audio::denormal 참고).
+        // 이 스레드 전용이라 스레드가 끝날 때까지 켜 둔다.
+        let _denormals = crate::audio::denormal::DenormalGuard::new();
         let mut rta_analyzer = RtaAnalyzer::new();
         {
             let mut lock = GLOBAL_STATE.rta_magnitudes_ref.write().unwrap_or_else(|e| e.into_inner());

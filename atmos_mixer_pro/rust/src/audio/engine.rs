@@ -297,6 +297,29 @@ impl AudioEngine {
             .engine_sample_rate
             .store(config.sample_rate.0, std::sync::atomic::Ordering::SeqCst);
 
+        // 믹서 처리 폭: 장치는 전체 채널로 열고, 믹서는 출력 설정에서 켠 가장 높은 채널까지만
+        // 처리한다(core::processing_channels). 나머지 출력에는 무음을 넣는다.
+        let processing = match crate::core::state::GLOBAL_STATE
+            .config
+            .read()
+            .unwrap_or_else(|e| e.into_inner())
+            .as_ref()
+        {
+            Some(app_config) => crate::core::processing_channels::processing_channel_count(
+                app_config,
+                config.channels as usize,
+            ),
+            None => config.channels as usize,
+        };
+        let virtual_channels = crate::core::processing_channels::mixer_width(processing);
+        crate::core::state::GLOBAL_STATE
+            .processing_channels
+            .store(virtual_channels as u32, std::sync::atomic::Ordering::SeqCst);
+        crate::core::state::GLOBAL_STATE.log(format!(
+            "오디오 엔진: 장치 출력 {}채널 중 {}채널 처리(믹서 폭 {}), 버퍼 {}프레임, {}Hz",
+            config.channels, processing, virtual_channels, resolved_buffer_size, config.sample_rate.0
+        ));
+
         *crate::core::state::GLOBAL_STATE
             .engine_error
             .write()
@@ -318,10 +341,9 @@ impl AudioEngine {
         });
 
         // 분석 스레드(analysis_thread)는 프로듀서(mixer.process)가 실제로 링버퍼에 쓰는
-        // 인터리빙 폭인 virtual_channels(16채널 확장 버스) 기준으로 프레임 경계를 계산해야 한다.
+        // 인터리빙 폭인 virtual_channels(위 믹서 폭) 기준으로 프레임 경계를 계산해야 한다.
         // config.channels(하드웨어 채널 수)를 넘기면 EBU R128/RTA가 잘못된 프레임 경계로
         // 데이터를 재해석하여 미터가 실제 오디오와 무관한 값을 표시한다.
-        let virtual_channels = 16.max(config.channels as usize);
 
         let (analysis_tx, analysis_rx) = rtrb::RingBuffer::new(65536);
         crate::audio::analysis::start_analysis_thread(
@@ -363,16 +385,32 @@ impl AudioEngine {
 
         let stream = match sample_format {
             SampleFormat::F32 => {
-                let virtual_channels = 16.max(config.channels as usize);
+                let copy_channels = (config.channels as usize).min(virtual_channels);
+                let sample_rate = config.sample_rate.0;
                 let mut temp_buf: Vec<f32> = vec![0.0; 65536];
                 let hw_channels = config.channels as usize;
+                let mut last_started: Option<std::time::Instant> = None;
                 device.build_output_stream(
                     &config,
                     move |data: &mut [f32], _: &OutputCallbackInfo| {
+                        // 비정규 실수를 0으로 다룬다(audio::denormal 참고). 콜백이 끝나면 원래대로 돌린다.
+                        let _denormals = crate::audio::denormal::DenormalGuard::new();
+                        // 처리 시간은 명령 처리(begin_callback)부터 잰다.
+                        let started = std::time::Instant::now();
                         // 옛 세대 스트림은 무음만 낸다(begin_callback 참고).
                         if !Self::begin_callback(&mut mixer, &cmd_receiver_f32, generation) {
                             data.fill(0.0);
                             return;
+                        }
+                        Self::record_callback_gap(
+                            &mut last_started,
+                            started,
+                            resolved_buffer_size,
+                            sample_rate,
+                        );
+                        // 처리 폭 밖의 출력 채널은 무음이다(core::processing_channels).
+                        if copy_channels < hw_channels {
+                            data.fill(0.0);
                         }
 
                         let frames = data.len() / hw_channels;
@@ -394,27 +432,44 @@ impl AudioEngine {
                             // 장치에 실재하는 채널만 그대로 내보낸다. 2채널 장치에서
                             // 3번 이상 채널은 들리지 않으며, 다채널 청음은 실기로 하거나
                             // 추후 바이노럴 모니터링(binaural)을 켜서 확인한다.
-                            for ch in 0..hw_channels {
+                            for ch in 0..copy_channels {
                                 data[frame * hw_channels + ch] =
                                     temp[frame * virtual_channels + ch];
                             }
                         }
+                        Self::record_callback_time(started, frames, sample_rate);
                     },
                     err_fn,
                     None,
                 )
             }
             SampleFormat::I16 => {
-                let virtual_channels = 16.max(config.channels as usize);
+                let copy_channels = (config.channels as usize).min(virtual_channels);
+                let sample_rate = config.sample_rate.0;
                 let mut temp_buf: Vec<f32> = vec![0.0; 65536];
                 let hw_channels = config.channels as usize;
+                let mut last_started: Option<std::time::Instant> = None;
                 device.build_output_stream(
                     &config,
                     move |data: &mut [i16], _: &OutputCallbackInfo| {
+                        // 비정규 실수를 0으로 다룬다(audio::denormal 참고). 콜백이 끝나면 원래대로 돌린다.
+                        let _denormals = crate::audio::denormal::DenormalGuard::new();
+                        // 처리 시간은 명령 처리(begin_callback)부터 잰다.
+                        let started = std::time::Instant::now();
                         // 옛 세대 스트림은 무음만 낸다(begin_callback 참고).
                         if !Self::begin_callback(&mut mixer, &cmd_receiver_f32, generation) {
                             data.fill(<i16 as cpal::Sample>::EQUILIBRIUM);
                             return;
+                        }
+                        Self::record_callback_gap(
+                            &mut last_started,
+                            started,
+                            resolved_buffer_size,
+                            sample_rate,
+                        );
+                        // 처리 폭 밖의 출력 채널은 무음이다(core::processing_channels).
+                        if copy_channels < hw_channels {
+                            data.fill(<i16 as cpal::Sample>::EQUILIBRIUM);
                         }
 
                         let frames = data.len() / hw_channels;
@@ -436,27 +491,44 @@ impl AudioEngine {
                             // 장치에 실재하는 채널만 그대로 내보낸다. 2채널 장치에서
                             // 3번 이상 채널은 들리지 않으며, 다채널 청음은 실기로 하거나
                             // 추후 바이노럴 모니터링(binaural)을 켜서 확인한다.
-                            for ch in 0..hw_channels {
+                            for ch in 0..copy_channels {
                                 data[frame * hw_channels + ch] =
                                     cpal::Sample::from_sample(temp[frame * virtual_channels + ch]);
                             }
                         }
+                        Self::record_callback_time(started, frames, sample_rate);
                     },
                     err_fn,
                     None,
                 )
             }
             SampleFormat::I32 => {
-                let virtual_channels = 16.max(config.channels as usize);
+                let copy_channels = (config.channels as usize).min(virtual_channels);
+                let sample_rate = config.sample_rate.0;
                 let mut temp_buf: Vec<f32> = vec![0.0; 65536];
                 let hw_channels = config.channels as usize;
+                let mut last_started: Option<std::time::Instant> = None;
                 device.build_output_stream(
                     &config,
                     move |data: &mut [i32], _: &OutputCallbackInfo| {
+                        // 비정규 실수를 0으로 다룬다(audio::denormal 참고). 콜백이 끝나면 원래대로 돌린다.
+                        let _denormals = crate::audio::denormal::DenormalGuard::new();
+                        // 처리 시간은 명령 처리(begin_callback)부터 잰다.
+                        let started = std::time::Instant::now();
                         // 옛 세대 스트림은 무음만 낸다(begin_callback 참고).
                         if !Self::begin_callback(&mut mixer, &cmd_receiver_f32, generation) {
                             data.fill(<i32 as cpal::Sample>::EQUILIBRIUM);
                             return;
+                        }
+                        Self::record_callback_gap(
+                            &mut last_started,
+                            started,
+                            resolved_buffer_size,
+                            sample_rate,
+                        );
+                        // 처리 폭 밖의 출력 채널은 무음이다(core::processing_channels).
+                        if copy_channels < hw_channels {
+                            data.fill(<i32 as cpal::Sample>::EQUILIBRIUM);
                         }
 
                         let frames = data.len() / hw_channels;
@@ -478,27 +550,44 @@ impl AudioEngine {
                             // 장치에 실재하는 채널만 그대로 내보낸다. 2채널 장치에서
                             // 3번 이상 채널은 들리지 않으며, 다채널 청음은 실기로 하거나
                             // 추후 바이노럴 모니터링(binaural)을 켜서 확인한다.
-                            for ch in 0..hw_channels {
+                            for ch in 0..copy_channels {
                                 data[frame * hw_channels + ch] =
                                     cpal::Sample::from_sample(temp[frame * virtual_channels + ch]);
                             }
                         }
+                        Self::record_callback_time(started, frames, sample_rate);
                     },
                     err_fn,
                     None,
                 )
             }
             SampleFormat::U16 => {
-                let virtual_channels = 16.max(config.channels as usize);
+                let copy_channels = (config.channels as usize).min(virtual_channels);
+                let sample_rate = config.sample_rate.0;
                 let mut temp_buf: Vec<f32> = vec![0.0; 65536];
                 let hw_channels = config.channels as usize;
+                let mut last_started: Option<std::time::Instant> = None;
                 device.build_output_stream(
                     &config,
                     move |data: &mut [u16], _: &OutputCallbackInfo| {
+                        // 비정규 실수를 0으로 다룬다(audio::denormal 참고). 콜백이 끝나면 원래대로 돌린다.
+                        let _denormals = crate::audio::denormal::DenormalGuard::new();
+                        // 처리 시간은 명령 처리(begin_callback)부터 잰다.
+                        let started = std::time::Instant::now();
                         // 옛 세대 스트림은 무음만 낸다(begin_callback 참고).
                         if !Self::begin_callback(&mut mixer, &cmd_receiver_f32, generation) {
                             data.fill(<u16 as cpal::Sample>::EQUILIBRIUM);
                             return;
+                        }
+                        Self::record_callback_gap(
+                            &mut last_started,
+                            started,
+                            resolved_buffer_size,
+                            sample_rate,
+                        );
+                        // 처리 폭 밖의 출력 채널은 무음이다(core::processing_channels).
+                        if copy_channels < hw_channels {
+                            data.fill(<u16 as cpal::Sample>::EQUILIBRIUM);
                         }
 
                         let frames = data.len() / hw_channels;
@@ -520,11 +609,12 @@ impl AudioEngine {
                             // 장치에 실재하는 채널만 그대로 내보낸다. 2채널 장치에서
                             // 3번 이상 채널은 들리지 않으며, 다채널 청음은 실기로 하거나
                             // 추후 바이노럴 모니터링(binaural)을 켜서 확인한다.
-                            for ch in 0..hw_channels {
+                            for ch in 0..copy_channels {
                                 data[frame * hw_channels + ch] =
                                     cpal::Sample::from_sample(temp[frame * virtual_channels + ch]);
                             }
                         }
+                        Self::record_callback_time(started, frames, sample_rate);
                     },
                     err_fn,
                     None,
@@ -579,6 +669,49 @@ impl AudioEngine {
             .store(now_ms, Ordering::Relaxed);
         Self::process_commands(mixer, rx);
         true
+    }
+
+    /// 오디오 콜백 한 번의 처리 시간(명령 처리+믹서+장치 버퍼 채우기)을 남긴다. 원자형 저장만 한다
+    /// (할당·잠금 없음). 엔진 스레드의 점검 루프가 평균·최댓값·예산 초과 횟수를 읽어 비우고, 부하가
+    /// 높으면 앱 로그에 남긴다.
+    #[inline]
+    fn record_callback_time(started: std::time::Instant, frames: usize, sample_rate: u32) {
+        let elapsed_us = started.elapsed().as_micros().min(u32::MAX as u128) as u32;
+        let budget_us = (frames as u64 * 1_000_000 / u64::from(sample_rate.max(1))) as u32;
+        let state = &crate::core::state::GLOBAL_STATE;
+        state.callback_budget_us.store(budget_us, Ordering::Relaxed);
+        state.callback_max_us.fetch_max(elapsed_us, Ordering::Relaxed);
+        state.callback_total_us.fetch_add(elapsed_us, Ordering::Relaxed);
+        state.callback_count.fetch_add(1, Ordering::Relaxed);
+        if u64::from(elapsed_us) * 10 > u64::from(budget_us) * 7 {
+            state.callback_heavy.fetch_add(1, Ordering::Relaxed);
+        }
+        if elapsed_us > budget_us {
+            state.callback_overruns.fetch_add(1, Ordering::Relaxed);
+        }
+    }
+
+    /// 이 스트림의 앞 콜백 시작부터 이번 콜백 시작까지의 간격을 남긴다(원자형 저장만). 간격이 장치를
+    /// 연 버퍼 길이(`frames`)의 1.5배를 넘으면 늦은 콜백으로 센다. 콜백마다 받은 프레임 수와 비교하지
+    /// 않는다. WASAPI는 약 10ms마다 남은 만큼(때로 수백 프레임 미만)을 채워 짧은 콜백 뒤의 보통 간격도
+    /// 늦은 것으로 셌다(2026-10-09 Windows: 정상 재생에서 10초에 26회).
+    #[inline]
+    fn record_callback_gap(
+        last_started: &mut Option<std::time::Instant>,
+        started: std::time::Instant,
+        frames: usize,
+        sample_rate: u32,
+    ) {
+        if let Some(prev) = *last_started {
+            let gap_us = started.duration_since(prev).as_micros().min(u32::MAX as u128) as u32;
+            let budget_us = frames as u64 * 1_000_000 / u64::from(sample_rate.max(1));
+            let state = &crate::core::state::GLOBAL_STATE;
+            state.callback_gap_max_us.fetch_max(gap_us, Ordering::Relaxed);
+            if u64::from(gap_us) * 2 > budget_us * 3 {
+                state.callback_late.fetch_add(1, Ordering::Relaxed);
+            }
+        }
+        *last_started = Some(started);
     }
 
     fn process_commands(mixer: &mut AudioMixer, rx: &crossbeam_channel::Receiver<AudioCommand>) {

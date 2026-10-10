@@ -72,11 +72,12 @@ Copy-Item supervisor\target\release\atmos_supervisor.exe build\windows\x64\runne
 - env.ps1을 점 소싱하지 않은 창(일반 PowerShell, VS Code 터미널)에서 빌드하면 ASIO 빌드가 `Could not find vcvarsall.bat`으로 멈춘다. Visual Studio를 D:에 설치했기 때문이다(asio-sys는 `C:\Program Files`만 찾는다). env.ps1이 개발자 환경을 넣는다.
 - 실행: `build\windows\x64\runner\Release\atmos_supervisor.exe`(감시 프로그램이 앱을 띄운다). 앱 exe를 직접 띄워도 옆에 감시 exe가 있으면 감시로 넘어간다. 끌 때는 창을 닫는다(X).
 - 개발 PC 확인(HANDOFF 12): `Push-Location rust; cargo test --no-run; Pop-Location`이 컴파일되는지.
-- 설치 파일: `installer.iss`가 `windows\` 폴더 기준으로 `build\...`를 찾는 문제(HANDOFF ⚠️ 8)가 있어 고치기 전에는 이렇게 우회한다(`windows\build`, `windows\Output`은 커밋하지 않는다).
+- 설치 파일: 먼저 설치 파일에 넣을 Microsoft 재배포 파일(VC++ 런타임, WebView2 런타임 오프라인 설치 파일)을 받는다. `windows\redist`, `windows\Output`은 커밋하지 않는다. 설치 파일은 약 250MB다.
   ```powershell
-  robocopy build\windows\x64\runner\Release windows\build\windows\x64\runner\Release /MIR
+  powershell -NoProfile -ExecutionPolicy Bypass -File tool\windows\fetch-redist.ps1   # Microsoft 서명 확인, 한 번만
   D:\dev\InnoSetup6\ISCC.exe windows\installer.iss            # → windows\Output\AtmosMixerPro_Setup.exe
   ```
+  CI zip으로 만들 때는 `ISCC /DReleaseDir=<zip을 푼 폴더> windows\installer.iss`.
 - CI의 "Patch pdfx CMakeLists" 단계는 지금 pdfx 의존성이 없어 할 일이 없다. CMake 버전 오류가 나면 하네스 8절.
 
 ## 5. 빌드 뒤 확인 순서 (우선순위)
@@ -89,20 +90,32 @@ Copy-Item supervisor\target\release\atmos_supervisor.exe build\windows\x64\runne
 4. 충돌 후 자동 재실행 — 감시 프로그램(2절)
 5. 절전 방지 — 관리자 명령 프롬프트 `powercfg /requests`(4절)
 6. 로그 내보내기 경로 — OneDrive로 옮겨진 바탕화면, 한글 "바탕 화면"(6절)
-7. 방화벽 허용 창 — 설치본 첫 실행(5절)
+7. 방화벽 — 설치본은 설치 때 규칙이 들어가 첫 실행 허용 창이 뜨지 않아야 한다. 외부 장비의 OSC 수신(5절)
 8. 메뉴 동일성 — Settings·Preferences 항목(8절)
 9. 종료 경로 — 창을 닫은 뒤 ASIO 장치가 풀리는지(2절)
 10. 프로젝트 미디어 다시 연결 — macOS에서 옮긴 폴더(9절)
 
-- **3D 방 뷰어는 Windows 구현이 아직 없어 스피너만 도는 것이 지금은 정상이다**(HANDOFF 남은 일 10, 하네스 W1).
+- 3D 방 뷰어는 Windows에서 WebView2로 뜬다(HANDOFF 남은 일 10). 스피너만 돌거나 안내 문구가 나오면 WebView2 런타임부터 본다(설치 파일이 없을 때 설치한다).
 - 개발 PC라면 `rust\`에서 `cargo test --no-run`이 컴파일되는지도 본다(HANDOFF 12).
 
-## 6. 사용자 결정 대기
+## 6. 사용자 결정
 
-- installer 방화벽 규칙(무인 PC 첫 실행의 허용 창)
-- WebView2 런타임 설치 방식(오프라인 현장이면 설치 파일에 포함)
-- 3D 방 뷰어 Windows 구현 방식(`webview_windows` 또는 `flutter_inappwebview` — Windows PC 실험 뒤)
+정한 것(2026-10-08, HANDOFF 확정된 결정 "Windows 설치 파일"):
+- 설치 파일이 VC++ 런타임과 WebView2 런타임(오프라인 설치 파일)을 넣고, 없거나 오래됐을 때만 설치한다.
+- 설치 파일이 OSC 방화벽 규칙을 넣는다: 개인·도메인 네트워크는 앱의 UDP 수신 허용, 공용 네트워크는 같은 서브넷만.
+- 3D 방 뷰어는 `webview_windows`(WebView2)로 구현했다(PR #30).
+- 코드 서명은 하지 않고 현장 백신에 예외를 넣는다(7절). 나중에 서명 인증서를 살 수 있다.
+
+남은 것:
 - v1.1.3 태그와 `main`의 버전 차이(현장에 설치된 버전 확인)
 - Windows CI에 `cargo test`(`--no-run`) 단계 추가
 - ASIO 채널 이름(보류)
-- Windows 실행 뒤 정할 것: VC++ 런타임 포함 방식, 코드 서명(결정됨: 하지 않고 백신 예외, HANDOFF 확정된 결정), 앱 데이터 폴더 이름(`com.example`)
+- 앱 데이터 폴더 이름(`com.example`)
+
+## 7. 현장 PC 준비 (설치 전에)
+
+- **네트워크**: OSC를 보내는 장비와 같은 서브넷(예: 192.168.0.x)에 두는 것이 가장 단순하다. 서브넷이 다르면 라우터가 UDP를 넘겨줘야 한다(네트워크 담당자). 현장 PC에는 고정 IP를 주고(IP가 바뀌면 OSC 장비가 보내는 주소가 틀어진다), Windows 네트워크 종류를 "개인"으로 둔다. "공용"이면 설치 파일의 규칙상 같은 서브넷에서 오는 OSC만 받는다.
+- **백신 예외**: 서명 없는 exe라 백신이 실행 직후 지우거나 처음 실행을 늦출 수 있다(2026-10-07 개발 PC에서 Avast가 실제로 지웠다). 설치 전에 설치 폴더(기본 `C:\Program Files (x86)\Atmos Mixer Pro`)를 예외에 넣는다.
+  - Windows 보안(Defender): 바이러스 및 위협 방지 → 바이러스 및 위협 방지 설정의 "설정 관리" → 제외 → "제외 추가 또는 제거" → 폴더.
+  - 다른 백신(V3, 알약, Avast 등): 제품의 예외(제외) 메뉴에 같은 폴더를 넣고, 격리 기록(바이러스 보관소)에 atmos 파일이 없는지 본다.
+- **설치**: `AtmosMixerPro_Setup.exe`를 관리자 승인(UAC)으로 실행한다. 인터넷이 없어도 된다. 끝난 뒤 첫 실행에서 방화벽 허용 창이 뜨지 않아야 한다.

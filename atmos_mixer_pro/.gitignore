@@ -48,3 +48,4 @@ app.*.map.json
 # (docs/windows/WINDOWS_HARNESS.md P5 Z5)
 /windows/Output/
 /windows/build/
+/windows/redist/
