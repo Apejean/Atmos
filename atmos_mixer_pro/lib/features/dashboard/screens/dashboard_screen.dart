@@ -26,6 +26,7 @@ import 'package:atmos_mixer_pro/features/exhibition/screens/speaker_canvas_scree
     as atmos_exhibition;
 import 'package:atmos_mixer_pro/features/dashboard/widgets/safety_alert_border.dart';
 import 'package:atmos_mixer_pro/src/rust/api/simple.dart' as rust_api;
+import 'package:atmos_mixer_pro/src/rust/api/project.dart' as project_api;
 import 'package:atmos_mixer_pro/features/dashboard/widgets/track_play_failure.dart';
 import 'package:atmos_mixer_pro/features/dashboard/widgets/global_error_overlay.dart';
 import 'package:atmos_mixer_pro/features/exhibition/state/room_zone_state.dart';
@@ -191,6 +192,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     if (path == null || !context.mounted) return;
     _showLoading(context);
     try {
+      // 읽을 수 없거나 Atmos 프로젝트가 아니면 지금 설정을 그대로 두고 알린다. apiGetConfig는 읽기에 실패하면
+      // 빈 기본 설정을 돌려주고 엔진 설정까지 바꿔, 잘못 고른 파일로 지금 설정이 비워졌다.
+      await project_api.apiCheckProjectFile(path: path);
       final imported = await rust_api.apiGetConfig(path: path);
       final rawBlueprint = readExhibitionSection(await File(path).readAsString())?['blueprint_image_path'];
       final media = await relinkProjectMedia(

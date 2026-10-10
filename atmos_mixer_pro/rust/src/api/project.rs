@@ -1,9 +1,28 @@
 //! 프로젝트 파일을 다른 PC에서 열 때 트랙 오디오·도면 경로를 다시 연결한다(core::media_relink).
 //! 다시 연결한 경로와 못 찾은 파일은 앱 로그에 남긴다.
+use crate::api::error::AtmosError;
 use crate::common::config::AppConfig;
 use crate::core::media_relink::{relink_tracks, MediaFinder};
 use crate::core::state::GLOBAL_STATE;
 use std::path::PathBuf;
+
+/// Load Project 전에 부른다. 프로젝트 파일을 앱 설정과 같은 규칙으로 해석해 보기만 하고 상태는 바꾸지 않는다.
+/// 읽을 수 없거나 Atmos 프로젝트가 아니면 이유를 돌려준다. `api_get_config`는 앱 자신의 config.json용이라 읽기에
+/// 실패하면 기본 설정을 돌려주고 엔진 설정·채널 튜닝까지 바꿔, 잘못 고른 파일로 지금 설정이 비워졌다
+/// (2026-10-10 Windows). 없는 파일을 기본 설정으로 만들거나 깨진 파일의 사본을 남기지도 않는다.
+pub fn api_check_project_file(path: String) -> Result<(), AtmosError> {
+    let checked = std::fs::read_to_string(&path)
+        .map_err(|e| format!("프로젝트 파일을 읽을 수 없습니다: {e}"))
+        .and_then(|content| {
+            serde_json::from_str::<AppConfig>(&content)
+                .map(|_| ())
+                .map_err(|e| format!("Atmos 프로젝트 파일이 아닙니다(설정을 해석하지 못했습니다: {e})"))
+        });
+    checked.map_err(|message| {
+        GLOBAL_STATE.log(format!("프로젝트 열기 거절: {path} — {message}"));
+        AtmosError { message }
+    })
+}
 
 /// 다시 연결한 엔진 설정과 끝까지 못 찾은 파일.
 pub struct RelinkedConfig {
