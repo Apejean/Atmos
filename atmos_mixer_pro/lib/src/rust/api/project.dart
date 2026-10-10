@@ -15,6 +15,18 @@ import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 Future<void> apiCheckProjectFile({required String path}) =>
     RustLib.instance.api.crateApiProjectApiCheckProjectFile(path: path);
 
+/// File > Export Project가 부른다. 프로젝트 파일만 쓰고 엔진의 지금 설정·채널 상태는 바꾸지 않는다.
+/// `api_save_config`는 파일을 쓰면서 엔진 설정까지 넘겨받은 설정으로 바꾼다. 내보낼 설정은 트랙·도면 경로가
+/// 복사본을 가리키므로, 그것으로 쓰면 지금 프로젝트까지 복사본을 가리키게 됐다(2026-10-10 Mac 확인). 폴더가 없으면
+/// 만들고, 쓰기는 앱 설정과 같은 원자적 쓰기다(`AppConfig::save_to_file`).
+Future<void> apiWriteProjectFile({
+  required String path,
+  required AppConfig config,
+}) => RustLib.instance.api.crateApiProjectApiWriteProjectFile(
+  path: path,
+  config: config,
+);
+
 /// 트랙 오디오 경로를 [search_dirs](앞의 것 먼저)와 그 하위 폴더에서 파일 이름으로 다시 연결한다.
 /// 저장된 경로에 파일이 있으면 그대로 둔다. 엔진 설정의 다른 값은 건드리지 않는다.
 Future<RelinkedConfig> apiRelinkTrackPaths({

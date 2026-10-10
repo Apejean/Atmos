@@ -38,7 +38,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueMoi,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.12.0";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = 489944744;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -332311740;
 
 // Section: executor
 
@@ -2706,6 +2706,41 @@ fn wire__crate__api__simple__api_update_spatial_config_json_impl(
         },
     )
 }
+fn wire__crate__api__project__api_write_project_file_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "api_write_project_file",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_path = <String>::sse_decode(&mut deserializer);
+            let api_config = <crate::common::config::AppConfig>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, crate::api::error::AtmosError>((move || {
+                    let output_ok =
+                        crate::api::project::api_write_project_file(api_path, api_config)?;
+                    Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
 fn wire__crate__api__simple__broadcast_stream_status_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
@@ -3870,22 +3905,28 @@ fn pde_ffi_dispatcher_primary_impl(
             rust_vec_len,
             data_len,
         ),
-        77 => wire__crate__api__simple__broadcast_stream_status_impl(
+        77 => wire__crate__api__project__api_write_project_file_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        78 => wire__crate__api__scene__clear_room_impl(port, ptr, rust_vec_len, data_len),
-        79 => wire__crate__api__simple__compute_enabled_channels_impl(
+        78 => wire__crate__api__simple__broadcast_stream_status_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        80 => wire__crate__api__scene__load_scene_impl(port, ptr, rust_vec_len, data_len),
-        81 => wire__crate__api__scene__save_scene_impl(port, ptr, rust_vec_len, data_len),
-        82 => wire__crate__api__simple__spatial_config_payload_default_impl(
+        79 => wire__crate__api__scene__clear_room_impl(port, ptr, rust_vec_len, data_len),
+        80 => wire__crate__api__simple__compute_enabled_channels_impl(
+            port,
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
+        81 => wire__crate__api__scene__load_scene_impl(port, ptr, rust_vec_len, data_len),
+        82 => wire__crate__api__scene__save_scene_impl(port, ptr, rust_vec_len, data_len),
+        83 => wire__crate__api__simple__spatial_config_payload_default_impl(
             port,
             ptr,
             rust_vec_len,
