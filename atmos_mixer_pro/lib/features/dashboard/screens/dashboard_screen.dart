@@ -2,6 +2,8 @@ import 'dart:io';
 import 'package:atmos_mixer_pro/core/state/engine_resync.dart';
 import 'package:atmos_mixer_pro/core/state/project_file.dart';
 import 'package:atmos_mixer_pro/core/state/project_media.dart';
+import 'package:atmos_mixer_pro/core/state/project_export.dart';
+import 'package:atmos_mixer_pro/features/dashboard/widgets/export_project_dialog.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
@@ -247,6 +249,52 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     }
   }
 
+  /// File > Export Project: 정한 이름의 폴더에 project.atmos + audio/ + drawing/을 모은다
+  /// (core/state/project_export.dart, 사용자 요청 2026-10-10).
+  Future<void> _exportProject(BuildContext context) async {
+    final config = ref.read(configProvider);
+    if (config == null) return;
+    final parent = await FilePicker.getDirectoryPath(dialogTitle: '내보낼 위치(이 안에 새 폴더를 만듭니다)');
+    if (parent == null || !context.mounted) return;
+    final now = DateTime.now();
+    String two(int v) => v.toString().padLeft(2, '0');
+    final name = await askExportFolderName(
+      context,
+      parentDir: parent,
+      initial: 'Atmos_Project_${now.year}${two(now.month)}${two(now.day)}',
+    );
+    if (name == null || !context.mounted) return;
+    final target = Directory('$parent${Platform.pathSeparator}$name');
+    if (await target.exists() && !await target.list().isEmpty) {
+      if (!context.mounted || !await confirmExportIntoExisting(context, target.path)) return;
+    }
+    if (!context.mounted) return;
+    final status = ValueNotifier<String>('준비 중...');
+    showExportProgress(context, status);
+    try {
+      // 드래그·노브 조작은 저장이 300ms 미뤄져 있다. 먼저 끝낸다(Save Project와 같다).
+      await flushExhibitionSavesFromWidgetRef(ref);
+      final result = await exportProject(
+        parentDir: parent,
+        folderName: name,
+        config: config,
+        design: await collectExhibitionData(),
+        saveConfig: (path, cfg) => rust_api.apiSaveConfig(path: path, config: cfg),
+        onProgress: (done, total, file) => status.value =
+            file.isEmpty ? '프로젝트 파일을 쓰는 중...' : '파일 복사 ${done + 1}/$total: $file',
+      );
+      if (context.mounted) Navigator.of(context).pop(); // 진행 창
+      if (context.mounted) await showExportResult(context, result);
+    } catch (e) {
+      if (context.mounted) {
+        Navigator.of(context).pop(); // 진행 창
+        ref.read(globalErrorProvider.notifier).showError('프로젝트 내보내기 실패: $e');
+      }
+    } finally {
+      status.dispose();
+    }
+  }
+
   void _showLoading(BuildContext context) {
     showDialog(
       context: context,
@@ -315,6 +363,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     }
                   }
                 },
+              ),
+              PlatformMenuItem(
+                label: 'Export Project',
+                onSelected: () => _exportProject(context),
               ),
             ],
           ),
@@ -483,6 +535,10 @@ oscWhitelist: config.oscWhitelist,
                       }
                     },
                     child: const Text('Save Project'),
+                  ),
+                  MenuItemButton(
+                    onPressed: () => _exportProject(context),
+                    child: const Text('Export Project'),
                   ),
                   const Divider(),
                   MenuItemButton(
