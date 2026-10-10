@@ -49,6 +49,9 @@ coreaudio-sys = "0.2.15"
 
 [target.'cfg(target_os = "windows")'.dependencies]
 cpal = { version = "0.16.0", features = ["asio"] }
+# 설정의 ASIO 장치를 찾는 동안 그 드라이버 하나만 불러 본다(cpal의 장치 목록은 설치된 드라이버를 모두 불러온다).
+# cpal(asio 기능)이 쓰는 것과 같은 판이라 따로 빌드되지 않는다.
+asio-sys = "0.2.6"
 windows = { version = "0.58.0", features = ["Win32_Media_Audio", "Win32_System_Com", "Win32_Devices_Properties", "Win32_Foundation", "Win32_UI_Shell_PropertiesSystem", "Win32_UI_Shell", "Win32_System_Memory", "Win32_System_Threading", "Win32_System_Power", "Win32_UI_WindowsAndMessaging"] }
 
 [profile.dev]
