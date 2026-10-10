@@ -27,6 +27,7 @@ import 'package:atmos_mixer_pro/features/exhibition/screens/speaker_canvas_scree
 import 'package:atmos_mixer_pro/features/dashboard/widgets/safety_alert_border.dart';
 import 'package:atmos_mixer_pro/src/rust/api/simple.dart' as rust_api;
 import 'package:atmos_mixer_pro/features/dashboard/widgets/track_play_failure.dart';
+import 'package:atmos_mixer_pro/features/dashboard/widgets/global_error_overlay.dart';
 import 'package:atmos_mixer_pro/features/exhibition/state/room_zone_state.dart';
 import 'package:atmos_mixer_pro/features/exhibition/models/room_zone.dart' as exhibition_model;
 import 'package:atmos_mixer_pro/src/rust/common/config.dart';
@@ -80,7 +81,6 @@ class DashboardScreen extends ConsumerStatefulWidget {
 }
 
 class _DashboardScreenState extends ConsumerState<DashboardScreen> {
-  bool _isRecovering = false;
   bool _isWatchdogActive = false;
   bool _isAutoGuardActive = false;
   final ScrollController _scrollController = ScrollController();
@@ -166,7 +166,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               Expanded(child: _buildRoomPanels(context)),
             ],
           ),
-          _buildErrorModal(),
+          const GlobalErrorOverlay(),
         ],
       ),
     );
@@ -284,7 +284,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     } catch (e) {
       if (context.mounted) {
         Navigator.of(context).pop(); // dismiss dialog
-        ref.read(globalErrorProvider.notifier).showError('설정 불러오기 실패: $e');
+        ref.read(globalErrorProvider.notifier).showOperationError('설정 불러오기 실패: ${errorText(e)}');
       }
     }
   }
@@ -328,7 +328,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     } catch (e) {
       if (context.mounted) {
         Navigator.of(context).pop(); // 진행 창
-        ref.read(globalErrorProvider.notifier).showError('프로젝트 내보내기 실패: $e');
+        ref.read(globalErrorProvider.notifier).showOperationError('프로젝트 내보내기 실패: ${errorText(e)}');
       }
     } finally {
       status.dispose();
@@ -398,7 +398,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       if (context.mounted) {
                         ref
                             .read(globalErrorProvider.notifier)
-                            .showError('설정 저장 실패: $e');
+                            .showOperationError('설정 저장 실패: ${errorText(e)}');
                       }
                     }
                   }
@@ -433,7 +433,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     if (context.mounted) {
                       ref
                           .read(globalErrorProvider.notifier)
-                          .showError('로그 저장 실패: $e');
+                          .showOperationError('로그 저장 실패: ${errorText(e)}');
                     }
                   }
                 },
@@ -569,7 +569,7 @@ oscWhitelist: config.oscWhitelist,
                           if (context.mounted) {
                             ref
                                 .read(globalErrorProvider.notifier)
-                                .showError('설정 저장 실패: $e');
+                                .showOperationError('설정 저장 실패: ${errorText(e)}');
                           }
                         }
                       }
@@ -601,7 +601,7 @@ oscWhitelist: config.oscWhitelist,
                         if (context.mounted) {
                           ref
                               .read(globalErrorProvider.notifier)
-                              .showError('로그 저장 실패: $e');
+                              .showOperationError('로그 저장 실패: ${errorText(e)}');
                         }
                       }
                     },
@@ -683,132 +683,6 @@ oscWhitelist: config.oscWhitelist,
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildErrorModal() {
-    return Consumer(
-      builder: (context, ref, child) {
-        final error = ref.watch(globalErrorProvider);
-        if (error == null) return const SizedBox.shrink();
-
-        return Positioned.fill(
-          child: Container(
-            color: Colors.black87,
-            child: Center(
-              child: Container(
-                constraints: const BoxConstraints(maxWidth: 500),
-                padding: const EdgeInsets.all(32),
-                decoration: BoxDecoration(
-                  color: AppColors.background,
-                  borderRadius: BorderRadius.circular(4),
-                  border: Border.all(
-                    color: AppColors.danger.withValues(alpha: 0.5),
-                    width: 1.0,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.danger.withValues(alpha: 0.15),
-                      blurRadius: 12,
-                      spreadRadius: 2,
-                    ),
-                  ],
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(
-                      Icons.warning_rounded,
-                      color: AppColors.danger,
-                      size: 64,
-                    ),
-                    const SizedBox(height: 24),
-                    const Text(
-                      '치명적 시스템 오류 발생',
-                      style: TextStyle(
-                        color: AppColors.danger,
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      error,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(color: Colors.white, fontSize: 16),
-                    ),
-                    const SizedBox(height: 24),
-                    const Text(
-                      '오디오 장치 케이블 연결을 확인하고\n아래의 복구 버튼을 눌러 엔진을 재시작하세요.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: Colors.white70, fontSize: 14),
-                    ),
-                    const SizedBox(height: 32),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 56,
-                      child: ElevatedButton.icon(
-                        onPressed: _isRecovering
-                            ? null
-                            : () async {
-                                final config = ref.read(configProvider);
-                                if (config != null) {
-                                  setState(() {
-                                    _isRecovering = true;
-                                  });
-                                  try {
-                                    await rust_api.apiForceRestartEngine(
-                                      deviceName: config.deviceName,
-                                    );
-                                    resyncEngineStateFromWidgetRef(ref);
-                                    if (context.mounted) {
-                                      ref
-                                          .read(globalErrorProvider.notifier)
-                                          .clearError();
-                                    }
-                                  } finally {
-                                    if (context.mounted) {
-                                      setState(() {
-                                        _isRecovering = false;
-                                      });
-                                    }
-                                  }
-                                }
-                              },
-                        icon: _isRecovering
-                            ? const SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.white,
-                                ),
-                              )
-                            : const Icon(Icons.refresh, size: 24),
-                        label: Text(
-                          _isRecovering ? '복구 중...' : '엔진 리셋 (원클릭 복구)',
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.danger,
-                          foregroundColor: Colors.white,
-                          disabledBackgroundColor: Colors.white24,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        );
-      },
     );
   }
 
@@ -907,7 +781,7 @@ oscWhitelist: config.oscWhitelist,
                     } catch (e) {
                       ref
                           .read(globalErrorProvider.notifier)
-                          .showError('정지 실패: $e');
+                          .showError('정지 실패: ${errorText(e)}');
                     }
                     final config = ref.read(configProvider);
                     if (config != null && config.rooms.isNotEmpty) {
@@ -943,7 +817,7 @@ oscWhitelist: config.oscWhitelist,
                   } catch (e) {
                     ref
                         .read(globalErrorProvider.notifier)
-                        .showError('테마 시작 오류: $e');
+                        .showError('테마 시작 오류: ${errorText(e)}');
                   }
                 },
                 child: const Text(
@@ -974,7 +848,7 @@ oscWhitelist: config.oscWhitelist,
                     if (context.mounted) {
                       ref
                           .read(globalErrorProvider.notifier)
-                          .showError('마스터 음소거 실패: $e');
+                          .showError('마스터 음소거 실패: ${errorText(e)}');
                     }
                   }
                 },
@@ -992,7 +866,7 @@ oscWhitelist: config.oscWhitelist,
                   } catch (e) {
                     ref
                         .read(globalErrorProvider.notifier)
-                        .showError('비상 정지 실패: $e');
+                        .showError('비상 정지 실패: ${errorText(e)}');
                   }
                 },
                 child: const Text(
@@ -1014,13 +888,13 @@ oscWhitelist: config.oscWhitelist,
                     } catch (e) {
                       ref
                           .read(globalErrorProvider.notifier)
-                          .showError('시스템 리셋 실패: $e');
+                          .showError('시스템 리셋 실패: ${errorText(e)}');
                     }
                     ref.read(engineStateProvider.notifier).reset();
                   } catch (e) {
                     ref
                         .read(globalErrorProvider.notifier)
-                        .showError('시스템 리셋 오류: $e');
+                        .showError('시스템 리셋 오류: ${errorText(e)}');
                   }
                 },
                 child: const Text(

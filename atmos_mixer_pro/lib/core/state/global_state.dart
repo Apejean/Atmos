@@ -50,10 +50,16 @@ class ConfigNotifier extends Notifier<AppConfig?> {
       _lastProcessedConfig = config;
       state = config;
       ref.read(tuningStateProvider.notifier).syncFromBackendConfig(config);
-      await rust_api.apiInitAudioSystem(deviceName: config.deviceName);
-      // 새 믹서는 config.json에 없는 설정(청취 지점, 리버브, 채널별 팬·센드 등)을
-      // 모르므로 현재 상태를 다시 밀어 넣는다(engine_resync.dart 참고).
-      resyncEngineStateFromRef(ref);
+      try {
+        await rust_api.apiInitAudioSystem(deviceName: config.deviceName);
+        // 새 믹서는 config.json에 없는 설정(청취 지점, 리버브, 채널별 팬·센드 등)을
+        // 모르므로 현재 상태를 다시 밀어 넣는다(engine_resync.dart 참고).
+        resyncEngineStateFromRef(ref);
+      } catch (e) {
+        // 설정의 장치를 열지 못해도(꺼져 있거나 다른 PC의 장치) OSC와 장치 목록은 준비한다. 예전에는 여기서
+        // 멈춰, Settings에서 장치를 고쳐도 앱을 다시 켤 때까지 OSC를 받지 않았다.
+        ref.read(globalErrorProvider.notifier).showError('오디오 엔진 시작 실패: ${errorText(e)}');
+      }
       await rust_api.apiStartOscListener(port: config.oscPort);
 
       try {
@@ -183,7 +189,7 @@ class ConfigNotifier extends Notifier<AppConfig?> {
 
         _lastProcessedConfig = configToSave;
       } catch (e) {
-        ref.read(globalErrorProvider.notifier).showError('설정 저장 실패: $e');
+        ref.read(globalErrorProvider.notifier).showError('설정 저장 실패: ${errorText(e)}');
       }
     }
 
@@ -493,22 +499,42 @@ final engineStateProvider = NotifierProvider<EngineStateNotifier, EngineState>(
   EngineStateNotifier.new,
 );
 
-class GlobalErrorNotifier extends Notifier<String?> {
+/// 오류를 사람이 읽을 문장으로. AtmosError는 toString()이 없어 '$e'로 쓰면 `Instance of 'AtmosError'`가 된다.
+String errorText(Object error) => error is AtmosError ? error.message : '$error';
+
+/// 화면 가운데 오류 창에 띄울 오류. [engine]이면 엔진·장치 오류라 케이블 확인·엔진 리셋 안내와 함께 띄우고,
+/// 아니면 저장·불러오기 같은 작업 실패라 확인만 받는다(엔진을 다시 시작하지 않는다, HANDOFF 남은 일 14).
+class GlobalError {
+  final String message;
+  final bool engine;
+  const GlobalError(this.message, {required this.engine});
+}
+
+class GlobalErrorNotifier extends Notifier<GlobalError?> {
   @override
-  String? build() {
+  GlobalError? build() {
     try {
       ref.listen(deviceEventStreamProvider, (previous, next) {
         final event = next.value;
         if (event != null && (event.contains("DeviceNotAvailable") || event.contains("Disconnected"))) {
-          state = "오디오 장치와 연결이 끊어졌습니다. 설정에서 오디오 장치를 다시 확인해 주세요.";
+          state = const GlobalError(
+            "오디오 장치와 연결이 끊어졌습니다. 설정에서 오디오 장치를 다시 확인해 주세요.",
+            engine: true,
+          );
         }
       });
     } catch (_) {}
     return null;
   }
 
+  /// 엔진·장치 오류(재생 제어 실패 포함). 엔진 리셋 단추가 있는 창으로 띄운다.
   void showError(String message) {
-    state = message;
+    state = GlobalError(message, engine: true);
+  }
+
+  /// 저장·불러오기·내보내기·장치 스캔처럼 엔진과 상관없는 작업 실패. 확인만 받는다.
+  void showOperationError(String message) {
+    state = GlobalError(message, engine: false);
   }
 
   void clearError() {
@@ -516,7 +542,7 @@ class GlobalErrorNotifier extends Notifier<String?> {
   }
 }
 
-final globalErrorProvider = NotifierProvider<GlobalErrorNotifier, String?>(
+final globalErrorProvider = NotifierProvider<GlobalErrorNotifier, GlobalError?>(
   GlobalErrorNotifier.new,
 );
 

@@ -646,7 +646,7 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                                                 .read(
                                                   globalErrorProvider.notifier,
                                                 )
-                                                .showError('룸 클리어 중단: $e');
+                                                .showError('룸 클리어 중단: ${errorText(e)}');
                                             return; // Error means it's already cleared or not active. Do not auto-promote.
                                           }
 
@@ -748,7 +748,7 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                               } catch (e) {
                                 ref
                                     .read(globalErrorProvider.notifier)
-                                    .showError('트랙 정지 실패: $e');
+                                    .showError('트랙 정지 실패: ${errorText(e)}');
                               }
                             },
                             onDelete: () async {
