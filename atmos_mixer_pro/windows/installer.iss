@@ -18,7 +18,8 @@
 #endif
 ; Microsoft prerequisites bundled for offline installs: the Visual C++ runtime and the WebView2 runtime
 ; (3D room viewer). tool\windows\fetch-redist.ps1 downloads them into windows\redist (not committed).
-; Each one is installed only when it is missing or older; see InstallPrerequisites in [Code].
+; The Visual C++ runtime is installed only when it is missing or older; the WebView2 installer always runs and
+; decides by itself. See InstallPrerequisites in [Code].
 #ifndef RedistDir
   #define RedistDir AddBackslash(SourcePath) + "redist"
 #endif
@@ -131,7 +132,8 @@ begin
   Result := not StrToVersion('{#VCRedistVersion}', Bundled) or (ComparePackedVersion(Installed, Bundled) < 0);
 end;
 
-// The WebView2 runtime is present when "pv" holds a version other than 0.0.0.0, per machine or per user.
+// A WebView2 runtime is registered when "pv" holds a version other than 0.0.0.0, per machine or per user.
+// Only logged: a registered runtime can still be unusable (see InstallPrerequisites).
 function WebView2Installed(RootKey: Integer; const SubKey: String): Boolean;
 var
   Version: String;
@@ -168,14 +170,19 @@ begin
         'Atmos Mixer Pro does not start until it is installed.', mbError, MB_OK, IDOK);
   end else
     Log('Prerequisite Visual C++ Runtime is already installed');
-  if NeedsWebView2() then begin
-    WizardForm.StatusLabel.Caption := 'Installing Microsoft Edge WebView2 Runtime...';
-    RunPrerequisite('{#WebView2Exe}', '/silent /install', ResultCode);
-    if ResultCode <> 0 then
-      SuppressibleMsgBox('Microsoft Edge WebView2 Runtime setup failed (code ' + IntToStr(ResultCode) + '). ' +
-        'The 3D room viewer is unavailable until it is installed; the rest of the app works.', mbError, MB_OK, IDOK);
-  end else
-    Log('Prerequisite WebView2 Runtime is already installed');
+  // WebView2: the registered version ("pv") alone is not enough. Windows Sandbox had a registered 141 runtime with
+  // its files that the WebView2 loader still could not use, so the 3D room viewer did not start (Z6, 2026-10-11).
+  // Always run the bundled offline installer and let it decide: with the same version installed it returned 0 in
+  // about 40 s, and over the broken 141 it installed a working runtime.
+  if NeedsWebView2() then
+    Log('Prerequisite WebView2 Runtime: no registered version')
+  else
+    Log('Prerequisite WebView2 Runtime: a version is registered, running the bundled installer anyway');
+  WizardForm.StatusLabel.Caption := 'Installing Microsoft Edge WebView2 Runtime...';
+  RunPrerequisite('{#WebView2Exe}', '/silent /install', ResultCode);
+  if ResultCode <> 0 then
+    SuppressibleMsgBox('Microsoft Edge WebView2 Runtime setup failed (code ' + IntToStr(ResultCode) + '). ' +
+      'The 3D room viewer is unavailable until it is installed; the rest of the app works.', mbError, MB_OK, IDOK);
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
