@@ -94,6 +94,52 @@ String channelDisplayName(int index0, List<String> channelNames) {
   return hwName.isEmpty ? label : '$label ($hwName)';
 }
 
+/// 장치가 준 채널 [index0]의 이름. 없거나, 이름을 모를 때 백엔드가 채우는 기본값("Channel N", 1부터)이면
+/// ''. 트랙 출력 목록·Output Config는 이 이름을 덧붙이므로 정보가 없는 기본값은 빼서
+/// "Mono (Ch-1) · Channel 1" 같은 군더더기를 만들지 않는다.
+String hardwareChannelName(List<String> channelNames, int index0) {
+  if (index0 < 0 || index0 >= channelNames.length) return '';
+  final name = channelNames[index0].trim();
+  return name == 'Channel ${index0 + 1}' ? '' : name;
+}
+
+/// 채널 범위(스테레오 쌍, N-Ch의 처음~끝)의 장치 이름 하나. 처음과 끝 이름이 숫자 하나만 다르면 그 숫자만
+/// [joiner]로 잇고(`Analog 1 (1)`·`Analog 2 (1)` → `Analog 1/2 (1)`, N-Ch는 `~`로 `Analog 1~4 (1)`),
+/// 아니면 두 이름을 잇는다(`Analog 12 (1) / AES 1 (1)`). 한쪽만 있으면 그 이름.
+String hardwareRangeName(
+  List<String> channelNames,
+  int first0,
+  int last0, {
+  String joiner = '/',
+}) {
+  final a = hardwareChannelName(channelNames, first0);
+  final b = hardwareChannelName(channelNames, last0);
+  if (a.isEmpty || b.isEmpty || a == b) return a.isEmpty ? b : a;
+  final digits = RegExp(r'\d+');
+  final da = digits.allMatches(a).toList();
+  final db = digits.allMatches(b).toList();
+  if (da.length == db.length &&
+      a.replaceAll(digits, '#') == b.replaceAll(digits, '#')) {
+    final differing = [
+      for (var i = 0; i < da.length; i++)
+        if (da[i][0] != db[i][0]) i,
+    ];
+    if (differing.length == 1) {
+      final m = da[differing.single];
+      return a.replaceRange(
+        m.start,
+        m.end,
+        '${m[0]}$joiner${db[differing.single][0]}',
+      );
+    }
+  }
+  return '$a $joiner $b';
+}
+
+/// 라벨 뒤에 장치 이름을 ` · `로 붙인다(이름이 없으면 그대로).
+String withHardwareName(String base, String hardwareName) =>
+    hardwareName.isEmpty ? base : '$base · $hardwareName';
+
 /// 저장된 채널 인덱스가 현재 장치의 채널 수를 넘었을 때의 표시 이름.
 /// 값을 조용히 0으로 되돌리지 않고 사용자에게 드러내기 위한 라벨이다
 /// (더 작은 인터페이스로 교체한 경우 등).
@@ -176,9 +222,9 @@ List<ChannelRoutingItem> buildChannelRoutingItems({
           items.add(
             ChannelRoutingItem(
               value: ChannelDropdownValueHelper.getMonoValue(realCh),
-              label: _withCustomSuffix(
-                'Mono (Ch-${realCh + 1})',
-                setting.customName,
+              label: withHardwareName(
+                _withCustomSuffix('Mono (Ch-${realCh + 1})', setting.customName),
+                hardwareChannelName(channelNames, realCh),
               ),
               realChannel0: realCh,
               isPartialOutput: false,
@@ -192,7 +238,10 @@ List<ChannelRoutingItem> buildChannelRoutingItems({
         items.add(
           ChannelRoutingItem(
             value: ChannelDropdownValueHelper.getMonoValue(i),
-            label: 'Mono (Ch-${i + 1})',
+            label: withHardwareName(
+              'Mono (Ch-${i + 1})',
+              hardwareChannelName(channelNames, i),
+            ),
             realChannel0: i,
             isPartialOutput: false,
           ),
@@ -221,9 +270,12 @@ List<ChannelRoutingItem> buildChannelRoutingItems({
           items.add(
             ChannelRoutingItem(
               value: ChannelDropdownValueHelper.getStereoValue(realCh),
-              label: _withCustomSuffix(
-                'Stereo (Ch-$key/Ch-${key + 1})',
-                setting.customName,
+              label: withHardwareName(
+                _withCustomSuffix(
+                  'Stereo (Ch-$key/Ch-${key + 1})',
+                  setting.customName,
+                ),
+                hardwareRangeName(channelNames, realCh, realCh + 1),
               ),
               realChannel0: realCh,
               isPartialOutput: false,
@@ -237,7 +289,10 @@ List<ChannelRoutingItem> buildChannelRoutingItems({
         items.add(
           ChannelRoutingItem(
             value: ChannelDropdownValueHelper.getStereoValue(i),
-            label: 'Stereo (Ch-${i + 1}/Ch-${i + 2})',
+            label: withHardwareName(
+              'Stereo (Ch-${i + 1}/Ch-${i + 2})',
+              hardwareRangeName(channelNames, i, i + 1),
+            ),
             realChannel0: i,
             isPartialOutput: false,
           ),
@@ -269,6 +324,7 @@ List<ChannelRoutingItem> buildChannelRoutingItems({
               fileCh: fileCh,
               hwCount: hwCount,
               physical: physical,
+              channelNames: channelNames,
               customName: setting.customName,
             ),
           );
@@ -280,7 +336,8 @@ List<ChannelRoutingItem> buildChannelRoutingItems({
         for (int i = 0; i <= lastStart; i++) {
           if (!physical.contains(i)) continue;
           items.add(_buildMultiItem(
-            startCh: i, fileCh: fileCh, hwCount: hwCount, physical: physical));
+            startCh: i, fileCh: fileCh, hwCount: hwCount, physical: physical,
+            channelNames: channelNames));
         }
       }
       if (items.isEmpty) {
@@ -289,7 +346,8 @@ List<ChannelRoutingItem> buildChannelRoutingItems({
         // 하나는 남긴다(부분 출력으로 표시).
         final first = physical.reduce((a, b) => a < b ? a : b);
         items.add(_buildMultiItem(
-          startCh: first, fileCh: fileCh, hwCount: hwCount, physical: physical));
+          startCh: first, fileCh: fileCh, hwCount: hwCount, physical: physical,
+          channelNames: channelNames));
       }
     }
   }
@@ -309,6 +367,7 @@ ChannelRoutingItem _buildMultiItem({
   required int fileCh,
   required int hwCount,
   required Set<int> physical,
+  required List<String> channelNames,
   String customName = '',
 }) {
   final requestedEnd = startCh + fileCh - 1;
@@ -326,6 +385,10 @@ ChannelRoutingItem _buildMultiItem({
   if (customName.isNotEmpty) {
     label += ' ($customName)';
   }
+  label = withHardwareName(
+    label,
+    hardwareRangeName(channelNames, startCh, actualEnd, joiner: '~'),
+  );
   if (isPartial) {
     final actualCount = actualEnd - startCh + 1;
     label += ' · 부분 출력 $actualCount/${fileCh}ch (나머지 무시됨)';

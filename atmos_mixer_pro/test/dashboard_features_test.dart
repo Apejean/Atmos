@@ -159,7 +159,7 @@ void main() {
 
     // Output Config에 stereoConfigs[3]이 열려 있으므로 항목은 그 그룹에서
     // 나오고, customName('Stereo3')이 라벨 뒤에 붙는다.
-    await tester.tap(find.text('Stereo (Ch-3/Ch-4) (Stereo3)').last);
+    await tester.tap(find.text('Stereo (Ch-3/Ch-4) (Stereo3) · Out 3/4').last);
     await tester.pumpAndSettle();
 
     expect(parsedChannel, 2); // 3 - 1 = 2
