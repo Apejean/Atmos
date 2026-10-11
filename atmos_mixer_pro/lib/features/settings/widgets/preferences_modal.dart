@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:atmos_mixer_pro/core/theme/colors.dart';
 import 'package:atmos_mixer_pro/core/state/global_state.dart';
+import 'package:atmos_mixer_pro/core/state/config_copy.dart';
 import 'package:atmos_mixer_pro/src/rust/common/config.dart';
 import 'package:atmos_mixer_pro/src/rust/api/simple.dart' as rust_api;
 import 'package:atmos_mixer_pro/core/utils/channel_dropdown_helper.dart';
@@ -230,24 +231,7 @@ oscWhitelist: const [],
               .where((d) => d.trim() == _tempConfig.deviceName!.trim())
               .firstOrNull;
           if (spaceMatch != null) {
-            _tempConfig = AppConfig(globalReverbMix: 0.0, globalReverbDecay: 1.0, 
-oscWhitelist: _tempConfig.oscWhitelist,
-
-              oscPort: _tempConfig.oscPort,
-              deviceName: spaceMatch,
-              bufferSize: _tempConfig.bufferSize,
-              themeStartOscAddress: _tempConfig.themeStartOscAddress,
-              systemResetOscAddress: _tempConfig.systemResetOscAddress,
-              monoConfigs: _tempConfig.monoConfigs,
-              stereoConfigs: _tempConfig.stereoConfigs,
-              multiConfigs: _tempConfig.multiConfigs,
-              rooms: _tempConfig.rooms,
-              isExhibitionMode: _tempConfig.isExhibitionMode,
-              masterHeadroomDb: _tempConfig.masterHeadroomDb,
-              peakLimiterEnabled: _tempConfig.peakLimiterEnabled,
-              globalTrajectory: _tempConfig.globalTrajectory,
-              roomZones: _tempConfig.roomZones,
-            );
+            _tempConfig = _tempConfig.copyWith(deviceName: spaceMatch);
           } else {
             final cleanTarget = _getCleanDeviceName(
               _tempConfig.deviceName,
@@ -257,24 +241,7 @@ oscWhitelist: _tempConfig.oscWhitelist,
                 .firstOrNull;
             if (prefixMatch != null &&
                 !_tempConfig.deviceName!.startsWith('[')) {
-              _tempConfig = AppConfig(globalReverbMix: 0.0, globalReverbDecay: 1.0, 
-oscWhitelist: _tempConfig.oscWhitelist,
-
-                oscPort: _tempConfig.oscPort,
-                deviceName: prefixMatch,
-                bufferSize: _tempConfig.bufferSize,
-                themeStartOscAddress: _tempConfig.themeStartOscAddress,
-                systemResetOscAddress: _tempConfig.systemResetOscAddress,
-                monoConfigs: _tempConfig.monoConfigs,
-                stereoConfigs: _tempConfig.stereoConfigs,
-                multiConfigs: _tempConfig.multiConfigs,
-                rooms: _tempConfig.rooms,
-                isExhibitionMode: _tempConfig.isExhibitionMode,
-                masterHeadroomDb: _tempConfig.masterHeadroomDb,
-                peakLimiterEnabled: _tempConfig.peakLimiterEnabled,
-                globalTrajectory: _tempConfig.globalTrajectory,
-                roomZones: _tempConfig.roomZones,
-              );
+              _tempConfig = _tempConfig.copyWith(deviceName: prefixMatch);
             }
           }
         }
@@ -285,22 +252,10 @@ oscWhitelist: _tempConfig.oscWhitelist,
 
   // Very basic deep clone for editing
   AppConfig cloneConfig(AppConfig config) {
-    return AppConfig(globalReverbMix: 0.0, globalReverbDecay: 1.0, 
-oscWhitelist: config.oscWhitelist,
-
-      oscPort: config.oscPort,
-      deviceName: config.deviceName,
-      bufferSize: config.bufferSize,
-      themeStartOscAddress: config.themeStartOscAddress,
-      systemResetOscAddress: config.systemResetOscAddress,
+    return config.copyWith(
       monoConfigs: Map.from(config.monoConfigs),
       stereoConfigs: Map.from(config.stereoConfigs),
       multiConfigs: Map.from(config.multiConfigs),
-      isExhibitionMode: config.isExhibitionMode,
-      masterHeadroomDb: config.masterHeadroomDb,
-      peakLimiterEnabled: config.peakLimiterEnabled,
-      globalTrajectory: config.globalTrajectory,
-      roomZones: config.roomZones,
       rooms: config.rooms
           .map(
             (r) => RoomConfig(
@@ -366,25 +321,11 @@ oscWhitelist: config.oscWhitelist,
     }).toList();
 
     final currentConfig = ref.read(configProvider);
-    final finalConfig = AppConfig(globalReverbMix: 0.0, globalReverbDecay: 1.0, 
-oscWhitelist: _tempConfig.oscWhitelist,
-
-      oscPort: _tempConfig.oscPort,
+    final finalConfig = _tempConfig.copyWith(
       deviceName: _isDeviceManuallyChanged
           ? _tempConfig.deviceName
           : (currentConfig?.deviceName ?? _tempConfig.deviceName),
-      bufferSize: _tempConfig.bufferSize,
-      themeStartOscAddress: _tempConfig.themeStartOscAddress,
-      systemResetOscAddress: _tempConfig.systemResetOscAddress,
-      monoConfigs: _tempConfig.monoConfigs,
-      stereoConfigs: _tempConfig.stereoConfigs,
-      multiConfigs: _tempConfig.multiConfigs,
       rooms: newRooms,
-      isExhibitionMode: _tempConfig.isExhibitionMode,
-      masterHeadroomDb: _tempConfig.masterHeadroomDb,
-      peakLimiterEnabled: _tempConfig.peakLimiterEnabled,
-      globalTrajectory: _tempConfig.globalTrajectory,
-      roomZones: _tempConfig.roomZones,
     );
     unawaited(saveAutoResumeOnLogon(_autoResumeOnLogon));
     ref.read(configProvider.notifier).saveConfig(finalConfig);
@@ -430,23 +371,12 @@ oscWhitelist: _tempConfig.oscWhitelist,
             );
           }).toList();
 
-          _tempConfig = AppConfig(globalReverbMix: 0.0, globalReverbDecay: 1.0, 
-oscWhitelist: _tempConfig.oscWhitelist,
-
-            oscPort: _tempConfig.oscPort,
-            deviceName: _tempConfig.deviceName,
-            bufferSize: _tempConfig.bufferSize,
-            themeStartOscAddress: _tempConfig.themeStartOscAddress,
+          _tempConfig = _tempConfig.copyWith(
             systemResetOscAddress: next.systemResetOscAddress,
             monoConfigs: Map.from(next.monoConfigs),
             stereoConfigs: Map.from(next.stereoConfigs),
             multiConfigs: Map.from(next.multiConfigs),
             rooms: updatedRooms,
-            isExhibitionMode: _tempConfig.isExhibitionMode,
-            masterHeadroomDb: _tempConfig.masterHeadroomDb,
-            peakLimiterEnabled: _tempConfig.peakLimiterEnabled,
-            globalTrajectory: _tempConfig.globalTrajectory,
-            roomZones: _tempConfig.roomZones,
           );
         });
       }
@@ -799,25 +729,7 @@ oscWhitelist: _tempConfig.oscWhitelist,
                       // 새 장치 기준으로 다시 조회한다.
                       _loadChannelPreview(newDeviceName);
 
-                      _tempConfig = AppConfig(globalReverbMix: 0.0, globalReverbDecay: 1.0, 
-oscWhitelist: _tempConfig.oscWhitelist,
-
-                        oscPort: _tempConfig.oscPort,
-                        deviceName: newDeviceName,
-                        bufferSize: _tempConfig.bufferSize,
-                        themeStartOscAddress: _tempConfig.themeStartOscAddress,
-                        systemResetOscAddress:
-                            _tempConfig.systemResetOscAddress,
-                        monoConfigs: _tempConfig.monoConfigs,
-                        stereoConfigs: _tempConfig.stereoConfigs,
-                        multiConfigs: _tempConfig.multiConfigs,
-                        rooms: _tempConfig.rooms,
-                        isExhibitionMode: _tempConfig.isExhibitionMode,
-                        masterHeadroomDb: _tempConfig.masterHeadroomDb,
-                        peakLimiterEnabled: _tempConfig.peakLimiterEnabled,
-                        globalTrajectory: _tempConfig.globalTrajectory,
-                        roomZones: _tempConfig.roomZones,
-                      );
+                      _tempConfig = _tempConfig.copyWith(deviceName: newDeviceName);
                     });
                   }
                 },
@@ -888,24 +800,7 @@ oscWhitelist: _tempConfig.oscWhitelist,
                   // 저장 전에도 고른 장치의 채널 수가 보이도록 미리 조회한다.
                   _loadChannelPreview(val);
                   setState(() {
-                    _tempConfig = AppConfig(globalReverbMix: 0.0, globalReverbDecay: 1.0, 
-oscWhitelist: _tempConfig.oscWhitelist,
-
-                      oscPort: _tempConfig.oscPort,
-                      deviceName: val,
-                      bufferSize: _tempConfig.bufferSize,
-                      themeStartOscAddress: _tempConfig.themeStartOscAddress,
-                      systemResetOscAddress: _tempConfig.systemResetOscAddress,
-                      monoConfigs: _tempConfig.monoConfigs,
-                      stereoConfigs: _tempConfig.stereoConfigs,
-                      multiConfigs: _tempConfig.multiConfigs,
-                      rooms: _tempConfig.rooms,
-                      isExhibitionMode: _tempConfig.isExhibitionMode,
-                      masterHeadroomDb: _tempConfig.masterHeadroomDb,
-                      peakLimiterEnabled: _tempConfig.peakLimiterEnabled,
-                      globalTrajectory: _tempConfig.globalTrajectory,
-                      roomZones: _tempConfig.roomZones,
-                    );
+                    _tempConfig = _tempConfig.copyWith(deviceName: val);
                   });
                 },
               ),
@@ -974,25 +869,7 @@ oscWhitelist: _tempConfig.oscWhitelist,
                 onChanged: (val) {
                   if (val != null) {
                     setState(() {
-                      _tempConfig = AppConfig(globalReverbMix: 0.0, globalReverbDecay: 1.0, 
-oscWhitelist: _tempConfig.oscWhitelist,
-
-                        oscPort: _tempConfig.oscPort,
-                        deviceName: _tempConfig.deviceName,
-                        bufferSize: val,
-                        themeStartOscAddress: _tempConfig.themeStartOscAddress,
-                        systemResetOscAddress:
-                            _tempConfig.systemResetOscAddress,
-                        monoConfigs: _tempConfig.monoConfigs,
-                        stereoConfigs: _tempConfig.stereoConfigs,
-                        multiConfigs: _tempConfig.multiConfigs,
-                        rooms: _tempConfig.rooms,
-                        isExhibitionMode: _tempConfig.isExhibitionMode,
-                        masterHeadroomDb: _tempConfig.masterHeadroomDb,
-                        peakLimiterEnabled: _tempConfig.peakLimiterEnabled,
-                        globalTrajectory: _tempConfig.globalTrajectory,
-                        roomZones: _tempConfig.roomZones,
-                      );
+                      _tempConfig = _tempConfig.copyWith(bufferSize: val);
                     });
                   }
                 },
@@ -1031,24 +908,7 @@ oscWhitelist: _tempConfig.oscWhitelist,
               selected: {_tempConfig.masterHeadroomDb},
               onSelectionChanged: (Set<double> newSelection) {
                 setState(() {
-                  _tempConfig = AppConfig(globalReverbMix: 0.0, globalReverbDecay: 1.0, 
-oscWhitelist: _tempConfig.oscWhitelist,
-
-                    oscPort: _tempConfig.oscPort,
-                    deviceName: _tempConfig.deviceName,
-                    bufferSize: _tempConfig.bufferSize,
-                    themeStartOscAddress: _tempConfig.themeStartOscAddress,
-                    systemResetOscAddress: _tempConfig.systemResetOscAddress,
-                    monoConfigs: _tempConfig.monoConfigs,
-                    stereoConfigs: _tempConfig.stereoConfigs,
-                    multiConfigs: _tempConfig.multiConfigs,
-                    rooms: _tempConfig.rooms,
-                    isExhibitionMode: _tempConfig.isExhibitionMode,
-                    masterHeadroomDb: newSelection.first,
-                    peakLimiterEnabled: _tempConfig.peakLimiterEnabled,
-                    globalTrajectory: _tempConfig.globalTrajectory,
-                    roomZones: _tempConfig.roomZones,
-                  );
+                  _tempConfig = _tempConfig.copyWith(masterHeadroomDb: newSelection.first);
                 });
               },
               style: ButtonStyle(
@@ -1092,24 +952,7 @@ oscWhitelist: _tempConfig.oscWhitelist,
               activeThumbColor: AppColors.primaryNeon,
               onChanged: (val) {
                 setState(() {
-                  _tempConfig = AppConfig(globalReverbMix: 0.0, globalReverbDecay: 1.0, 
-oscWhitelist: _tempConfig.oscWhitelist,
-
-                    oscPort: _tempConfig.oscPort,
-                    deviceName: _tempConfig.deviceName,
-                    bufferSize: _tempConfig.bufferSize,
-                    themeStartOscAddress: _tempConfig.themeStartOscAddress,
-                    systemResetOscAddress: _tempConfig.systemResetOscAddress,
-                    monoConfigs: _tempConfig.monoConfigs,
-                    stereoConfigs: _tempConfig.stereoConfigs,
-                    multiConfigs: _tempConfig.multiConfigs,
-                    rooms: _tempConfig.rooms,
-                    isExhibitionMode: _tempConfig.isExhibitionMode,
-                    masterHeadroomDb: _tempConfig.masterHeadroomDb,
-                    peakLimiterEnabled: val,
-                    globalTrajectory: _tempConfig.globalTrajectory,
-                    roomZones: _tempConfig.roomZones,
-                  );
+                  _tempConfig = _tempConfig.copyWith(peakLimiterEnabled: val);
                 });
               },
             ),
@@ -1145,23 +988,7 @@ oscWhitelist: _tempConfig.oscWhitelist,
               activeThumbColor: AppColors.primaryNeon,
               onChanged: (val) {
                 setState(() {
-                  _tempConfig = AppConfig(globalReverbMix: 0.0, globalReverbDecay: 1.0, 
-                    oscWhitelist: _tempConfig.oscWhitelist,
-                    oscPort: _tempConfig.oscPort,
-                    deviceName: _tempConfig.deviceName,
-                    bufferSize: _tempConfig.bufferSize,
-                    themeStartOscAddress: _tempConfig.themeStartOscAddress,
-                    systemResetOscAddress: _tempConfig.systemResetOscAddress,
-                    monoConfigs: _tempConfig.monoConfigs,
-                    stereoConfigs: _tempConfig.stereoConfigs,
-                    multiConfigs: _tempConfig.multiConfigs,
-                    rooms: _tempConfig.rooms,
-                    isExhibitionMode: val,
-                    masterHeadroomDb: _tempConfig.masterHeadroomDb,
-                    peakLimiterEnabled: _tempConfig.peakLimiterEnabled,
-                    globalTrajectory: _tempConfig.globalTrajectory,
-                    roomZones: _tempConfig.roomZones,
-                  );
+                  _tempConfig = _tempConfig.copyWith(isExhibitionMode: val);
                 });
               },
             ),
@@ -1290,24 +1117,10 @@ oscWhitelist: _tempConfig.oscWhitelist,
                       );
                   if (result != null) {
                     setState(() {
-                      _tempConfig = AppConfig(globalReverbMix: 0.0, globalReverbDecay: 1.0, 
-oscWhitelist: _tempConfig.oscWhitelist,
-
-                        oscPort: _tempConfig.oscPort,
-                        deviceName: _tempConfig.deviceName,
-                        bufferSize: _tempConfig.bufferSize,
-                        themeStartOscAddress: _tempConfig.themeStartOscAddress,
-                        systemResetOscAddress:
-                            _tempConfig.systemResetOscAddress,
+                      _tempConfig = _tempConfig.copyWith(
                         monoConfigs: result['mono']!,
                         stereoConfigs: result['stereo']!,
                         multiConfigs: result['multi']!,
-                        rooms: _tempConfig.rooms,
-                        isExhibitionMode: _tempConfig.isExhibitionMode,
-                        masterHeadroomDb: _tempConfig.masterHeadroomDb,
-                        peakLimiterEnabled: _tempConfig.peakLimiterEnabled,
-                        globalTrajectory: _tempConfig.globalTrajectory,
-                        roomZones: _tempConfig.roomZones,
                       );
                     });
                   }
@@ -1472,30 +1285,7 @@ oscWhitelist: _tempConfig.oscWhitelist,
                                 tracks: newTracks,
                               );
                               setState(() {
-                                _tempConfig = AppConfig(globalReverbMix: 0.0, globalReverbDecay: 1.0, 
-oscWhitelist: _tempConfig.oscWhitelist,
-
-                                  oscPort: _tempConfig.oscPort,
-                                  deviceName: _tempConfig.deviceName,
-                                  bufferSize: _tempConfig.bufferSize,
-                                  themeStartOscAddress:
-                                      _tempConfig.themeStartOscAddress,
-                                  systemResetOscAddress:
-                                      _tempConfig.systemResetOscAddress,
-                                  monoConfigs: _tempConfig.monoConfigs,
-                                  stereoConfigs: _tempConfig.stereoConfigs,
-                                  multiConfigs: _tempConfig.multiConfigs,
-                                  rooms: newRooms,
-                                  isExhibitionMode:
-                                      _tempConfig.isExhibitionMode,
-                                  masterHeadroomDb:
-                                      _tempConfig.masterHeadroomDb,
-                                  peakLimiterEnabled:
-                                      _tempConfig.peakLimiterEnabled,
-                                  globalTrajectory:
-                                      _tempConfig.globalTrajectory,
-                                  roomZones: _tempConfig.roomZones,
-                                );
+                                _tempConfig = _tempConfig.copyWith(rooms: newRooms);
                               });
                             }
                           },
@@ -1565,25 +1355,7 @@ oscWhitelist: _tempConfig.oscWhitelist,
                   ),
                   onChanged: (val) {
                     setState(() {
-                      _tempConfig = AppConfig(globalReverbMix: 0.0, globalReverbDecay: 1.0, 
-oscWhitelist: _tempConfig.oscWhitelist,
-
-                        oscPort: _tempConfig.oscPort,
-                        deviceName: _tempConfig.deviceName,
-                        bufferSize: _tempConfig.bufferSize,
-                        themeStartOscAddress: val,
-                        systemResetOscAddress:
-                            _tempConfig.systemResetOscAddress,
-                        monoConfigs: _tempConfig.monoConfigs,
-                        stereoConfigs: _tempConfig.stereoConfigs,
-                        multiConfigs: _tempConfig.multiConfigs,
-                        rooms: _tempConfig.rooms,
-                        isExhibitionMode: _tempConfig.isExhibitionMode,
-                        masterHeadroomDb: _tempConfig.masterHeadroomDb,
-                        peakLimiterEnabled: _tempConfig.peakLimiterEnabled,
-                        globalTrajectory: _tempConfig.globalTrajectory,
-                        roomZones: _tempConfig.roomZones,
-                      );
+                      _tempConfig = _tempConfig.copyWith(themeStartOscAddress: val);
                     });
                   },
                 ),
@@ -1622,24 +1394,7 @@ oscWhitelist: _tempConfig.oscWhitelist,
                   ),
                   onChanged: (val) {
                     setState(() {
-                      _tempConfig = AppConfig(globalReverbMix: 0.0, globalReverbDecay: 1.0, 
-oscWhitelist: _tempConfig.oscWhitelist,
-
-                        oscPort: _tempConfig.oscPort,
-                        deviceName: _tempConfig.deviceName,
-                        bufferSize: _tempConfig.bufferSize,
-                        themeStartOscAddress: _tempConfig.themeStartOscAddress,
-                        systemResetOscAddress: val,
-                        monoConfigs: _tempConfig.monoConfigs,
-                        stereoConfigs: _tempConfig.stereoConfigs,
-                        multiConfigs: _tempConfig.multiConfigs,
-                        rooms: _tempConfig.rooms,
-                        isExhibitionMode: _tempConfig.isExhibitionMode,
-                        masterHeadroomDb: _tempConfig.masterHeadroomDb,
-                        peakLimiterEnabled: _tempConfig.peakLimiterEnabled,
-                        globalTrajectory: _tempConfig.globalTrajectory,
-                        roomZones: _tempConfig.roomZones,
-                      );
+                      _tempConfig = _tempConfig.copyWith(systemResetOscAddress: val);
                     });
                   },
                 ),
@@ -1704,27 +1459,7 @@ oscWhitelist: _tempConfig.oscWhitelist,
                             tracks: room.tracks,
                           );
                           setState(() {
-                            _tempConfig = AppConfig(globalReverbMix: 0.0, globalReverbDecay: 1.0, 
-oscWhitelist: _tempConfig.oscWhitelist,
-
-                              oscPort: _tempConfig.oscPort,
-                              deviceName: _tempConfig.deviceName,
-                              bufferSize: _tempConfig.bufferSize,
-                              themeStartOscAddress:
-                                  _tempConfig.themeStartOscAddress,
-                              systemResetOscAddress:
-                                  _tempConfig.systemResetOscAddress,
-                              monoConfigs: _tempConfig.monoConfigs,
-                              stereoConfigs: _tempConfig.stereoConfigs,
-                              multiConfigs: _tempConfig.multiConfigs,
-                              rooms: newRooms,
-                              isExhibitionMode: _tempConfig.isExhibitionMode,
-                              masterHeadroomDb: _tempConfig.masterHeadroomDb,
-                              peakLimiterEnabled:
-                                  _tempConfig.peakLimiterEnabled,
-                              globalTrajectory: _tempConfig.globalTrajectory,
-                              roomZones: _tempConfig.roomZones,
-                            );
+                            _tempConfig = _tempConfig.copyWith(rooms: newRooms);
                           });
                         },
                       ),
@@ -1791,30 +1526,7 @@ oscWhitelist: _tempConfig.oscWhitelist,
                                 tracks: newTracks,
                               );
                               setState(() {
-                                _tempConfig = AppConfig(globalReverbMix: 0.0, globalReverbDecay: 1.0, 
-oscWhitelist: _tempConfig.oscWhitelist,
-
-                                  oscPort: _tempConfig.oscPort,
-                                  deviceName: _tempConfig.deviceName,
-                                  bufferSize: _tempConfig.bufferSize,
-                                  themeStartOscAddress:
-                                      _tempConfig.themeStartOscAddress,
-                                  systemResetOscAddress:
-                                      _tempConfig.systemResetOscAddress,
-                                  monoConfigs: _tempConfig.monoConfigs,
-                                  stereoConfigs: _tempConfig.stereoConfigs,
-                                  multiConfigs: _tempConfig.multiConfigs,
-                                  rooms: newRooms,
-                                  isExhibitionMode:
-                                      _tempConfig.isExhibitionMode,
-                                  masterHeadroomDb:
-                                      _tempConfig.masterHeadroomDb,
-                                  peakLimiterEnabled:
-                                      _tempConfig.peakLimiterEnabled,
-                                  globalTrajectory:
-                                      _tempConfig.globalTrajectory,
-                                  roomZones: _tempConfig.roomZones,
-                                );
+                                _tempConfig = _tempConfig.copyWith(rooms: newRooms);
                               });
                             },
                           ),
@@ -1863,30 +1575,7 @@ oscWhitelist: _tempConfig.oscWhitelist,
                                 tracks: newTracks,
                               );
                               setState(() {
-                                _tempConfig = AppConfig(globalReverbMix: 0.0, globalReverbDecay: 1.0, 
-oscWhitelist: _tempConfig.oscWhitelist,
-
-                                  oscPort: _tempConfig.oscPort,
-                                  deviceName: _tempConfig.deviceName,
-                                  bufferSize: _tempConfig.bufferSize,
-                                  themeStartOscAddress:
-                                      _tempConfig.themeStartOscAddress,
-                                  systemResetOscAddress:
-                                      _tempConfig.systemResetOscAddress,
-                                  monoConfigs: _tempConfig.monoConfigs,
-                                  stereoConfigs: _tempConfig.stereoConfigs,
-                                  multiConfigs: _tempConfig.multiConfigs,
-                                  rooms: newRooms,
-                                  isExhibitionMode:
-                                      _tempConfig.isExhibitionMode,
-                                  masterHeadroomDb:
-                                      _tempConfig.masterHeadroomDb,
-                                  peakLimiterEnabled:
-                                      _tempConfig.peakLimiterEnabled,
-                                  globalTrajectory:
-                                      _tempConfig.globalTrajectory,
-                                  roomZones: _tempConfig.roomZones,
-                                );
+                                _tempConfig = _tempConfig.copyWith(rooms: newRooms);
                               });
                             },
                           ),
@@ -1928,25 +1617,7 @@ oscWhitelist: _tempConfig.oscWhitelist,
                   final p = int.tryParse(val);
                   if (p != null) {
                     setState(() {
-                      _tempConfig = AppConfig(globalReverbMix: 0.0, globalReverbDecay: 1.0, 
-oscWhitelist: _tempConfig.oscWhitelist,
-
-                        oscPort: int.tryParse(val) ?? _tempConfig.oscPort,
-                        deviceName: _tempConfig.deviceName,
-                        bufferSize: _tempConfig.bufferSize,
-                        themeStartOscAddress: _tempConfig.themeStartOscAddress,
-                        systemResetOscAddress:
-                            _tempConfig.systemResetOscAddress,
-                        monoConfigs: _tempConfig.monoConfigs,
-                        stereoConfigs: _tempConfig.stereoConfigs,
-                        multiConfigs: _tempConfig.multiConfigs,
-                        rooms: _tempConfig.rooms,
-                        isExhibitionMode: _tempConfig.isExhibitionMode,
-                        masterHeadroomDb: _tempConfig.masterHeadroomDb,
-                        peakLimiterEnabled: _tempConfig.peakLimiterEnabled,
-                        globalTrajectory: _tempConfig.globalTrajectory,
-                        roomZones: _tempConfig.roomZones,
-                      );
+                      _tempConfig = _tempConfig.copyWith(oscPort: int.tryParse(val) ?? _tempConfig.oscPort);
                     });
                   }
                 },

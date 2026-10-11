@@ -10,6 +10,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:atmos_mixer_pro/core/theme/colors.dart';
 import 'package:atmos_mixer_pro/core/state/global_state.dart';
+import 'package:atmos_mixer_pro/core/state/config_copy.dart';
 import 'package:atmos_mixer_pro/core/utils/channel_routing.dart';
 import 'package:atmos_mixer_pro/core/utils/log_export_dir.dart';
 import 'package:atmos_mixer_pro/core/utils/osc_addresses.dart';
@@ -456,24 +457,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             onSelected: () {
               final config = ref.read(configProvider);
               if (config != null) {
-                final updated = AppConfig(globalReverbMix: 0.0, globalReverbDecay: 1.0, 
-oscWhitelist: config.oscWhitelist,
-
-                  oscPort: config.oscPort,
-                  deviceName: config.deviceName,
-                  bufferSize: config.bufferSize,
-                  themeStartOscAddress: config.themeStartOscAddress,
-                  systemResetOscAddress: config.systemResetOscAddress,
-                  monoConfigs: config.monoConfigs,
-                  stereoConfigs: config.stereoConfigs,
-                  multiConfigs: config.multiConfigs,
-                  rooms: config.rooms,
-                  isExhibitionMode: !config.isExhibitionMode,
-                  globalTrajectory: config.globalTrajectory,
-                  roomZones: config.roomZones,
-                  masterHeadroomDb: config.masterHeadroomDb,
-                  peakLimiterEnabled: config.peakLimiterEnabled,
-                );
+                final updated = config.copyWith(isExhibitionMode: !config.isExhibitionMode);
                 ref.read(configProvider.notifier).saveConfig(updated);
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
@@ -622,24 +606,7 @@ oscWhitelist: config.oscWhitelist,
                     onPressed: () {
                       final config = ref.read(configProvider);
                       if (config != null) {
-                        final updated = AppConfig(globalReverbMix: 0.0, globalReverbDecay: 1.0, 
-oscWhitelist: config.oscWhitelist,
-
-                          oscPort: config.oscPort,
-                          deviceName: config.deviceName,
-                          bufferSize: config.bufferSize,
-                          themeStartOscAddress: config.themeStartOscAddress,
-                          systemResetOscAddress: config.systemResetOscAddress,
-                          monoConfigs: config.monoConfigs,
-                          stereoConfigs: config.stereoConfigs,
-                          multiConfigs: config.multiConfigs,
-                          rooms: config.rooms,
-                          isExhibitionMode: !config.isExhibitionMode,
-                          globalTrajectory: config.globalTrajectory,
-                          roomZones: config.roomZones,
-                          masterHeadroomDb: config.masterHeadroomDb,
-                          peakLimiterEnabled: config.peakLimiterEnabled,
-                        );
+                        final updated = config.copyWith(isExhibitionMode: !config.isExhibitionMode);
                         ref.read(configProvider.notifier).saveConfig(updated);
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
@@ -936,24 +903,7 @@ oscWhitelist: config.oscWhitelist,
                       volumeOscAddress: '',
                       tracks: [],
                     );
-                    final updated = AppConfig(globalReverbMix: 0.0, globalReverbDecay: 1.0, 
-oscWhitelist: config.oscWhitelist,
-
-                      oscPort: config.oscPort,
-                      deviceName: config.deviceName,
-                      bufferSize: config.bufferSize,
-                      themeStartOscAddress: config.themeStartOscAddress,
-                      systemResetOscAddress: config.systemResetOscAddress,
-                      monoConfigs: config.monoConfigs,
-                      stereoConfigs: config.stereoConfigs,
-                      multiConfigs: config.multiConfigs,
-                      rooms: [...config.rooms, newRoom],
-                      isExhibitionMode: config.isExhibitionMode,
-                      globalTrajectory: config.globalTrajectory,
-                      roomZones: config.roomZones,
-                      masterHeadroomDb: config.masterHeadroomDb,
-                      peakLimiterEnabled: config.peakLimiterEnabled,
-                    );
+                    final updated = config.copyWith(rooms: [...config.rooms, newRoom]);
                     ref.read(configProvider.notifier).saveConfig(updated);
 
                     // Sync to exhibition canvas room zones
