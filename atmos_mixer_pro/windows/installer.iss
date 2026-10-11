@@ -34,8 +34,10 @@
 ; written here: 154.0.4258.62 in the one fetch-redist.ps1 got on 2026-10-08 (it always gets the latest). Keep it equal
 ; to the bundled runtime: a usable registered runtime at least this new is kept, and an unusable one of exactly this
 ; version is repaired with the bundled installer. Never set it above the bundled runtime: a registered runtime newer
-; than the bundled one would then run the bundled installer, which fails on it.
-#define WebView2MinVersion "154.0.4258.62"
+; than the bundled one would then run the bundled installer, which fails on it. A test build can pass /DWebView2MinVersion=<v>.
+#ifndef WebView2MinVersion
+  #define WebView2MinVersion "154.0.4258.62"
+#endif
 ; Free space (MB) wanted on the Program Files (x86) drive before the WebView2 runtime is installed or repaired: its
 ; folder is about 0.9 GB, the bundled installer is extracted to {tmp} (0.2 GB), and the older runtime folder stays
 ; until Edge Update removes it. Below this Setup asks before installing. A test build can pass /DWebView2MinFreeMB=<n>.
@@ -204,30 +206,40 @@ begin
     CoTaskMemFree(Info);
 end;
 
-// The loader check does not look at the runtime files: with msedgewebview2.exe renamed away it still named 154 (Z6). So
-// also look for that file in the folder Edge Update keeps for the version the loader names ("location" next to "pv").
-// Not a check Microsoft documents: when no location is registered it counts as there, so a healthy runtime is never
-// reinstalled because of it.
-function WebView2FilesThere(Version: String): Boolean;
-var
-  Location: String;
-  Registered: Boolean;
+// Runtime file missing in Folder, '' when none is: msedgewebview2.exe, and for the bundled version, whose folder layout
+// is known (Z6), also the x64 EmbeddedBrowserWebView.dll the 64-bit app loads (renamed away, the loader still named 154
+// and the bundled installer put it back). Newer versions get only the first check, so a changed layout cannot make a
+// healthy newer runtime look broken.
+function MissingIn(const Folder, Version: String): String;
 begin
-  Result := True;
+  Result := '';
+  if not FileExists(Folder + '\msedgewebview2.exe') then
+    Result := 'msedgewebview2.exe'
+  else if (Version = '{#WebView2MinVersion}') and not FileExists(Folder + '\EBWebView\x64\EmbeddedBrowserWebView.dll') then
+    Result := 'EBWebView\x64\EmbeddedBrowserWebView.dll';
+end;
+
+// The loader check does not look at the runtime files: with msedgewebview2.exe renamed away it still named 154 (Z6). So
+// also look in the folder Edge Update keeps for the version the loader names ("location" next to "pv"), see MissingIn.
+// Not a check Microsoft documents: when no location is registered nothing counts as missing, so a healthy runtime is
+// never reinstalled because of it. Returns the missing file, '' when none is.
+function MissingWebView2File(Version: String): String;
+var
+  Location, Missing: String;
+begin
+  Result := '';
   if Pos(' ', Version) > 0 then
     Version := Copy(Version, 1, Pos(' ', Version) - 1);
-  Registered := False;
   if RegQueryStringValue(HKLM32, 'SOFTWARE\' + WebView2Key, 'location', Location) then begin
-    Registered := True;
-    if FileExists(AddBackslash(Location) + Version + '\msedgewebview2.exe') then
+    Result := MissingIn(AddBackslash(Location) + Version, Version);
+    if Result = '' then
       Exit;
   end;
   if RegQueryStringValue(HKCU, 'Software\' + WebView2Key, 'location', Location) then begin
-    Registered := True;
-    if FileExists(AddBackslash(Location) + Version + '\msedgewebview2.exe') then
-      Exit;
+    Missing := MissingIn(AddBackslash(Location) + Version, Version);
+    if (Missing = '') or (Result = '') then
+      Result := Missing;
   end;
-  Result := not Registered;
 end;
 
 // '' when a usable runtime is found (or the loader cannot be asked), else what is wrong. Version: what the loader uses.
@@ -241,8 +253,11 @@ begin
     Version := '(loader check unavailable)'
   else if Version = '' then
     Result := 'the WebView2 loader finds no usable runtime'
-  else if not WebView2FilesThere(Version) then
-    Result := 'msedgewebview2.exe of ' + Version + ' is missing';
+  else begin
+    Result := MissingWebView2File(Version);
+    if Result <> '' then
+      Result := Result + ' of ' + Version + ' is missing';
+  end;
 end;
 
 // What to do with WebView2 (WebView2Action), from the newest registered runtime ("pv", per machine or per user) and the
