@@ -18,7 +18,7 @@
 ## 0. 빌드와 설치
 
 - [ ] **Windows CI 빌드.** `main`(또는 PR 트리거가 생긴 뒤의 PR)에 대한 "Build and Release" 빌드가 Windows·macOS 모두 성공한다. 8/26 이후 `cpal` 0.16(ASIO), `rusqlite` bundled, 재시작 복원, 절전 방지(`Win32_System_Power`), 새 `windows` 크레이트 기능이 Windows에서 컴파일되는 첫 확인이다. 실패하면 로그를 HANDOFF에 붙인다. → PR #8·#10(2026-10-05)에서 통과했다. 이후 `main` 대상 PR마다 자동으로 돈다.
-- [ ] **설치.** `AtmosMixerPro_Setup.exe`로 설치된다. 설치된 앱의 버전과 설치 목록의 버전이 같다(installer가 빌드된 exe의 `ProductVersion`을 읽는다. `pubspec.yaml` 버전은 1.1.2). installer 스크립트의 `build\...` 경로가 `windows\` 폴더 기준이라 그대로는 파일을 못 찾을 수 있다는 HANDOFF 8번 항목도 설치 파일을 만들면서 확인한다.
+- [ ] **설치.** `AtmosMixerPro_Setup.exe`로 설치된다. 설치된 앱의 버전과 설치 목록의 버전이 같다(installer가 빌드된 exe의 `ProductVersion`을 읽는다. `pubspec.yaml` 버전은 1.1.2). installer 스크립트의 `build\...` 경로가 `windows\` 폴더 기준이라 그대로는 파일을 못 찾을 수 있다는 HANDOFF 8번 항목도 설치 파일을 만들면서 확인한다. 일반 권한으로 열면 Windows가 관리자 권한 안내를 먼저 띄우고, 확인을 누르면 UAC를 거쳐 관리자 권한으로 계속되므로, **설치 파일은 마우스 오른쪽 → "관리자 권한으로 실행"으로 연다**(이 안내 창은 Inno Setup의 메시지가 아니다). 설치 파일은 **GitHub 릴리스의 `AtmosMixerPro_Setup_v<버전>.exe`**를 쓴다(태그를 올리면 CI가 만들어 붙인다).
 - [ ] **WebView2 런타임.** 3D 방 뷰어에 필요하다. 설치 로그(`%TEMP%\Setup Log *.txt`)의 "WebView2 Runtime registered: …" 줄(등록 버전, 실제로 쓰는 버전, 설치·복구·건너뜀)과 "Prerequisite …" 줄로 본다. 설정 > 앱 목록에는 보이지 않을 수 있다(개발 PC의 제거 항목이 SystemComponent=1). Windows 10 PC에는 없을 수 있다. 설치 파일이 런타임이 없거나 번들(154.0.4258.62)보다 낮으면 오프라인으로 설치하고, 같은 버전이 손상됐으면 복구한다(2026-10-08 결정, 2026-10-11 보강). 설치 종료 코드 102면 WebView2를 쓸 수 없는 상태로 끝난 것이다(인터넷 연결 뒤 복구, 그때까지 7절에서 3D 안내가 뜨는 것이 정상).
 - [ ] **앱 기동.** 앱이 뜨고 스플래시를 지나 대시보드가 나온다. 로그에 `ASIO Load Error`나 패닉이 없다.
 - [ ] **서명 없는 설치 파일(사용자 결정 2026-10-08: 코드 서명 안 함, 백신 예외).** SmartScreen 창이 어떻게 뜨는지, "추가 정보 → 실행"으로 설치되는지, Defender·현장 백신이 설치 파일·앱·감시 프로그램(`atmos_supervisor.exe`)을 격리하는지 기록한다. 걸리면 앱 폴더를 예외로 넣고 다시 확인한다.
