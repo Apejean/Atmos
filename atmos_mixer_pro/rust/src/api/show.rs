@@ -15,27 +15,41 @@ pub fn api_resume_show() -> Result<(), AtmosError> {
     crate::core::show_state::resume(crate::core::app_signals::now_ms())
 }
 
-/// 첫 방 테마 시작: 전체 정지 → 설정의 첫 방을 활성으로 → 그 방 루프 재생. OSC 테마 시작과 같다.
+/// 테마 시작. 대시보드 Start 버튼, OSC 테마 시작, 감시가 다시 띄운 앱이 공연을 이어 갈 수 없을 때가 모두 이 함수
+/// 하나를 부른다(사용자 결정 2026-10-12: OSC 테마 시작 = Start 버튼). 전체 정지 뒤, 전시 모드면 모든 방의 루프 트랙을,
+/// 아니면 첫 방을 활성 방으로 하고 그 방의 루프 트랙을 튼다. 그 밖의 트랙은 OSC 신호로 틀고, 전시 모드가 아니면 방
+/// 클리어 때 다음 방 루프가 이어진다(osc::listener). 루프 트랙 재생이 실패해도 나머지는 다 틀고, 실패한 트랙을 모아
+/// Err로 알린다(앱 로그에도 남긴다). 방이 없으면 정지만 한다.
 pub fn api_theme_start() -> Result<(), AtmosError> {
     api_stop_all()?;
-    let first_room = GLOBAL_STATE
-        .config
-        .read()
-        .unwrap_or_else(|e| e.into_inner())
-        .as_ref()
-        .and_then(|config| config.rooms.first())
-        .map(|room| {
-            let loops: Vec<String> = room.tracks.iter().filter(|t| t.is_loop).map(|t| t.id.clone()).collect();
-            (room.id.clone(), loops)
-        });
-    let Some((room_id, loop_ids)) = first_room else {
+    let plan = GLOBAL_STATE.config.read().unwrap_or_else(|e| e.into_inner()).as_ref().map(|config| {
+        let rooms = if config.is_exhibition_mode { config.rooms.len() } else { 1 };
+        let loops: Vec<(String, String, String)> = config
+            .rooms
+            .iter()
+            .take(rooms)
+            .flat_map(|room| {
+                room.tracks.iter().filter(|t| t.is_loop).map(|t| (room.id.clone(), t.id.clone(), t.name.clone()))
+            })
+            .collect();
+        (config.is_exhibition_mode, config.rooms.first().map(|room| room.id.clone()), loops)
+    });
+    let Some((exhibition, Some(first_room), loops)) = plan else {
         return Ok(());
     };
-    api_set_active_room(Some(room_id.clone()))?;
-    for track_id in loop_ids {
-        if let Err(e) = api_play_track(room_id.clone(), track_id.clone()) {
-            GLOBAL_STATE.log(format!("테마 시작: {track_id} 재생 실패: {}", e.message));
+    if !exhibition {
+        api_set_active_room(Some(first_room))?;
+    }
+    let mut failed = Vec::new();
+    for (room_id, track_id, name) in loops {
+        if let Err(e) = api_play_track(room_id, track_id) {
+            GLOBAL_STATE.log(format!("테마 시작: {name} 재생 실패: {}", e.message));
+            failed.push(format!("{name}: {}", e.message));
         }
     }
-    Ok(())
+    if failed.is_empty() {
+        Ok(())
+    } else {
+        Err(AtmosError { message: format!("루프 트랙 {}개 재생 실패 — {}", failed.len(), failed.join(" / ")) })
+    }
 }

@@ -1,5 +1,5 @@
-//! 첫 방 테마 시작(api::show::api_theme_start). 감시가 다시 띄운 앱이 이어 갈 수 없을 때와 OSC 테마 시작이
-//! 이 함수를 쓴다. 전역 상태를 쓰므로 테스트는 하나다.
+//! 테마 시작(api::show::api_theme_start). 대시보드 Start 버튼, OSC 테마 시작, 감시가 다시 띄운 앱이 이어 갈 수
+//! 없을 때가 모두 이 함수를 쓴다. 전역 상태를 쓰므로 테스트는 하나다.
 use rust_lib_atmos_mixer_pro::api::show::api_theme_start;
 use rust_lib_atmos_mixer_pro::api::simple::{api_play_track, api_set_active_room};
 use rust_lib_atmos_mixer_pro::audio::player::SoundData;
@@ -66,7 +66,7 @@ fn drain() -> Vec<AudioCommand> {
 }
 
 #[test]
-fn 테마_시작은_전체_정지_뒤_첫_방을_활성으로_하고_그_방_루프만_튼다() {
+fn 테마_시작은_전체_정지_뒤_전시_모드면_모든_방_아니면_첫_방의_루프를_튼다() {
     let dir = std::env::temp_dir().join(format!("atmos_theme_test_{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
     for name in ["la", "lb"] {
@@ -108,6 +108,23 @@ fn 테마_시작은_전체_정지_뒤_첫_방을_활성으로_하고_그_방_루
         .collect();
     assert_eq!(plays.iter().map(|(_, t)| t.as_str()).collect::<Vec<_>>(), vec!["la"]);
     assert!(plays[0].0 > stop_all_at, "재생 명령이 전체 정지보다 먼저 나갔다");
+
+    // 전시 모드: Start 버튼처럼 모든 방의 루프를 튼다(활성 방은 두지 않는다). 루프 재생이 실패해도 나머지는 다 틀고,
+    // 실패한 트랙 이름을 Err로 알린다.
+    *GLOBAL_STATE.config.write().unwrap() = Some(AppConfig {
+        rooms: vec![
+            room("a", vec![track("la", &p("la"), true), track("oa", "/oa.wav", false)]),
+            room("b", vec![track("lb", &p("lb"), true), track("lx", &p("없는_파일"), true)]),
+        ],
+        is_exhibition_mode: true,
+        ..AppConfig::default()
+    });
+    api_set_active_room(Some("b".into())).unwrap();
+    drain();
+    let err = api_theme_start().expect_err("없는 파일의 루프 트랙은 실패로 알려야 한다");
+    assert!(err.message.contains("lx"), "실패한 트랙 이름이 없다: {}", err.message);
+    assert_eq!(*GLOBAL_STATE.active_room_id.read().unwrap(), None);
+    assert_eq!(playing(), vec!["la".to_string(), "lb".to_string()], "모든 방의 루프가 재생 목록에 있어야 한다");
 
     // 방이 없으면 정지만 한다
     *GLOBAL_STATE.config.write().unwrap() = Some(AppConfig::default());

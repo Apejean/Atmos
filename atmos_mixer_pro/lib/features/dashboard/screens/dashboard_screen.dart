@@ -27,6 +27,7 @@ import 'package:atmos_mixer_pro/features/exhibition/state/spatial_sync_provider.
 import 'package:atmos_mixer_pro/features/exhibition/screens/speaker_canvas_screen.dart'
     as atmos_exhibition;
 import 'package:atmos_mixer_pro/features/dashboard/widgets/safety_alert_border.dart';
+import 'package:atmos_mixer_pro/src/rust/api/show.dart' as show_api;
 import 'package:atmos_mixer_pro/src/rust/api/simple.dart' as rust_api;
 import 'package:atmos_mixer_pro/src/rust/api/project.dart' as project_api;
 import 'package:atmos_mixer_pro/features/dashboard/widgets/track_play_failure.dart';
@@ -748,49 +749,23 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   ),
                 ),
                 onPressed: () async {
+                  // OSC 테마 시작·자동 재시작과 같은 함수 하나를 부른다(api::show::api_theme_start, 사용자 결정
+                  // 2026-10-12). 전체 정지 뒤 전시 모드면 모든 방의 루프, 아니면 첫 방을 활성으로 하고 그 방의 루프.
                   try {
-                    try {
-                      await rust_api.apiStopAll();
-                    } catch (e) {
-                      ref
-                          .read(globalErrorProvider.notifier)
-                          .showError('정지 실패: ${errorText(e)}');
-                    }
-                    final config = ref.read(configProvider);
-                    if (config != null && config.rooms.isNotEmpty) {
-                      if (config.isExhibitionMode) {
-                        try {
-                          await rust_api.apiPlayAllLoopTracks();
-                        } catch (e) {
-                          if (context.mounted) {
-                            showTrackPlayFailure(context, e, prefix: '전시 모드 트랙 재생 실패');
-                          }
-                        }
-                      } else {
-                        final firstRoom = config.rooms.first;
-                        await ref
-                            .read(engineStateProvider.notifier)
-                            .startTheme(firstRoom.id);
-                        for (final track in firstRoom.tracks) {
-                          if (track.isLoop) {
-                            try {
-                              await rust_api.apiPlayTrack(
-                                roomId: firstRoom.id,
-                                trackId: track.id,
-                              );
-                            } catch (e) {
-                              if (context.mounted) {
-                                showTrackPlayFailure(context, e);
-                              }
-                            }
-                          }
-                        }
-                      }
-                    }
+                    await show_api.apiThemeStart();
                   } catch (e) {
-                    ref
-                        .read(globalErrorProvider.notifier)
-                        .showError('테마 시작 오류: ${errorText(e)}');
+                    if (context.mounted) {
+                      showTrackPlayFailure(context, e, prefix: '테마 시작');
+                    }
+                  }
+                  // 화면 상태(테마 시작됨 → 다른 방 카드 잠금, 클리어한 방 비움)는 화면에만 있다.
+                  final config = ref.read(configProvider);
+                  if (config != null &&
+                      config.rooms.isNotEmpty &&
+                      !config.isExhibitionMode) {
+                    await ref
+                        .read(engineStateProvider.notifier)
+                        .startTheme(config.rooms.first.id);
                   }
                 },
                 child: const Text(
