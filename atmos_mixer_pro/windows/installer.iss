@@ -18,8 +18,7 @@
 #endif
 ; Microsoft prerequisites bundled for offline installs: the Visual C++ runtime and the WebView2 runtime
 ; (3D room viewer). tool\windows\fetch-redist.ps1 downloads them into windows\redist (not committed).
-; The Visual C++ runtime is installed only when it is missing or older; the WebView2 installer always runs and
-; decides by itself. See InstallPrerequisites in [Code].
+; Each one is installed only when it is missing or older; see InstallPrerequisites in [Code].
 #ifndef RedistDir
   #define RedistDir AddBackslash(SourcePath) + "redist"
 #endif
@@ -29,6 +28,11 @@
   #error Missing Microsoft redistributables. Run tool\windows\fetch-redist.ps1 first or pass /DRedistDir.
 #endif
 #define VCRedistVersion GetVersionNumbersString(AddBackslash(RedistDir) + VCRedistExe)
+; The WebView2 installer's file version is Edge Update's (1.3.x), not the runtime's, so the runtime it carries is
+; written here: 154.0.4258.62 in the one fetch-redist.ps1 got on 2026-10-08 (it always gets the latest). A registered
+; runtime at least this new is kept. Never set it above the bundled runtime: a registered runtime newer than the
+; bundled one would then run the bundled installer, which can fail on it.
+#define WebView2MinVersion "154.0.4258.62"
 
 [Setup]
 AppId={{D37EAB59-7A77-4E2C-964B-FEFA2C3058D6}
@@ -132,18 +136,34 @@ begin
   Result := not StrToVersion('{#VCRedistVersion}', Bundled) or (ComparePackedVersion(Installed, Bundled) < 0);
 end;
 
-// A WebView2 runtime is registered when "pv" holds a version other than 0.0.0.0, per machine or per user.
-// Only logged: a registered runtime can still be unusable (see InstallPrerequisites).
-function WebView2Installed(RootKey: Integer; const SubKey: String): Boolean;
+// Keeps the newer of Newest and the WebView2 runtime registered ("pv") in one registry view. 0.0.0.0 and values that
+// are not versions count as missing.
+procedure TakeNewerWebView2(RootKey: Integer; const SubKey: String; var Newest: Int64; var NewestText: String);
 var
   Version: String;
+  Ver: Int64;
 begin
-  Result := RegQueryStringValue(RootKey, SubKey, 'pv', Version) and (Version <> '') and (Version <> '0.0.0.0');
+  if RegQueryStringValue(RootKey, SubKey, 'pv', Version) and StrToVersion(Version, Ver) and
+     (ComparePackedVersion(Ver, Newest) > 0) then begin
+    Newest := Ver;
+    NewestText := Version;
+  end;
 end;
 
-function NeedsWebView2(): Boolean;
+// The runtime registers per machine or per user. The bundled installer runs when none is registered or the newest one
+// is older than the bundled runtime. Registered alone was not enough: Windows Sandbox (Z6, 2026-10-11) registered a
+// 141 runtime with its files that the WebView2 loader could not use, so the 3D room viewer did not start; being older
+// than the bundled runtime, it is now replaced. The same or a newer runtime is kept: over a newer one the bundled
+// installer fails (-2147219187 = 0x8004090D in Z6), which would show a false failure.
+function NeedsWebView2(var Registered: String): Boolean;
+var
+  Newest, MinVersion: Int64;
 begin
-  Result := not (WebView2Installed(HKLM32, 'SOFTWARE\' + WebView2Key) or WebView2Installed(HKCU, 'Software\' + WebView2Key));
+  Newest := 0;
+  Registered := 'none';
+  TakeNewerWebView2(HKLM32, 'SOFTWARE\' + WebView2Key, Newest, Registered);
+  TakeNewerWebView2(HKCU, 'Software\' + WebView2Key, Newest, Registered);
+  Result := not StrToVersion('{#WebView2MinVersion}', MinVersion) or (ComparePackedVersion(Newest, MinVersion) < 0);
 end;
 
 // Runs a bundled prerequisite from {tmp}. ResultCode is -1 when it could not be started.
@@ -158,6 +178,7 @@ end;
 procedure InstallPrerequisites();
 var
   ResultCode: Integer;
+  RegisteredWebView2: String;
 begin
   if NeedsVCRuntime() then begin
     WizardForm.StatusLabel.Caption := 'Installing Microsoft Visual C++ Runtime...';
@@ -170,19 +191,15 @@ begin
         'Atmos Mixer Pro does not start until it is installed.', mbError, MB_OK, IDOK);
   end else
     Log('Prerequisite Visual C++ Runtime is already installed');
-  // WebView2: the registered version ("pv") alone is not enough. Windows Sandbox had a registered 141 runtime with
-  // its files that the WebView2 loader still could not use, so the 3D room viewer did not start (Z6, 2026-10-11).
-  // Always run the bundled offline installer and let it decide: with the same version installed it returned 0 in
-  // about 40 s, and over the broken 141 it installed a working runtime.
-  if NeedsWebView2() then
-    Log('Prerequisite WebView2 Runtime: no registered version')
-  else
-    Log('Prerequisite WebView2 Runtime: a version is registered, running the bundled installer anyway');
-  WizardForm.StatusLabel.Caption := 'Installing Microsoft Edge WebView2 Runtime...';
-  RunPrerequisite('{#WebView2Exe}', '/silent /install', ResultCode);
-  if ResultCode <> 0 then
-    SuppressibleMsgBox('Microsoft Edge WebView2 Runtime setup failed (code ' + IntToStr(ResultCode) + '). ' +
-      'The 3D room viewer is unavailable until it is installed; the rest of the app works.', mbError, MB_OK, IDOK);
+  if NeedsWebView2(RegisteredWebView2) then begin
+    Log('Prerequisite WebView2 Runtime registered: ' + RegisteredWebView2 + ' (older than {#WebView2MinVersion} or none)');
+    WizardForm.StatusLabel.Caption := 'Installing Microsoft Edge WebView2 Runtime...';
+    RunPrerequisite('{#WebView2Exe}', '/silent /install', ResultCode);
+    if ResultCode <> 0 then
+      SuppressibleMsgBox('Microsoft Edge WebView2 Runtime setup failed (code ' + IntToStr(ResultCode) + '). ' +
+        'The 3D room viewer is unavailable until it is installed; the rest of the app works.', mbError, MB_OK, IDOK);
+  end else
+    Log('Prerequisite WebView2 Runtime ' + RegisteredWebView2 + ' is already installed (at least {#WebView2MinVersion})');
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
