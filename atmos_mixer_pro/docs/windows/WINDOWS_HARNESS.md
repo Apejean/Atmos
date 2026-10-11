@@ -327,6 +327,7 @@ CI("Build and Release")는 `main` 대상 PR마다 Windows·macOS를 빌드해 `a
 | Z3 | `deps.ps1 -Dir <app>` | VC++ 런타임 의존 목록(X1) |
 | Z4 | 감시로 실행하고 정상 종료(아래) | 감시와 앱(`--supervised`)이 뜨고 heartbeat가 갱신, 창을 닫으면 둘 다 끝나고 다시 뜨지 않음 |
 | Z5 | 설치 파일 만들기 | W3 전: 우회 / W3 뒤: `/DReleaseDir` |
+| Z5 이후 | 릴리스 설치 파일 | 태그를 올리면 CI가 만들어 붙인다(`AtmosMixerPro_Setup_v<버전>.exe`, 로컬 ISCC는 시험용) |
 | Z6 | (선택) 깨끗한 PC | VC++ 런타임이 없는 환경에서의 증상 |
 
 Z4:

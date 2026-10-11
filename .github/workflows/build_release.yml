@@ -118,6 +118,32 @@ jobs:
         run: |
           cargo build --release --manifest-path atmos_mixer_pro/supervisor/Cargo.toml
           Copy-Item atmos_mixer_pro/supervisor/target/release/atmos_supervisor.exe atmos_mixer_pro/build/windows/x64/runner/Release/
+
+      # 설치 파일(Inno Setup)은 태그(릴리스)와 수동 실행에서만 만든다. 250MB라 PR마다 올리면 저장 공간이 찬다.
+      # 재배포 파일(VC++ 런타임, WebView2 오프라인 설치 파일, x86 WebView2 로더)을 받아 넣는다(Microsoft 서명 확인).
+      - name: Build installer (Windows)
+        if: matrix.os == 'windows-latest' && github.event_name != 'pull_request'
+        shell: pwsh
+        run: |
+          ./atmos_mixer_pro/tool/windows/fetch-redist.ps1
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          choco install innosetup --no-progress -y
+          $iscc = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'
+          & $iscc "/O$PWD\installer" atmos_mixer_pro\windows\installer.iss
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          $version = (Get-Item atmos_mixer_pro\build\windows\x64\runner\Release\atmos_mixer_pro.exe).VersionInfo.ProductVersion
+          $name = "AtmosMixerPro_Setup_v$version.exe"
+          Move-Item installer\AtmosMixerPro_Setup.exe $name
+          Get-FileHash $name -Algorithm SHA256 | Format-List | Out-String
+          "INSTALLER=$name" >> $env:GITHUB_ENV
+
+      - name: Upload installer (Windows)
+        if: matrix.os == 'windows-latest' && github.event_name != 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: atmos_mixer_pro_windows_installer
+          path: ${{ env.INSTALLER }}
+          if-no-files-found: error
         
       - name: Archive Release (Windows)
         if: matrix.os == 'windows-latest'
@@ -153,3 +179,4 @@ jobs:
           files: |
             atmos_mixer_pro_windows.zip/atmos_mixer_pro_windows.zip
             atmos_mixer_pro_macos.zip/atmos_mixer_pro_macos.zip
+            atmos_mixer_pro_windows_installer/*.exe

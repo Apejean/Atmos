@@ -167,10 +167,12 @@ fn osc_재생은_루프와_스트리밍도_틀고_방_비우기는_그_방만_�
     send("/a/clear");
     wait_until("OSC로 방 A를 비웠는데 다음 방 B의 BGM이 자동으로 나오지 않았다", || has("lb"));
 
-    // 6) OSC 테마 시작: 전체 정지 뒤 첫 방(A)을 활성으로 하고 그 방 루프만 튼다
+    // 6) OSC 테마 시작 = 대시보드 Start(2026-10-12 사용자 결정): 전시 모드라 전체 정지 뒤 모든 방의 루프를 튼다(활성
+    //    방 없음). 전시 모드가 아닐 때(첫 방을 활성으로 하고 그 방 루프만)는 test_theme_start가 본다.
     send("/theme/start");
-    wait_until("OSC 테마 시작 뒤 첫 방 A가 활성이고 그 방 루프만 돌아야 한다", || {
-        GLOBAL_STATE.active_room_id.read().unwrap().as_deref() == Some("a") && playing() == vec!["la".to_string()]
+    wait_until("OSC 테마 시작 뒤 모든 방의 루프만 돌아야 한다(전시 모드)", || {
+        GLOBAL_STATE.active_room_id.read().unwrap().is_none()
+            && playing() == vec!["la".to_string(), "lb".to_string()]
     });
 
     drained_plays();

@@ -78,6 +78,7 @@ Copy-Item supervisor\target\release\atmos_supervisor.exe build\windows\x64\runne
   D:\dev\InnoSetup6\ISCC.exe windows\installer.iss            # → windows\Output\AtmosMixerPro_Setup.exe
   ```
   CI zip으로 만들 때는 `ISCC /DReleaseDir=<zip을 푼 폴더> windows\installer.iss`.
+  태그를 올리면 CI가 설치 파일을 만들어 릴리스에 붙인다(`AtmosMixerPro_Setup_v<버전>.exe`). 위 로컬 ISCC는 시험용이다.
 - CI의 "Patch pdfx CMakeLists" 단계는 지금 pdfx 의존성이 없어 할 일이 없다. CMake 버전 오류가 나면 하네스 8절.
 
 ## 5. 빌드 뒤 확인 순서 (우선순위)
