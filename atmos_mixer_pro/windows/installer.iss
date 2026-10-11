@@ -24,15 +24,24 @@
 #endif
 #define VCRedistExe "VC_redist.x64.exe"
 #define WebView2Exe "MicrosoftEdgeWebView2RuntimeInstallerX64.exe"
-#if !FileExists(AddBackslash(RedistDir) + VCRedistExe) || !FileExists(AddBackslash(RedistDir) + WebView2Exe)
+; x86 WebView2 loader (Setup is 32-bit) for the official check of a usable runtime, see UsableWebView2 in [Code].
+#define WebView2LoaderX86 "WebView2Loader_x86.dll"
+#if !FileExists(AddBackslash(RedistDir) + VCRedistExe) || !FileExists(AddBackslash(RedistDir) + WebView2Exe) || !FileExists(AddBackslash(RedistDir) + WebView2LoaderX86)
   #error Missing Microsoft redistributables. Run tool\windows\fetch-redist.ps1 first or pass /DRedistDir.
 #endif
 #define VCRedistVersion GetVersionNumbersString(AddBackslash(RedistDir) + VCRedistExe)
 ; The WebView2 installer's file version is Edge Update's (1.3.x), not the runtime's, so the runtime it carries is
-; written here: 154.0.4258.62 in the one fetch-redist.ps1 got on 2026-10-08 (it always gets the latest). A registered
-; runtime at least this new is kept. Never set it above the bundled runtime: a registered runtime newer than the
-; bundled one would then run the bundled installer, which can fail on it.
+; written here: 154.0.4258.62 in the one fetch-redist.ps1 got on 2026-10-08 (it always gets the latest). Keep it equal
+; to the bundled runtime: a usable registered runtime at least this new is kept, and an unusable one of exactly this
+; version is repaired with the bundled installer. Never set it above the bundled runtime: a registered runtime newer
+; than the bundled one would then run the bundled installer, which fails on it.
 #define WebView2MinVersion "154.0.4258.62"
+; Free space (MB) wanted on the Program Files (x86) drive before the WebView2 runtime is installed or repaired: its
+; folder is about 0.9 GB, the bundled installer is extracted to {tmp} (0.2 GB), and the older runtime folder stays
+; until Edge Update removes it. Below this Setup asks before installing. A test build can pass /DWebView2MinFreeMB=<n>.
+#ifndef WebView2MinFreeMB
+  #define WebView2MinFreeMB 2048
+#endif
 
 [Setup]
 AppId={{D37EAB59-7A77-4E2C-964B-FEFA2C3058D6}
@@ -57,6 +66,9 @@ Name: "korean"; MessagesFile: "compiler:Languages\Korean.isl"
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"
 
 [Files]
+; First on purpose: with solid compression a file comes out only after everything before it, and Setup needs this one
+; before installing (last in the list it took 13 s to extract).
+Source: "{#RedistDir}\{#WebView2LoaderX86}"; Flags: dontcopy
 Source: "{#ReleaseDir}\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
 ; The supervisor is copied next to the app by the build (CI copies it into the Release folder).
 Source: "{#ReleaseDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
@@ -97,18 +109,22 @@ begin
   Exec(ExpandConstant('{sys}\taskkill.exe'), '/F /IM {#MyAppExeName}', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
 end;
 
-function PrepareToInstall(var NeedsRestart: Boolean): String;
-begin
-  StopAtmos();
-  Result := '';
-end;
-
 const
   VCRuntimeKey = 'SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\x64';
   WebView2Key = 'Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}';
+  // WebView2Action
+  WebView2Keep = 0;      // a usable runtime at least as new as the bundled one: left alone
+  WebView2Install = 1;   // none registered, or older than the bundled one
+  WebView2Repair = 2;    // the bundled version is registered but not usable (WebView2Problem)
+  WebView2Unusable = 3;  // a newer version is registered but not usable: left alone, reported
 
 var
   PrerequisiteNeedsRestart: Boolean;
+  // Prerequisites still missing when Setup ends: 1 Visual C++, 2 WebView2 (see GetCustomSetupExitCode).
+  PrerequisiteFailures: Integer;
+  // Decided in PrepareToInstall (DecideWebView2), carried out in InstallPrerequisites.
+  WebView2Action: Integer;
+  WebView2Registered: String;
 
 // Installed x64 Visual C++ runtime version in one registry view, 0 when missing.
 function VCRuntimeVersion(RootKey: Integer): Int64;
@@ -150,20 +166,148 @@ begin
   end;
 end;
 
-// The runtime registers per machine or per user. The bundled installer runs when none is registered or the newest one
-// is older than the bundled runtime. Registered alone was not enough: Windows Sandbox (Z6, 2026-10-11) registered a
-// 141 runtime with its files that the WebView2 loader could not use, so the 3D room viewer did not start; being older
-// than the bundled runtime, it is now replaced. The same or a newer runtime is kept: over a newer one the bundled
-// installer fails (-2147219187 = 0x8004090D in Z6), which would show a false failure.
-function NeedsWebView2(var Registered: String): Boolean;
+// The official check (Microsoft, "Detect if a WebView2 Runtime is already installed", approach 2), the same call the
+// app makes before it starts the 3D room viewer: is there a runtime the WebView2 loader can use? Setup is 32-bit, so it
+// calls the x86 loader of the WebView2 SDK the app uses (1.0.1210.39). delayload: when the loader cannot be loaded, the
+// call raises and the check counts as unknown.
+function GetAvailableCoreWebView2BrowserVersionString(BrowserExecutableFolder: Cardinal; var VersionInfo: Cardinal): Integer;
+  external 'GetAvailableCoreWebView2BrowserVersionString@files:{#WebView2LoaderX86} stdcall delayload';
+procedure CoTaskMemFree(Block: Cardinal);
+  external 'CoTaskMemFree@ole32.dll stdcall';
+function lstrlenW(Str: Cardinal): Integer;
+  external 'lstrlenW@kernel32.dll stdcall';
+function lstrcpynW(Dest: String; Src: Cardinal; MaxLength: Integer): Cardinal;
+  external 'lstrcpynW@kernel32.dll stdcall';
+
+// Version of the runtime the loader would use, '' when it finds none. Known is False when the loader could not be called.
+function UsableWebView2(var Known: Boolean): String;
+var
+  Hr: Integer;
+  Info: Cardinal;
+begin
+  Result := '';
+  Known := False;
+  Info := 0;
+  try
+    Hr := GetAvailableCoreWebView2BrowserVersionString(0, Info);
+    Known := True;
+  except
+    Log('WebView2 loader check could not run: ' + GetExceptionMessage);
+    Exit;
+  end;
+  if (Hr = 0) and (Info <> 0) then begin
+    Result := StringOfChar(' ', lstrlenW(Info));
+    lstrcpynW(Result, Info, Length(Result) + 1);
+  end else
+    Log(Format('WebView2 loader finds no usable runtime (HRESULT %d = 0x%.8x)', [Hr, Hr]));
+  if Info <> 0 then
+    CoTaskMemFree(Info);
+end;
+
+// The loader check does not look at the runtime files: with msedgewebview2.exe renamed away it still named 154 (Z6). So
+// also look for that file in the folder Edge Update keeps for the version the loader names ("location" next to "pv").
+// Not a check Microsoft documents: when no location is registered it counts as there, so a healthy runtime is never
+// reinstalled because of it.
+function WebView2FilesThere(Version: String): Boolean;
+var
+  Location: String;
+  Registered: Boolean;
+begin
+  Result := True;
+  if Pos(' ', Version) > 0 then
+    Version := Copy(Version, 1, Pos(' ', Version) - 1);
+  Registered := False;
+  if RegQueryStringValue(HKLM32, 'SOFTWARE\' + WebView2Key, 'location', Location) then begin
+    Registered := True;
+    if FileExists(AddBackslash(Location) + Version + '\msedgewebview2.exe') then
+      Exit;
+  end;
+  if RegQueryStringValue(HKCU, 'Software\' + WebView2Key, 'location', Location) then begin
+    Registered := True;
+    if FileExists(AddBackslash(Location) + Version + '\msedgewebview2.exe') then
+      Exit;
+  end;
+  Result := not Registered;
+end;
+
+// '' when a usable runtime is found (or the loader cannot be asked), else what is wrong. Version: what the loader uses.
+function WebView2Problem(var Version: String): String;
+var
+  Known: Boolean;
+begin
+  Result := '';
+  Version := UsableWebView2(Known);
+  if not Known then
+    Version := '(loader check unavailable)'
+  else if Version = '' then
+    Result := 'the WebView2 loader finds no usable runtime'
+  else if not WebView2FilesThere(Version) then
+    Result := 'msedgewebview2.exe of ' + Version + ' is missing';
+end;
+
+// What to do with WebView2 (WebView2Action), from the newest registered runtime ("pv", per machine or per user) and the
+// checks above. Registered alone was not enough: Windows Sandbox (Z6, 2026-10-11) registered a 141 runtime with its files
+// that the loader could not use, so the 3D room viewer did not start. A usable runtime at least as new as the bundled
+// one is never reinstalled. The bundled installer repairs its own version (it put a missing msedgewebview2.exe back in
+// Z6), but over a newer registration it fails (-2147219187 = 0x8004090D in Z6), so a broken newer runtime is left alone
+// and reported.
+procedure DecideWebView2();
 var
   Newest, MinVersion: Int64;
+  Usable, Problem: String;
 begin
   Newest := 0;
-  Registered := 'none';
-  TakeNewerWebView2(HKLM32, 'SOFTWARE\' + WebView2Key, Newest, Registered);
-  TakeNewerWebView2(HKCU, 'Software\' + WebView2Key, Newest, Registered);
-  Result := not StrToVersion('{#WebView2MinVersion}', MinVersion) or (ComparePackedVersion(Newest, MinVersion) < 0);
+  WebView2Registered := 'none';
+  TakeNewerWebView2(HKLM32, 'SOFTWARE\' + WebView2Key, Newest, WebView2Registered);
+  TakeNewerWebView2(HKCU, 'Software\' + WebView2Key, Newest, WebView2Registered);
+  if not StrToVersion('{#WebView2MinVersion}', MinVersion) or (ComparePackedVersion(Newest, MinVersion) < 0) then begin
+    WebView2Action := WebView2Install;
+    Log('WebView2 Runtime registered: ' + WebView2Registered + ' (older than {#WebView2MinVersion} or none): install');
+    Exit;
+  end;
+  Problem := WebView2Problem(Usable);
+  if Problem = '' then begin
+    WebView2Action := WebView2Keep;
+    Log('WebView2 Runtime registered: ' + WebView2Registered + ', loader uses ' + Usable + ': keep');
+  end else if ComparePackedVersion(Newest, MinVersion) = 0 then begin
+    WebView2Action := WebView2Repair;
+    Log('WebView2 Runtime registered: ' + WebView2Registered + ', ' + Problem + ': repair with the bundled installer');
+  end else begin
+    WebView2Action := WebView2Unusable;
+    Log('WebView2 Runtime registered: ' + WebView2Registered + ', ' + Problem + ', newer than {#WebView2MinVersion}: left alone');
+  end;
+end;
+
+// Drive of Program Files (x86), where the WebView2 runtime goes.
+function WebView2Drive(): String;
+begin
+  Result := ExtractFileDrive(ExpandConstant('{commonpf32}'));
+end;
+
+// A full disk was one cause of a failed prerequisite (Z6: -2147219198 = 0x80040902).
+function FreeSpaceHint(): String;
+begin
+  Result := 'If drive ' + WebView2Drive() + ' is nearly full, free up space and run this setup again.';
+end;
+
+function PrepareToInstall(var NeedsRestart: Boolean): String;
+var
+  Free, Total: Int64;
+begin
+  Result := '';
+  DecideWebView2();
+  if ((WebView2Action = WebView2Install) or (WebView2Action = WebView2Repair)) and
+     GetSpaceOnDisk64(WebView2Drive() + '\', Free, Total) and (Free div 1048576 < {#WebView2MinFreeMB}) then begin
+    Log('Free space on drive ' + WebView2Drive() + ' ' + IntToStr(Free div 1048576) + ' MB, the WebView2 Runtime wants {#WebView2MinFreeMB} MB');
+    if SuppressibleMsgBox('Drive ' + WebView2Drive() + ' has ' + IntToStr(Free div 1048576) + ' MB free. Installing the ' +
+         'Microsoft Edge WebView2 Runtime (3D room viewer) needs about {#WebView2MinFreeMB} MB and can fail without it.' + #13#10#13#10 +
+         'Yes: install anyway. No: stop, free up space and run this setup again.',
+         mbConfirmation, MB_YESNO, IDYES) = IDNO then begin
+      Result := 'Stopped to free up space on drive ' + WebView2Drive() + '. Run this setup again afterwards.';
+      Exit;
+    end;
+  end;
+  StopAtmos();
 end;
 
 // Runs a bundled prerequisite from {tmp}. ResultCode is -1 when it could not be started.
@@ -178,7 +322,7 @@ end;
 procedure InstallPrerequisites();
 var
   ResultCode: Integer;
-  RegisteredWebView2: String;
+  Usable, Problem: String;
 begin
   if NeedsVCRuntime() then begin
     WizardForm.StatusLabel.Caption := 'Installing Microsoft Visual C++ Runtime...';
@@ -186,20 +330,50 @@ begin
     // 1638: a newer version is already installed. 3010: installed, a restart is required.
     if ResultCode = 3010 then
       PrerequisiteNeedsRestart := True
-    else if (ResultCode <> 0) and (ResultCode <> 1638) then
+    else if (ResultCode <> 0) and (ResultCode <> 1638) then begin
+      PrerequisiteFailures := PrerequisiteFailures or 1;
       SuppressibleMsgBox('Microsoft Visual C++ Runtime setup failed (code ' + IntToStr(ResultCode) + '). ' +
-        'Atmos Mixer Pro does not start until it is installed.', mbError, MB_OK, IDOK);
+        'Atmos Mixer Pro does not start until it is installed. ' + FreeSpaceHint(), mbError, MB_OK, IDOK);
+    end;
   end else
     Log('Prerequisite Visual C++ Runtime is already installed');
-  if NeedsWebView2(RegisteredWebView2) then begin
-    Log('Prerequisite WebView2 Runtime registered: ' + RegisteredWebView2 + ' (older than {#WebView2MinVersion} or none)');
+  if WebView2Action = WebView2Keep then
+    Log('Prerequisite WebView2 Runtime ' + WebView2Registered + ' is already installed (at least {#WebView2MinVersion})')
+  else if WebView2Action = WebView2Unusable then begin
+    PrerequisiteFailures := PrerequisiteFailures or 2;
+    SuppressibleMsgBox('Microsoft Edge WebView2 Runtime ' + WebView2Registered + ' is installed but cannot be used. It is ' +
+      'newer than the one in this setup ({#WebView2MinVersion}), so it was left as it is. The 3D room viewer is ' +
+      'unavailable until it is repaired with internet access: Settings > Apps > Microsoft Edge WebView2 Runtime > Modify, ' +
+      'or the installer at https://go.microsoft.com/fwlink/?linkid=2124701. The rest of the app works.', mbError, MB_OK, IDOK);
+  end else begin
     WizardForm.StatusLabel.Caption := 'Installing Microsoft Edge WebView2 Runtime...';
     RunPrerequisite('{#WebView2Exe}', '/silent /install', ResultCode);
-    if ResultCode <> 0 then
+    if ResultCode <> 0 then begin
+      PrerequisiteFailures := PrerequisiteFailures or 2;
       SuppressibleMsgBox('Microsoft Edge WebView2 Runtime setup failed (code ' + IntToStr(ResultCode) + '). ' +
-        'The 3D room viewer is unavailable until it is installed; the rest of the app works.', mbError, MB_OK, IDOK);
-  end else
-    Log('Prerequisite WebView2 Runtime ' + RegisteredWebView2 + ' is already installed (at least {#WebView2MinVersion})');
+        'The 3D room viewer is unavailable until it is installed; the rest of the app works. ' + FreeSpaceHint(),
+        mbError, MB_OK, IDOK);
+    end else begin
+      Problem := WebView2Problem(Usable);
+      if Problem <> '' then begin
+        PrerequisiteFailures := PrerequisiteFailures or 2;
+        SuppressibleMsgBox('Microsoft Edge WebView2 Runtime setup finished, but ' + Problem + '. The 3D room viewer is ' +
+          'unavailable until it is repaired with internet access: Settings > Apps > Microsoft Edge WebView2 Runtime > ' +
+          'Modify, or the installer at https://go.microsoft.com/fwlink/?linkid=2124701. The rest of the app works.',
+          mbError, MB_OK, IDOK);
+      end else
+        Log('Prerequisite WebView2 Runtime after setup: loader uses ' + Usable);
+    end;
+  end;
+end;
+
+// Setup ran to completion but a prerequisite is still missing: 101 (Visual C++), 102 (WebView2) or 103 (both), so a
+// silent or scripted install reports what the message boxes say. The log has the details.
+function GetCustomSetupExitCode(): Integer;
+begin
+  Result := 0;
+  if PrerequisiteFailures <> 0 then
+    Result := 100 + PrerequisiteFailures;
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
