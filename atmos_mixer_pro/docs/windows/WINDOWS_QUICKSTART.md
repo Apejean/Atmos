@@ -95,13 +95,13 @@ Copy-Item supervisor\target\release\atmos_supervisor.exe build\windows\x64\runne
 9. 종료 경로 — 창을 닫은 뒤 ASIO 장치가 풀리는지(2절)
 10. 프로젝트 미디어 다시 연결 — macOS에서 옮긴 폴더(9절)
 
-- 3D 방 뷰어는 Windows에서 WebView2로 뜬다(HANDOFF 남은 일 10). 스피너만 돌거나 안내 문구가 나오면 WebView2 런타임부터 본다(설치 파일이 없을 때 설치한다).
+- 3D 방 뷰어는 Windows에서 WebView2로 뜬다(HANDOFF 남은 일 10). 스피너만 돌거나 안내 문구가 나오면 WebView2 런타임부터 본다(설치 파일이 없거나 번들보다 낮으면 설치하고, 같은 버전이 손상됐으면 복구한다. 설치 로그의 "WebView2 Runtime registered" 줄).
 - 개발 PC라면 `rust\`에서 `cargo test --no-run`이 컴파일되는지도 본다(HANDOFF 12).
 
 ## 6. 사용자 결정
 
 정한 것(2026-10-08, HANDOFF 확정된 결정 "Windows 설치 파일"):
-- 설치 파일이 VC++ 런타임과 WebView2 런타임(오프라인 설치 파일)을 넣고, 없거나 오래됐을 때만 설치한다.
+- 설치 파일이 VC++ 런타임과 WebView2 런타임(오프라인 설치 파일)을 넣고, 없거나 오래됐을 때만 설치한다. WebView2는 번들 이상이 등록돼 있어도 실제로 쓸 수 있는지 보고, 같은 버전 손상은 복구한다(하네스 W4).
 - 설치 파일이 OSC 방화벽 규칙을 넣는다: 개인·도메인 네트워크는 앱의 UDP 수신 허용, 공용 네트워크는 같은 서브넷만.
 - 3D 방 뷰어는 `webview_windows`(WebView2)로 구현했다(PR #30).
 - 코드 서명은 하지 않고 현장 백신에 예외를 넣는다(7절). 나중에 서명 인증서를 살 수 있다.
