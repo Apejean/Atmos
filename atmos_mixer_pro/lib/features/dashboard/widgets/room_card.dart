@@ -7,6 +7,7 @@ import 'package:atmos_mixer_pro/src/rust/common/config.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:atmos_mixer_pro/core/state/global_state.dart';
+import 'package:atmos_mixer_pro/core/state/config_copy.dart';
 import 'package:atmos_mixer_pro/core/utils/osc_addresses.dart';
 import 'package:atmos_mixer_pro/src/rust/api/simple.dart' as rust_api;
 import 'package:atmos_mixer_pro/features/dashboard/widgets/track_play_failure.dart';
@@ -212,22 +213,7 @@ class _RoomCardState extends ConsumerState<RoomCard> {
       ref
           .read(configProvider.notifier)
           .saveConfig(
-            AppConfig(globalReverbMix: 0.0, globalReverbDecay: 1.0, oscWhitelist: const [], 
-              masterHeadroomDb: currentConfig.masterHeadroomDb,
-              peakLimiterEnabled: currentConfig.peakLimiterEnabled,
-              oscPort: currentConfig.oscPort,
-              deviceName: currentConfig.deviceName,
-              bufferSize: currentConfig.bufferSize,
-              themeStartOscAddress: currentConfig.themeStartOscAddress,
-              systemResetOscAddress: currentConfig.systemResetOscAddress,
-              monoConfigs: currentConfig.monoConfigs,
-              stereoConfigs: currentConfig.stereoConfigs,
-              multiConfigs: currentConfig.multiConfigs,
-              rooms: newRooms,
-              isExhibitionMode: currentConfig.isExhibitionMode,
-              globalTrajectory: currentConfig.globalTrajectory,
-              roomZones: currentConfig.roomZones,
-            ),
+            currentConfig.copyWith(rooms: newRooms),
           );
     }
   }
@@ -272,22 +258,7 @@ class _RoomCardState extends ConsumerState<RoomCard> {
         ref
             .read(configProvider.notifier)
             .saveConfig(
-              AppConfig(globalReverbMix: 0.0, globalReverbDecay: 1.0, oscWhitelist: const [], 
-                masterHeadroomDb: config.masterHeadroomDb,
-                peakLimiterEnabled: config.peakLimiterEnabled,
-                oscPort: config.oscPort,
-                deviceName: config.deviceName,
-                bufferSize: config.bufferSize,
-                themeStartOscAddress: config.themeStartOscAddress,
-                systemResetOscAddress: config.systemResetOscAddress,
-                monoConfigs: config.monoConfigs,
-                stereoConfigs: config.stereoConfigs,
-                multiConfigs: config.multiConfigs,
-                rooms: newRooms,
-                isExhibitionMode: config.isExhibitionMode,
-                globalTrajectory: config.globalTrajectory,
-                roomZones: config.roomZones,
-              ),
+              config.copyWith(rooms: newRooms),
             );
             
         final roomZones = ref.read(roomZoneProvider);
@@ -486,34 +457,7 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                                       ref
                                           .read(configProvider.notifier)
                                           .saveConfig(
-                                            AppConfig(globalReverbMix: 0.0, globalReverbDecay: 1.0, oscWhitelist: const [], 
-                                              masterHeadroomDb: currentConfig.masterHeadroomDb,
-                                              peakLimiterEnabled: currentConfig.peakLimiterEnabled,
-                                              oscPort: currentConfig.oscPort,
-                                              deviceName:
-                                                  currentConfig.deviceName,
-                                              bufferSize:
-                                                  currentConfig.bufferSize,
-                                              themeStartOscAddress:
-                                                  currentConfig
-                                                      .themeStartOscAddress,
-                                              systemResetOscAddress:
-                                                  currentConfig
-                                                      .systemResetOscAddress,
-                                              monoConfigs:
-                                                  currentConfig.monoConfigs,
-                                              stereoConfigs:
-                                                  currentConfig.stereoConfigs,
-                                              multiConfigs:
-                                                  currentConfig.multiConfigs,
-                                              rooms: newRooms,
-                                              isExhibitionMode: currentConfig
-                                                  .isExhibitionMode,
-                                              globalTrajectory: currentConfig
-                                                  .globalTrajectory,
-                                              roomZones:
-                                                  currentConfig.roomZones,
-                                            ),
+                                            currentConfig.copyWith(rooms: newRooms),
                                             skipPreload: true,
                                           );
                                     }
@@ -540,29 +484,7 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                                   ref
                                       .read(configProvider.notifier)
                                       .saveConfig(
-                                        AppConfig(globalReverbMix: 0.0, globalReverbDecay: 1.0, oscWhitelist: const [], 
-                                          masterHeadroomDb: currentConfig.masterHeadroomDb,
-                                          peakLimiterEnabled: currentConfig.peakLimiterEnabled,
-                                          oscPort: currentConfig.oscPort,
-                                          deviceName: currentConfig.deviceName,
-                                          bufferSize: currentConfig.bufferSize,
-                                          themeStartOscAddress: currentConfig
-                                              .themeStartOscAddress,
-                                          systemResetOscAddress: currentConfig
-                                              .systemResetOscAddress,
-                                          monoConfigs:
-                                              currentConfig.monoConfigs,
-                                          stereoConfigs:
-                                              currentConfig.stereoConfigs,
-                                          multiConfigs:
-                                              currentConfig.multiConfigs,
-                                          rooms: newRooms,
-                                          isExhibitionMode:
-                                              currentConfig.isExhibitionMode,
-                                          globalTrajectory:
-                                              currentConfig.globalTrajectory,
-                                          roomZones: currentConfig.roomZones,
-                                        ),
+                                        currentConfig.copyWith(rooms: newRooms),
                                       );
                                   ref.read(roomZoneProvider.notifier).removeRoomZone(room.id);
                                 }
@@ -787,31 +709,7 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                                     ref
                                         .read(configProvider.notifier)
                                         .saveConfig(
-                                          AppConfig(globalReverbMix: 0.0, globalReverbDecay: 1.0, oscWhitelist: const [], 
-                                            masterHeadroomDb: currentConfig.masterHeadroomDb,
-                                            peakLimiterEnabled: currentConfig.peakLimiterEnabled,
-                                              oscPort: currentConfig.oscPort,
-                                            deviceName:
-                                                currentConfig.deviceName,
-                                            bufferSize:
-                                                currentConfig.bufferSize,
-                                            themeStartOscAddress: currentConfig
-                                                .themeStartOscAddress,
-                                            systemResetOscAddress: currentConfig
-                                                .systemResetOscAddress,
-                                            monoConfigs:
-                                                currentConfig.monoConfigs,
-                                            stereoConfigs:
-                                                currentConfig.stereoConfigs,
-                                            multiConfigs:
-                                                currentConfig.multiConfigs,
-                                            rooms: newRooms,
-                                            isExhibitionMode:
-                                                currentConfig.isExhibitionMode,
-                                            globalTrajectory:
-                                                currentConfig.globalTrajectory,
-                                            roomZones: currentConfig.roomZones,
-                                          ),
+                                          currentConfig.copyWith(rooms: newRooms),
                                         );
                                   }
                                 }
@@ -865,31 +763,7 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                                     ref
                                         .read(configProvider.notifier)
                                         .saveConfig(
-                                          AppConfig(globalReverbMix: 0.0, globalReverbDecay: 1.0, oscWhitelist: const [], 
-                                            masterHeadroomDb: currentConfig.masterHeadroomDb,
-                                            peakLimiterEnabled: currentConfig.peakLimiterEnabled,
-                                              oscPort: currentConfig.oscPort,
-                                            deviceName:
-                                                currentConfig.deviceName,
-                                            bufferSize:
-                                                currentConfig.bufferSize,
-                                            themeStartOscAddress: currentConfig
-                                                .themeStartOscAddress,
-                                            systemResetOscAddress: currentConfig
-                                                .systemResetOscAddress,
-                                            monoConfigs:
-                                                currentConfig.monoConfigs,
-                                            stereoConfigs:
-                                                currentConfig.stereoConfigs,
-                                            multiConfigs:
-                                                currentConfig.multiConfigs,
-                                            rooms: newRooms,
-                                            isExhibitionMode:
-                                                currentConfig.isExhibitionMode,
-                                            globalTrajectory:
-                                                currentConfig.globalTrajectory,
-                                            roomZones: currentConfig.roomZones,
-                                          ),
+                                          currentConfig.copyWith(rooms: newRooms),
                                           skipPreload: true,
                                         );
                                   }
@@ -937,31 +811,7 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                                     ref
                                         .read(configProvider.notifier)
                                         .saveConfig(
-                                          AppConfig(globalReverbMix: 0.0, globalReverbDecay: 1.0, oscWhitelist: const [], 
-                                            masterHeadroomDb: currentConfig.masterHeadroomDb,
-                                            peakLimiterEnabled: currentConfig.peakLimiterEnabled,
-                                              oscPort: currentConfig.oscPort,
-                                            deviceName:
-                                                currentConfig.deviceName,
-                                            bufferSize:
-                                                currentConfig.bufferSize,
-                                            themeStartOscAddress: currentConfig
-                                                .themeStartOscAddress,
-                                            systemResetOscAddress: currentConfig
-                                                .systemResetOscAddress,
-                                            monoConfigs:
-                                                currentConfig.monoConfigs,
-                                            stereoConfigs:
-                                                currentConfig.stereoConfigs,
-                                            multiConfigs:
-                                                currentConfig.multiConfigs,
-                                            rooms: newRooms,
-                                            isExhibitionMode:
-                                                currentConfig.isExhibitionMode,
-                                            globalTrajectory:
-                                                currentConfig.globalTrajectory,
-                                            roomZones: currentConfig.roomZones,
-                                          ),
+                                          currentConfig.copyWith(rooms: newRooms),
                                         );
                                   }
                                 }
@@ -1008,31 +858,7 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                                     ref
                                         .read(configProvider.notifier)
                                         .saveConfig(
-                                          AppConfig(globalReverbMix: 0.0, globalReverbDecay: 1.0, oscWhitelist: const [], 
-                                            masterHeadroomDb: currentConfig.masterHeadroomDb,
-                                            peakLimiterEnabled: currentConfig.peakLimiterEnabled,
-                                              oscPort: currentConfig.oscPort,
-                                            deviceName:
-                                                currentConfig.deviceName,
-                                            bufferSize:
-                                                currentConfig.bufferSize,
-                                            themeStartOscAddress: currentConfig
-                                                .themeStartOscAddress,
-                                            systemResetOscAddress: currentConfig
-                                                .systemResetOscAddress,
-                                            monoConfigs:
-                                                currentConfig.monoConfigs,
-                                            stereoConfigs:
-                                                currentConfig.stereoConfigs,
-                                            multiConfigs:
-                                                currentConfig.multiConfigs,
-                                            rooms: newRooms,
-                                            isExhibitionMode:
-                                                currentConfig.isExhibitionMode,
-                                            globalTrajectory:
-                                                currentConfig.globalTrajectory,
-                                            roomZones: currentConfig.roomZones,
-                                          ),
+                                          currentConfig.copyWith(rooms: newRooms),
                                         );
                                   }
                                 }
@@ -1079,31 +905,7 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                                     ref
                                         .read(configProvider.notifier)
                                         .saveConfig(
-                                          AppConfig(globalReverbMix: 0.0, globalReverbDecay: 1.0, oscWhitelist: const [], 
-                                            masterHeadroomDb: currentConfig.masterHeadroomDb,
-                                            peakLimiterEnabled: currentConfig.peakLimiterEnabled,
-                                              oscPort: currentConfig.oscPort,
-                                            deviceName:
-                                                currentConfig.deviceName,
-                                            bufferSize:
-                                                currentConfig.bufferSize,
-                                            themeStartOscAddress: currentConfig
-                                                .themeStartOscAddress,
-                                            systemResetOscAddress: currentConfig
-                                                .systemResetOscAddress,
-                                            monoConfigs:
-                                                currentConfig.monoConfigs,
-                                            stereoConfigs:
-                                                currentConfig.stereoConfigs,
-                                            multiConfigs:
-                                                currentConfig.multiConfigs,
-                                            rooms: newRooms,
-                                            isExhibitionMode:
-                                                currentConfig.isExhibitionMode,
-                                            globalTrajectory:
-                                                currentConfig.globalTrajectory,
-                                            roomZones: currentConfig.roomZones,
-                                          ),
+                                          currentConfig.copyWith(rooms: newRooms),
                                         );
                                   }
                                 }
@@ -1156,31 +958,7 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                                     ref
                                         .read(configProvider.notifier)
                                         .saveConfig(
-                                          AppConfig(globalReverbMix: 0.0, globalReverbDecay: 1.0, oscWhitelist: const [], 
-                                            masterHeadroomDb: currentConfig.masterHeadroomDb,
-                                            peakLimiterEnabled: currentConfig.peakLimiterEnabled,
-                                              oscPort: currentConfig.oscPort,
-                                            deviceName:
-                                                currentConfig.deviceName,
-                                            bufferSize:
-                                                currentConfig.bufferSize,
-                                            themeStartOscAddress: currentConfig
-                                                .themeStartOscAddress,
-                                            systemResetOscAddress: currentConfig
-                                                .systemResetOscAddress,
-                                            monoConfigs:
-                                                currentConfig.monoConfigs,
-                                            stereoConfigs:
-                                                currentConfig.stereoConfigs,
-                                            multiConfigs:
-                                                currentConfig.multiConfigs,
-                                            rooms: newRooms,
-                                            isExhibitionMode:
-                                                currentConfig.isExhibitionMode,
-                                            globalTrajectory:
-                                                currentConfig.globalTrajectory,
-                                            roomZones: currentConfig.roomZones,
-                                          ),
+                                          currentConfig.copyWith(rooms: newRooms),
                                           skipPreload: true,
                                         );
                                   }
