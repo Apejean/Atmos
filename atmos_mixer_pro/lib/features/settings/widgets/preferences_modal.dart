@@ -10,6 +10,7 @@ import 'package:atmos_mixer_pro/src/rust/common/config.dart';
 import 'package:atmos_mixer_pro/src/rust/api/simple.dart' as rust_api;
 import 'package:atmos_mixer_pro/core/utils/channel_dropdown_helper.dart';
 import 'package:atmos_mixer_pro/core/utils/channel_routing.dart';
+import 'package:atmos_mixer_pro/core/utils/osc_addresses.dart';
 
 
 class PreferencesModal extends ConsumerStatefulWidget {
@@ -1511,7 +1512,12 @@ oscWhitelist: _tempConfig.oscWhitelist,
     );
   }
 
+  /// 같은 주소가 다른 곳에도 있으면 알린다. 앱은 마지막에 등록된 하나만 반응한다(core/utils/osc_addresses.dart).
+  String? _oscDuplicateNote(String address, Set<String> duplicates) =>
+      duplicates.contains(address) ? '다른 곳과 같은 주소 — 마지막 하나만 반응합니다' : null;
+
   Widget _buildOscTab() {
+    final duplicates = duplicateOscAddresses(_tempConfig);
     return ListView(
       padding: const EdgeInsets.all(16.0),
       children: [
@@ -1521,6 +1527,11 @@ oscWhitelist: _tempConfig.oscWhitelist,
             color: AppColors.primaryNeon,
             fontWeight: FontWeight.bold,
           ),
+        ),
+        const SizedBox(height: 4),
+        const Text(
+          '보내는 쪽은 주소를 글자 그대로, 0보다 큰 값을 붙여 보내야 합니다(예: /room1/track1/play 1). 방 볼륨은 메인 화면에서 조절합니다.',
+          style: TextStyle(color: Colors.white54, fontSize: 12),
         ),
         const SizedBox(height: 8),
         Container(
@@ -1547,9 +1558,10 @@ oscWhitelist: _tempConfig.oscWhitelist,
                 child: TextFormField(
                   initialValue: _tempConfig.themeStartOscAddress,
                   style: const TextStyle(color: Colors.white),
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     isDense: true,
                     hintText: '예: /theme/start (전체 리셋 및 1번 룸 시작)',
+                    errorText: _oscDuplicateNote(_tempConfig.themeStartOscAddress, duplicates),
                   ),
                   onChanged: (val) {
                     setState(() {
@@ -1603,9 +1615,10 @@ oscWhitelist: _tempConfig.oscWhitelist,
                 child: TextFormField(
                   initialValue: _tempConfig.systemResetOscAddress,
                   style: const TextStyle(color: Colors.white),
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     isDense: true,
                     hintText: '예: /system/reset (재생 정지 및 초기화)',
+                    errorText: _oscDuplicateNote(_tempConfig.systemResetOscAddress, duplicates),
                   ),
                   onChanged: (val) {
                     setState(() {
@@ -1672,9 +1685,10 @@ oscWhitelist: _tempConfig.oscWhitelist,
                       child: TextFormField(
                         initialValue: room.clearOscAddress,
                         style: const TextStyle(color: Colors.white),
-                        decoration: const InputDecoration(
+                        decoration: InputDecoration(
                           isDense: true,
                           hintText: '예: /room1/clear',
+                          errorText: _oscDuplicateNote(room.clearOscAddress, duplicates),
                         ),
                         onChanged: (val) {
                           final newRooms = List<RoomConfig>.from(
@@ -1717,70 +1731,6 @@ oscWhitelist: _tempConfig.oscWhitelist,
                     ),
                   ],
                 ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    const SizedBox(
-                      width: 80,
-                      child: Text(
-                        '볼륨 마스터',
-                        style: TextStyle(
-                          color: AppColors.primaryNeon,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                    Expanded(
-                      child: Tooltip(
-                        message: '0.0~1.0 float 값을 수신합니다',
-                        child: TextFormField(
-                          initialValue: room.volumeOscAddress,
-                          style: const TextStyle(color: Colors.white),
-                          decoration: const InputDecoration(
-                            isDense: true,
-                            hintText: '예: /room1/volume',
-                          ),
-                          onChanged: (val) {
-                          final newRooms = List<RoomConfig>.from(
-                            _tempConfig.rooms,
-                          );
-                          newRooms[rIndex] = RoomConfig(
-                            id: room.id,
-                            name: room.name,
-                            colorHex: room.colorHex,
-                            volume: room.volume,
-                            clearOscAddress: room.clearOscAddress,
-                            volumeOscAddress: val,
-                            tracks: room.tracks,
-                          );
-                          setState(() {
-                            _tempConfig = AppConfig(globalReverbMix: 0.0, globalReverbDecay: 1.0, 
-                              oscWhitelist: _tempConfig.oscWhitelist,
-                              oscPort: _tempConfig.oscPort,
-                              deviceName: _tempConfig.deviceName,
-                              bufferSize: _tempConfig.bufferSize,
-                              themeStartOscAddress:
-                                  _tempConfig.themeStartOscAddress,
-                              systemResetOscAddress:
-                                  _tempConfig.systemResetOscAddress,
-                              monoConfigs: _tempConfig.monoConfigs,
-                              stereoConfigs: _tempConfig.stereoConfigs,
-                              multiConfigs: _tempConfig.multiConfigs,
-                              rooms: newRooms,
-                              isExhibitionMode: _tempConfig.isExhibitionMode,
-                              masterHeadroomDb: _tempConfig.masterHeadroomDb,
-                              peakLimiterEnabled:
-                                  _tempConfig.peakLimiterEnabled,
-                              globalTrajectory: _tempConfig.globalTrajectory,
-                              roomZones: _tempConfig.roomZones,
-                            );
-                          });
-                        },
-                      ),
-                    ),
-                  ),
-                ],
-              ),
                 const Divider(color: AppColors.darkGrey),
                 ...room.tracks.asMap().entries.map((entry) {
                   final tIndex = entry.key;
@@ -1802,14 +1752,15 @@ oscWhitelist: _tempConfig.oscWhitelist,
                           child: TextFormField(
                             initialValue: track.playOscAddress,
                             style: const TextStyle(color: Colors.white),
-                            decoration: const InputDecoration(
+                            decoration: InputDecoration(
                               isDense: true,
-                              prefixIcon: Icon(
+                              prefixIcon: const Icon(
                                 Icons.play_arrow,
                                 color: Colors.green,
                                 size: 16,
                               ),
                               hintText: 'Play OSC',
+                              errorText: _oscDuplicateNote(track.playOscAddress, duplicates),
                             ),
                             onChanged: (val) {
                               final newRooms = List<RoomConfig>.from(
@@ -1873,14 +1824,15 @@ oscWhitelist: _tempConfig.oscWhitelist,
                           child: TextFormField(
                             initialValue: track.stopOscAddress,
                             style: const TextStyle(color: Colors.white),
-                            decoration: const InputDecoration(
+                            decoration: InputDecoration(
                               isDense: true,
-                              prefixIcon: Icon(
+                              prefixIcon: const Icon(
                                 Icons.stop,
                                 color: Colors.red,
                                 size: 16,
                               ),
                               hintText: 'Stop OSC',
+                              errorText: _oscDuplicateNote(track.stopOscAddress, duplicates),
                             ),
                             onChanged: (val) {
                               final newRooms = List<RoomConfig>.from(

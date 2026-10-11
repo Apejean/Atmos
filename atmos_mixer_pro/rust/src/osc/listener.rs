@@ -308,22 +308,6 @@ fn handle_packet(packet: OscPacket, debouncer: &OscDebouncer) {
                             crate::core::state::GLOBAL_STATE.set_active_room(None);
                         }
                     }
-                    OscAction::SetMasterVolume(room_id) => {
-                        if let Some(arg) = msg.args.get(0) {
-                            let vol = match arg {
-                                rosc::OscType::Float(f) => *f,
-                                rosc::OscType::Double(d) => *d as f32,
-                                rosc::OscType::Int(i) => *i as f32,
-                                _ => 0.0,
-                            };
-                            let _ = crate::core::state::GLOBAL_STATE.command_sender.send(
-                                crate::common::commands::AudioCommand::SetMasterVolume {
-                                    room_id: hash_id(&room_id),
-                                    volume: vol.clamp(0.0, 1.0),
-                                },
-                            );
-                        }
-                    }
                     OscAction::PlayTrack(room_id, track_id) => {
                         if !check_gating(&room_id, config.is_exhibition_mode) {
                             return;

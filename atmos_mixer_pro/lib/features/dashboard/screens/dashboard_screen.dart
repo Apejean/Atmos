@@ -12,6 +12,7 @@ import 'package:atmos_mixer_pro/core/theme/colors.dart';
 import 'package:atmos_mixer_pro/core/state/global_state.dart';
 import 'package:atmos_mixer_pro/core/utils/channel_routing.dart';
 import 'package:atmos_mixer_pro/core/utils/log_export_dir.dart';
+import 'package:atmos_mixer_pro/core/utils/osc_addresses.dart';
 import 'package:atmos_mixer_pro/features/dashboard/widgets/room_card.dart';
 import 'package:atmos_mixer_pro/features/settings/widgets/preferences_modal.dart';
 import 'package:atmos_mixer_pro/features/settings/widgets/tuning_modal.dart';
@@ -929,8 +930,9 @@ oscWhitelist: config.oscWhitelist,
                       name: '새로운 룸',
                       colorHex: colorHex,
                       volume: 1.0,
-                      clearOscAddress: '/room/clear',
-                      volumeOscAddress: '/room/volume',
+                      // 겹치지 않는 비우기 주소. 방 볼륨 OSC는 쓰지 않는다(core/utils/osc_addresses.dart).
+                      clearOscAddress: newRoomClearAddress(config),
+                      volumeOscAddress: '',
                       tracks: [],
                     );
                     final updated = AppConfig(globalReverbMix: 0.0, globalReverbDecay: 1.0, 
