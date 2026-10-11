@@ -324,7 +324,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         folderName: name,
         config: config,
         design: await collectExhibitionData(),
-        saveConfig: (path, cfg) => rust_api.apiSaveConfig(path: path, config: cfg),
+        // 파일만 쓴다. apiSaveConfig는 엔진의 지금 설정까지 바꿔 지금 프로젝트가 복사본을 가리키게 됐다.
+        saveConfig: (path, cfg) => project_api.apiWriteProjectFile(path: path, config: cfg),
         onProgress: (done, total, file) => status.value =
             file.isEmpty ? '프로젝트 파일을 쓰는 중...' : '파일 복사 ${done + 1}/$total: $file',
       );
