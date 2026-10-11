@@ -670,6 +670,14 @@ impl AudioEngine {
             }
         };
 
+        // ASIO면 cpal이 방금 연 이 드라이버에 출력 채널 이름을 물어 둔다(장치 목록이 쓴다, channel_names).
+        #[cfg(target_os = "windows")]
+        if target_prefix == Some("[ASIO]") {
+            if let Ok(driver_name) = device.name() {
+                crate::audio::channel_names::remember_asio_output_names(&driver_name);
+            }
+        }
+
         stream.play().map_err(|e| e.to_string())?;
 
         self.stream = Some(stream);

@@ -42,8 +42,9 @@ void main() {
     globalReverbDecay: 1.0,
   );
 
+  // 이름을 모르는 장치: 백엔드가 채우는 기본값이라 라벨에 붙지 않는다(hardwareChannelName).
   List<String> hw(int n) =>
-      List.generate(n, (i) => 'Ch ${i + 1}');
+      List.generate(n, (i) => 'Channel ${i + 1}');
 
   group('Output Config가 비어있을 때(하위호환 자동 생성)', () {
     test('모노 파일: 하드웨어 채널마다 Mono 항목 1개씩만 생성된다', () {
@@ -386,9 +387,74 @@ void main() {
 
       expect(items.length, 2);
       expect(items[0].realChannel0, 0);
-      expect(items[0].label, 'Mono (Ch-1)');
+      expect(items[0].label, 'Mono (Ch-1) · Out 1');
       expect(items[1].realChannel0, 1);
-      expect(items[1].label, 'Mono (Ch-2)');
+      expect(items[1].label, 'Mono (Ch-2) · Out 2');
+    });
+  });
+
+  group('장치 채널 이름을 출력 목록 라벨에 붙인다', () {
+    // RME ASIO MADIface USB의 이름(2026-10-11 Windows 실기). 모든 채널에 같은 장치 번호 꼬리 " (1)"은 엔진이 뗀다.
+    final rme = [
+      for (var i = 1; i <= 12; i++) 'Analog $i',
+      'AES 1',
+      'AES 2',
+      for (var i = 1; i <= 4; i++) 'ADAT $i',
+    ];
+
+    test('모노는 그 채널 이름, 스테레오는 두 이름을 숫자만 묶어서', () {
+      final mono = buildChannelRoutingItems(
+        channelNames: rme,
+        config: config(),
+        fileChannels: 1,
+      );
+      expect(mono.first.label, 'Mono (Ch-1) · Analog 1');
+
+      final stereo = buildChannelRoutingItems(
+        channelNames: rme,
+        config: config(),
+        fileChannels: 2,
+      ).where((e) => ChannelDropdownValueHelper.isStereo(e.value)).toList();
+      expect(stereo[0].label, 'Stereo (Ch-1/Ch-2) · Analog 1/2');
+      // 묶을 수 없는 쌍(Analog 12 + AES 1)은 두 이름을 그대로 잇는다.
+      expect(stereo[11].label, 'Stereo (Ch-12/Ch-13) · Analog 12 / AES 1');
+    });
+
+    test('N-Ch는 처음~끝 이름, 사용자 이름은 장치 이름 앞에', () {
+      final multi = buildChannelRoutingItems(
+        channelNames: rme,
+        config: config(multi: {15: setting(customName: 'Ceiling')}),
+        fileChannels: 4,
+      );
+      expect(multi.single.label, 'N-Ch (Ch-15~18) (Ceiling) · ADAT 1~4');
+
+      final stereo = buildChannelRoutingItems(
+        channelNames: rme,
+        config: config(stereo: {1: setting(customName: 'Front')}),
+        fileChannels: 2,
+      ).where((e) => ChannelDropdownValueHelper.isStereo(e.value)).single;
+      expect(stereo.label, 'Stereo (Ch-1/Ch-2) (Front) · Analog 1/2');
+    });
+
+    test('부분 출력 표시는 장치 이름 뒤에 남는다', () {
+      final items = buildChannelRoutingItems(
+        channelNames: ['Line 1', 'Line 2'],
+        config: config(),
+        fileChannels: 4,
+      );
+      expect(items.single.label, 'N-Ch (Ch-1~2) · Line 1~2 · 부분 출력 2/4ch (나머지 무시됨)');
+    });
+
+    test('범위 이름 묶기: 같은 이름, 한쪽만 있음, 기본값', () {
+      expect(hardwareRangeName(['Line 3', 'Line 4'], 0, 1), 'Line 3/4');
+      // 여러 대를 묶어 장치 번호가 남은 이름도 숫자 하나만 다르면 묶는다.
+      expect(hardwareRangeName(['Analog 1 (2)', 'Analog 2 (2)'], 0, 1), 'Analog 1/2 (2)');
+      expect(hardwareRangeName(['Main', 'Main'], 0, 1), 'Main');
+      expect(hardwareRangeName(['Main', 'Channel 2'], 0, 1), 'Main');
+      expect(hardwareRangeName(['Channel 1', 'Channel 2'], 0, 1), '');
+      expect(hardwareChannelName(['Channel 1'], 0), '');
+      expect(hardwareChannelName(['Channel 1'], 1), '');
+      expect(withHardwareName('Mono (Ch-1)', ''), 'Mono (Ch-1)');
     });
   });
 
@@ -417,6 +483,15 @@ void main() {
       expect(isPhysicalOutputChannel('Dante Out 12'), isTrue);
       expect(isPhysicalOutputChannel('Channel 7'), isTrue); // Windows 기본 이름
       expect(isPhysicalOutputChannel(''), isTrue);
+    });
+
+    test('RME ASIO 드라이버(ASIO MADIface USB)가 실제로 준 이름은 물리다', () {
+      // 2026-10-11 Windows 실기(diag_asio_channel_names): 출력 94채널, 끝의 "(1)"은 RME 장치 번호.
+      expect(isPhysicalOutputChannel('Analog 1 (1)'), isTrue);
+      expect(isPhysicalOutputChannel('Analog 12 (1)'), isTrue);
+      expect(isPhysicalOutputChannel('AES 1 (1)'), isTrue);
+      expect(isPhysicalOutputChannel('ADAT 16 (1)'), isTrue);
+      expect(isPhysicalOutputChannel('MADI 1 (1)'), isTrue);
     });
 
     test('물리 단자 이름으로도 흔한 단어는 가상으로 보지 않는다', () {

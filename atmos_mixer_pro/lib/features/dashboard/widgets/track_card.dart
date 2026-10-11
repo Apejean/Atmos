@@ -149,6 +149,7 @@ class _TrackCardState extends ConsumerState<TrackCard> {
           value: item.value,
           child: Text(
             item.label,
+            overflow: TextOverflow.ellipsis,
             style: TextStyle(
               fontSize: 12,
               // 부분 출력(파일 채널 수 > 하드웨어 채널 수)은 정상 동작이지만
@@ -336,8 +337,11 @@ class _TrackCardState extends ConsumerState<TrackCard> {
                             ),
                           )
                         else
-                        DropdownButtonHideUnderline(
+                        // 장치 채널 이름이 붙은 라벨은 길어서, 남은 폭을 채우고 넘치면 줄인다.
+                        Expanded(
+                          child: DropdownButtonHideUnderline(
                           child: DropdownButton<String>(
+                            isExpanded: true,
                             value: currentValue,
                             items: outputItems,
                             dropdownColor: AppColors.cardSurfaceSolid,
@@ -349,6 +353,7 @@ class _TrackCardState extends ConsumerState<TrackCard> {
                                 if (key != null) widget.onOutputChanged?.call(key, isStereo);
                               }
                             },
+                          ),
                           ),
                         ),
                       ],

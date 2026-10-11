@@ -1685,11 +1685,14 @@ class _OutputConfigDialogState extends ConsumerState<OutputConfigDialog> {
     return starts;
   }
 
+  /// [hardwareName]: 장치가 준 채널 이름. 채널 버튼(80px)에는 들어가지 않아 옆 이름 칸의 흐린 안내
+  /// 글씨로 보인다(사용자 이름을 넣으면 그 이름이 보인다).
   Widget _buildChannelRow(
     String label,
     ChannelSetting setting,
-    ValueChanged<ChannelSetting> onChanged,
-  ) {
+    ValueChanged<ChannelSetting> onChanged, {
+    String hardwareName = '',
+  }) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 8.0),
       child: Row(
@@ -1730,6 +1733,8 @@ class _OutputConfigDialogState extends ConsumerState<OutputConfigDialog> {
                 initialValue: setting.customName,
                 style: const TextStyle(color: Colors.white, fontSize: 14),
                 decoration: InputDecoration(
+                  hintText: hardwareName.isEmpty ? null : hardwareName,
+                  hintStyle: const TextStyle(color: Colors.white38, fontSize: 14),
                   contentPadding: const EdgeInsets.symmetric(
                     horizontal: 8,
                     vertical: 0,
@@ -1840,13 +1845,19 @@ class _OutputConfigDialogState extends ConsumerState<OutputConfigDialog> {
                                     eqBands: [],
                                   );
 
-                              return _buildChannelRow('$displayCh1', setting, (
-                                newSetting,
-                              ) {
-                                setState(() {
-                                  monoConfigs[key] = newSetting;
-                                });
-                              });
+                              return _buildChannelRow(
+                                '$displayCh1',
+                                setting,
+                                (newSetting) {
+                                  setState(() {
+                                    monoConfigs[key] = newSetting;
+                                  });
+                                },
+                                hardwareName: hardwareChannelName(
+                                  widget.channelNames,
+                                  chStart,
+                                ),
+                              );
                             },
                           ),
                         ),
@@ -1897,6 +1908,11 @@ class _OutputConfigDialogState extends ConsumerState<OutputConfigDialog> {
                                     stereoConfigs[key] = newSetting;
                                   });
                                 },
+                                hardwareName: hardwareRangeName(
+                                  widget.channelNames,
+                                  chStart,
+                                  chStart + 1,
+                                ),
                               );
                             },
                           ),
@@ -1945,6 +1961,10 @@ class _OutputConfigDialogState extends ConsumerState<OutputConfigDialog> {
                                     multiConfigs[key] = newSetting;
                                   });
                                 },
+                                hardwareName: hardwareChannelName(
+                                  widget.channelNames,
+                                  chStart,
+                                ),
                               );
                             },
                           ),
