@@ -6,10 +6,10 @@
 # 사용: powershell -NoProfile -ExecutionPolicy Bypass -File <이 파일> [-Force]
 # 결과: atmos_mixer_pro\windows\redist\ 에 세 파일과 redist.txt(크기·버전·SHA256·서명). 있는 파일은 -Force 없이는 다시 받지 않는다.
 #       Microsoft 서명이 유효하지 않은 파일은 지우고 exit 1. 이 폴더는 커밋하지 않는다(.gitignore).
+#       받을 폴더는 이 스크립트 위치로 찾으므로 CI(GitHub Actions 릴리스)에서도 그대로 쓴다.
 param([switch]$Force)
-. (Join-Path $PSScriptRoot 'env.ps1')
 $ProgressPreference = 'SilentlyContinue'   # 진행 막대가 있으면 큰 파일 받기가 매우 느리다
-$dir = Join-Path $Atmos.App 'windows\redist'
+$dir = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..\windows\redist'))
 $items = @(
   @{ Name = 'VC_redist.x64.exe'; Url = 'https://aka.ms/vc14/vc_redist.x64.exe' },
   @{ Name = 'MicrosoftEdgeWebView2RuntimeInstallerX64.exe'; Url = 'https://go.microsoft.com/fwlink/?linkid=2124701' },
