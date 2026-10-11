@@ -109,7 +109,7 @@ Copy-Item supervisor\target\release\atmos_supervisor.exe build\windows\x64\runne
 남은 것:
 - v1.1.3 태그와 `main`의 버전 차이(현장에 설치된 버전 확인)
 - Windows CI에 `cargo test`(`--no-run`) 단계 추가
-- ASIO 채널 이름(보류)
+- ASIO 채널 이름: 엔진이 연 드라이버에서 읽는다(2026-10-11, HANDOFF 9)
 - 앱 데이터 폴더 이름(`com.example`)
 
 ## 7. 현장 PC 준비 (설치 전에)
