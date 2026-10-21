@@ -27,6 +27,10 @@ pub struct GlobalEngineState {
     pub command_receiver: crossbeam_channel::Receiver<AudioCommand>,
 
     pub active_room_id: RwLock<Option<String>>,
+    /// 테마 화면 상태(대시보드 방 카드의 잠금·클리어 표시). Start 버튼과 OSC 테마 시작이 같게 보이도록 엔진이
+    /// 갖고 상태 스트림으로 알린다(2026-10-12 사용자 결정). 전시 모드가 아닌 테마 시작에서 켜지고, 전체 정지에서 꺼진다.
+    pub theme_started: AtomicBool,
+    pub cleared_room_ids: RwLock<Vec<String>>,
     pub is_ducking: AtomicBool,
     pub enabled_channels: Vec<AtomicBool>,
     // VU levels for up to 4096 output channels, stored as f32 bits
@@ -110,6 +114,8 @@ impl GlobalEngineState {
             command_sender: sender,
             command_receiver: receiver,
             active_room_id: RwLock::new(None),
+            theme_started: AtomicBool::new(false),
+            cleared_room_ids: RwLock::new(Vec::new()),
             is_ducking: AtomicBool::new(false),
             enabled_channels: enabled,
             vu_levels: vu,
@@ -168,10 +174,26 @@ impl GlobalEngineState {
             output_channel_count: self.active_device_channels.load(Ordering::Relaxed),
             short_term_lufs: f32::from_bits(self.current_master_lufs.load(Ordering::Relaxed)),
             gain_reduction_db: f32::from_bits(self.current_gain_reduction_db.load(Ordering::Relaxed)),
+            theme_started: self.theme_started.load(Ordering::Relaxed),
+            cleared_room_ids: self.cleared_room_ids.read().unwrap_or_else(|e| e.into_inner()).clone(),
         };
 
         if let Some(sink) = self.state_sink.read().unwrap_or_else(|e| e.into_inner()).as_ref() {
             let _ = sink.add(update);
+        }
+    }
+
+    /// 테마 시작(true)·전체 정지(false). 클리어한 방 목록도 비운다. 알림은 부른 쪽의 다음 broadcast_state가 한다.
+    pub fn set_theme_started(&self, started: bool) {
+        self.theme_started.store(started, Ordering::Relaxed);
+        self.cleared_room_ids.write().unwrap_or_else(|e| e.into_inner()).clear();
+    }
+
+    /// 방 클리어(대시보드 버튼·OSC). 알림은 부른 쪽의 다음 broadcast_state가 한다.
+    pub fn mark_room_cleared(&self, room_id: &str) {
+        let mut cleared = self.cleared_room_ids.write().unwrap_or_else(|e| e.into_inner());
+        if !cleared.iter().any(|r| r == room_id) {
+            cleared.push(room_id.to_string());
         }
     }
 

@@ -3130,6 +3130,8 @@ impl SseDecode for crate::api::simple::EngineStateUpdate {
         let mut var_outputChannelCount = <u32>::sse_decode(deserializer);
         let mut var_shortTermLufs = <f32>::sse_decode(deserializer);
         let mut var_gainReductionDb = <f32>::sse_decode(deserializer);
+        let mut var_themeStarted = <bool>::sse_decode(deserializer);
+        let mut var_clearedRoomIds = <Vec<String>>::sse_decode(deserializer);
         return crate::api::simple::EngineStateUpdate {
             active_room_id: var_activeRoomId,
             ducking_active: var_duckingActive,
@@ -3138,6 +3140,8 @@ impl SseDecode for crate::api::simple::EngineStateUpdate {
             output_channel_count: var_outputChannelCount,
             short_term_lufs: var_shortTermLufs,
             gain_reduction_db: var_gainReductionDb,
+            theme_started: var_themeStarted,
+            cleared_room_ids: var_clearedRoomIds,
         };
     }
 }
@@ -4103,6 +4107,8 @@ impl flutter_rust_bridge::IntoDart for crate::api::simple::EngineStateUpdate {
             self.output_channel_count.into_into_dart().into_dart(),
             self.short_term_lufs.into_into_dart().into_dart(),
             self.gain_reduction_db.into_into_dart().into_dart(),
+            self.theme_started.into_into_dart().into_dart(),
+            self.cleared_room_ids.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
@@ -4569,6 +4575,8 @@ impl SseEncode for crate::api::simple::EngineStateUpdate {
         <u32>::sse_encode(self.output_channel_count, serializer);
         <f32>::sse_encode(self.short_term_lufs, serializer);
         <f32>::sse_encode(self.gain_reduction_db, serializer);
+        <bool>::sse_encode(self.theme_started, serializer);
+        <Vec<String>>::sse_encode(self.cleared_room_ids, serializer);
     }
 }
 

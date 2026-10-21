@@ -439,6 +439,10 @@ class EngineStateUpdate {
   final double shortTermLufs;
   final double gainReductionDb;
 
+  /// 테마 화면 상태(GLOBAL_STATE.theme_started·cleared_room_ids). Start 버튼과 OSC 테마 시작이 같게 보인다.
+  final bool themeStarted;
+  final List<String> clearedRoomIds;
+
   const EngineStateUpdate({
     this.activeRoomId,
     required this.duckingActive,
@@ -447,6 +451,8 @@ class EngineStateUpdate {
     required this.outputChannelCount,
     required this.shortTermLufs,
     required this.gainReductionDb,
+    required this.themeStarted,
+    required this.clearedRoomIds,
   });
 
   @override
@@ -457,7 +463,9 @@ class EngineStateUpdate {
       engineError.hashCode ^
       outputChannelCount.hashCode ^
       shortTermLufs.hashCode ^
-      gainReductionDb.hashCode;
+      gainReductionDb.hashCode ^
+      themeStarted.hashCode ^
+      clearedRoomIds.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -470,7 +478,9 @@ class EngineStateUpdate {
           engineError == other.engineError &&
           outputChannelCount == other.outputChannelCount &&
           shortTermLufs == other.shortTermLufs &&
-          gainReductionDb == other.gainReductionDb;
+          gainReductionDb == other.gainReductionDb &&
+          themeStarted == other.themeStarted &&
+          clearedRoomIds == other.clearedRoomIds;
 }
 
 class OutputDeviceInfo {

@@ -1,7 +1,7 @@
 //! 테마 시작(api::show::api_theme_start). 대시보드 Start 버튼, OSC 테마 시작, 감시가 다시 띄운 앱이 이어 갈 수
 //! 없을 때가 모두 이 함수를 쓴다. 전역 상태를 쓰므로 테스트는 하나다.
 use rust_lib_atmos_mixer_pro::api::show::api_theme_start;
-use rust_lib_atmos_mixer_pro::api::simple::{api_play_track, api_set_active_room};
+use rust_lib_atmos_mixer_pro::api::simple::{api_clear_room, api_play_track, api_set_active_room};
 use rust_lib_atmos_mixer_pro::audio::player::SoundData;
 use rust_lib_atmos_mixer_pro::common::commands::AudioCommand;
 use rust_lib_atmos_mixer_pro::common::config::{AppConfig, RoomConfig, TrackConfig};
@@ -108,6 +108,10 @@ fn 테마_시작은_전체_정지_뒤_전시_모드면_모든_방_아니면_첫_
         .collect();
     assert_eq!(plays.iter().map(|(_, t)| t.as_str()).collect::<Vec<_>>(), vec!["la"]);
     assert!(plays[0].0 > stop_all_at, "재생 명령이 전체 정지보다 먼저 나갔다");
+    // 화면의 테마 상태도 엔진이 갖는다(버튼·OSC 어느 쪽으로 시작해도 같게 보인다)
+    assert!(GLOBAL_STATE.theme_started.load(Ordering::SeqCst), "전시 모드가 아닌 테마 시작은 테마 시작됨을 켠다");
+    api_clear_room("a".into()).unwrap();
+    assert_eq!(*GLOBAL_STATE.cleared_room_ids.read().unwrap(), vec!["a".to_string()], "비운 방이 클리어 표시에 실린다");
 
     // 전시 모드: Start 버튼처럼 모든 방의 루프를 튼다(활성 방은 두지 않는다). 루프 재생이 실패해도 나머지는 다 틀고,
     // 실패한 트랙 이름을 Err로 알린다.
@@ -125,6 +129,8 @@ fn 테마_시작은_전체_정지_뒤_전시_모드면_모든_방_아니면_첫_
     assert!(err.message.contains("lx"), "실패한 트랙 이름이 없다: {}", err.message);
     assert_eq!(*GLOBAL_STATE.active_room_id.read().unwrap(), None);
     assert_eq!(playing(), vec!["la".to_string(), "lb".to_string()], "모든 방의 루프가 재생 목록에 있어야 한다");
+    assert!(!GLOBAL_STATE.theme_started.load(Ordering::SeqCst), "전시 모드 테마 시작은 테마 시작됨을 켜지 않는다");
+    assert!(GLOBAL_STATE.cleared_room_ids.read().unwrap().is_empty(), "테마 시작은 클리어 표시를 비운다");
 
     // 방이 없으면 정지만 한다
     *GLOBAL_STATE.config.write().unwrap() = Some(AppConfig::default());

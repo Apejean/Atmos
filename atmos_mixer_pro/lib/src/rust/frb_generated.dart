@@ -3207,8 +3207,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   EngineStateUpdate dco_decode_engine_state_update(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 7)
-      throw Exception('unexpected arr length: expect 7 but see ${arr.length}');
+    if (arr.length != 9)
+      throw Exception('unexpected arr length: expect 9 but see ${arr.length}');
     return EngineStateUpdate(
       activeRoomId: dco_decode_opt_String(arr[0]),
       duckingActive: dco_decode_bool(arr[1]),
@@ -3217,6 +3217,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       outputChannelCount: dco_decode_u_32(arr[4]),
       shortTermLufs: dco_decode_f_32(arr[5]),
       gainReductionDb: dco_decode_f_32(arr[6]),
+      themeStarted: dco_decode_bool(arr[7]),
+      clearedRoomIds: dco_decode_list_String(arr[8]),
     );
   }
 
@@ -3782,6 +3784,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_outputChannelCount = sse_decode_u_32(deserializer);
     var var_shortTermLufs = sse_decode_f_32(deserializer);
     var var_gainReductionDb = sse_decode_f_32(deserializer);
+    var var_themeStarted = sse_decode_bool(deserializer);
+    var var_clearedRoomIds = sse_decode_list_String(deserializer);
     return EngineStateUpdate(
       activeRoomId: var_activeRoomId,
       duckingActive: var_duckingActive,
@@ -3790,6 +3794,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       outputChannelCount: var_outputChannelCount,
       shortTermLufs: var_shortTermLufs,
       gainReductionDb: var_gainReductionDb,
+      themeStarted: var_themeStarted,
+      clearedRoomIds: var_clearedRoomIds,
     );
   }
 
@@ -4483,6 +4489,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_u_32(self.outputChannelCount, serializer);
     sse_encode_f_32(self.shortTermLufs, serializer);
     sse_encode_f_32(self.gainReductionDb, serializer);
+    sse_encode_bool(self.themeStarted, serializer);
+    sse_encode_list_String(self.clearedRoomIds, serializer);
   }
 
   @protected

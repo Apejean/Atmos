@@ -38,6 +38,8 @@ pub fn api_theme_start() -> Result<(), AtmosError> {
         return Ok(());
     };
     if !exhibition {
+        // 대시보드 방 카드의 잠금 표시. 버튼으로 시작하든 OSC로 시작하든 같은 상태가 화면에 간다(다음 알림에 실림).
+        GLOBAL_STATE.set_theme_started(true);
         api_set_active_room(Some(first_room))?;
     }
     let mut failed = Vec::new();

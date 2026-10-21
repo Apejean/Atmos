@@ -445,6 +445,10 @@ class EngineStateNotifier extends Notifier<EngineState> {
         outputChannelCount: update.outputChannelCount,
         shortTermLufs: update.shortTermLufs,
         gainReductionDb: update.gainReductionDb,
+        // 테마 화면 상태(방 카드 잠금·클리어 표시)는 엔진이 갖는다. 그래서 OSC로 시작·클리어해도 Start 버튼과
+        // 같게 보인다(2026-10-12 사용자 결정).
+        themeStarted: update.themeStarted,
+        clearedRoomIds: update.clearedRoomIds.toSet(),
       );
     });
     ref.onDispose(() => sub.cancel());
