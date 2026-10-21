@@ -17,6 +17,7 @@ import 'package:atmos_mixer_pro/core/utils/osc_addresses.dart';
 import 'package:atmos_mixer_pro/features/dashboard/widgets/room_card.dart';
 import 'package:atmos_mixer_pro/features/settings/widgets/preferences_modal.dart';
 import 'package:atmos_mixer_pro/features/settings/widgets/tuning_modal.dart';
+import 'package:atmos_mixer_pro/features/settings/widgets/third_party_notices.dart';
 import 'package:atmos_mixer_pro/features/dashboard/widgets/osc_monitor_dialog.dart';
 import 'package:atmos_mixer_pro/features/dashboard/widgets/missing_media_dialog.dart';
 import 'package:atmos_mixer_pro/features/dashboard/widgets/master_limiter_meter.dart';
@@ -502,6 +503,19 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           ),
         ],
       ),
+      PlatformMenu(
+        label: 'Help',
+        menus: [
+          PlatformMenuItem(
+            label: 'Third-party Notices',
+            onSelected: () {
+              if (context.mounted) {
+                showThirdPartyNotices(context);
+              }
+            },
+          ),
+        ],
+      ),
     ];
   }
 
@@ -652,6 +666,19 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   ),
                 ],
                 child: const Text('Settings'),
+              ),
+              SubmenuButton(
+                menuChildren: [
+                  MenuItemButton(
+                    onPressed: () {
+                      if (context.mounted) {
+                        showThirdPartyNotices(context);
+                      }
+                    },
+                    child: const Text('Third-party Notices'),
+                  ),
+                ],
+                child: const Text('Help'),
               ),
             ],
           ),
