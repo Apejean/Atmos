@@ -933,24 +933,10 @@ fn start_audio_system(device_name: Option<String>) -> Result<(), AtmosError> {
         // engine.start()로 이동되므로 미리 값만 뽑아 둔다.
         let requested_explicit_device = device_name_clone.is_some();
 
-        let is_asio = if let Some(ref name) = device_name_clone {
-            name.starts_with("[ASIO]")
-        } else {
-            if let Some(config) = crate::core::state::GLOBAL_STATE
-                .config
-                .read()
-                .unwrap_or_else(|e| e.into_inner())
-                .as_ref()
-            {
-                config
-                    .device_name
-                    .as_ref()
-                    .map(|n| n.starts_with("[ASIO]"))
-                    .unwrap_or(false)
-            } else {
-                false
-            }
-        };
+        // 이름 없이 여는 엔진(기본 장치, 비상 전환)은 ASIO가 아니다. 예전에는 이때 설정의 장치를 보고 ASIO로 쳐서, 비상
+        // 엔진에서 장치 감시가 돌지 않았다. 그래서 ASIO 장치를 다시 꽂아도 돌아오지 않고 −40dB에 남았다(2026-10-21
+        // Windows 실기, 점검표 3-4).
+        let is_asio = device_name_clone.as_deref().is_some_and(|name| name.starts_with("[ASIO]"));
 
         match engine.start(device_name_clone, rx, gen) {
             Ok(_) => {
