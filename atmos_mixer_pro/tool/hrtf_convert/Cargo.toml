@@ -1,0 +1,17 @@
+# 개발 전용 도구. 제품(rust/ 크레이트)·CI·설치 파일에 들어가지 않는다(README.md).
+[package]
+name = "hrtf_convert"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+# 저장소의 다른 크레이트와 엮이지 않는 독립 작업 공간.
+[workspace]
+
+[dependencies]
+# GPL-3.0-or-later. 이 도구에서만 쓴다. 판은 걷어내기 전 제품이 쓰던 0.1.6에 고정한다
+# (Cargo.lock도 그때 제품의 잠금 파일에서 시작해 같은 판을 쓴다).
+sofa-reader = "=0.1.6"
+# sofa-reader가 끌어오는 rusqlite는 기본으로 시스템 sqlite3.lib를 링크한다(Windows에는 없어 LNK1181).
+# 걷어내기 전 제품과 같이 bundled로 sqlite3를 같이 빌드한다.
+rusqlite = { version = "0.38", features = ["bundled"] }
