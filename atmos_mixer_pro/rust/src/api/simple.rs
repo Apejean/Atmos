@@ -661,6 +661,7 @@ pub fn api_stop_all() -> Result<(), AtmosError> {
             .unwrap_or_else(|e| e.into_inner());
         *guard = None;
     }
+    GLOBAL_STATE.set_theme_started(false);
     GLOBAL_STATE.broadcast_state();
     GLOBAL_STATE
         .command_sender
@@ -691,6 +692,7 @@ pub fn api_clear_room(room_id: String) -> Result<(), AtmosError> {
     }
     crate::core::restart_resume::cancel_room(&room_id);
     GLOBAL_STATE.remove_playing_tracks_of_room(&room_id);
+    GLOBAL_STATE.mark_room_cleared(&room_id);
     GLOBAL_STATE.broadcast_state();
 
     let _lock = GLOBAL_STATE
@@ -1375,6 +1377,9 @@ pub struct EngineStateUpdate {
     pub output_channel_count: u32,
     pub short_term_lufs: f32,
     pub gain_reduction_db: f32,
+    /// 테마 화면 상태(GLOBAL_STATE.theme_started·cleared_room_ids). Start 버튼과 OSC 테마 시작이 같게 보인다.
+    pub theme_started: bool,
+    pub cleared_room_ids: Vec<String>,
 }
 
 pub fn api_create_engine_state_stream(sink: StreamSink<EngineStateUpdate>) {
@@ -1417,6 +1422,8 @@ pub fn api_create_engine_state_stream(sink: StreamSink<EngineStateUpdate>) {
                 .current_gain_reduction_db
                 .load(std::sync::atomic::Ordering::Relaxed),
         ),
+        theme_started: GLOBAL_STATE.theme_started.load(std::sync::atomic::Ordering::Relaxed),
+        cleared_room_ids: GLOBAL_STATE.cleared_room_ids.read().unwrap_or_else(|e| e.into_inner()).clone(),
     };
     let _ = sink.add(initial_state);
     *GLOBAL_STATE

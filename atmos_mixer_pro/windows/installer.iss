@@ -59,6 +59,10 @@ WizardStyle=modern
 PrivilegesRequired=admin
 ; %TEMP%\Setup Log <date> #<n>.txt: shows whether the prerequisites were installed or skipped.
 SetupLogging=yes
+; No Restart Manager check. On this PC under Windows 10 (2026-10-12) a first install died silently in RmGetList,
+; with Inno 6.7.1 and 6.7.3 alike, while upgrades and Windows Sandbox passed; the field PC gets a first install too.
+; PrepareToInstall stops the supervisor and the app itself before any file is copied, so the check finds nothing.
+CloseApplications=no
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"

@@ -1,7 +1,9 @@
 //! OSC 재생·방 비우기 경로. 실제 OSC 리스너에 UDP로 보낸다. 전역 상태를 쓰므로 테스트는 하나다.
 //! - OSC 재생은 대시보드와 같은 경로라 루프·스트리밍 트랙도 나온다.
 //! - 방 비우기(OSC·대시보드)는 그 방 트랙만 재생 목록에서 빼고, OSC로 다음 방에 넘어가면 그 방 BGM(루프)을 튼다.
-//! - OSC 테마 시작은 전체 정지 뒤 첫 방을 활성으로 하고 그 방 루프만 튼다(감시 재실행과 같은 함수).
+//! - OSC 테마 시작은 대시보드 Start와 같은 함수다. 전시 모드가 아니면 첫 방을 활성으로 하고 그 방 루프만, 전시
+//!   모드면 모든 방의 루프를 튼다. 화면의 테마 상태(테마 시작됨·클리어한 방)도 엔진이 갖는다.
+//! - 전시 모드에서는 OSC 방 클리어를 무시한다(2026-10-12 사용자 결정).
 use rosc::{encoder, OscMessage, OscPacket, OscType};
 use rust_lib_atmos_mixer_pro::api::simple::{
     api_clear_room, api_play_track, api_set_active_room, api_start_osc_listener,
@@ -105,7 +107,7 @@ fn osc_재생은_루프와_스트리밍도_틀고_방_비우기는_그_방만_�
     let port = UdpSocket::bind("127.0.0.1:0").unwrap().local_addr().unwrap().port(); // 빈 포트
     let config = AppConfig {
         osc_port: port,
-        is_exhibition_mode: true,
+        is_exhibition_mode: false, // 테마 흐름(활성 방만 OSC를 받음). 전시 모드는 7)에서 본다
         theme_start_osc_address: "/theme/start".into(),
         rooms: vec![
             room(
@@ -125,6 +127,7 @@ fn osc_재생은_루프와_스트리밍도_틀고_방_비우기는_그_방만_�
     GLOBAL_STATE.clear_playing_tracks();
     api_start_osc_listener(port);
     std::thread::sleep(Duration::from_millis(300)); // 리스너 스레드가 포트를 잡을 때까지
+    api_set_active_room(Some("a".into())).unwrap(); // 테마 흐름: 방 A가 활성이라 방 A가 OSC를 받는다
 
     let sock = UdpSocket::bind("127.0.0.1:0").unwrap();
     let send = |addr: &str| {
@@ -154,6 +157,11 @@ fn osc_재생은_루프와_스트리밍도_틀고_방_비우기는_그_방만_�
     assert_eq!(playing(), vec!["lb".to_string()], "OSC로 방 A를 비운 뒤 재생 목록(방 B BGM만 한 번)");
     // 목록만 보면 모른다: 목록에서 지워진 BGM을 다시 틀면 엔진에서는 옛 인스턴스와 겹쳐 두 번 나온다
     assert!(drained_plays().is_empty(), "방 A를 비울 때 이미 돌던 방 B BGM을 또 틀었다(겹쳐 두 번 나온다)");
+    assert_eq!(
+        *GLOBAL_STATE.cleared_room_ids.read().unwrap(),
+        vec!["a".to_string()],
+        "OSC로 비운 방이 화면의 클리어 표시에 실려야 한다"
+    );
 
     // 4) 대시보드 방 비우기도 그 방 트랙만 뺀다
     api_play_track("a".into(), "la".into()).unwrap();
@@ -167,13 +175,33 @@ fn osc_재생은_루프와_스트리밍도_틀고_방_비우기는_그_방만_�
     send("/a/clear");
     wait_until("OSC로 방 A를 비웠는데 다음 방 B의 BGM이 자동으로 나오지 않았다", || has("lb"));
 
-    // 6) OSC 테마 시작 = 대시보드 Start(2026-10-12 사용자 결정): 전시 모드라 전체 정지 뒤 모든 방의 루프를 튼다(활성
-    //    방 없음). 전시 모드가 아닐 때(첫 방을 활성으로 하고 그 방 루프만)는 test_theme_start가 본다.
+    // 6) OSC 테마 시작 = 대시보드 Start(2026-10-12 사용자 결정): 전체 정지 뒤 첫 방(A)을 활성으로 하고 그 방 루프만
+    //    튼다. 화면의 "테마 시작됨"도 켜지고 클리어 표시는 비워진다(버튼으로 시작할 때와 같다).
     send("/theme/start");
-    wait_until("OSC 테마 시작 뒤 모든 방의 루프만 돌아야 한다(전시 모드)", || {
+    wait_until("OSC 테마 시작 뒤 첫 방 A가 활성이고 그 방 루프만 돌아야 한다", || {
+        GLOBAL_STATE.active_room_id.read().unwrap().as_deref() == Some("a") && playing() == vec!["la".to_string()]
+    });
+    assert!(GLOBAL_STATE.theme_started.load(Ordering::SeqCst), "OSC 테마 시작이 화면의 테마 시작됨을 켜지 않았다");
+    assert!(GLOBAL_STATE.cleared_room_ids.read().unwrap().is_empty(), "테마 시작 뒤 클리어 표시가 남았다");
+
+    // 7) 전시 모드: OSC 테마 시작은 모든 방의 루프(활성 방 없음, 테마 시작됨 꺼짐), OSC 방 클리어는 무시한다
+    GLOBAL_STATE.config.write().unwrap().as_mut().unwrap().is_exhibition_mode = true;
+    GLOBAL_STATE.config_version.fetch_add(1, Ordering::SeqCst);
+    std::thread::sleep(Duration::from_millis(300)); // 같은 주소를 250ms 안에 다시 받으면 무시한다
+    send("/theme/start");
+    wait_until("전시 모드 OSC 테마 시작 뒤 모든 방의 루프만 돌아야 한다", || {
         GLOBAL_STATE.active_room_id.read().unwrap().is_none()
             && playing() == vec!["la".to_string(), "lb".to_string()]
     });
+    assert!(!GLOBAL_STATE.theme_started.load(Ordering::SeqCst), "전시 모드인데 테마 시작됨이 켜졌다");
+    send("/a/clear");
+    std::thread::sleep(Duration::from_millis(300));
+    assert_eq!(
+        playing(),
+        vec!["la".to_string(), "lb".to_string()],
+        "전시 모드인데 OSC 방 클리어로 방 A의 루프가 멈췄다"
+    );
+    assert!(GLOBAL_STATE.cleared_room_ids.read().unwrap().is_empty(), "전시 모드인데 클리어 표시가 생겼다");
 
     drained_plays();
     let _ = std::fs::remove_dir_all(&dir);

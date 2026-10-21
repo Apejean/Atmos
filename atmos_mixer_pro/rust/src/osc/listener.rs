@@ -261,11 +261,20 @@ fn handle_packet(packet: OscPacket, debouncer: &OscDebouncer) {
                         let _ = crate::api::show::api_theme_start();
                     }
                     OscAction::ClearRoom(room_id) => {
+                        // 전시 모드는 방마다 루프가 계속 도는 운영이라 방 클리어 신호를 무시한다(2026-10-12 사용자
+                        // 결정). 예전에는 그 방의 루프까지 멈춰 다시 Start할 때까지 조용했다. 대시보드도 전시 모드에서는
+                        // 클리어 버튼을 보이지 않는다.
+                        if config.is_exhibition_mode {
+                            crate::core::state::GLOBAL_STATE
+                                .log(format!("전시 모드라 방 클리어 신호를 무시한다: {room_id}"));
+                            return;
+                        }
                         if !check_gating(&room_id, config.is_exhibition_mode) {
                             return;
                         }
 
                         crate::core::restart_resume::cancel_room(&room_id);
+                        crate::core::state::GLOBAL_STATE.mark_room_cleared(&room_id);
                         crate::core::state::GLOBAL_STATE.remove_playing_tracks_of_room(&room_id);
                         let _ = crate::core::state::GLOBAL_STATE.command_sender.send(
                             crate::common::commands::AudioCommand::ClearRoom {
