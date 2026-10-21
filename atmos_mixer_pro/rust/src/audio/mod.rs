@@ -16,6 +16,7 @@ pub mod limiter;
 pub mod analysis;
 pub mod reverb;
 pub mod binaural;
+pub mod hrtf_data;
 pub mod hrtf_eq;
 pub mod offline;
 pub mod crossover;

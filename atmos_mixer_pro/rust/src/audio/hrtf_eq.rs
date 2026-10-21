@@ -16,7 +16,7 @@
 
 use realfft::RealFftPlanner;
 use rustfft::num_complex::Complex;
-use sofa_reader::SofaFile;
+use crate::audio::hrtf_data::HrtfSet;
 
 /// 보정 곡선을 계산할 때 쓰는 확산음장 목표 레벨(dB). 보정 폭 상한(±[MAX_CORRECTION_DB])이
 /// 이 값 기준으로 걸리므로, 곡선 모양을 바꾸지 않으려면 이 값은 그대로 둔다
@@ -61,7 +61,7 @@ const ONSET_THRESHOLD: f32 = 0.1;
 const TAIL_FADE: usize = 48;
 
 /// `db`의 모든 HRIR을 `target_fs`로 리샘플링하고 확산음장 등화·저역 확장을 적용한다.
-pub fn equalize(db: &mut SofaFile, target_fs: f32) {
+pub fn equalize(db: &mut HrtfSet, target_fs: f32) {
     let n_in = db.ir_length;
     let n_irs = db.num_measurements * 2;
     if n_in == 0 || n_irs == 0 || db.impulse_responses.len() < n_irs * n_in {
@@ -167,7 +167,6 @@ pub fn equalize(db: &mut SofaFile, target_fs: f32) {
     db.impulse_responses = out;
     db.ir_length = EQUALIZED_IR_LENGTH;
     db.sample_rate = target_fs;
-    db.data_sample_rate = Some(target_fs);
 }
 
 /// 출력 샘플 하나를 만드는 리샘플링 커널: (입력 시작 인덱스, 가중치들).
