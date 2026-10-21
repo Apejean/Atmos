@@ -13,9 +13,9 @@
 - **구현 특징:** 스피커 이동 및 음원 이동 시 지퍼 노이즈를 방지하기 위해 샘플 단위 선형 보간(Linear Smoothing) 적용.
 
 ### ② SOFA (AES69) 표준 3D 바이노럴 HRTF 렌더링
-- **적용 라이브러리:** `sofa-reader`, `rubato` (샘플레이트 변환)
+- **적용 라이브러리:** 자체 HRTF 로더(`audio::hrtf_data` — 원본 SOFA를 개발용 도구 `tool/hrtf_convert`로 옮긴 내장 데이터), `rubato` (샘플레이트 변환)
 - **적용 기술:** 3D 공간 음향 현장 시공 전, 작업자가 헤드폰만으로 3D 공간 입체 정위감을 실시간 바이노럴(Binaural) 청음할 수 있도록 지원.
-- **구현 특징:** KEMAR / CIPIC 측정 데이터 및 임의의 SOFA 파일 로딩, 수평각(Azimuth) 및 고도각(Elevation) 최근접/삼선형 보간 필터링.
+- **구현 특징:** 내장 MIT KEMAR 측정 데이터(다른 SOFA는 같은 도구로 변환해 넣는다), 수평각(Azimuth) 및 고도각(Elevation) 최근접/삼선형 보간 필터링.
 
 ### ③ Linkwitz-Riley 24dB/oct (LR4) 크로스오버 & 베이스 매니지먼트
 - **적용 기술:** 2차 Butterworth 필터 2개를 직렬 종속(Cascaded) 연결하여 24dB/octave 슬로프 형성.
