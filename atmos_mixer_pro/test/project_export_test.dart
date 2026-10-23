@@ -35,7 +35,6 @@ void main() {
             name: '테마 1',
             colorHex: 'FF0000',
             volume: 1.0,
-            volumeOscAddress: '',
             clearOscAddress: '',
             tracks: [for (var i = 0; i < paths.length; i++) track('t$i', paths[i])],
           ),
@@ -44,7 +43,6 @@ void main() {
         isExhibitionMode: true,
         masterHeadroomDb: 0.0,
         peakLimiterEnabled: true,
-        oscWhitelist: const [],
         globalReverbMix: 0.0,
         globalReverbDecay: 1.0,
       );

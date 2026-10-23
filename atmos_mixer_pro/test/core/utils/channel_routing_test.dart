@@ -37,7 +37,6 @@ void main() {
     isExhibitionMode: false,
     masterHeadroomDb: 0.0,
     peakLimiterEnabled: true,
-    oscWhitelist: const [],
     globalReverbMix: 0.0,
     globalReverbDecay: 1.0,
   );
@@ -320,7 +319,6 @@ void main() {
     AppConfig configWithMono(Map<int, bool> mono) => AppConfig(
       globalReverbMix: 0.0,
       globalReverbDecay: 1.0,
-      oscWhitelist: const [],
       oscPort: 8000,
       bufferSize: 1024,
       themeStartOscAddress: '',

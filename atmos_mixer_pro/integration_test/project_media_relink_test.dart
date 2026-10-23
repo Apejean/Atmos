@@ -69,7 +69,6 @@ AppConfig _config(List<TrackConfig> tracks) => AppConfig(
           name: '방 1',
           colorHex: '#ffffff',
           volume: 1.0,
-          volumeOscAddress: '',
           clearOscAddress: '',
           tracks: tracks,
         ),
@@ -78,7 +77,6 @@ AppConfig _config(List<TrackConfig> tracks) => AppConfig(
       isExhibitionMode: false,
       masterHeadroomDb: 0.0,
       peakLimiterEnabled: true,
-      oscWhitelist: const [],
       globalReverbMix: 0.0,
       globalReverbDecay: 1.0,
     );

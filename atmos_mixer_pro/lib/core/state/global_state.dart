@@ -407,6 +407,12 @@ class EngineState {
   /// GR 미터가 shortTermLufs로 GR을 추정해 표시했다.
   final double gainReductionDb;
 
+  /// 장치 샘플레이트(Hz, 0이면 아직 모름)와, 재생 중인 트랙 중 그와 달라 엔진이 HQ sinc로 바꾸고 있는
+  /// 것의 원래 샘플레이트들(작은 것부터)·트랙 수. 대시보드의 리샘플링 배지가 쓴다(2026-10-24 기능 점검).
+  final int deviceSampleRate;
+  final List<int> resampledSourceRates;
+  final int resampledTrackCount;
+
   EngineState({
     this.activeRoomId,
     this.clearedRoomIds = const {},
@@ -417,6 +423,9 @@ class EngineState {
     this.outputChannelCount = 2,
     this.shortTermLufs = -70.0,
     this.gainReductionDb = 0.0,
+    this.deviceSampleRate = 0,
+    this.resampledSourceRates = const [],
+    this.resampledTrackCount = 0,
   });
 
   EngineState copyWith({
@@ -430,6 +439,9 @@ class EngineState {
     int? outputChannelCount,
     double? shortTermLufs,
     double? gainReductionDb,
+    int? deviceSampleRate,
+    List<int>? resampledSourceRates,
+    int? resampledTrackCount,
   }) {
     return EngineState(
       activeRoomId: forceNullActiveRoom
@@ -443,6 +455,9 @@ class EngineState {
       outputChannelCount: outputChannelCount ?? this.outputChannelCount,
       shortTermLufs: shortTermLufs ?? this.shortTermLufs,
       gainReductionDb: gainReductionDb ?? this.gainReductionDb,
+      deviceSampleRate: deviceSampleRate ?? this.deviceSampleRate,
+      resampledSourceRates: resampledSourceRates ?? this.resampledSourceRates,
+      resampledTrackCount: resampledTrackCount ?? this.resampledTrackCount,
     );
   }
 }
@@ -461,6 +476,9 @@ class EngineStateNotifier extends Notifier<EngineState> {
         outputChannelCount: update.outputChannelCount,
         shortTermLufs: update.shortTermLufs,
         gainReductionDb: update.gainReductionDb,
+        deviceSampleRate: update.deviceSampleRate,
+        resampledSourceRates: update.resampledSourceRates.toList(),
+        resampledTrackCount: update.resampledTrackCount,
         // 테마 화면 상태(방 카드 잠금·클리어 표시)는 엔진이 갖는다. 그래서 OSC로 시작·클리어해도 Start 버튼과
         // 같게 보인다(2026-10-12 사용자 결정).
         themeStarted: update.themeStarted,

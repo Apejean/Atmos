@@ -22,7 +22,6 @@ extension AppConfigCopy on AppConfig {
     bool? isExhibitionMode,
     double? masterHeadroomDb,
     bool? peakLimiterEnabled,
-    List<String>? oscWhitelist,
     double? globalReverbMix,
     double? globalReverbDecay,
   }) =>
@@ -44,7 +43,6 @@ extension AppConfigCopy on AppConfig {
         isExhibitionMode: isExhibitionMode ?? this.isExhibitionMode,
         masterHeadroomDb: masterHeadroomDb ?? this.masterHeadroomDb,
         peakLimiterEnabled: peakLimiterEnabled ?? this.peakLimiterEnabled,
-        oscWhitelist: oscWhitelist ?? this.oscWhitelist,
         globalReverbMix: globalReverbMix ?? this.globalReverbMix,
         globalReverbDecay: globalReverbDecay ?? this.globalReverbDecay,
       );

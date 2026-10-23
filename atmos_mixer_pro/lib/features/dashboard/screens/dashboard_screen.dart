@@ -833,19 +833,16 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const ResamplerStatusBadgeWidget(
-                fileSampleRate: 44100,
-                deviceSampleRate: 48000,
-                forceActive: true,
-              ),
+              // 장치·음원 샘플레이트는 엔진이 보낸 실제 값이다(2026-10-24 기능 점검).
+              const ResamplerStatusBadgeWidget(),
               const SizedBox(width: 8),
-              MasterLimiterMeterWidget(
-                // 실측 게인 리덕션(양수 dB)을 위젯 규약(음수)으로 맞춰 넘긴다.
-                initialGainReductionDb:
-                    -ref.watch(engineStateProvider).gainReductionDb.abs(),
-                // 상용 전시 현장에서 시뮬레이션이 켜진 채 남으면 미터를
-                // 오독하게 되므로 기본적으로 끈다.
-                enableSimulationToggle: false,
+              // 미터는 16ms 주기 VU 스트림을 직접 읽으므로 이 영역만 다시 그린다.
+              const RepaintBoundary(
+                child: MasterLimiterMeterWidget(
+                  // 상용 전시 현장에서 시뮬레이션이 켜진 채 남으면 미터를
+                  // 오독하게 되므로 기본적으로 끈다.
+                  enableSimulationToggle: false,
+                ),
               ),
               const SizedBox(width: 8),
               const BinauralToggleBadge(),
@@ -990,7 +987,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       volume: 1.0,
                       // 겹치지 않는 비우기 주소. 방 볼륨 OSC는 쓰지 않는다(core/utils/osc_addresses.dart).
                       clearOscAddress: newRoomClearAddress(config),
-                      volumeOscAddress: '',
                       tracks: [],
                     );
                     final updated = config.copyWith(rooms: [...config.rooms, newRoom]);

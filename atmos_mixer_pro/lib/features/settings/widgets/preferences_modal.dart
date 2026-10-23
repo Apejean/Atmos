@@ -81,7 +81,6 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
     _tempConfig = currentConfig != null
         ? cloneConfig(currentConfig)
         : AppConfig(globalReverbMix: 0.0, globalReverbDecay: 1.0, 
-oscWhitelist: const [],
 
             oscPort: 8000,
             bufferSize: 256,
@@ -268,7 +267,6 @@ oscWhitelist: const [],
               colorHex: r.colorHex,
               volume: r.volume,
               clearOscAddress: r.clearOscAddress,
-              volumeOscAddress: r.volumeOscAddress,
               tracks: r.tracks
                   .map(
                     (t) => TrackConfig(
@@ -319,7 +317,6 @@ oscWhitelist: const [],
         colorHex: room.colorHex,
         volume: room.volume,
         clearOscAddress: room.clearOscAddress,
-              volumeOscAddress: room.volumeOscAddress,
         tracks: newTracks,
       );
     }).toList();
@@ -370,7 +367,6 @@ oscWhitelist: const [],
               colorHex: tempRoom.colorHex,
               volume: tempRoom.volume,
               clearOscAddress: tempRoom.clearOscAddress,
-              volumeOscAddress: tempRoom.volumeOscAddress,
               tracks: updatedTracks,
             );
           }).toList();
@@ -1298,7 +1294,6 @@ oscWhitelist: const [],
                                 colorHex: room.colorHex,
                                 volume: room.volume,
                                 clearOscAddress: room.clearOscAddress,
-              volumeOscAddress: room.volumeOscAddress,
                                 tracks: newTracks,
                               );
                               setState(() {
@@ -1472,7 +1467,6 @@ oscWhitelist: const [],
                             colorHex: room.colorHex,
                             volume: room.volume,
                             clearOscAddress: val,
-                            volumeOscAddress: room.volumeOscAddress,
                             tracks: room.tracks,
                           );
                           setState(() {
@@ -1539,7 +1533,6 @@ oscWhitelist: const [],
                                 colorHex: room.colorHex,
                                 volume: room.volume,
                                 clearOscAddress: room.clearOscAddress,
-              volumeOscAddress: room.volumeOscAddress,
                                 tracks: newTracks,
                               );
                               setState(() {
@@ -1588,7 +1581,6 @@ oscWhitelist: const [],
                                 colorHex: room.colorHex,
                                 volume: room.volume,
                                 clearOscAddress: room.clearOscAddress,
-              volumeOscAddress: room.volumeOscAddress,
                                 tracks: newTracks,
                               );
                               setState(() {

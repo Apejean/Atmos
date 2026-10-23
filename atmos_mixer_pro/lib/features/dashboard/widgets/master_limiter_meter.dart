@@ -74,8 +74,16 @@ class _MasterLimiterMeterWidgetState
     //
     // Rust는 리덕션 양을 0 이상의 양수 dB로 보내고 이 위젯은 음수(0 ~ -12dB)
     // 규약을 쓰므로 부호를 맞춘다.
-    final double engineGrDb =
-        ref.watch(engineStateProvider.select((s) => s.gainReductionDb));
+    //
+    // 값은 16ms마다 오는 VU 스트림의 마지막 값을 읽는다(api_create_vu_stream). 엔진 상태
+    // (EngineStateUpdate.gain_reduction_db)는 재생·정지 같은 사건 때만 와서, 공연이 도는 동안
+    // 미터가 마지막 사건 때 값에 멈춰 있었다(2026-10-24 기능 점검).
+    final double engineGrDb = ref.watch(
+      vuStreamProvider.select((v) {
+        final levels = v.value;
+        return (levels == null || levels.isEmpty) ? 0.0 : levels.last;
+      }),
+    );
 
     if (!_isSimulating) {
       _currentGrDb = -engineGrDb.abs();
