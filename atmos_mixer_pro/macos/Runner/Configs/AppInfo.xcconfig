@@ -11,4 +11,4 @@ PRODUCT_NAME = atmos_mixer_pro
 PRODUCT_BUNDLE_IDENTIFIER = com.example.atmosMixerPro
 
 // The copyright displayed in application information
-PRODUCT_COPYRIGHT = Copyright © 2026 com.example. All rights reserved.
+PRODUCT_COPYRIGHT = Copyright © 2026 The Awesome. All rights reserved.
