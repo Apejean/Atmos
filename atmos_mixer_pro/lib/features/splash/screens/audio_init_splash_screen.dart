@@ -122,7 +122,7 @@ class _AudioInitSplashScreenState extends ConsumerState<AudioInitSplashScreen> {
             const Icon(Icons.graphic_eq, size: 64, color: Colors.blueAccent),
             const SizedBox(height: 24),
             const Text(
-              'Atmos Mixer Pro',
+              'The Awesome',
               style: TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,

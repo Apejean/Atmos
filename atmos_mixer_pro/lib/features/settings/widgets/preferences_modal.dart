@@ -152,6 +152,7 @@ oscWhitelist: const [],
       final deviceInfos = await rust_api.apiGetOutputDevices();
       final devices = deviceInfos.map((d) => d.name).toList();
       GlobalDeviceCache.devices = devices;
+      GlobalDeviceCache.deepScanned = false;
       for (final info in deviceInfos) {
         GlobalDeviceCache.channels[info.name] = info.channelNames;
       }
@@ -189,6 +190,7 @@ oscWhitelist: const [],
 
       final devices = deviceInfos.map((d) => d.name).toList();
       GlobalDeviceCache.devices = devices;
+      GlobalDeviceCache.deepScanned = true;
       for (final info in deviceInfos) {
         GlobalDeviceCache.channels[info.name] = info.channelNames;
       }
@@ -200,8 +202,10 @@ oscWhitelist: const [],
       // 현재 선택된 장치의 미리보기도 새 스캔 결과로 맞춘다.
       await _loadChannelPreview(_tempConfig.deviceName);
 
-      // 6. Restart engine using the init API
-      await rust_api.apiInitAudioSystem(deviceName: _tempConfig.deviceName);
+      // 6. 저장된 장치로 엔진을 다시 켠다. 고른 장치는 저장할 때 적용된다. 예전에는 저장하지 않은 선택
+      // (_tempConfig)으로 켜서 재스캔만으로 장치가 바뀌었고, 연결이 빠진 장치가 선택돼 있으면 30초 동안 찾다가
+      // "장치 스캔 실패"가 떴다(2026-10-22 Windows, 빠진 Focusrite).
+      await rust_api.apiInitAudioSystem(deviceName: ref.read(configProvider)?.deviceName);
       // 재스캔은 엔진을 껐다 켜므로 믹서가 새로 만들어진다. 현재 설정을 다시
       // 보내지 않으면 사용자가 컨트롤을 건드리기 전까지 소리가 설정과 다르다.
       resyncEngineStateFromWidgetRef(ref);
@@ -542,6 +546,15 @@ oscWhitelist: const [],
     }
   }
 
+  /// 엔진이 다른 ASIO 장치를 쓰는 동안 드라이버를 열지 않고 목록에 넣은(연결 확인 전) ASIO 장치인가
+  /// (GlobalDeviceCache.isUnverifiedAsio). 재스캔한 목록이면 아니다.
+  bool _isUnverifiedAsio(String? deviceName) =>
+      GlobalDeviceCache.isUnverifiedAsio(deviceName, ref.read(configProvider)?.deviceName);
+
+  /// 장치 목록에 보일 이름. 연결을 확인하지 못한 ASIO 장치에는 표시를 붙인다(값은 장치 이름 그대로).
+  String _deviceListLabel(String device) =>
+      _isUnverifiedAsio(device) ? '${_getCleanDeviceName(device)} (연결 확인 전)' : _getCleanDeviceName(device);
+
   /// 이 탭이 실제로 써야 할 채널 목록. 저장 전 장치 변경 중이면 미리보기,
   /// 그 밖에는 provider가 보고한 실제 채널 목록.
   List<String> _effectiveChannelNames(OutputChannelsState channels) {
@@ -783,7 +796,7 @@ oscWhitelist: const [],
                   ...filteredDevices.map(
                     (d) => DropdownMenuItem(
                       value: d,
-                      child: Text(_getCleanDeviceName(d)),
+                      child: Text(_deviceListLabel(d)),
                     ),
                   ),
                   if (_tempConfig.deviceName != null &&
@@ -1078,8 +1091,12 @@ oscWhitelist: const [],
               else if (_previewChannelNames != null &&
                   _previewDeviceName == _tempConfig.deviceName)
                 Text(
-                  '선택한 장치의 물리 출력은 ${physicalOutputChannelIndices(channelNames).length}개 입니다'
-                  '${_virtualSuffix(channelNames)}. (저장하면 적용됩니다)',
+                  _isUnverifiedAsio(_tempConfig.deviceName)
+                      ? '아직 연결을 확인하지 못한 ASIO 장치입니다. ASIO는 한 번에 하나만 열 수 있어, 연결 여부와 채널 수·이름은 '
+                          '저장해서 엔진이 열 때 확인됩니다. 연결돼 있지 않으면 30초 동안 찾다가 실패합니다. 먼저 확인하려면 '
+                          '재스캔하세요(소리가 잠깐 끊깁니다).'
+                      : '선택한 장치의 물리 출력은 ${physicalOutputChannelIndices(channelNames).length}개 입니다'
+                          '${_virtualSuffix(channelNames)}. (저장하면 적용됩니다)',
                   style: const TextStyle(color: Colors.lightBlueAccent),
                 )
               else if (outputChannels.status == OutputChannelsStatus.noDevice)

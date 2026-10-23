@@ -61,3 +61,27 @@ int? parseEngineRestartedSeq(String event) {
   if (!event.startsWith(prefix)) return null;
   return int.tryParse(event.substring(prefix.length));
 }
+
+/// 자기 재시작(워치독·장치 오류·장치 복귀) 때는 새 엔진이 준비되면 "EngineReady"가, 곧이어(100ms 안팎, rust
+/// `api_create_device_event_stream`) "EngineRestarted:<순번>"이 온다. 예전에는 둘 다에서 재동기화해 같은 설정을 두 번
+/// 보냈다. EngineReady에서 방금 재동기화했으면 EngineRestarted에서는 완료 신호만 보낸다. EngineReady 없이 온
+/// 재시작(폴링 사이에 끝난 빠른 재시작)이나 한참 뒤에 온 EngineRestarted는 그대로 재동기화한다.
+class RestartResyncGate {
+  RestartResyncGate({DateTime Function()? now}) : _now = now ?? DateTime.now;
+
+  /// EngineReady 재동기화를 같은 재시작의 것으로 보는 시간.
+  static const window = Duration(milliseconds: 500);
+
+  final DateTime Function() _now;
+  DateTime? _readyResyncAt;
+
+  /// EngineReady에서 재동기화했다.
+  void readyResynced() => _readyResyncAt = _now();
+
+  /// EngineRestarted에서 재동기화해야 하는가. 한 번 물으면 앞의 EngineReady는 잊는다.
+  bool resyncOnRestart() {
+    final at = _readyResyncAt;
+    _readyResyncAt = null;
+    return at == null || _now().difference(at) > window;
+  }
+}

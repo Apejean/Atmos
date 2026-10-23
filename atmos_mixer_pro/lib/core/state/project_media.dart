@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:atmos_mixer_pro/src/rust/api/project.dart' as project_api;
 import 'package:atmos_mixer_pro/src/rust/common/config.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -157,6 +159,77 @@ Future<ProjectMediaResult> relinkProjectMedia({
     blueprintPath: blueprint ?? blueprintPath,
     missing: missing(),
   );
+}
+
+/// 앱을 켤 때 트랙 오디오·도면이 저장된 경로에 있는지 본다. 누가 파일을 다른 폴더로 옮겨 정리하면 저장된 경로가
+/// 틀려 그 트랙은 소리가 나지 않고 도면은 보이지 않는다(2026-10-21 사용자 요청). 없는 파일이 있으면 [askFolder]로
+/// 그 목록을 보여 주며 폴더를 묻고, 그 폴더와 하위 폴더에서 파일 이름으로 다시 연결한다. 남은 파일이 있으면 다시
+/// 묻는다(파일이 여러 폴더로 흩어졌거나 다른 폴더를 골랐을 때). 고르지 않으면(null) 멈춘다. 모두 있으면 묻지 않는다.
+Future<ProjectMediaResult> relinkMissingMedia({
+  required AppConfig config,
+  required String? blueprintPath,
+  required Future<String?> Function(List<String> missing) askFolder,
+  RelinkTracks relinkTracks = _relinkTracks,
+  FindMedia findMedia = _findMedia,
+}) async {
+  var relinked = await relinkTracks(config, const []);
+  String? blueprint = blueprintPath == null ? null : await findMedia(blueprintPath, const []);
+  List<String> missing() => [
+        ...relinked.missing,
+        if (blueprintPath != null && blueprint == null) blueprintPath,
+      ];
+
+  while (missing().isNotEmpty) {
+    final folder = await askFolder(missing());
+    if (folder == null) break;
+    relinked = await relinkTracks(relinked.config, [folder]);
+    if (blueprintPath != null && blueprint == null) {
+      blueprint = await findMedia(blueprintPath, [folder]);
+    }
+  }
+  return ProjectMediaResult(
+    config: relinked.config,
+    blueprintPath: blueprint ?? blueprintPath,
+    missing: missing(),
+  );
+}
+
+bool _isExistingDirectory(String dir) {
+  final folder = Directory(dir);
+  return folder.isAbsolute && folder.existsSync();
+}
+
+/// 폴더 선택 창을 처음 열 곳: 못 찾은 파일들이 있던 폴더(여럿이면 공통 상위 폴더)나 그 위에서 지금 있는 가장 가까운
+/// 폴더. 파일을 같은 폴더 안 하위 폴더로 정리했다면 이 폴더를 그대로 고르면 된다. 다른 OS의 경로처럼 이 PC에 없는
+/// 경로뿐이면 null(창이 정한 곳에서 연다). [separator]는 이 OS의 경로 구분자(시험에서만 넘긴다).
+String? mediaStartFolder(
+  List<String> missing, {
+  bool Function(String dir) isDirectory = _isExistingDirectory,
+  String? separator,
+}) {
+  if (missing.isEmpty) return null;
+  final sep = separator ?? Platform.pathSeparator;
+  List<String> folderParts(String path) {
+    final parts = path.split(RegExp(r'[/\\]'));
+    return parts.sublist(0, parts.length - 1);
+  }
+
+  var common = folderParts(missing.first);
+  for (final path in missing.skip(1)) {
+    final parts = folderParts(path);
+    var same = 0;
+    while (same < common.length && same < parts.length && common[same] == parts[same]) {
+      same++;
+    }
+    common = common.sublist(0, same);
+  }
+  for (var length = common.length; length > 0; length--) {
+    var dir = common.sublist(0, length).join(sep);
+    if (dir.isEmpty) continue;
+    if (dir.endsWith(':')) dir += sep; // 드라이브 루트 "D:" → "D:\"
+    if (isDirectory(dir)) return dir;
+  }
+  return null;
 }
 
 /// 다시 연결한 도면 경로를 저장소에 쓴다. 설계 데이터를 복원(restoreExhibitionDataFromFile)한 **다음**,
