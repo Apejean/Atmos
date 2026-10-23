@@ -210,31 +210,8 @@ fn handle_packet(packet: OscPacket, debouncer: &OscDebouncer) {
                 return;
             }
 
-            // Dynamic path: /atmos/track/{ch}/volume
-            if msg.addr.starts_with("/atmos/track/") && msg.addr.ends_with("/volume") {
-                let parts: Vec<&str> = msg.addr.split('/').collect();
-                if parts.len() == 5 {
-                    // "", "atmos", "track", "{ch}", "volume"
-                    if let Ok(ch) = parts[3].parse::<usize>() {
-                        if let Some(arg) = msg.args.get(0) {
-                            let vol = match arg {
-                                rosc::OscType::Float(f) => *f,
-                                rosc::OscType::Double(d) => *d as f32,
-                                rosc::OscType::Int(i) => *i as f32,
-                                _ => 0.0,
-                            };
-                            let _ = crate::core::state::GLOBAL_STATE.command_sender.send(
-                                crate::common::commands::AudioCommand::SetTrackVolume {
-                                    room_id: 0,          // Not room specific
-                                    track_id: ch as u32, // Just a placeholder or needs actual mapping
-                                    volume: vol.clamp(0.0, 1.0),
-                                },
-                            );
-                            return;
-                        }
-                    }
-                }
-            }
+            // 예전에는 /atmos/track/{번호}/volume을 받아 트랙 볼륨을 바꾸려 했지만, 엔진에 방 0·트랙=번호라는
+            // 임시값을 보내 어떤 트랙에도 맞지 않았다. 문서에 없고 쓰는 곳도 없어 지웠다(2026-10-24 사용자 결정).
 
             // For static triggers, check trigger condition and debounce
             let is_trigger = msg.args.iter().any(|arg| match arg {

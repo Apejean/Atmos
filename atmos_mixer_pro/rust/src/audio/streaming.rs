@@ -16,6 +16,8 @@ pub struct DiskStreamer {
     pub thread_handle: Option<std::thread::JoinHandle<()>>,
     /// 루프 한 바퀴 길이(출력 프레임). 모르면 None.
     pub loop_len_frames: Option<f64>,
+    /// 바꾸기 전 음원의 원래 샘플레이트. [Self::sample_rate]와 다르면 HQ sinc로 바꾸고 있다(화면 배지).
+    pub source_sample_rate: u32,
 }
 
 impl Default for DiskStreamer {
@@ -28,6 +30,7 @@ impl Default for DiskStreamer {
             channels: 2,
             thread_handle: None,
             loop_len_frames: None,
+            source_sample_rate: 48000,
         }
     }
 }
@@ -243,6 +246,7 @@ impl DiskStreamer {
             channels,
             thread_handle: Some(handle),
             loop_len_frames,
+            source_sample_rate: src_sample_rate,
         })
     }
 }

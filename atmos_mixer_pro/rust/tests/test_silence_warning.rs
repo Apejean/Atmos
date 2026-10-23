@@ -32,7 +32,6 @@ fn 루프_재생_중_출력이_1분_넘게_0이면_경고_횟수를_올린다() 
             name: "a".into(),
             color_hex: "#ffffff".into(),
             volume: 1.0,
-            volume_osc_address: String::new(),
             clear_osc_address: String::new(),
             tracks: vec![track("la", true), track("oa", false)],
         }],

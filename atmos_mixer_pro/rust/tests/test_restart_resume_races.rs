@@ -34,7 +34,6 @@ fn 동시_재생은_각자_번호를_받고_재개_도중_전체_정지하면_�
         name: "R1".into(),
         color_hex: "#ffffff".into(),
         volume: 1.0,
-        volume_osc_address: String::new(),
         clear_osc_address: String::new(),
         tracks: vec![TrackConfig {
             id: "sfx".into(),

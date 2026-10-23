@@ -3037,7 +3037,6 @@ impl SseDecode for crate::common::config::AppConfig {
         let mut var_isExhibitionMode = <bool>::sse_decode(deserializer);
         let mut var_masterHeadroomDb = <f32>::sse_decode(deserializer);
         let mut var_peakLimiterEnabled = <bool>::sse_decode(deserializer);
-        let mut var_oscWhitelist = <Vec<String>>::sse_decode(deserializer);
         let mut var_globalReverbMix = <f32>::sse_decode(deserializer);
         let mut var_globalReverbDecay = <f32>::sse_decode(deserializer);
         return crate::common::config::AppConfig {
@@ -3056,7 +3055,6 @@ impl SseDecode for crate::common::config::AppConfig {
             is_exhibition_mode: var_isExhibitionMode,
             master_headroom_db: var_masterHeadroomDb,
             peak_limiter_enabled: var_peakLimiterEnabled,
-            osc_whitelist: var_oscWhitelist,
             global_reverb_mix: var_globalReverbMix,
             global_reverb_decay: var_globalReverbDecay,
         };
@@ -3132,6 +3130,9 @@ impl SseDecode for crate::api::simple::EngineStateUpdate {
         let mut var_gainReductionDb = <f32>::sse_decode(deserializer);
         let mut var_themeStarted = <bool>::sse_decode(deserializer);
         let mut var_clearedRoomIds = <Vec<String>>::sse_decode(deserializer);
+        let mut var_deviceSampleRate = <u32>::sse_decode(deserializer);
+        let mut var_resampledSourceRates = <Vec<u32>>::sse_decode(deserializer);
+        let mut var_resampledTrackCount = <u32>::sse_decode(deserializer);
         return crate::api::simple::EngineStateUpdate {
             active_room_id: var_activeRoomId,
             ducking_active: var_duckingActive,
@@ -3142,6 +3143,9 @@ impl SseDecode for crate::api::simple::EngineStateUpdate {
             gain_reduction_db: var_gainReductionDb,
             theme_started: var_themeStarted,
             cleared_room_ids: var_clearedRoomIds,
+            device_sample_rate: var_deviceSampleRate,
+            resampled_source_rates: var_resampledSourceRates,
+            resampled_track_count: var_resampledTrackCount,
         };
     }
 }
@@ -3314,6 +3318,18 @@ impl SseDecode for Vec<f32> {
         let mut ans_ = Vec::with_capacity(len_ as usize);
         for idx_ in 0..len_ {
             ans_.push(<f32>::sse_decode(deserializer));
+        }
+        return ans_;
+    }
+}
+
+impl SseDecode for Vec<u32> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = Vec::with_capacity(len_ as usize);
+        for idx_ in 0..len_ {
+            ans_.push(<u32>::sse_decode(deserializer));
         }
         return ans_;
     }
@@ -3541,7 +3557,6 @@ impl SseDecode for crate::common::config::RoomConfig {
         let mut var_name = <String>::sse_decode(deserializer);
         let mut var_colorHex = <String>::sse_decode(deserializer);
         let mut var_volume = <f32>::sse_decode(deserializer);
-        let mut var_volumeOscAddress = <String>::sse_decode(deserializer);
         let mut var_clearOscAddress = <String>::sse_decode(deserializer);
         let mut var_tracks = <Vec<crate::common::config::TrackConfig>>::sse_decode(deserializer);
         return crate::common::config::RoomConfig {
@@ -3549,7 +3564,6 @@ impl SseDecode for crate::common::config::RoomConfig {
             name: var_name,
             color_hex: var_colorHex,
             volume: var_volume,
-            volume_osc_address: var_volumeOscAddress,
             clear_osc_address: var_clearOscAddress,
             tracks: var_tracks,
         };
@@ -4014,7 +4028,6 @@ impl flutter_rust_bridge::IntoDart for crate::common::config::AppConfig {
             self.is_exhibition_mode.into_into_dart().into_dart(),
             self.master_headroom_db.into_into_dart().into_dart(),
             self.peak_limiter_enabled.into_into_dart().into_dart(),
-            self.osc_whitelist.into_into_dart().into_dart(),
             self.global_reverb_mix.into_into_dart().into_dart(),
             self.global_reverb_decay.into_into_dart().into_dart(),
         ]
@@ -4109,6 +4122,9 @@ impl flutter_rust_bridge::IntoDart for crate::api::simple::EngineStateUpdate {
             self.gain_reduction_db.into_into_dart().into_dart(),
             self.theme_started.into_into_dart().into_dart(),
             self.cleared_room_ids.into_into_dart().into_dart(),
+            self.device_sample_rate.into_into_dart().into_dart(),
+            self.resampled_source_rates.into_into_dart().into_dart(),
+            self.resampled_track_count.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
@@ -4292,7 +4308,6 @@ impl flutter_rust_bridge::IntoDart for crate::common::config::RoomConfig {
             self.name.into_into_dart().into_dart(),
             self.color_hex.into_into_dart().into_dart(),
             self.volume.into_into_dart().into_dart(),
-            self.volume_osc_address.into_into_dart().into_dart(),
             self.clear_osc_address.into_into_dart().into_dart(),
             self.tracks.into_into_dart().into_dart(),
         ]
@@ -4521,7 +4536,6 @@ impl SseEncode for crate::common::config::AppConfig {
         <bool>::sse_encode(self.is_exhibition_mode, serializer);
         <f32>::sse_encode(self.master_headroom_db, serializer);
         <bool>::sse_encode(self.peak_limiter_enabled, serializer);
-        <Vec<String>>::sse_encode(self.osc_whitelist, serializer);
         <f32>::sse_encode(self.global_reverb_mix, serializer);
         <f32>::sse_encode(self.global_reverb_decay, serializer);
     }
@@ -4577,6 +4591,9 @@ impl SseEncode for crate::api::simple::EngineStateUpdate {
         <f32>::sse_encode(self.gain_reduction_db, serializer);
         <bool>::sse_encode(self.theme_started, serializer);
         <Vec<String>>::sse_encode(self.cleared_room_ids, serializer);
+        <u32>::sse_encode(self.device_sample_rate, serializer);
+        <Vec<u32>>::sse_encode(self.resampled_source_rates, serializer);
+        <u32>::sse_encode(self.resampled_track_count, serializer);
     }
 }
 
@@ -4719,6 +4736,16 @@ impl SseEncode for Vec<f32> {
         <i32>::sse_encode(self.len() as _, serializer);
         for item in self {
             <f32>::sse_encode(item, serializer);
+        }
+    }
+}
+
+impl SseEncode for Vec<u32> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <u32>::sse_encode(item, serializer);
         }
     }
 }
@@ -4887,7 +4914,6 @@ impl SseEncode for crate::common::config::RoomConfig {
         <String>::sse_encode(self.name, serializer);
         <String>::sse_encode(self.color_hex, serializer);
         <f32>::sse_encode(self.volume, serializer);
-        <String>::sse_encode(self.volume_osc_address, serializer);
         <String>::sse_encode(self.clear_osc_address, serializer);
         <Vec<crate::common::config::TrackConfig>>::sse_encode(self.tracks, serializer);
     }

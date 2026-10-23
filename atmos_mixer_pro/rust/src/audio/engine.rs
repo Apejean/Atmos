@@ -334,6 +334,8 @@ impl AudioEngine {
         crate::core::state::GLOBAL_STATE
             .engine_sample_rate
             .store(config.sample_rate.0, std::sync::atomic::Ordering::SeqCst);
+        // 화면의 리샘플링 배지가 새 장치 샘플레이트를 바로 보이게 한다(비상 전환·장치 변경 포함).
+        crate::core::state::GLOBAL_STATE.broadcast_state();
 
         // 믹서 처리 폭: 장치는 전체 채널로 열고, 믹서는 출력 설정에서 켠 가장 높은 채널까지만
         // 처리한다(core::processing_channels). 나머지 출력에는 무음을 넣는다.

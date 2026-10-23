@@ -48,6 +48,10 @@ pub struct GlobalEngineState {
     pub hrtf_pitch: AtomicU32,
     pub hrtf_roll: AtomicU32,
     pub playing_track_ids: RwLock<HashMap<u64, String>>,
+    /// 음원 파일 → 원래 샘플레이트(메모리로 읽을 때 적는다). 재생할 때 트랙별 표로 옮긴다.
+    pub source_sample_rates: RwLock<HashMap<String, u32>>,
+    /// 트랙 → 원래 샘플레이트(재생을 시작할 때 적는다). 화면의 리샘플링 배지(core::resample_status)가 읽는다.
+    pub track_source_rates: RwLock<HashMap<String, u32>>,
     pub broadcast_lock: std::sync::Mutex<()>,
 
     pub state_sink: RwLock<Option<StreamSink<EngineStateUpdate>>>,
@@ -131,6 +135,8 @@ impl GlobalEngineState {
             hrtf_pitch: AtomicU32::new(0),
             hrtf_roll: AtomicU32::new(0),
             playing_track_ids: RwLock::new(HashMap::new()),
+            source_sample_rates: RwLock::new(HashMap::new()),
+            track_source_rates: RwLock::new(HashMap::new()),
             broadcast_lock: std::sync::Mutex::new(()),
             state_sink: RwLock::new(None),
             active_device_channels: AtomicU32::new(0),
@@ -165,6 +171,7 @@ impl GlobalEngineState {
             unique_ids.dedup();
             unique_ids
         };
+        let (device_sample_rate, resample) = self.resample_summary(&playing_track_ids);
 
         let update = EngineStateUpdate {
             active_room_id: room_id,
@@ -176,10 +183,49 @@ impl GlobalEngineState {
             gain_reduction_db: f32::from_bits(self.current_gain_reduction_db.load(Ordering::Relaxed)),
             theme_started: self.theme_started.load(Ordering::Relaxed),
             cleared_room_ids: self.cleared_room_ids.read().unwrap_or_else(|e| e.into_inner()).clone(),
+            device_sample_rate,
+            resampled_source_rates: resample.source_rates,
+            resampled_track_count: resample.track_count,
         };
 
         if let Some(sink) = self.state_sink.read().unwrap_or_else(|e| e.into_inner()).as_ref() {
             let _ = sink.add(update);
+        }
+    }
+
+    /// 장치 샘플레이트와, 재생 중인 트랙 중 그와 달라 바꾸고 있는 것의 요약(화면 배지). 설정(config) 잠금은
+    /// 잡지 않는다: 재생 함수가 설정 읽기 잠금을 쥔 채 이 상태를 보낸다.
+    pub fn resample_summary(
+        &self,
+        playing_track_ids: &[String],
+    ) -> (u32, crate::core::resample_status::ResampleSummary) {
+        let device_rate = self.engine_sample_rate.load(Ordering::Relaxed);
+        let rates = self.track_source_rates.read().unwrap_or_else(|e| e.into_inner());
+        (device_rate, crate::core::resample_status::summarize(device_rate, playing_track_ids, &rates))
+    }
+
+    /// 메모리로 읽은 음원 파일의 원래 샘플레이트를 적어 둔다.
+    pub fn note_file_source_rate(&self, file_path: &str, rate: u32) {
+        self.source_sample_rates
+            .write()
+            .unwrap_or_else(|e| e.into_inner())
+            .insert(file_path.to_string(), rate);
+    }
+
+    /// 재생을 시작하는 트랙의 원래 샘플레이트를 적는다. [rate]가 없으면 파일 표에서 찾고, 거기도 없으면 적지 않는다.
+    pub fn note_track_source_rate(&self, track_id: &str, file_path: &str, rate: Option<u32>) {
+        let rate = rate.or_else(|| {
+            self.source_sample_rates
+                .read()
+                .unwrap_or_else(|e| e.into_inner())
+                .get(file_path)
+                .copied()
+        });
+        if let Some(rate) = rate {
+            self.track_source_rates
+                .write()
+                .unwrap_or_else(|e| e.into_inner())
+                .insert(track_id.to_string(), rate);
         }
     }
 

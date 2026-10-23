@@ -69,7 +69,6 @@ fn 스냅샷을_떠서_멈춘_위치부터_재개하고_사용자_정지와_재�
         name: "R1".into(),
         color_hex: "#ffffff".into(),
         volume: 1.0,
-        volume_osc_address: String::new(),
         clear_osc_address: String::new(),
         tracks: vec![track("sfx", "/sfx.wav"), track("bgm2", "/bgm2.wav")],
     });

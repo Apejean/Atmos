@@ -1,16 +1,4 @@
 #[flutter_rust_bridge::frb(ignore)]
-pub fn validate_osc_packet(sender_addr: &std::net::SocketAddr, whitelist: &[std::net::IpAddr], raw_bytes: &[u8]) -> bool {
-    if !whitelist.is_empty() && !whitelist.contains(&sender_addr.ip()) {
-        println!("⚠️ 허용되지 않은 IP 패킷 차단: {}", sender_addr.ip());
-        return false;
-    }
-    if raw_bytes.is_empty() || raw_bytes[0] != b'/' {
-        return false;
-    }
-    true
-}
-
-#[flutter_rust_bridge::frb(ignore)]
 pub fn create_high_capacity_osc_socket(port: u16) -> std::io::Result<std::net::UdpSocket> {
     use socket2::{Socket, Domain, Type, Protocol};
     let socket = Socket::new(Domain::IPV4, Type::DGRAM, Some(Protocol::UDP))?;
