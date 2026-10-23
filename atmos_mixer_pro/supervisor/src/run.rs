@@ -3,7 +3,7 @@
 use crate::backoff::Backoff;
 use crate::heartbeat::{read_heartbeat, read_pid, CLEAN_EXIT, HEARTBEAT, SUPERVISOR_LOCK};
 use crate::logfile::log;
-use crate::process::{adopt_running_app, Target};
+use crate::process::{adopt_running_app, session_ending, Target};
 use crate::watch::{Verdict, Watch};
 use std::fs::{File, OpenOptions};
 use std::path::{Path, PathBuf};
@@ -184,13 +184,27 @@ fn acquire_lock(path: &Path) -> Option<File> {
 impl Supervisor<'_> {
     fn run_loop(&mut self) {
         loop {
+            // Windows가 꺼지거나 로그아웃하는 중이면 앱을 다시 띄우지 않는다(대기하는 사이에 시작됐을 수도 있다).
+            // 다음 로그인 때 로그인 자동 실행이 감시를 새로 띄운다.
+            if session_ending() {
+                self.log("Windows가 꺼지거나 로그아웃하는 중이다 — 앱을 다시 띄우지 않고 감시를 끝낸다");
+                return;
+            }
             let Some((mut target, adopted)) = self.next_target() else {
                 // 앱을 띄우지 못했다(파일 없음 등). 기다렸다 다시 해 본다.
                 self.wait_before_relaunch(Duration::ZERO);
                 continue;
             };
             let started = Instant::now();
-            match self.watch(&mut target, adopted) {
+            let ending = self.watch(&mut target, adopted);
+            if session_ending() && !self.closed_by_operator(&target) {
+                self.log(&format!(
+                    "Windows가 꺼지거나 로그아웃하는 중에 앱이 끝났다(pid {}) — 충돌이 아니므로 다시 띄우지 않고 감시를 끝낸다",
+                    target.pid()
+                ));
+                return;
+            }
+            match ending {
                 Ending::Exited(code) if self.closed_by_operator(&target) => {
                     self.log(&format!("운영자가 앱을 닫았다(pid {}, 종료 코드 {code:?}) — 감시를 끝낸다", target.pid()));
                     return;
