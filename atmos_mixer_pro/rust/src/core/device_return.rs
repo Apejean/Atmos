@@ -4,8 +4,20 @@
 //! 장치 이름을 지정해 열어야만 풀린다. 그런데 비상 엔진은 장치 이름 없이 열려 있어서, 원래 장치가 돌아와 엔진이 다시
 //! 시작해도 이름 없이 다시 열렸고 감쇠가 남아 사실상 무음이었다(실기 2026-10-07, Scarlett 6i6). 그래서 설정에서 고른
 //! 장치를 기억해 두고, 비상 상태에서 다시 시작할 때 그 장치가 장치 목록에 있으면 이름을 지정해 연다.
-
+//!
+//! 앱을 켤 때 설정의 장치를 열지 못한 경우도 같은 길을 쓴다. 첫 엔진 시작([take_first_start])에서 기다리면 나타날 수
+//! 있는 장치를 열지 못하면 기본 장치로 비상 전환하고, 그 장치가 나타나면 여기 규칙으로 돌아간다(2026-10-22 사용자
+//! 결정: IoT로 PC를 켜면 인터페이스가 PC보다 늦게 준비될 수 있다).
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::RwLock;
+
+/// 앱을 켠 뒤 아직 엔진을 시작한 적이 없다.
+static FIRST_START: AtomicBool = AtomicBool::new(true);
+
+/// 앱을 켠 뒤 첫 엔진 시작인가(공개 시작 API가 부를 때마다 묻는다). 한 번 물으면 그다음부터 false다.
+pub fn take_first_start() -> bool {
+    FIRST_START.swap(false, Ordering::SeqCst)
+}
 
 /// 설정에서 고른 출력 장치(None이면 기본 장치). 공개 시작 API(`api_init_audio_system`)만 바꾼다.
 /// 비상 전환의 내부 재기동(장치 이름 없이 다시 열기)은 이 값을 바꾸지 않는다.

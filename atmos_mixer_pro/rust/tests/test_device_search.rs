@@ -1,7 +1,7 @@
 //! 엔진이 설정의 장치를 찾는 규칙(core::device_search, HANDOFF 남은 일 14). 기다려도 나타날 수 없는 이름은
 //! 30초 동안 찾지 않는다 — Windows에서는 찾는 동안 ASIO 드라이버를 0.5초마다 모두 불러와 드라이버 창이 반복해 떴다.
 use rust_lib_atmos_mixer_pro::api::simple::api_init_audio_system;
-use rust_lib_atmos_mixer_pro::core::device_search::reject_before_search;
+use rust_lib_atmos_mixer_pro::core::device_search::{may_appear_later, reject_before_search};
 use std::time::{Duration, Instant};
 
 /// 엔진 기동도 그런 이름이면 장치를 건드리지 않고 바로 실패한다(예전에는 30초 동안 찾았다). 장치나 드라이버를
@@ -31,6 +31,22 @@ fn 다른_os의_장치_이름은_찾지_않고_바로_실패한다() {
     let reason = reject_before_search(foreign, None).expect("다른 OS의 장치 이름");
     assert!(reason.contains(foreign), "{reason}");
     assert_eq!(reject_before_search(own, None), None, "이 OS의 장치는 찾는다");
+}
+
+/// 앱을 켤 때 장치를 열지 못하면 기다리면 나타날 수 있는 장치만 비상 전환하고 돌아오기를 기다린다(2026-10-22 사용자
+/// 결정). 나타날 수 없는 이름은 지금처럼 오류로 알린다. 장치를 열지 않으므로 CI에서도 돈다.
+#[test]
+fn 켤_때_비상_전환은_기다리면_나타날_수_있는_장치에만_한다() {
+    let (foreign, own) = if cfg!(target_os = "windows") {
+        ("[CoreAudio] Scarlett 6i6 USB", "[WASAPI] Speakers (Focusrite USB Audio)")
+    } else {
+        ("[ASIO] ASIO MADIface USB", "[CoreAudio] Scarlett 6i6 USB")
+    };
+    assert!(!may_appear_later(foreign), "다른 OS의 장치는 기다려도 나타나지 않는다");
+    assert!(may_appear_later(own), "이 OS의 장치는 꺼져 있다가 켜질 수 있다");
+    if cfg!(target_os = "windows") {
+        assert!(!may_appear_later("[ASIO] Atmos Test Driver Not Installed"), "설치되지 않은 ASIO 드라이버");
+    }
 }
 
 #[cfg(target_os = "windows")]

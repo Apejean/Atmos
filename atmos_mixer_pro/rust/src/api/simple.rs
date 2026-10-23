@@ -886,7 +886,37 @@ pub fn api_init_audio_system(device_name: Option<String>) -> Result<(), AtmosErr
     crate::core::restart_resume::cancel_all();
     // 비상 전환 뒤 이 장치가 돌아오면 이름을 지정해 다시 연다(core::device_return).
     crate::core::device_return::remember_requested_device(device_name.clone());
-    start_audio_system(device_name)
+    let first_start = crate::core::device_return::take_first_start();
+    match start_audio_system(device_name.clone()) {
+        // 앱을 켤 때 설정의 장치를 열지 못하면(인터페이스가 아직 안 켜졌거나 연결되지 않음) 기본 장치로 비상 전환해
+        // 공연 시간을 이어 간다. 그 장치가 장치 목록에 나타나면 자기 재시작이 이름을 지정해 다시 열어 비상이 풀린다
+        // (core::device_return, 3-4와 같은 길). 예전에는 오류 창을 띄운 채 무음으로 멈춰 사람이 엔진 리셋을 눌러야
+        // 했다(2026-10-22 사용자 결정: IoT로 PC를 켜면 인터페이스가 늦게 준비될 수 있다). 기다려도 나타날 수 없는
+        // 이름(다른 OS의 장치, 설치되지 않은 ASIO 드라이버)과 사람이 장치를 고른 경우(환경설정·재스캔)는 오류로 알린다.
+        Err(err)
+            if first_start
+                && device_name
+                    .as_deref()
+                    .is_some_and(crate::core::device_search::may_appear_later) =>
+        {
+            crate::core::state::GLOBAL_STATE.log(format!(
+                "비상 전환: 앱을 켤 때 설정의 장치를 열지 못해 기본 장치로 임시 전환한다(출력 −40dB, 장치가 나타나면 돌아간다): {}",
+                err.message
+            ));
+            crate::core::state::GLOBAL_STATE
+                .is_failover_mode
+                .store(true, std::sync::atomic::Ordering::Relaxed);
+            init_audio_system(None).map_err(|fallback| {
+                crate::core::state::GLOBAL_STATE
+                    .is_failover_mode
+                    .store(false, std::sync::atomic::Ordering::Relaxed);
+                crate::core::state::GLOBAL_STATE
+                    .log(format!("비상 전환 실패: 기본 장치도 열지 못했다: {}", fallback.message));
+                err
+            })
+        }
+        result => result,
+    }
 }
 
 /// 자동 재연결(재기동 스레드)용 기동. 재시작 복원 대기를 지킨다.
@@ -988,6 +1018,24 @@ fn start_audio_system(device_name: Option<String>) -> Result<(), AtmosError> {
                     broadcast_stream_status("Failover".to_string());
                 } else {
                     broadcast_stream_status("Running".to_string());
+                }
+
+                // 앞 엔진들이 남긴 부하 집계를 버린다. 10초를 못 채우고 끝난 엔진(장치 전환·재시도 중)은 집계를
+                // 비우지 않아, 새 엔진의 첫 보고에 몇 분치가 섞여 "부하 높음"으로 잘못 남았다(2026-10-21 18:34:
+                // 버퍼 1024프레임인데 10초에 콜백 10480회, 늦은 콜백 20회).
+                {
+                    let state = &crate::core::state::GLOBAL_STATE;
+                    for counter in [
+                        &state.callback_max_us,
+                        &state.callback_overruns,
+                        &state.callback_total_us,
+                        &state.callback_count,
+                        &state.callback_gap_max_us,
+                        &state.callback_heavy,
+                        &state.callback_late,
+                    ] {
+                        counter.store(0, std::sync::atomic::Ordering::Relaxed);
+                    }
                 }
 
                 // Keep thread alive until next generation, and watch for DeviceNotAvailable
@@ -1182,6 +1230,8 @@ fn start_audio_system(device_name: Option<String>) -> Result<(), AtmosError> {
                         }
                         println!("🔄 [디버깅] 자동 재연결(Hot-Reload) 수행!");
                         broadcast_stream_status("HotReloading".to_string());
+                        // 이 재시작이 만드는 믹서는 부팅 뮤트 램프를 짧게 쓴다(core::restart_resume).
+                        crate::core::restart_resume::set_short_startup_ramp(true);
                         let started = match init_audio_system(restart_device) {
                             Ok(()) => true,
                             Err(_e) => {
@@ -1196,6 +1246,7 @@ fn start_audio_system(device_name: Option<String>) -> Result<(), AtmosError> {
                                 init_audio_system(None).is_ok() // None forces default OS device
                             }
                         };
+                        crate::core::restart_resume::set_short_startup_ramp(false);
                         if started {
                             crate::core::restart_resume::resume_after_resync();
                         }
@@ -1599,6 +1650,23 @@ pub fn api_get_output_devices() -> Result<Vec<OutputDeviceInfo>, AtmosError> {
                     name: saved_name,
                     max_channels,
                     channel_names,
+                });
+            }
+            // 설치된 다른 ASIO 장치도 이름만 보인다. 예전에는 지금 쓰는 ASIO 장치만 있어서, 다른 ASIO 장치를 고르려면
+            // 재스캔(엔진 정지)을 알아야 했다(2026-10-21: RME가 연결돼 있는데 목록에 없다고 보임). 설치 목록은 드라이버를
+            // 열지 않고 읽으니 지금 드라이버와 부딪치지 않는다. 채널 수는 열기 전에는 몰라서, 엔진이 도는 동안 다른 ASIO
+            // 장치에 쓰는 값(2, api_get_device_channel_count)과 같다. 고르면 엔진이 지금 드라이버를 닫고 그 장치를 연다.
+            #[cfg(target_os = "windows")]
+            for driver in asio_sys::Asio::new().driver_names() {
+                let driver = driver.replace('\0', "").trim().to_string();
+                let name = format!("[ASIO] {driver}");
+                if driver.is_empty() || device_info_list.iter().any(|d| d.name == name) {
+                    continue;
+                }
+                device_info_list.push(OutputDeviceInfo {
+                    channel_names: crate::audio::channel_names::get_channel_names_win(&driver, 2),
+                    name,
+                    max_channels: 2,
                 });
             }
         }

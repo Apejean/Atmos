@@ -23,6 +23,17 @@ pub fn reject_before_search(requested: &str, installed_asio: Option<&[String]>) 
     Some(format!("ASIO 드라이버 '{driver}'가 이 컴퓨터에 설치돼 있지 않습니다"))
 }
 
+/// 지금은 없지만 기다리면 나타날 수 있는 장치인가([reject_before_search]가 받아 주는 이름). 꺼져 있다 켜지거나
+/// 나중에 연결되는 인터페이스가 여기에 든다. 앱을 켤 때 이런 장치를 열지 못하면 기본 장치로 비상 전환하고 돌아오기를
+/// 기다린다(api::simple `api_init_audio_system`).
+pub fn may_appear_later(requested: &str) -> bool {
+    #[cfg(target_os = "windows")]
+    let installed_asio = requested.starts_with("[ASIO]").then(|| asio_sys::Asio::new().driver_names());
+    #[cfg(not(target_os = "windows"))]
+    let installed_asio: Option<Vec<String>> = None;
+    reject_before_search(requested, installed_asio.as_deref()).is_none()
+}
+
 /// 장치 이름 비교용: 널 문자와 앞뒤 공백을 뗀다(엔진이 장치 목록과 견줄 때와 같다).
 pub fn clean_name(name: &str) -> String {
     name.replace('\0', "").trim().to_string()

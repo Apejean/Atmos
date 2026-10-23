@@ -43,15 +43,27 @@ pub struct DuckingState {
     pub ducking_weight: f32, // 1.0 down to 0.3
 }
 
+/// 부팅 뮤트 램프 길이(초): 앱을 켤 때와 사람이 장치를 바꾸거나 다시 스캔할 때.
+pub const STARTUP_RAMP_S: f32 = 3.0;
+/// 엔진이 스스로 다시 시작할 때(워치독·장치 오류·장치 복귀)의 부팅 뮤트 램프 길이(초). 예전에는 여기도 3초라
+/// 멈춘 자리부터 이어 튼 소리가 재개 순간 약 −15dB에서 3초에 걸쳐 커졌다(HANDOFF 남은 일 8). 이어 트는 트랙에는
+/// 따로 300ms 페이드 인이 있어 같은 길이로 맞춘다(core::restart_resume).
+pub const RESTART_RAMP_S: f32 = 0.3;
+
 pub struct StartupMuteRamp {
-    pub current_gain: f32, // 0.0 -> 1.0 (3초간 서서히 상승)
+    pub current_gain: f32, // 0.0 -> 1.0 (램프 길이에 걸쳐 서서히 상승)
     pub ramp_step: f32,
 }
 impl StartupMuteRamp {
     pub fn new(sample_rate: f32) -> Self {
+        Self::with_seconds(sample_rate, STARTUP_RAMP_S)
+    }
+
+    /// `seconds`에 걸쳐 0에서 1로 오르는 램프.
+    pub fn with_seconds(sample_rate: f32, seconds: f32) -> Self {
         Self {
             current_gain: 0.0,
-            ramp_step: 1.0 / (sample_rate * 3.0), // 3초 분량 샘플 스텝
+            ramp_step: 1.0 / (sample_rate * seconds), // 램프 길이만큼의 샘플 스텝
         }
     }
     /// 블록 안 `frame`번째 프레임에 적용할 램프 게인. 상태를 바꾸지 않는다.
@@ -292,7 +304,14 @@ impl AudioMixer {
             spatial_gc_tx,
             room_volumes: vec![None; channels],
             local_recycle: Vec::with_capacity(65536),
-            startup_ramp: StartupMuteRamp::new(sample_rate as f32),
+            startup_ramp: StartupMuteRamp::with_seconds(
+                sample_rate as f32,
+                if crate::core::restart_resume::short_startup_ramp() {
+                    RESTART_RAMP_S
+                } else {
+                    STARTUP_RAMP_S
+                },
+            ),
             master_mute: false,
             channel_dsp,
             channel_positions,
