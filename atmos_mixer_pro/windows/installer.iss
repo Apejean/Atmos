@@ -30,6 +30,17 @@
 #ifndef RedistDir
   #define RedistDir AddBackslash(SourcePath) + "redist"
 #endif
+; Legal folder (2026-10-25, like Ableton Live): the open-source license texts that
+; tool\legal\generate_third_party_licenses.dart writes after the build, and the third-party URLs and logos PDF
+; (windows\legal, made from its HTML by tool\windows\make-legal-pdf.ps1). Setup is not built without them.
+#ifndef LegalDir
+  #define LegalDir AddBackslash(SourcePath) + "..\build\legal"
+#endif
+#define LegalLicensesTxt "third_party_license_information.txt"
+#define LegalLogosPdf "The_Awesome_Third_Party_URL_Logo.pdf"
+#if !FileExists(AddBackslash(LegalDir) + LegalLicensesTxt)
+  #error Missing the third-party license file. Run tool\legal\generate_third_party_licenses.dart after the build or pass /DLegalDir.
+#endif
 #define VCRedistExe "VC_redist.x64.exe"
 #define WebView2Exe "MicrosoftEdgeWebView2RuntimeInstallerX64.exe"
 ; x86 WebView2 loader (Setup is 32-bit) for the official check of a usable runtime, see UsableWebView2 in [Code].
@@ -88,6 +99,9 @@ Source: "{#ReleaseDir}\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#ReleaseDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 ; Registers the logon task that starts the supervisor ([Run] below).
 Source: "autostart.ps1"; DestDir: "{app}"; Flags: ignoreversion
+; Legal folder (see LegalDir above). Uninstall removes it with the other installed files.
+Source: "{#LegalDir}\{#LegalLicensesTxt}"; DestDir: "{app}\Legal"; DestName: "Third-party License Information.txt"; Flags: ignoreversion
+Source: "legal\{#LegalLogosPdf}"; DestDir: "{app}\Legal"; Flags: ignoreversion
 ; Extracted to {tmp} only when needed (InstallPrerequisites).
 Source: "{#RedistDir}\{#VCRedistExe}"; Flags: dontcopy
 Source: "{#RedistDir}\{#WebView2Exe}"; Flags: dontcopy
