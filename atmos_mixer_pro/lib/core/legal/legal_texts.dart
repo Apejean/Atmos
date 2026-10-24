@@ -18,6 +18,7 @@ Source: http://sound.media.mit.edu/resources/KEMAR.html
 History: The original MIT KEMAR data was converted to the SOFA format by Piotr Majdak and Michael Mihocic (Acoustics Research Institute, Austrian Academy of Sciences). The Awesome further converted that SOFA file into its own binary format without changing the values. The Awesome equalizes the responses at run time for its headphone binaural preview.''';
 
 /// ASIO 상표 고지: Steinberg ASIO SDK 2.3.4 사용 지침 15절 문구와 계약서(2.0.5) 3조 1항 k의 Steinberg 고지 문구.
+/// 근거가 달라(지침 15절 / 계약 3조 1항 k) 두 줄을 늘 함께 싣는다(2026-10-25 재확인: 로고 그림으로 대신하지 않는다).
 const String asioTrademarkAttribution = 'ASIO is a registered trademark of Steinberg Media Technologies GmbH.';
 const String asioCopyrightNotice =
     'ASIO is a trademark of Steinberg Media Technologies GmbH, registered in Europe and other countries.';

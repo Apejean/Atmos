@@ -15,7 +15,7 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('Credits는 글자 고지만 보인다: ASIO 상표 두 줄, KEMAR 출처, Legal 폴더 안내, 로고 없음', (tester) async {
+  testWidgets('Credits는 글자 고지만 보인다: ASIO 두 줄(지침 15절·계약 3조 1항 k), KEMAR 출처, 안내 문장·경로·로고 없음', (tester) async {
     await openCredits(tester);
 
     expect(find.text('Credits'), findsOneWidget);
@@ -25,22 +25,54 @@ void main() {
       findsOneWidget,
     );
     expect(find.textContaining('Gardner, W. G., and Martin, K. D. (1995)'), findsOneWidget);
-    expect(find.textContaining('Legal folder of the installation folder'), findsOneWidget);
+    expect(find.textContaining('installation folder'), findsNothing);
+    expect(find.textContaining('설치 폴더'), findsNothing);
+    expect(find.byType(SelectableText), findsNothing);
     expect(find.byType(Image), findsNothing);
   });
 
-  testWidgets('Windows에서는 실행 파일 옆 Legal 폴더 경로를 보인다', (tester) async {
+  testWidgets('Windows에서는 실행 파일 옆 Legal 폴더를 여는 Legal information이 보인다', (tester) async {
     await openCredits(tester);
 
-    final path = legalFolderPath();
-    expect(path, endsWith(r'\Legal'));
-    expect(find.text(path!), findsOneWidget);
+    expect(legalFolderPath(), endsWith(r'\Legal'));
+    expect(find.text('Legal information'), findsOneWidget);
   }, variant: TargetPlatformVariant.only(TargetPlatform.windows));
 
-  testWidgets('Windows가 아니면 경로 줄이 없다', (tester) async {
+  testWidgets('Legal information은 받은 함수로 그 폴더를 열고, 폴더가 없으면 알린다', (tester) async {
+    final opened = <String>[];
+    var exists = true;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: CreditsText(
+              legalFolder: r'C:\App\Legal',
+              openFolder: (path) async {
+                opened.add(path);
+                return exists;
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.ensureVisible(find.text('Legal information'));
+    await tester.tap(find.text('Legal information'));
+    await tester.pump();
+    expect(opened, [r'C:\App\Legal']);
+    expect(find.textContaining('Legal 폴더를 찾지 못했습니다'), findsNothing);
+
+    exists = false;
+    await tester.tap(find.text('Legal information'));
+    await tester.pump();
+    expect(find.text(r'Legal 폴더를 찾지 못했습니다: C:\App\Legal'), findsOneWidget);
+  });
+
+  testWidgets('Windows가 아니면 Legal information이 없다', (tester) async {
     await openCredits(tester);
 
     expect(legalFolderPath(), isNull);
-    expect(find.byType(SelectableText), findsNothing);
+    expect(find.text('Legal information'), findsNothing);
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 }
