@@ -234,17 +234,20 @@
       box.getCenter(center);
 
       // Standard anatomical head scale (ear-to-head-top ~ 13cm)
-      const rawEarY = 19.232;
+      // Ear canal of listener_bust_white.obj in its own units (base y 0, crown y 3.97, face toward +Z):
+      // the ears span y 2.21-2.79 and sit at z -0.076 on average (2026-10-24).
+      const rawEarY = 2.50;
+      const rawEarZ = -0.076;
       const rawTopY = box.max.y;
-      const rawHeadTopOffset = Math.max(0.5, rawTopY - rawEarY);
+      const rawHeadTopOffset = Math.max(0.05, rawTopY - rawEarY);
       const targetHeadTopOffset = 0.13 * mannequinScale; // 13cm
       const scale = (targetHeadTopOffset / rawHeadTopOffset);
 
       obj.scale.set(scale, scale, scale);
 
-      // 3. Exact Ear Canal Axis Alignment (Y = earLevel)
+      // 3. Exact Ear Canal Axis Alignment (Y = earLevel, ear canals over the listener point)
       const earOffsetY = rawEarY * scale;
-      obj.position.set(-center.x * scale, earLevel - earOffsetY, -center.z * scale);
+      obj.position.set(-center.x * scale, earLevel - earOffsetY, -rawEarZ * scale);
       listenerGroup.add(obj);
 
       // 4. Calculate bottom of bust and render matching telescopic stand
@@ -269,30 +272,20 @@
         return;
       }
 
-      // Load listener_bust.obj (Option 1 Studio Model)
+      // Load listener_bust_white.obj (user-supplied white bust, 2026-10-24). It replaced listener_bust.obj
+      // and listener_head.obj, whose source and license were unknown.
       if (typeof THREE.OBJLoader !== 'undefined') {
         const objLoader = new THREE.OBJLoader();
         objLoader.load(
-          '../models/listener_bust.obj',
+          '../models/listener_bust_white.obj',
           function (obj) {
             cachedBustModel = obj;
             renderListenerBust(obj.clone(true), currentEarLevel);
           },
           undefined,
           function (err) {
-            console.warn('listener_bust.obj 로드 실패, listener_head.obj 로드 시도:', err);
-            objLoader.load(
-              '../models/listener_head.obj',
-              function (fallbackObj) {
-                cachedBustModel = fallbackObj;
-                renderListenerBust(fallbackObj.clone(true), currentEarLevel);
-              },
-              undefined,
-              function (err2) {
-                console.error('3D 모델 로드 실패:', err2);
-                renderStudioStand(currentEarLevel - 0.45, currentEarLevel);
-              }
-            );
+            console.error('3D 모델 로드 실패:', err);
+            renderStudioStand(currentEarLevel - 0.45, currentEarLevel);
           }
         );
       }
