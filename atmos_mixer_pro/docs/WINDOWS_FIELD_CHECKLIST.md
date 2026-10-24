@@ -115,6 +115,7 @@ macOS에서 실측한 값(Scarlett 6i6 12ch, 48kHz)과 비교한다. Windows에�
 - [ ] 창 크기·최소 크기(800×600)·타이틀바가 정상이다.
 - [ ] **리샘플링 배지(2026-10-24).** 장치와 같은 샘플레이트 음원만 재생하거나 아무것도 재생하지 않으면 `DIRECT: 48kHz`, 다른 음원(예: 44.1kHz)을 재생하면 `HQ Sinc: 44.1kHz ➔ 48kHz (트랙 n개)`로 바뀌고, 멈추면 돌아온다. 인터페이스 샘플레이트가 다르면(또는 비상 전환으로 기본 장치가 되면) 장치 값도 그 값으로 보인다.
 - [ ] **리미터 미터(2026-10-24).** 큰 음원을 틀어 리미터가 걸리면 `TRUE-PEAK LIMITER ISP -x.x dB`가 공연 중 계속 움직이고, 작아지면 0.0으로 돌아온다(예전에는 재생·정지 때만 바뀌었다).
+- [ ] **ASIO 로고와 상표 고지(Windows만).** Help → Third-party Notices 맨 아래에 ASIO 로고(변형 없이 180px)와 문구 2줄("ASIO is a registered trademark of Steinberg Media Technologies GmbH."와 계약서 3조 1항 k 문구)이 보인다. macOS 판에는 이 칸이 없다.
 
 ## 9. 프로젝트 파일 이식성 (설계 PC → 현장 PC)
 
