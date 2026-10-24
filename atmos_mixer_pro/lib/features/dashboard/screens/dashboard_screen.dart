@@ -17,7 +17,7 @@ import 'package:atmos_mixer_pro/core/utils/osc_addresses.dart';
 import 'package:atmos_mixer_pro/features/dashboard/widgets/room_card.dart';
 import 'package:atmos_mixer_pro/features/settings/widgets/preferences_modal.dart';
 import 'package:atmos_mixer_pro/features/settings/widgets/tuning_modal.dart';
-import 'package:atmos_mixer_pro/features/settings/widgets/third_party_notices.dart';
+import 'package:atmos_mixer_pro/features/settings/widgets/credits_dialog.dart';
 import 'package:atmos_mixer_pro/features/dashboard/widgets/osc_monitor_dialog.dart';
 import 'package:atmos_mixer_pro/features/dashboard/widgets/missing_media_dialog.dart';
 import 'package:atmos_mixer_pro/features/dashboard/widgets/about_app_dialog.dart';
@@ -589,10 +589,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             },
           ),
           PlatformMenuItem(
-            label: 'Third-party Notices',
+            label: 'Credits',
             onSelected: () {
               if (context.mounted) {
-                showThirdPartyNotices(context);
+                showCredits(context);
               }
             },
           ),
@@ -760,10 +760,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   MenuItemButton(
                     onPressed: () {
                       if (context.mounted) {
-                        showThirdPartyNotices(context);
+                        showCredits(context);
                       }
                     },
-                    child: const Text('Third-party Notices'),
+                    child: const Text('Credits'),
                   ),
                 ],
                 child: const Text('Help'),

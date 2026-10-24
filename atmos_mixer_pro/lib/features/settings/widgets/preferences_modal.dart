@@ -13,7 +13,7 @@ import 'package:atmos_mixer_pro/src/rust/api/simple.dart' as rust_api;
 import 'package:atmos_mixer_pro/core/utils/channel_dropdown_helper.dart';
 import 'package:atmos_mixer_pro/core/utils/channel_routing.dart';
 import 'package:atmos_mixer_pro/core/utils/osc_addresses.dart';
-import 'package:atmos_mixer_pro/features/settings/widgets/third_party_notices.dart';
+import 'package:atmos_mixer_pro/features/settings/widgets/asio_setting_notice.dart';
 
 
 class PreferencesModal extends ConsumerStatefulWidget {

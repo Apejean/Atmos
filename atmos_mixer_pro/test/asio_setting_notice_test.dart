@@ -1,4 +1,4 @@
-import 'package:atmos_mixer_pro/features/settings/widgets/third_party_notices.dart';
+import 'package:atmos_mixer_pro/features/settings/widgets/asio_setting_notice.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
