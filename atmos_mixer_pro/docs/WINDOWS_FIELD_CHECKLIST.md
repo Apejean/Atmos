@@ -25,6 +25,8 @@
 - [ ] **설치 전에 보안 프로그램 예외(2026-10-23 개발 PC에서 확인).** 현장 PC에 깔린 보안 프로그램을 모두 확인한다: 백신(Avast·AVG·알약·V3·Norton·McAfee·Kaspersky 등, Windows 보안의 Defender·SmartScreen 포함), 제3자 방화벽, 랜섬웨어 방지(Windows "제어된 폴더 액세스" 등). 서명 없는 새 실행 파일은 이런 프로그램이 지우거나, 처음 실행을 늦추거나, 샌드박스 안에서 먼저 실행한다. 설치 파일이 있는 폴더와 설치 폴더(새로 설치하면 `C:\Program Files (x86)\The Awesome`, 이름 변경 전 설치본은 `…\Atmos Mixer Pro`)를 **보안 프로그램마다** 예외에 넣고(샌드박스·행동 감시 예외가 따로 있으면 그것도) 설치한다.
   - 개발 PC(Avast·알약 설치, Avast가 방화벽 제품으로 등록)에서 본 증상: Avast가 설치 파일을 샌드박스 안에서 먼저 실행했고(AvastSvc.log "marked for virtualization"), 그 실행의 방화벽 규칙 변경은 실행 중인 방화벽에만 남고 저장된 규칙에는 남지 않았다(방화벽 이벤트 2052 삭제·2097 추가, 10-23 19:39·20:04). 검사가 끝난 뒤 실제 설치가 다시 떴다가 한 번 중단됐고(설치 로그 #003) 다음에 끝났다(#004). 두 규칙 목록이 갈라져 설치 파일의 규칙 삭제가 실패했고(netsh 종료 코드 1), 옛 규칙 "Atmos Mixer Pro OSC"가 남고 "The Awesome OSC"가 설치마다 한 쌍씩 늘었다. 그 전에는 관리자 권한을 얻지 못해 "이 프로그램을 설치할 때 관리자로 로그인해야 합니다"(10-22에는 "오류 5: 임시 디렉터리에서 파일을 실행할 수 없습니다")로 멈췄고, 새 감시·앱이 샌드박스 안에서 돌다 멈췄으며, 설치 파일이 HKCU Run 키에 쓰거나 지운 것이 실제 레지스트리에 반영되지 않았다.
   - 설치 창이 두 번 뜨거나, 관리자 승인 뒤 창이 사라지거나, 위 오류가 나오면 보안 프로그램을 의심한다. 예외를 넣은 뒤 다시 설치한다.
+  - 10-24 개발 PC: Avast는 설치 파일이 실행할 때마다 임시 폴더(`%TEMP%\is-…tmp`)에 새 이름으로 푸는 `AtmosMixerPro_Setup.tmp`를 샌드박스에 넣었다. 그 안의 실행이 "이 프로그램을 설치할 때 관리자로 로그인해야 합니다"와 "내부 오류: CallSpawnServer: Unexpected response: $0"을 냈고, 약 25초 뒤 Avast 검사가 끝나면 실제 설치가 정상으로 돌았다. Avast가 설치 파일(`AtmosMixerPro_Setup.exe`)은 스스로 예외에 넣었지만 임시 파일은 경로가 매번 달라 파일 하나 예외로는 막을 수 없고, Avast가 그 파일을 해시로 예외에 넣으려다 오류 122로 실패했다. 임시 폴더 전체 예외는 만들지 않는다(사용자 결정). CallSpawnServer 오류는 설치 파일을 고쳐 없앴다(관리자 승인 전 사용자로 실행하는 단계를 없앰, 2026-10-24). 관리자 오류 창은 백신이 관리자 권한을 막아서 나므로 설치 파일로는 없앨 수 없다.
+  - 10-24 개발 PC(같은 날 저녁): Avast 자동 샌드박스가 설치 결과까지 망가뜨렸다. 설치·제거 창이 두세 번씩 떴고, 설치 기록 두 개가 모두 정상인데도 설치 뒤 `data\flutter_assets`가 통째로 없어 3D 화면이 비었으며(17:5x), 완전히 지우고 새 기본 폴더 `The Awesome`에 다시 설치한 뒤에는 Avast가 그 폴더의 감시·앱을 샌드박스에 넣어 3D(WebView2)가 뜨지 않았고 이어서 `atmos_mixer_pro.exe` 자체가 폴더에서 사라졌다(19:37~19:41, 격리 기록 없음, 샌드박스에 갇힌 감시는 "파일을 찾을 수 없음"으로 계속 재시도). 예전 폴더는 10-22에 Avast가 클라우드에서 깨끗함으로 처리해 두어 문제가 없었다. Avast가 있는 PC는 설치 전에 자동 샌드박스를 "묻기"로 두거나, 설치 폴더의 `atmos_mixer_pro.exe`·`atmos_supervisor.exe`를 예외에 넣은 뒤 설치하고, 설치 뒤 설치 폴더에 두 exe와 `data\flutter_assets`가 있는지, 3D 화면이 뜨는지 확인한다.
   - 설치 뒤 확인: 설치 로그(`%TEMP%\Setup Log *.txt`)가 성공으로 끝났는지, 작업 스케줄러 "The Awesome Autostart"가 로그인한 사용자로 있는지, 방화벽 인바운드 규칙에 "The Awesome OSC" 두 개만 있고 옛 이름이 없는지(5절), 앱이 뜨고 소리가 나는지.
   - 제3자 방화벽이 Windows 방화벽 대신 켜져 있으면(Windows 보안 → 방화벽 및 네트워크 보호에 그 제품 이름이 보임) 설치 파일이 넣은 Windows 방화벽 규칙이 적용되지 않을 수 있다. 그 제품의 방화벽에서 `atmos_mixer_pro.exe`의 UDP 수신(OSC)을 허용한다.
   - Windows 보안의 "랜섬웨어 방지 → 제어된 폴더 액세스"가 켜져 있으면 문서·바탕 화면에 둔 프로젝트(.atmos, 음원, 도면)를 저장하지 못할 수 있다. 앱을 허용 목록에 넣거나 보호되지 않는 폴더(예: `D:\Shows`)에 둔다.
@@ -52,8 +54,10 @@
 - [ ] **ASIO 장치 뽑기** → 오디오 멈춤으로 인한 재실행이 연속 3번 뒤 멈춘다(그 뒤로는 기록만 한다). 장치를 다시 꽂아 콜백이 돌면 횟수가 초기화된다. `supervisor.log`로 확인한다.
 - [ ] **공연 중 새 버전 설치(업그레이드).** 공연이 재생 중인 상태(감시와 앱이 떠 있음)에서 새 `AtmosMixerPro_Setup.exe`를 실행한다.
   - installer(`PrepareToInstall`)가 **감시를 먼저, 앱을 그다음에** 끝낸다. 감시가 먼저 꺼지지 않으면 앱을 끝낼 때 감시가 앱을 다시 띄워 파일이 잠긴다.
-  - 설치가 파일 잠금 오류 없이 끝나고, 설치 도중과 끝난 직후에 앱이 저절로 다시 뜨지 않는다(설치 직후 실행 체크 시에만 뜬다).
+  - 설치가 파일 잠금 오류 없이 끝나고, 설치 도중과 끝난 직후에 앱이 저절로 다시 뜨지 않는다. 설치 마지막 화면에 실행 체크 항목은 없다(2026-10-24) — 바탕 화면·시작 메뉴 바로가기로 시작한다.
+  - 업그레이드 뒤 설치 폴더의 `data\flutter_assets\assets\models`에 `listener_bust_white.obj`·`room_frame.glb`·`speaker_cube.glb`만 있다(설치 파일이 예전 파일을 이름으로 지운다, 2026-10-24). 예전 흉상 파일(`listener_bust.obj`, `listener_head.obj` 등)이 남아 있으면 안 된다.
   - 설치 후 바로가기·로그인 자동 실행(작업 스케줄러 작업 "The Awesome Autostart", 2026-10-23부터 Run 키 대신)이 새 감시 exe를 가리키고, 새 버전이 뜬다. 작업은 로그인한 사용자 계정·로그온 10초 뒤·시간 제한 없음이고, 옛 Run 값(AtmosMixerPro)은 업그레이드 때 지워진다.
+  - 작업 대상은 UAC를 승인한 계정이 아니라 지금 Windows 세션에 로그인한 사용자다(2026-10-24). 설치 로그(`%TEMP%\Setup Log *.txt`)의 `registered: session user … (SID), setup account …; task … (SID), trigger …, Limited, Interactive` 줄에서 세션 사용자·작업 계정의 SID가 같고 Limited·Interactive인지 본다. 다른 관리자 계정으로 승인했다면 setup account만 그 계정이고 작업은 로그인한 사용자여야 한다. 로그인 뒤 작업 관리자 세부 정보에서 `atmos_supervisor.exe`·`atmos_mixer_pro.exe`의 "관리자 권한 상승"이 "아니요"인지 본다.
   - 앱이 뜬 뒤 작업 표시줄 버튼을 오른쪽 클릭하면 이름이 The Awesome이고(옛 `atmos_mixer_pro`가 아니다), 작업 관리자에도 The Awesome으로 보인다. 작업 표시줄에 고정하면 시작 메뉴의 The Awesome 바로가기(감시)가 고정된다.
   - 제거(`UninstallRun`)도 같은 순서(감시 먼저, 앱 그다음)로 끝나는지 확인한다.
   - 확인은 작업 관리자에서 `atmos_supervisor.exe`와 `atmos_mixer_pro.exe`의 종료 순서, `supervisor.log`의 기록으로 한다.
@@ -96,6 +100,7 @@ macOS에서 실측한 값(Scarlett 6i6 12ch, 48kHz)과 비교한다. Windows에�
 사용자 결정으로 Windows에서도 반드시 동작해야 한다. `webview_flutter`는 Android·iOS·macOS만 지원해서 Windows용 구현이 따로 필요하고, 구현 전에는 이 절이 실패하는 것이 정상이다. 구현 방식은 Windows PC에서 작은 실험으로 정한다(후보: `webview_windows` 0.4.0, `flutter_inappwebview` 6.1.5).
 
 - [ ] 스피커 배치 화면에서 3D 방이 표시된다(로딩 스피너가 계속 돌지 않는다).
+- [ ] 청취자 자리에 흰 흉상(`listener_bust_white.obj`, 2026-10-24 교체)이 받침대 위에 서 있고, 귀가 방의 귀 높이(기본 1.2m)에 오며 얼굴이 정면(앞 벽) 쪽을 본다. 흉상 대신 받침대만 보이면 모델을 읽지 못한 것이다(3D 화면 콘솔의 "3D 모델 로드 실패").
 - [ ] WebGL이 매끄럽게 돈다(체감 끊김 없음, 가능하면 프레임 속도 측정).
 - [ ] 스피커를 3D에서 탭하면 선택되고 인스펙터 패널이 열린다(`SPEAKER_SELECTED`).
 - [ ] 스피커를 드래그하면 위치가 Dart로 전달되고 FX가 따라간다(`SPEAKER_DRAGGING`, `SPEAKER_MOVED`). 헤드폰 미리듣기·자동 EQ가 macOS와 같은 값으로 갱신된다.
