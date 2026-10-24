@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'package:atmos_mixer_pro/core/state/engine_resync.dart';
 import 'package:atmos_mixer_pro/core/state/launch_mode.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:atmos_mixer_pro/core/theme/colors.dart';
@@ -12,6 +13,7 @@ import 'package:atmos_mixer_pro/src/rust/api/simple.dart' as rust_api;
 import 'package:atmos_mixer_pro/core/utils/channel_dropdown_helper.dart';
 import 'package:atmos_mixer_pro/core/utils/channel_routing.dart';
 import 'package:atmos_mixer_pro/core/utils/osc_addresses.dart';
+import 'package:atmos_mixer_pro/features/settings/widgets/third_party_notices.dart';
 
 
 class PreferencesModal extends ConsumerStatefulWidget {
@@ -746,6 +748,11 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
             ),
           ],
         ),
+        // ASIO 로고와 상표 문구: ASIO를 고르는 창이라 늘 보인다(Windows만, ASIO SDK 사용 지침 1절 f).
+        if (defaultTargetPlatform == TargetPlatform.windows) ...[
+          const SizedBox(height: 8),
+          const Padding(padding: EdgeInsets.only(left: 120), child: AsioSettingNotice()),
+        ],
         const SizedBox(height: 16),
         Row(
           children: [
