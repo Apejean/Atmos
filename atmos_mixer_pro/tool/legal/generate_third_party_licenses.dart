@@ -155,7 +155,7 @@ List<Directory> _registrySources() {
 }
 
 class _Crate {
-  _Crate(this.ref, this.chosen, this.files, this.repository, this.kinds, this.texts);
+  _Crate(this.ref, this.chosen, this.files, this.repository, this.url, this.kinds, this.texts);
 
   final CrateRef ref;
   final List<String> chosen;
@@ -163,6 +163,9 @@ class _Crate {
   /// 실을 파일(크레이트 폴더 기준 상대 경로)과 본문.
   final Map<String, String> files;
   final String? repository;
+
+  /// 항목에 보일 프로젝트 주소(repository, 없으면 homepage, 없으면 crates.io).
+  final String url;
 
   /// 크레이트 맨 위 라이선스 파일 전부의 종류와 본문(부록 원문을 찾을 때 쓴다).
   final Map<String, LicenseKind> kinds;
@@ -207,11 +210,13 @@ _Crate _load(CrateRef c, List<Directory> registry) {
     files[extra] = _read(f);
   }
   final cargoToml = File('${dir.path}${Platform.pathSeparator}Cargo.toml');
-  final repo = cargoToml.existsSync()
-      ? RegExp(r'^repository\s*=\s*"([^"]+)"', multiLine: true).firstMatch(_read(cargoToml))?.group(1)
-      : null;
+  final toml = cargoToml.existsSync() ? _read(cargoToml) : '';
+  String? field(String key) => RegExp('^$key\\s*=\\s*"([^"]+)"', multiLine: true).firstMatch(toml)?.group(1);
+  final repo = field('repository');
   if (chosen.contains('MPL-2.0') && repo == null) throw StateError('MPL 크레이트의 소스 위치(repository)가 없다: ${c.name}');
-  return _Crate(c, chosen, files, repo, kinds, texts);
+  // 항목마다 프로젝트 주소를 둔다(Ableton Live의 Third-party License Information.txt처럼).
+  final url = repo ?? field('homepage') ?? 'https://crates.io/crates/${c.name}';
+  return _Crate(c, chosen, files, repo, url, kinds, texts);
 }
 
 String _read(File f) => utf8.decode(f.readAsBytesSync(), allowMalformed: true).replaceAll('\r\n', '\n');
@@ -242,6 +247,7 @@ void _crateEntry(StringBuffer b, _Crate c) {
   b
     ..writeln(_line)
     ..writeln('${c.ref.name} ${c.ref.version}')
+    ..writeln(c.url)
     ..writeln('License: $expr$used');
   if (c.chosen.contains('Apache-2.0')) b.writeln('The Apache License 2.0 text is in Appendix A.');
   if (c.chosen.contains('MPL-2.0')) {
@@ -282,6 +288,7 @@ bool _otherFiles(StringBuffer b, Directory assets, String? webview2License) {
       ..writeln(_line)
       ..writeln('three.js${revision == null ? '' : ' r$revision'} and its example loaders '
           '(data/flutter_assets/assets/js: ${names.join(', ')})')
+      ..writeln('https://github.com/mrdoob/three.js')
       ..writeln('License: MIT')
       ..writeln()
       ..writeln('Copyright $copyright Three.js Authors')
@@ -296,6 +303,7 @@ bool _otherFiles(StringBuffer b, Directory assets, String? webview2License) {
     b
       ..writeln(_line)
       ..writeln('Microsoft Edge WebView2 SDK loader (WebView2Loader.dll)')
+      ..writeln('https://www.nuget.org/packages/Microsoft.Web.WebView2')
       ..writeln()
       ..writeln(_read(f).trim())
       ..writeln();
@@ -306,6 +314,7 @@ bool _otherFiles(StringBuffer b, Directory assets, String? webview2License) {
     b
       ..writeln(_line)
       ..writeln('Material Icons font (data/flutter_assets/fonts/MaterialIcons-Regular.otf)')
+      ..writeln('https://github.com/google/material-design-icons')
       ..writeln('Copyright Google LLC. License: Apache-2.0 (text in Appendix A).')
       ..writeln();
   }

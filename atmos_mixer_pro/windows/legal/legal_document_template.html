@@ -1,0 +1,62 @@
+<!doctype html>
+<!-- 설치 폴더 Legal의 "The Awesome EULA, Third Party URLs and Logos" PDF 원본(2026-10-25 사용자 결정: Ableton Live의
+     Ableton_Live_EULA_Third_Party_URL_Logo.pdf처럼). tool/windows/make-legal-pdf.ps1이 {{EULA}} 자리에
+     windows/legal/eula_bilingual.txt(사용자가 준 Word 파일에서 글자 그대로 뽑은 EULA 원문)를 넣고 Edge로 인쇄한다.
+     ASIO 로고는 Steinberg가 SDK와 함께 준 파일을 바꾸지 않고 쓴다(가로세로비 유지, 너비만 지정). 로고 아래에 사용 지침
+     15절 문구와 계약서 3조 1항 k의 Steinberg 고지 문구를 글자로 둔다(근거가 달라 둘 다, 로고 그림으로 대신하지 않는다). -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>The Awesome - End User License Agreement, Third Party URLs and Logos</title>
+<style>
+  @page {
+    size: A4;
+    margin: 22mm 20mm 20mm;
+    @bottom-center { content: counter(page) " / " counter(pages); font: 9pt "Segoe UI", "Malgun Gothic", sans-serif; }
+  }
+  body { font-family: "Segoe UI", "Malgun Gothic", sans-serif; font-size: 10pt; line-height: 1.45; color: #000; }
+  section + section { break-before: page; }
+  :lang(ko) { word-break: keep-all; }
+  .cover h1 { font-size: 18pt; text-align: center; margin: 45mm 0 18mm; }
+  .toc { list-style: none; padding: 0; margin: 0 12mm; font-size: 11pt; font-weight: bold; }
+  .toc li { margin-bottom: 10pt; }
+  .eula h1 { font-size: 15pt; text-align: center; margin: 0 0 10pt; }
+  .draft { border: 1px solid #000; padding: 6pt 10pt; margin: 8pt 0 10pt; text-align: center; }
+  .draft p { margin: 2pt 0; font-weight: bold; }
+  .meta { text-align: center; margin: 2pt 0; }
+  .keep { break-inside: avoid; }
+  h2 { font-size: 11.5pt; margin: 16pt 0 4pt; break-after: avoid; }
+  h2 .ko { display: block; }
+  h3 { font-size: 9pt; letter-spacing: 0.5pt; color: #444; margin: 8pt 0 3pt; break-after: avoid; }
+  p { margin: 0 0 5pt; }
+  p.item { margin-left: 14pt; }
+  .third-party h1 { font-size: 15pt; text-align: center; margin: 0 0 28pt; }
+  .entry { break-inside: avoid; }
+  .entry p { margin: 0 0 3pt; font-size: 11pt; }
+  .logo { display: block; width: 60mm; margin: 14pt auto 12pt; }
+  .entry p.notice { font-size: 10pt; }
+</style>
+</head>
+<body>
+<section class="cover">
+  <h1>THE AWESOME</h1>
+  <ol class="toc">
+    <li>END USER LICENSE AGREEMENT<br><span lang="ko">최종 사용자 라이선스 계약</span></li>
+    <li>THIRD PARTY URLS AND LOGOS</li>
+  </ol>
+</section>
+<section class="eula">
+{{EULA}}
+</section>
+<section class="third-party">
+  <h1>THIRD PARTY URLS AND LOGOS</h1>
+  <div class="entry">
+    <p>Steinberg Media Technologies GmbH</p>
+    <p>https://www.steinberg.net</p>
+    <img class="logo" src="ASIO-compatible-logo-Steinberg-TM-BW.png" alt="ASIO Compatible logo">
+    <p class="notice">ASIO is a registered trademark of Steinberg Media Technologies GmbH.</p>
+    <p class="notice">ASIO is a trademark of Steinberg Media Technologies GmbH, registered in Europe and other countries.</p>
+  </div>
+</section>
+</body>
+</html>

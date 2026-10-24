@@ -1,0 +1,136 @@
+THE AWESOME
+END USER LICENSE AGREEMENT
+최종 사용자 라이선스 계약
+[tbl] DRAFT FOR REVIEW ONLY  |  검토용 초안
+[tbl] 사업자 정보 확정 및 국내 법률 검토 후 상업 배포용으로 확정할 것
+Version 1.0  |  Effective Date: To Be Determined
+버전 1.0  |  시행일: 추후 확정
+Copyright © 2026 The Awesome. All rights reserved.
+저작권 © 2026 The Awesome. All rights reserved.
+
+1. Licensor and License Grant
+제1조. 라이선스 제공자 및 사용권 부여
+ENGLISH
+This End User License Agreement (“Agreement”) governs the installation and use of the software developed, supplied, or licensed by The Awesome (“Software”).
+The Awesome (“Licensor”) grants the client and other authorized recipients a limited, non-exclusive, non-transferable license to install and use the Software solely for the specific project and purposes authorized under the applicable written project agreement and this Agreement.
+This Agreement does not transfer ownership of the Software or its intellectual property to the client or any other recipient.
+The client and authorized recipients must accept this Agreement in writing or electronically, or through another legally valid method, before using the Software where such acceptance is required. Where the Software is provided to multiple authorized recipients, the client shall ensure that they are informed of and comply with the applicable license restrictions.
+한국어
+본 최종 사용자 라이선스 계약(이하 “본 계약”)은 The Awesome이 개발·공급하거나 사용권을 부여하는 소프트웨어(이하 “프로그램”)의 설치 및 사용에 적용됩니다.
+The Awesome(이하 “라이선스 제공자”)은 고객 및 기타 승인된 사용자에게 해당 프로젝트 계약서와 본 계약에서 허용한 특정 프로젝트 및 목적에 한하여 프로그램을 설치하고 사용할 수 있는 제한적·비독점적·양도 불가능한 사용권을 부여합니다.
+본 계약에 따른 사용권 부여는 고객 또는 다른 사용자에게 프로그램이나 그 지식재산권의 소유권을 이전하는 것을 의미하지 않습니다.
+고객 및 승인된 사용자는 관련 법령상 필요한 경우 프로그램을 사용하기 전에 서면 또는 전자적 방법이나 그 밖의 적법한 방법으로 본 계약에 동의해야 합니다. 프로그램이 여러 승인된 사용자에게 제공되는 경우, 고객은 해당 사용자들이 적용되는 사용 제한을 안내받고 준수하도록 해야 합니다.
+2. Authorized Projects and Deployment
+제2조. 허용된 프로젝트 및 설치·납품 범위
+ENGLISH
+The Licensor may install, configure, integrate, deliver, and maintain the Software and associated audio systems for authorized projects, including exhibitions, escape rooms, immersive experiences, themed attractions, and other commercial or cultural venues covered by a written agreement with the client (“Authorized Project”).
+The Licensor may provide copies of the Software, including installers and necessary program files, to the client, venue operator, venue owner, and their designated personnel solely for the installation, operation, maintenance, and support of the Authorized Project.
+The license is limited to the specific project and venue or venues identified in the applicable project agreement. Use of the Software at another project, branch, venue, or location requires the Licensor’s prior written authorization.
+한국어
+라이선스 제공자는 고객과 서면 계약을 체결한 전시, 방탈출 카페, 몰입형 체험 공간, 테마형 어트랙션 및 기타 상업·문화시설 등의 프로젝트에 프로그램과 관련 음향 시스템을 설치·설정·통합·납품하고 유지보수할 수 있습니다. 이러한 프로젝트를 이하 “승인된 프로젝트”라고 합니다.
+라이선스 제공자는 승인된 프로젝트의 설치, 운영, 유지보수 및 기술 지원을 목적으로 고객, 전시장 또는 시설 운영자, 시설 소유자 및 이들이 지정한 담당자에게 설치 파일과 필요한 프로그램 파일을 포함한 프로그램 사본을 제공할 수 있습니다.
+사용권은 해당 프로젝트 계약서에 명시된 특정 프로젝트 및 장소에 한정됩니다. 다른 프로젝트, 지점, 시설 또는 장소에서 프로그램을 사용하려면 라이선스 제공자의 사전 서면 승인을 받아야 합니다.
+3. Audio Equipment, Installation, and Software Rights
+제3조. 음향 장비, 설치 서비스 및 프로그램 권리
+ENGLISH
+The sale or delivery of audio equipment, installation services, configuration services, or other project-related services does not transfer ownership of the Software or grant a perpetual or unrestricted software license.
+Ownership of physical equipment shall be determined by the applicable equipment sale agreement or project agreement. Software usage rights shall be governed separately by this Agreement and the applicable project agreement.
+Unless expressly authorized in writing, the client may not copy, modify, resell, sublicense, or independently redistribute the Software, except for copies reasonably necessary for the authorized installation and operation of the Authorized Project.
+한국어
+음향 장비의 판매·납품, 설치 서비스, 설정 서비스 또는 기타 프로젝트 관련 서비스가 제공되더라도 프로그램의 소유권이 이전되거나 영구적·무제한적인 프로그램 사용권이 부여되는 것은 아닙니다.
+실물 장비의 소유권은 해당 장비 매매계약서 또는 프로젝트 계약서에 따릅니다. 프로그램 사용권은 본 계약 및 해당 프로젝트 계약에 따라 별도로 정해집니다.
+서면으로 명시적인 승인을 받은 경우를 제외하고, 고객은 승인된 프로젝트의 설치 및 운영에 합리적으로 필요한 사본을 만드는 경우 외에는 프로그램을 복제·변경·재판매·재허락하거나 독립적으로 재배포할 수 없습니다.
+4. License Period, Expiration, and Deletion
+제4조. 사용권 기간, 종료 및 프로그램 삭제
+ENGLISH
+The applicable project agreement shall specify the license start date, the applicable project or venue period, and the relevant expiration date or expiration event.
+The Software license shall expire automatically upon the earliest of the following events:
+(a) the end of the exhibition or venue operation period specified in the applicable project agreement;
+(b) the expiration or termination of the applicable maintenance service agreement, for any reason; or
+(c) the expiration or termination of the applicable project agreement.
+Expiration or termination of the maintenance service agreement shall result in the simultaneous expiration or termination of the Software license. The client may not continue using the Software after the maintenance service agreement has expired or terminated merely because the client has paid for the equipment, installation, or original delivery of the Software.
+Upon expiration or termination of the Software license, the client and all authorized recipients must immediately cease using the Software and, within five (5) business days, uninstall and delete all copies in their possession or control, including installers and backup copies. This requirement does not apply to copies that must be retained under applicable law or that the Licensor has expressly authorized in writing to be retained. Any copy retained under such an exception must not be used unless separately authorized.
+Any extension or renewal of the Software license must be expressly agreed to in writing by the parties before the existing license expires or terminates.
+한국어
+해당 프로젝트 계약서에는 사용권 시작일, 적용되는 프로젝트 또는 시설 운영 기간, 그리고 관련 사용권 종료일 또는 종료 조건을 명시해야 합니다.
+프로그램 사용권은 다음 사유 중 가장 먼저 발생하는 시점에 자동으로 종료됩니다.
+(a) 해당 프로젝트 계약서에 명시된 전시 기간 또는 시설 운영 기간의 종료
+(b) 사유를 불문한 해당 유지보수 계약의 기간 만료 또는 계약 종료
+(c) 해당 프로젝트 계약의 기간 만료 또는 계약 종료
+유지보수 계약이 만료되거나 종료되면 프로그램 사용권도 동시에 만료되거나 종료됩니다. 고객은 장비 대금, 설치비 또는 프로그램 최초 납품 비용을 지급했다는 이유만으로 유지보수 계약이 만료되거나 종료된 후에도 프로그램을 계속 사용할 수 없습니다.
+프로그램 사용권이 만료되거나 종료되면 고객 및 모든 승인된 사용자는 즉시 프로그램 사용을 중단하고, 5영업일 이내에 자신이 보유하거나 관리하는 프로그램의 모든 사본을 제거·삭제해야 합니다. 여기에는 설치 파일 및 백업 사본이 포함됩니다. 단, 관련 법령에 따라 보관해야 하거나 라이선스 제공자가 서면으로 보관을 명시적으로 허용한 사본은 예외로 합니다. 이러한 예외에 따라 보관하는 사본도 별도의 사용 승인이 없는 한 사용할 수 없습니다.
+프로그램 사용권의 연장 또는 갱신은 기존 사용권이 만료되거나 종료되기 전에 당사자들이 서면으로 명시적으로 합의해야 합니다.
+5. Maintenance and Support
+제5조. 유지보수 및 기술 지원
+ENGLISH
+Maintenance and support services, including troubleshooting, software updates, configuration changes, and technical assistance, shall be provided only to the extent specified in the applicable project or maintenance agreement.
+Upon expiration or termination of the maintenance service agreement, the Licensor’s obligation to provide the maintenance and support services covered by that agreement shall end, and the Software license shall also expire or terminate in accordance with Section 4.
+Any new maintenance arrangement or project extension must be agreed to in writing. Continued maintenance, continued use of the Software, or any renewal of the Software license shall not be presumed merely because the client retains the Software or associated audio equipment.
+한국어
+문제 해결, 프로그램 업데이트, 설정 변경 및 기술 지원을 포함한 유지보수 서비스는 해당 프로젝트 계약서 또는 유지보수 계약서에 명시된 범위에서만 제공됩니다.
+유지보수 계약이 만료되거나 종료되면 해당 계약에 따른 라이선스 제공자의 유지보수 및 기술 지원 의무도 종료되며, 제4조에 따라 프로그램 사용권도 함께 만료되거나 종료됩니다.
+새로운 유지보수 계약이나 프로젝트 기간 연장은 서면으로 합의해야 합니다. 고객이 프로그램이나 관련 음향 장비를 계속 보유하고 있다는 이유만으로 유지보수 서비스의 지속, 프로그램의 계속 사용 또는 사용권의 갱신이 인정되는 것은 아닙니다.
+6. Restrictions on Use and Redistribution
+제6조. 사용 및 재배포 제한
+ENGLISH
+The client and authorized recipients shall not:
+(a) use the Software for a project, venue, branch, or purpose not authorized by the Licensor;
+(b) sell, sublicense, publish, distribute, or provide the Software to unrelated third parties without prior written authorization;
+(c) remove or alter copyright notices, attribution notices, or other proprietary notices;
+(d) reverse engineer, decompile, or disassemble the Software, except to the extent such restriction is prohibited by applicable law; or
+(e) use the Software in a manner that infringes third-party rights or violates applicable law.
+Nothing in this Section prohibits any activity that applicable law expressly permits and that cannot lawfully be restricted by contract.
+한국어
+고객 및 승인된 사용자는 다음 행위를 해서는 안 됩니다.
+(a) 라이선스 제공자가 승인하지 않은 프로젝트, 시설, 지점 또는 목적을 위해 프로그램을 사용하는 행위
+(b) 사전 서면 승인 없이 프로그램을 판매·재허락·공개·배포하거나 무관한 제3자에게 제공하는 행위
+(c) 저작권 표시, 출처 표시 또는 기타 권리 고지를 제거하거나 변경하는 행위
+(d) 관련 법령상 이러한 제한이 허용되지 않는 범위를 제외하고 프로그램을 역설계·역컴파일하거나 역어셈블하는 행위
+(e) 제3자의 권리를 침해하거나 관련 법령을 위반하는 방식으로 프로그램을 사용하는 행위
+본 조항은 관련 법령에서 명시적으로 허용하며 계약으로 제한할 수 없는 행위를 금지하는 것으로 해석되지 않습니다.
+7. Intellectual Property and Third-Party Components
+제7조. 지식재산권 및 제3자 구성요소
+ENGLISH
+The Software and its original components remain the property of their respective rights holders. This Agreement does not grant ownership of any third-party software, trademarks, or other intellectual property.
+Third-party components, including Steinberg ASIO technology where applicable, remain subject to their respective license terms and notices. Nothing in this Agreement overrides, replaces, or expands the rights granted under those third-party terms.
+한국어
+프로그램 및 그 독자적인 구성요소는 각각의 권리자에게 귀속됩니다. 본 계약은 제3자 소프트웨어, 상표 또는 기타 지식재산권의 소유권을 부여하지 않습니다.
+해당하는 경우 Steinberg ASIO 기술을 포함한 제3자 구성요소에는 각각의 라이선스 조건 및 고지가 적용됩니다. 본 계약은 그러한 제3자 라이선스 조건을 대체하거나 우선하지 않으며, 해당 조건에 따라 허용된 권리를 임의로 확대하지 않습니다.
+8. Warranty and Liability
+제8조. 보증 및 책임
+ENGLISH
+The Software may depend on compatible audio hardware, drivers, operating systems, and other third-party components. Unless expressly warranted in writing, the Licensor does not guarantee uninterrupted or error-free operation or compatibility with every hardware or software configuration.
+Any exclusion or limitation of warranty or liability under this Agreement shall apply only to the extent permitted by applicable law. Nothing in this Agreement excludes or limits any liability that cannot lawfully be excluded or limited, including liability for intentional misconduct or gross negligence where such liability cannot lawfully be excluded or limited.
+Any additional warranties, service commitments, or remedies expressly set out in the applicable project agreement remain subject to their stated terms and applicable law.
+한국어
+프로그램은 호환되는 음향 장비, 드라이버, 운영체제 및 기타 제3자 구성요소에 의존할 수 있습니다. 서면으로 명시적인 보증을 제공한 경우를 제외하고, 라이선스 제공자는 프로그램의 중단 없는 작동, 오류 없는 작동 또는 모든 하드웨어·소프트웨어 구성과의 호환성을 보장하지 않습니다.
+본 계약에 따른 보증 또는 책임의 배제·제한은 관련 법령에서 허용하는 범위에서만 적용됩니다. 고의 또는 중대한 과실에 따른 책임을 비롯하여 관련 법령상 배제하거나 제한할 수 없는 책임은 본 계약으로 배제하거나 제한하지 않습니다.
+해당 프로젝트 계약서에서 명시적으로 정한 추가 보증, 서비스 의무 또는 구제 수단은 그 계약의 조건과 관련 법령에 따릅니다.
+9. Governing Law and Disputes
+제9조. 준거법 및 분쟁 해결
+ENGLISH
+This Agreement shall be governed by the laws of the Republic of Korea.
+Any dispute arising out of or in connection with this Agreement shall be resolved by the competent courts in accordance with applicable laws and jurisdictional rules.
+한국어
+본 계약은 대한민국 법률에 따라 규율되고 해석됩니다.
+본 계약과 관련하여 발생하는 모든 분쟁은 관련 법령 및 재판관할 규정에 따라 관할권이 있는 법원에서 해결합니다.
+10. General Provisions and Language
+제10조. 일반 조항 및 언어
+ENGLISH
+Any project-specific written agreement may supplement or modify the terms of this Agreement only to the extent expressly agreed to by the parties in writing. In the event of a conflict, the express project-specific provision shall prevail for that project to the extent of the conflict and as permitted by applicable law.
+If any provision of this Agreement is found invalid or unenforceable, the remaining provisions shall remain effective to the extent permitted by applicable law.
+This Agreement is provided in English and Korean. In the event of any inconsistency or difference in interpretation between the two language versions, the Korean version shall prevail.
+한국어
+프로젝트별 서면 계약은 당사자들이 서면으로 명시적으로 합의한 범위에서만 본 계약의 조건을 보충하거나 변경할 수 있습니다. 본 계약과 프로젝트별 계약 사이에 상충하는 내용이 있는 경우, 관련 법령이 허용하는 범위에서 해당 프로젝트에 관한 명시적인 프로젝트별 조항이 그 상충하는 범위에 한하여 우선 적용됩니다.
+본 계약의 일부 조항이 무효이거나 집행할 수 없는 것으로 판단되더라도, 나머지 조항은 관련 법령이 허용하는 범위에서 계속 효력을 유지합니다.
+본 계약은 영어와 한국어로 제공됩니다. 두 언어 버전 사이에 불일치 또는 해석상 차이가 있는 경우 한국어 버전이 우선합니다.
+11. Contact and Licensing Requests
+제11조. 연락처 및 라이선스 문의
+ENGLISH
+Licensor: The Awesome
+For licensing permissions, project deployment, distribution requests, or technical support, please use the official contact details designated by the Licensor.
+Legal contracting party and official contact details: [To be completed after business registration].
+한국어
+라이선스 제공자: The Awesome
+사용권 승인, 프로젝트 설치·납품, 배포 요청 또는 기술 지원에 관한 문의는 라이선스 제공자가 지정한 공식 연락처를 이용해 주시기 바랍니다.
+법적 계약 당사자 및 공식 연락처: [사업자등록 후 기재].
