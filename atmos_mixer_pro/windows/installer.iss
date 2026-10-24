@@ -12,8 +12,10 @@
 ; The app sets the same ID on itself (runner\main.cpp), so the taskbar matches its window to the shortcuts: the
 ; right-click menu shows the shortcut name, not the exe description Windows cached, and pinning pins the shortcut.
 #define MyAppUserModelID "TheAwesome.AtmosMixerPro"
-; The supervisor relaunches the app after a crash or a hang. Shortcuts, the logon task (autostart.ps1) and the
-; post-install launch start the supervisor, which then starts the app.
+; The supervisor relaunches the app after a crash or a hang. Shortcuts and the logon task (autostart.ps1) start the
+; supervisor, which then starts the app. Setup does not start it at the end (2026-10-24): that step ran as the
+; pre-UAC user through Setup's first window, and an antivirus sandbox on that window made it fail with
+; "CallSpawnServer: Unexpected response".
 #define SupervisorExeName "atmos_supervisor.exe"
 ; The version is read from the built exe. Flutter writes pubspec.yaml's version into the exe's
 ; ProductVersion, so the installer always matches the app. The path uses the same ReleaseDir as [Files].
@@ -94,6 +96,19 @@ Source: "{#RedistDir}\{#WebView2Exe}"; Flags: dontcopy
 ; Shortcuts from before the rename. Without this an upgrade leaves "Atmos Mixer Pro" next to the new shortcuts.
 Type: files; Name: "{autoprograms}\Atmos Mixer Pro.lnk"
 Type: files; Name: "{autodesktop}\Atmos Mixer Pro.lnk"
+; Assets that earlier versions installed and this one dropped. An upgrade only overwrites files, so they stayed
+; behind (2026-10-24: the old listener bust models, whose source was unknown).
+; Name each one: deleting the whole data\flutter_assets folder left an install without it on the dev PC, where
+; an antivirus sandbox ran Setup two or three times (2026-10-24).
+Type: files; Name: "{app}\data\flutter_assets\assets\models\listener_bust.obj"
+Type: files; Name: "{app}\data\flutter_assets\assets\models\listener_bust_fixed.obj"
+Type: files; Name: "{app}\data\flutter_assets\assets\models\listener_head.obj"
+Type: files; Name: "{app}\data\flutter_assets\assets\models\listener_head_mannequin.obj"
+Type: files; Name: "{app}\data\flutter_assets\assets\models\listener_head.glb"
+Type: files; Name: "{app}\data\flutter_assets\assets\models\listener_mannequin.glb"
+Type: files; Name: "{app}\data\flutter_assets\assets\models\room_with_listener.glb"
+Type: files; Name: "{app}\data\flutter_assets\assets\models\room_temp.glb"
+Type: files; Name: "{app}\data\flutter_assets\assets\models\scale_room.py"
 
 [Icons]
 Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#SupervisorExeName}"; IconFilename: "{app}\{#MyAppExeName}"; AppUserModelID: "{#MyAppUserModelID}"
@@ -121,8 +136,9 @@ Filename: "{sys}\netsh.exe"; Parameters: "advfirewall firewall add rule name=""T
 Filename: "{sys}\netsh.exe"; Parameters: "advfirewall firewall add rule name=""The Awesome OSC (public, local subnet)"" dir=in action=allow program=""{app}\{#MyAppExeName}"" protocol=UDP profile=public remoteip=localsubnet enable=yes"; Flags: runhidden waituntilterminated
 ; Logon task "The Awesome Autostart" for the signed-in user (not the elevated account): starts the supervisor with
 ; --logon 10 s after sign-in, with no run-time limit (the Task Scheduler default of 3 days would end a long show).
-Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\autostart.ps1"""; Flags: runhidden waituntilterminated runasoriginaluser
-Filename: "{app}\{#SupervisorExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
+; It runs in the elevated Setup and finds that user from the Windows session, so it no longer needs Setup's first
+; window (runasoriginaluser), which an antivirus sandbox broke on 2026-10-24. Its check line goes to the Setup log.
+Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\autostart.ps1"""; Flags: runhidden waituntilterminated logoutput
 
 [UninstallRun]
 ; Stop the supervisor first. If the app is stopped first, the supervisor treats it as a crash and starts it again.
