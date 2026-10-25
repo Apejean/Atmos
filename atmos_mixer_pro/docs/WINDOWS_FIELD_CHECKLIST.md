@@ -115,7 +115,7 @@ macOS에서 실측한 값(Scarlett 6i6 12ch, 48kHz)과 비교한다. Windows에�
 - [ ] 창 크기·최소 크기(800×600)·타이틀바가 정상이다.
 - [ ] **리샘플링 배지(2026-10-24).** 장치와 같은 샘플레이트 음원만 재생하거나 아무것도 재생하지 않으면 `DIRECT: 48kHz`, 다른 음원(예: 44.1kHz)을 재생하면 `HQ Sinc: 44.1kHz ➔ 48kHz (트랙 n개)`로 바뀌고, 멈추면 돌아온다. 인터페이스 샘플레이트가 다르면(또는 비상 전환으로 기본 장치가 되면) 장치 값도 그 값으로 보인다.
 - [ ] **리미터 미터(2026-10-24).** 큰 음원을 틀어 리미터가 걸리면 `TRUE-PEAK LIMITER ISP -x.x dB`가 공연 중 계속 움직이고, 작아지면 0.0으로 돌아온다(예전에는 재생·정지 때만 바뀌었다).
-- [ ] **ASIO 로고와 상표 고지(Windows만).** Help → Third-party Notices 맨 아래에 ASIO 로고(변형 없이 180px)와 문구 2줄("ASIO is a registered trademark of Steinberg Media Technologies GmbH."와 계약서 3조 1항 k 문구)이 보인다. macOS 판에는 이 칸이 없다.
+- [ ] **고지와 ASIO 표기(Windows).** Help에 "About Awesome..." 하나만 있고(옛 "The Awesome"·Third-party Notices 항목 없음), 그 창에 큰 "The Awesome", 작은 버전, "Credits" 머리, ASIO 문구 2줄(지침 15절 문장과 계약서 3조 1항 k 문장), KEMAR 출처, "Legal information" 링크가 보이고 링크를 누르면 탐색기가 {app}\Legal을 연다. 설치 폴더 {app}\Legal에 "Third-party License Information.txt"(약 1.6MB)와 "The_Awesome_EULA_Third_Party_URL_Logo.pdf"가 있고 제거하면 함께 지워진다. 환경설정 오디오 장치에서 ASIO를 고르는 곳에 ASIO 로고가 보인다. macOS 판에는 로고 칸이 없다. EULA는 확정본으로 교체되었는지 확인한다(초안 표시 "DRAFT FOR REVIEW ONLY"가 남아 있으면 현장 설치 전 교체).
 
 ## 9. 프로젝트 파일 이식성 (설계 PC → 현장 PC)
 
