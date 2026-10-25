@@ -111,10 +111,14 @@ class _CreditsTextState extends State<CreditsText> {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        const Text('Trademarks', style: heading),
-        const SizedBox(height: 4),
-        const Text('$asioTrademarkAttribution\n$asioCopyrightNotice', style: body),
-        const SizedBox(height: 16),
+        // ASIO 상표 두 줄은 Windows에서만(2026-10-25 사용자 결정): macOS 판은 ASIO를 쓰지 않고, ASIO 계약 3조 1항 g는
+        // ASIO와 호환되지 않는 제품에 ASIO 상표를 쓰지 않게 한다(환경설정 로고와 같은 기준).
+        if (defaultTargetPlatform == TargetPlatform.windows) ...[
+          const Text('Trademarks', style: heading),
+          const SizedBox(height: 4),
+          const Text('$asioTrademarkAttribution\n$asioCopyrightNotice', style: body),
+          const SizedBox(height: 16),
+        ],
         const Text(kemarHrtfPackageName, style: heading),
         const SizedBox(height: 4),
         const Text(kemarHrtfNotice, style: body),

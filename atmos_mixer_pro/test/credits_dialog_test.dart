@@ -53,7 +53,8 @@ void main() {
     expect(version, findsNothing);
   });
 
-  testWidgets('Credits는 글자 고지만 보인다: ASIO 두 줄(지침 15절·계약 3조 1항 k), KEMAR 출처, 안내 문장·경로·로고 없음', (tester) async {
+  testWidgets('Windows Credits는 글자 고지만 보인다: ASIO 두 줄(지침 15절·계약 3조 1항 k), KEMAR 출처, 안내 문장·경로·로고 없음',
+      (tester) async {
     await openCredits(tester);
 
     expect(find.text('Credits'), findsOneWidget);
@@ -67,7 +68,7 @@ void main() {
     expect(find.textContaining('설치 폴더'), findsNothing);
     expect(find.byType(SelectableText), findsNothing);
     expect(find.byType(Image), findsNothing);
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.windows));
 
   testWidgets('Windows에서는 실행 파일 옆 Legal 폴더를 여는 Legal information이 보인다', (tester) async {
     await openCredits(tester);
@@ -107,10 +108,13 @@ void main() {
     expect(find.text(r'Legal 폴더를 찾지 못했습니다: C:\App\Legal'), findsOneWidget);
   });
 
-  testWidgets('Windows가 아니면 Legal information이 없다', (tester) async {
+  testWidgets('Windows가 아니면(ASIO 없음) ASIO 상표 줄과 Legal information이 없고 KEMAR 출처는 있다', (tester) async {
     await openCredits(tester);
 
     expect(legalFolderPath(), isNull);
     expect(find.text('Legal information'), findsNothing);
+    expect(find.text('Trademarks'), findsNothing);
+    expect(find.textContaining('ASIO'), findsNothing);
+    expect(find.textContaining('Gardner, W. G., and Martin, K. D. (1995)'), findsOneWidget);
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 }

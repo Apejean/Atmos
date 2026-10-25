@@ -48,6 +48,8 @@ Future<void> main(List<String> args) async {
   if (usesMpl && mpl == null) throw StateError('MPL-2.0 원문을 크레이트에서 찾지 못했다');
 
   final notices = _flutterNotices(assets);
+  // ASIO는 Windows 판에서만 쓴다: 다른 대상에는 상표 절을 두지 않는다(ASIO 계약 3조 1항 g, 2026-10-25 사용자 결정).
+  final asio = target.contains('windows');
   final b = StringBuffer()
     ..writeln('The Awesome $version - Third-party License Information')
     ..writeln('Target: $target')
@@ -61,8 +63,9 @@ Future<void> main(List<String> args) async {
     ..writeln('  2. Supervisor (atmos_supervisor): ${supervisor.length} Rust crates')
     ..writeln('  3. Flutter engine and Dart packages')
     ..writeln('  4. Other files distributed with the application')
-    ..writeln('  5. Data')
-    ..writeln('  6. Trademarks')
+    ..writeln('  5. Data');
+  if (asio) b.writeln('  6. Trademarks');
+  b
     ..writeln('  Appendix A. Apache License, Version 2.0')
     ..writeln(usesMpl ? '  Appendix B. Mozilla Public License, Version 2.0' : '');
   _section(b, '1. Audio engine (rust_lib_atmos_mixer_pro): ${engine.length} Rust crates');
@@ -97,10 +100,16 @@ Future<void> main(List<String> args) async {
     ..writeln()
     ..writeln(kemarHrtfNotice);
 
-  _section(b, '6. Trademarks');
-  b
-    ..writeln(asioTrademarkAttribution)
-    ..writeln(asioCopyrightNotice);
+  if (asio) {
+    // 지침 15절: 제품 자료에서 "ASIO"를 처음 쓸 때 ®. 이 문서에서 ASIO가 처음 나오는 곳이 이 줄이고, 지정 상표 문장
+    // 두 줄(지침 15절·계약 3조 1항 k)은 고치지 않고 그 아래에 둔다.
+    _section(b, '6. Trademarks');
+    b
+      ..writeln('The Windows version of The Awesome uses ASIO® technology by Steinberg Media Technologies GmbH.')
+      ..writeln()
+      ..writeln(asioTrademarkAttribution)
+      ..writeln(asioCopyrightNotice);
+  }
 
   if (usesApache || usesApacheFont) {
     _section(b, 'Appendix A. Apache License, Version 2.0');
