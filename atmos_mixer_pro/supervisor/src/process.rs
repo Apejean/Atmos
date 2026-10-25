@@ -66,6 +66,22 @@ pub fn lock_held(path: &Path) -> bool {
     matches!(file.try_lock(), Err(TryLockError::WouldBlock))
 }
 
+/// Windows가 꺼지거나(다시 시작 포함) 로그아웃하는 중인가(이 세션이 끝나는 중). 그때 앱이 끝난 것은 충돌이
+/// 아니다. 2026-10-23 다시 시작에서 감시가 Windows가 끝낸 앱(0x40010004)을 충돌로 보고 2초 뒤 다시 띄웠고, 새 앱은
+/// 창 스테이션이 끝나는 중이라(0xC000026B) 바로 실패했다.
+#[cfg(windows)]
+pub fn session_ending() -> bool {
+    use windows_sys::Win32::UI::WindowsAndMessaging::{GetSystemMetrics, SM_SHUTTINGDOWN};
+    // SAFETY: 인자만 받는 조회 함수다.
+    unsafe { GetSystemMetrics(SM_SHUTTINGDOWN) != 0 }
+}
+
+/// macOS는 로그아웃·종료 때 감시도 함께 끝난다(launchd). 따로 보지 않는다.
+#[cfg(unix)]
+pub fn session_ending() -> bool {
+    false
+}
+
 /// 떠 있는 앱을 넘겨받는다. app.lock이 잡혀 있고 app.pid의 프로세스가 살아 있어야 한다. 잠금을 함께 보므로
 /// 앱이 죽은 뒤 그 PID를 다른 프로세스가 물려받았어도 넘겨받지 않는다(엉뚱한 프로세스를 죽이지 않게).
 pub fn adopt_running_app(dir: &Path) -> Option<Target> {

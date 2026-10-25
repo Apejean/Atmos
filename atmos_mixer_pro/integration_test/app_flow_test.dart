@@ -182,8 +182,12 @@ void main() {
     await pumpFor(tester, const Duration(milliseconds: 400));
     final lfeSwitch = find.byKey(const ValueKey('inspector_lfe_switch'));
     await tester.scrollUntilVisible(lfeSwitch, 100, scrollable: inspectorScroll);
-    // 기본 창(1024×768)에서는 하단 오버레이가 스위치를 덮어 탭이 닿지 않는다. 스위치 자기 콜백을 부른다.
-    tester.widget<Switch>(lfeSwitch).onChanged!(true);
+    // scrollUntilVisible은 목록이 미리 만들어 둔(화면 아래 끝에 걸린) 스위치에서 멈춘다. 기본 창(1024×768)에서는
+    // 스위치 가운데가 인스펙터 아래 FIX/Remove 단추 줄에 걸려 탭이 단추 줄에 닿았다(y=678 경고). 다 보이게 올리고
+    // 실제 스위치를 탭한다(사람은 목록을 내려 누른다).
+    await tester.ensureVisible(lfeSwitch);
+    await tester.pump();
+    await tester.tap(lfeSwitch);
     await tester.pump();
     await pumpUntil(tester,
         () => container.read(speakerLayoutProvider).firstWhere((s) => s.id == ch1Id).isSubwoofer,

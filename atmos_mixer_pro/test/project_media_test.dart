@@ -23,10 +23,13 @@ AppConfig _config(String tag) => AppConfig(
 
 /// 가짜 Rust 다시 연결: 폴더마다 찾을 수 있는 원래 경로를 정해 둔다.
 class _FakeDisk {
-  _FakeDisk.withTracks(this.findable, this.pending);
+  _FakeDisk.withTracks(this.findable, this.pending, {this.present = const {}});
 
   /// 폴더 → 그 폴더에서 찾을 수 있는 원래 경로 → 새 경로
   final Map<String, Map<String, String>> findable;
+
+  /// 저장된 경로에 그대로 있는 도면 경로
+  final Set<String> present;
   final List<List<String>> trackCalls = [];
 
   /// 아직 못 찾은 트랙 경로(첫 호출 전에는 전부)
@@ -43,6 +46,7 @@ class _FakeDisk {
   }
 
   Future<String?> findMedia(String path, List<String> dirs) async {
+    if (present.contains(path)) return path;
     for (final dir in dirs) {
       final hit = findable[dir]?[path];
       if (hit != null) return hit;
@@ -132,6 +136,116 @@ void main() {
       );
       expect(result.missing, isEmpty);
       expect(result.blueprintPath, isNull);
+    });
+  });
+
+  // 2026-10-21 사용자 요청: 누가 음원 파일을 폴더에 넣어 정리하면 저장된 경로가 틀려 그 트랙은 소리가 나지 않는다.
+  // 앱을 켤 때 어떤 파일을 못 찾았는지 보여 주며 폴더를 묻고, 그 폴더와 하위 폴더에서 다시 연결한다.
+  group('앱을 켤 때 음원·도면 경로 확인', () {
+    test('모두 저장된 경로에 있으면 폴더를 묻지 않는다', () async {
+      final disk = _FakeDisk.withTracks({}, [], present: {'/show/plan.png'});
+      final result = await relinkMissingMedia(
+        config: _config('original'),
+        blueprintPath: '/show/plan.png',
+        askFolder: (_) async => fail('찾을 것이 없는데 폴더를 물었다'),
+        relinkTracks: disk.relinkTracks,
+        findMedia: disk.findMedia,
+      );
+      expect(disk.trackCalls, [<String>[]], reason: '폴더를 뒤지지 않고 저장된 경로만 본다');
+      expect(result.missing, isEmpty);
+      expect(result.blueprintPath, '/show/plan.png');
+    });
+
+    test('못 찾은 트랙과 도면을 보여 주며 묻고, 남은 파일이 있으면 남은 것만 다시 묻는다', () async {
+      final disk = _FakeDisk.withTracks({
+        '/show/audio': {'/show/audio/a.wav': '/show/audio/room1/a.wav'},
+        '/usb': {'/show/audio/b.wav': '/usb/b.wav', '/show/plan.png': '/usb/plan.png'},
+      }, ['/show/audio/a.wav', '/show/audio/b.wav']);
+      final answers = ['/show/audio', '/usb'];
+      final askedWith = <List<String>>[];
+      final result = await relinkMissingMedia(
+        config: _config('original'),
+        blueprintPath: '/show/plan.png',
+        askFolder: (missing) async {
+          askedWith.add(missing);
+          return answers.removeAt(0);
+        },
+        relinkTracks: disk.relinkTracks,
+        findMedia: disk.findMedia,
+      );
+      expect(askedWith, [
+        ['/show/audio/a.wav', '/show/audio/b.wav', '/show/plan.png'],
+        ['/show/audio/b.wav', '/show/plan.png'],
+      ]);
+      expect(disk.trackCalls, [
+        <String>[],
+        ['/show/audio'],
+        ['/usb'],
+      ]);
+      expect(result.missing, isEmpty, reason: '다 찾으면 더 묻지 않는다');
+      expect(result.blueprintPath, '/usb/plan.png');
+      expect(result.config.themeStartOscAddress, 'relinked-3', reason: '마지막으로 다시 연결한 설정을 써야 한다');
+    });
+
+    test('다른 폴더를 골라 못 찾으면 다시 묻고, 고르지 않으면 멈춘다', () async {
+      final disk = _FakeDisk.withTracks({'/wrong': {}}, ['/show/a.wav']);
+      final answers = <String?>['/wrong', null];
+      var asks = 0;
+      final result = await relinkMissingMedia(
+        config: _config('original'),
+        blueprintPath: null,
+        askFolder: (_) async {
+          asks++;
+          return answers.removeAt(0);
+        },
+        relinkTracks: disk.relinkTracks,
+        findMedia: (path, dirs) async => fail('도면이 없는데 찾았다'),
+      );
+      expect(asks, 2);
+      expect(disk.trackCalls, [
+        <String>[],
+        ['/wrong'],
+      ]);
+      expect(result.missing, ['/show/a.wav'], reason: '못 찾은 트랙은 원래 경로로 남는다');
+    });
+  });
+
+  group('폴더 선택 창을 처음 열 곳', () {
+    bool Function(String) dirs(Set<String> existing) => existing.contains;
+
+    test('못 찾은 파일들이 있던 폴더에서 연다(그 안 하위 폴더로 정리했으면 그대로 고르면 된다)', () {
+      expect(
+        mediaStartFolder(
+          [r'D:\show\audio\a.wav', r'D:\show\audio\b.wav'],
+          isDirectory: dirs({r'D:\show\audio'}),
+          separator: r'\',
+        ),
+        r'D:\show\audio',
+      );
+    });
+
+    test('여러 폴더면 공통 상위 폴더, 그 폴더가 없어졌으면 있는 위 폴더', () {
+      expect(
+        mediaStartFolder(
+          [r'D:\show\audio\r1\a.wav', r'D:\show\audio\r2\b.wav'],
+          isDirectory: dirs({r'D:\show'}),
+          separator: r'\',
+        ),
+        r'D:\show',
+      );
+    });
+
+    test('드라이브 루트에는 구분자를 붙인다', () {
+      expect(mediaStartFolder([r'E:\a.wav'], isDirectory: dirs({r'E:\'}), separator: r'\'), r'E:\');
+    });
+
+    test('macOS 경로도 같은 방법이고, 이 PC에 없는 경로뿐이면 null', () {
+      expect(
+        mediaStartFolder(['/Users/me/audio/a.wav'], isDirectory: dirs({'/Users/me/audio'}), separator: '/'),
+        '/Users/me/audio',
+      );
+      expect(mediaStartFolder(['/Users/me/audio/a.wav'], isDirectory: dirs({}), separator: r'\'), isNull);
+      expect(mediaStartFolder([], isDirectory: dirs({'/'}), separator: '/'), isNull);
     });
   });
 

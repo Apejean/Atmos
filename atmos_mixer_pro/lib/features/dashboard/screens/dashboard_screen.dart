@@ -20,10 +20,10 @@ import 'package:atmos_mixer_pro/features/settings/widgets/tuning_modal.dart';
 import 'package:atmos_mixer_pro/features/settings/widgets/third_party_notices.dart';
 import 'package:atmos_mixer_pro/features/dashboard/widgets/osc_monitor_dialog.dart';
 import 'package:atmos_mixer_pro/features/dashboard/widgets/missing_media_dialog.dart';
+import 'package:atmos_mixer_pro/features/dashboard/widgets/about_app_dialog.dart';
 import 'package:atmos_mixer_pro/features/dashboard/widgets/master_limiter_meter.dart';
 import 'package:atmos_mixer_pro/features/dashboard/widgets/resampler_status_badge.dart';
 import 'package:atmos_mixer_pro/features/dashboard/widgets/binaural_toggle_badge.dart';
-import 'package:atmos_mixer_pro/features/exhibition/state/acoustic_sync_provider.dart';
 import 'package:atmos_mixer_pro/features/exhibition/state/spatial_sync_provider.dart';
 import 'package:atmos_mixer_pro/features/exhibition/screens/speaker_canvas_screen.dart'
     as atmos_exhibition;
@@ -36,7 +36,9 @@ import 'package:atmos_mixer_pro/features/dashboard/widgets/global_error_overlay.
 import 'package:atmos_mixer_pro/features/exhibition/state/room_zone_state.dart';
 import 'package:atmos_mixer_pro/features/exhibition/models/room_zone.dart' as exhibition_model;
 import 'package:atmos_mixer_pro/src/rust/common/config.dart';
+import 'package:atmos_mixer_pro/features/exhibition/state/blueprint_state.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// 인식된 출력 채널을 한 줄로 요약한다. 장치 이름 옆에 붙는다.
 ///
@@ -78,6 +80,9 @@ String _outputChannelSummary(OutputChannelsState channels) {
   return '$head · 메인 $firstTwo ($main)';
 }
 
+/// 앱을 켤 때 음원·도면 경로를 이미 확인했는가(대시보드를 다시 만들어도 다시 묻지 않는다).
+bool _startupMediaChecked = false;
+
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
 
@@ -103,7 +108,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               // ASIO/WASAPI는 Windows 전용 개념이라 macOS에서는 맞지 않는
               // 문구였다(실기 보고: "나는 맥인데 왜 저런 게 뜨냐").
               // 폴백 동작 자체는 플랫폼 공통이므로 문구도 중립으로 쓴다.
-              '⚠️ 오디오 장치 연결이 끊어져 시스템 기본 출력 장치로 임시 전환되었습니다. 환경설정에서 오디오 장치를 다시 확인해 주세요.',
+              // 재생 중 장치가 끊긴 경우와 앱을 켤 때 장치를 열지 못한 경우(rust api_init_audio_system) 모두 이
+              // 알림이다. 설정의 장치가 나타나면 엔진이 스스로 돌아간다(rust core::device_return).
+              '⚠️ 설정한 오디오 장치를 열 수 없어 시스템 기본 출력 장치로 임시 전환했습니다(출력 −40dB). 장치가 연결되면 자동으로 돌아갑니다. 돌아오지 않으면 환경설정에서 오디오 장치를 확인해 주세요.',
               style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
             ),
             backgroundColor: Colors.redAccent,
@@ -133,6 +140,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         );
       }
     });
+    // 첫 화면을 그린 뒤 음원·도면 경로를 확인한다(못 찾은 파일이 있으면 화면 위에 창을 띄운다).
+    WidgetsBinding.instance.addPostFrameCallback((_) => _checkMediaAtStartup());
   }
 
   @override
@@ -144,18 +153,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // 스피커 위치/룸/환경이 바뀌면 채널별 FX(딜레이, 게인, EQ, 위상)를 자동
-    // 재계산하는 동기화 provider를 여기서 활성화한다.
+    // 스피커 위치/룸/환경이 바뀌면 채널별 FX(딜레이, 게인, EQ, 위상)를 자동 재계산하는
+    // 동기화(acousticSyncProvider)는 main.dart가 앱 수명 내내 watch한다(예전에는 여기서도 watch했다).
     //
-    // Riverpod NotifierProvider는 지연 생성이라 아무도 읽지 않으면 build()가
-    // 실행되지 않고, 따라서 내부의 ref.listen(speakerLayoutProvider, ...)도
-    // 등록되지 않는다. 예전에는 이 provider를 앱 어디에서도 읽지 않아
-    // (테스트에서만 읽었다) 기능 전체가 죽어 있었다 — 스피커를 옮겨도 FX가
-    // 전혀 따라오지 않던 원인이다. 메인 화면은 앱 수명 내내 살아 있으므로
-    // 여기서 watch해 동기화가 항상 돌게 한다.
-    ref.watch(acousticSyncProvider);
-    // 공간 설정(스피커 좌표·방·궤적·청취 지점)을 엔진에 보내는 단일 소유자.
-    // 같은 이유로 여기서 watch해야 한다 — 아무도 읽지 않으면 전송이 멈춘다.
+    // 공간 설정(스피커 좌표·방·궤적·청취 지점)을 엔진에 보내는 단일 소유자. Riverpod NotifierProvider는
+    // 지연 생성이라 아무도 읽지 않으면 build()가 실행되지 않고 내부 listen도 등록되지 않아 전송이 멈춘다.
+    // 메인 화면은 앱 수명 내내 살아 있으므로 여기서 watch한다.
     ref.watch(spatialSyncProvider);
 
     final bodyContent = SafetyAlertBorderWidget(
@@ -181,6 +184,79 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       body: Platform.isMacOS
           ? PlatformMenuBar(menus: _buildMenus(context), child: bodyContent)
           : bodyContent,
+    );
+  }
+
+  /// 앱을 켤 때 트랙 음원·도면이 저장된 경로에 있는지 본다. 누가 파일을 다른 폴더로 옮겨 정리하면 그 트랙은 소리가
+  /// 나지 않는다. 못 찾은 파일을 보여 주고 폴더를 고르게 해 그 폴더와 하위 폴더에서 파일 이름으로 다시 연결한다
+  /// (project_media.dart relinkMissingMedia, .atmos를 열 때와 같은 창). 공연은 스플래시에서 먼저 이어 가므로 창이 떠
+  /// 있어도 찾은 트랙은 재생된다. 다시 연결한 경로는 설정에 저장해 다음에 켤 때도 쓴다.
+  Future<void> _checkMediaAtStartup() async {
+    if (_startupMediaChecked || !mounted) return;
+    _startupMediaChecked = true;
+    final config = ref.read(configProvider);
+    if (config == null) return;
+    final prefs = await SharedPreferences.getInstance();
+    final storedBlueprint = prefs.getString('blueprint_image_path');
+    final blueprintPath = storedBlueprint == null || storedBlueprint.isEmpty ? null : storedBlueprint;
+    final folders = <String>[];
+    int? firstMissing;
+    int? lastMissing;
+    final media = await relinkMissingMedia(
+      config: config,
+      blueprintPath: blueprintPath,
+      askFolder: (missing) async {
+        if (!mounted) return null;
+        // 두 번째부터는 앞에서 고른 폴더의 결과를 먼저 알린다.
+        final before = lastMissing;
+        final progress = before == null
+            ? ''
+            : before == missing.length
+                ? '고른 폴더에서 찾지 못했습니다. 다른 폴더를 고르세요.\n'
+                : '고른 폴더에서 ${before - missing.length}개를 다시 연결했습니다. 남은 파일이 있는 폴더를 고르세요.\n';
+        firstMissing ??= missing.length;
+        lastMissing = missing.length;
+        final folder = await askMediaFolder(
+          context,
+          missing,
+          lead: '$progress저장된 경로에 없는 오디오·도면 파일입니다. 파일을 다른 폴더로 옮겼다면 그 폴더를 고르세요. '
+              '그 폴더와 하위 폴더에서 파일 이름으로 다시 연결합니다. 연결하기 전까지 이 트랙은 소리가 나지 않습니다.',
+          skipLabel: '나중에',
+          initialDirectory: mediaStartFolder(missing),
+        );
+        if (folder != null) folders.add(folder);
+        return folder;
+      },
+    );
+    final first = firstMissing;
+    if (first == null || !mounted) return; // 모두 저장된 경로에 있다
+
+    final reconnected = first - media.missing.length;
+    if (reconnected > 0) {
+      // 폴더 창이 떠 있는 동안 화면에서 설정을 바꿨으면, 바꾼 값을 덮지 않게 지금 설정에 같은 폴더로 다시 연결한다.
+      final current = ref.read(configProvider);
+      final updated = current == null || identical(current, config)
+          ? media.config
+          : (await project_api.apiRelinkTrackPaths(config: current, searchDirs: folders)).config;
+      if (!mounted) return;
+      ref.read(configProvider.notifier).saveConfig(updated);
+      if (blueprintPath != null && media.blueprintPath != blueprintPath) {
+        final blueprint = ref.read(blueprintProvider.notifier);
+        await storeBlueprintPath(media.blueprintPath);
+        await blueprint.reloadFromPrefs();
+      }
+    }
+    if (!mounted) return;
+    final left = media.missing.length;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text([
+          if (reconnected > 0) '파일 $reconnected개를 다시 연결했습니다. 그 트랙은 방을 다시 재생하면 나옵니다.',
+          if (left > 0) '파일 $left개는 찾지 못해 재생되지 않습니다. 앱을 다시 켜면 다시 확인합니다.',
+        ].join(' ')),
+        backgroundColor: left == 0 ? AppColors.success : AppColors.danger,
+        duration: const Duration(seconds: 10),
+      ),
     );
   }
 
@@ -507,6 +583,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         label: 'Help',
         menus: [
           PlatformMenuItem(
+            label: 'The Awesome',
+            onSelected: () {
+              if (context.mounted) showAboutApp(context);
+            },
+          ),
+          PlatformMenuItem(
             label: 'Third-party Notices',
             onSelected: () {
               if (context.mounted) {
@@ -671,6 +753,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 menuChildren: [
                   MenuItemButton(
                     onPressed: () {
+                      if (context.mounted) showAboutApp(context);
+                    },
+                    child: const Text('The Awesome'),
+                  ),
+                  MenuItemButton(
+                    onPressed: () {
                       if (context.mounted) {
                         showThirdPartyNotices(context);
                       }
@@ -698,7 +786,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         runSpacing: 12,
         children: [
           const Text(
-            'Atmos Mixer Pro',
+            'The Awesome',
             style: TextStyle(
               color: AppColors.textPrimary,
               fontSize: 18,
@@ -1041,6 +1129,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       try {
                         final deviceInfos = await rust_api.apiGetOutputDevices();
                         GlobalDeviceCache.devices = deviceInfos.map((d) => d.name).toList();
+                        GlobalDeviceCache.deepScanned = false;
                         for (final info in deviceInfos) {
                           GlobalDeviceCache.channels[info.name] = info.channelNames;
                         }

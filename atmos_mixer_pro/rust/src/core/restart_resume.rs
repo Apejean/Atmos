@@ -14,7 +14,7 @@ use crate::audio::playback_cursor::CURSOR_TABLE;
 use crate::common::commands::AudioCommand;
 use crate::core::state::GLOBAL_STATE;
 use std::collections::{HashMap, HashSet};
-use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::{Mutex, MutexGuard};
 use std::time::{Duration, Instant};
 
@@ -30,6 +30,18 @@ static PENDING: Mutex<Vec<ResumeEntry>> = Mutex::new(Vec::new());
 pub static RESTART_SEQ: AtomicU32 = AtomicU32::new(0);
 /// Dart가 재동기화를 마쳤다고 알린 가장 큰 순번.
 pub static RESYNC_ACK: AtomicU32 = AtomicU32::new(0);
+/// 자기 재시작이 새 엔진을 여는 동안 켠다. 그때 만든 믹서는 부팅 뮤트 램프를 짧게 쓴다(audio::mixer::RESTART_RAMP_S).
+static SHORT_STARTUP_RAMP: AtomicBool = AtomicBool::new(false);
+
+/// 자기 재시작 스레드가 새 엔진을 열기 전에 켜고, 다 연 뒤(비상 전환 포함) 끈다.
+pub fn set_short_startup_ramp(on: bool) {
+    SHORT_STARTUP_RAMP.store(on, Ordering::SeqCst);
+}
+
+/// 지금 만드는 믹서가 자기 재시작의 것인가(`AudioMixer::new`가 묻는다).
+pub fn short_startup_ramp() -> bool {
+    SHORT_STARTUP_RAMP.load(Ordering::SeqCst)
+}
 /// Dart 재동기화를 기다리는 최대 시간. 넘기면 그대로 재개한다(무음보다 낫다).
 pub const RESYNC_TIMEOUT: Duration = Duration::from_secs(2);
 /// 완료 신호 뒤 재개까지 둔다. Dart 재동기화 호출은 응답을 기다리지 않고 FRB 워커 스레드에서 순서 없이

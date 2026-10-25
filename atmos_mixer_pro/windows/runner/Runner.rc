@@ -89,11 +89,12 @@ BEGIN
     BEGIN
         BLOCK "040904e4"
         BEGIN
+            // CompanyName and ProductName stay: path_provider_windows names the %APPDATA% data folder after them.
             VALUE "CompanyName", "com.example" "\0"
-            VALUE "FileDescription", "atmos_mixer_pro" "\0"
+            VALUE "FileDescription", "The Awesome" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
             VALUE "InternalName", "atmos_mixer_pro" "\0"
-            VALUE "LegalCopyright", "Copyright (C) 2026 com.example. All rights reserved." "\0"
+            VALUE "LegalCopyright", "Copyright (C) 2026 The Awesome. All rights reserved." "\0"
             VALUE "OriginalFilename", "atmos_mixer_pro.exe" "\0"
             VALUE "ProductName", "atmos_mixer_pro" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"

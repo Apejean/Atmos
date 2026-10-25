@@ -42,12 +42,14 @@ Future<void> main(List<String> args) async {
   // Initialize window_manager for frameless kiosk mode
   await windowManager.ensureInitialized();
 
+  // 창 제목은 회사 이름(2026-10-22 사용자 결정). 예전에는 실행 파일 이름 "atmos_mixer_pro"가 그대로 보였다.
   WindowOptions windowOptions = const WindowOptions(
     size: Size(1024, 768),
     minimumSize: Size(800, 600),
     center: true,
     backgroundColor: Colors.transparent,
     skipTaskbar: false,
+    title: 'The Awesome',
     titleBarStyle: TitleBarStyle.normal,
   );
 
@@ -74,6 +76,7 @@ class _AtmosMixerProAppState extends ConsumerState<AtmosMixerProApp>
     with WindowListener {
   Timer? _heartbeat;
   bool _heartbeatInFlight = false;
+  final _restartResync = RestartResyncGate();
 
   @override
   void initState() {
@@ -148,18 +151,20 @@ class _AtmosMixerProAppState extends ConsumerState<AtmosMixerProApp>
       final event = next.value;
       if (event == 'EngineReady') {
         resyncEngineStateFromWidgetRef(ref);
+        _restartResync.readyResynced();
       }
       // 엔진이 스스로 재시작했다(워치독·장치 오류). 설정을 다시 밀어 넣은 뒤 알려야 Rust가
-      // 멈춘 위치부터 재생을 이어 튼다(rust core::restart_resume).
+      // 멈춘 위치부터 재생을 이어 튼다(rust core::restart_resume). 같은 재시작의 EngineReady에서
+      // 방금 밀어 넣었으면 다시 하지 않는다(RestartResyncGate).
       final seq = event == null ? null : parseEngineRestartedSeq(event);
       if (seq != null) {
-        resyncEngineStateFromWidgetRef(ref);
+        if (_restartResync.resyncOnRestart()) resyncEngineStateFromWidgetRef(ref);
         apiAckEngineRestart(seq: seq);
       }
     });
 
     return MaterialApp(
-      title: 'Atmos Mixer Pro',
+      title: 'The Awesome',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         brightness: Brightness.dark,

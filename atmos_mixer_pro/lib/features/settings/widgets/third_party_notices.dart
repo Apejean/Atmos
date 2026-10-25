@@ -17,7 +17,7 @@ Terms of use as stated in the SOFA file: "This HRTF data is provided without any
 
 Source: http://sound.media.mit.edu/resources/KEMAR.html
 
-History: The original MIT KEMAR data was converted to the SOFA format by Piotr Majdak and Michael Mihocic (Acoustics Research Institute, Austrian Academy of Sciences). The Atmos project further converted that SOFA file into its own binary format without changing the values. Atmos Mixer Pro equalizes the responses at run time for its headphone binaural preview.''';
+History: The original MIT KEMAR data was converted to the SOFA format by Piotr Majdak and Michael Mihocic (Acoustics Research Institute, Austrian Academy of Sciences). The Awesome further converted that SOFA file into its own binary format without changing the values. The Awesome equalizes the responses at run time for its headphone binaural preview.''';
 
 bool _registered = false;
 
@@ -35,5 +35,5 @@ void registerThirdPartyNotices() {
 /// Help → Third-party Notices: 라이선스 화면을 연다.
 void showThirdPartyNotices(BuildContext context) {
   registerThirdPartyNotices();
-  showLicensePage(context: context, applicationName: 'Atmos Mixer Pro');
+  showLicensePage(context: context, applicationName: 'The Awesome');
 }

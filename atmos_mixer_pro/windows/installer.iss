@@ -3,10 +3,16 @@
 #ifndef ReleaseDir
   #define ReleaseDir AddBackslash(SourcePath) + "..\build\windows\x64\runner\Release"
 #endif
-#define MyAppName "Atmos Mixer Pro"
-#define MyAppPublisher "Atmos"
+; Product name shown in the program list, shortcuts and new install folder (2026-10-22: renamed from "Atmos Mixer Pro").
+; An upgrade keeps the existing install folder (UsePreviousAppDir). The setup file name stays AtmosMixerPro_Setup
+; because the release workflow renames it.
+#define MyAppName "The Awesome"
+#define MyAppPublisher "The Awesome"
 #define MyAppExeName "atmos_mixer_pro.exe"
-; The supervisor relaunches the app after a crash or a hang. Shortcuts, the logon Run key and the
+; The app sets the same ID on itself (runner\main.cpp), so the taskbar matches its window to the shortcuts: the
+; right-click menu shows the shortcut name, not the exe description Windows cached, and pinning pins the shortcut.
+#define MyAppUserModelID "TheAwesome.AtmosMixerPro"
+; The supervisor relaunches the app after a crash or a hang. Shortcuts, the logon task (autostart.ps1) and the
 ; post-install launch start the supervisor, which then starts the app.
 #define SupervisorExeName "atmos_supervisor.exe"
 ; The version is read from the built exe. Flutter writes pubspec.yaml's version into the exe's
@@ -78,24 +84,44 @@ Source: "{#RedistDir}\{#WebView2LoaderX86}"; Flags: dontcopy
 Source: "{#ReleaseDir}\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
 ; The supervisor is copied next to the app by the build (CI copies it into the Release folder).
 Source: "{#ReleaseDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+; Registers the logon task that starts the supervisor ([Run] below).
+Source: "autostart.ps1"; DestDir: "{app}"; Flags: ignoreversion
 ; Extracted to {tmp} only when needed (InstallPrerequisites).
 Source: "{#RedistDir}\{#VCRedistExe}"; Flags: dontcopy
 Source: "{#RedistDir}\{#WebView2Exe}"; Flags: dontcopy
 
+[InstallDelete]
+; Shortcuts from before the rename. Without this an upgrade leaves "Atmos Mixer Pro" next to the new shortcuts.
+Type: files; Name: "{autoprograms}\Atmos Mixer Pro.lnk"
+Type: files; Name: "{autodesktop}\Atmos Mixer Pro.lnk"
+
 [Icons]
-Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#SupervisorExeName}"; IconFilename: "{app}\{#MyAppExeName}"
-Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#SupervisorExeName}"; IconFilename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
+Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#SupervisorExeName}"; IconFilename: "{app}\{#MyAppExeName}"; AppUserModelID: "{#MyAppUserModelID}"
+Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#SupervisorExeName}"; IconFilename: "{app}\{#MyAppExeName}"; AppUserModelID: "{#MyAppUserModelID}"; Tasks: desktopicon
 
 [Registry]
-Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "AtmosMixerPro"; ValueData: """{app}\{#SupervisorExeName}"" --logon"; Flags: uninsdeletevalue
+; Earlier versions started the supervisor from the HKCU Run key. Windows 11 skipped that entry at sign-in
+; after a restart (2026-10-23, dev PC, every restart) while it started the other Run entries, so the logon
+; task replaces it. Remove the old value on upgrade so the two never start together.
+Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: none; ValueName: "AtmosMixerPro"; Flags: deletevalue
+Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run"; ValueType: none; ValueName: "AtmosMixerPro"; Flags: deletevalue
 
 [Run]
 ; OSC arrives over UDP on 0.0.0.0. Allow it here instead of the first-run firewall prompt, which nobody answers
 ; on an unattended PC: any sender on private and domain networks, only the local subnet on public networks.
 ; Rules for this exe that the prompt may have left (allow or block) are removed first.
 Filename: "{sys}\netsh.exe"; Parameters: "advfirewall firewall delete rule name=all program=""{app}\{#MyAppExeName}"""; Flags: runhidden waituntilterminated
-Filename: "{sys}\netsh.exe"; Parameters: "advfirewall firewall add rule name=""Atmos Mixer Pro OSC"" dir=in action=allow program=""{app}\{#MyAppExeName}"" protocol=UDP profile=private,domain enable=yes"; Flags: runhidden waituntilterminated
-Filename: "{sys}\netsh.exe"; Parameters: "advfirewall firewall add rule name=""Atmos Mixer Pro OSC (public, local subnet)"" dir=in action=allow program=""{app}\{#MyAppExeName}"" protocol=UDP profile=public remoteip=localsubnet enable=yes"; Flags: runhidden waituntilterminated
+; Rules from before the rename, by name too. On the dev PC (2026-10-23) both deletes exited 1 and old rules stayed:
+; the antivirus (Avast) first ran Setup in its sandbox, whose netsh changes reached the running firewall but not the
+; stored rules, so the two lists disagreed (firewall events 2052/2097). Check the cleanup on a PC whose security
+; software leaves Setup alone (WINDOWS_FIELD_CHECKLIST.md sections 0 and 5).
+Filename: "{sys}\netsh.exe"; Parameters: "advfirewall firewall delete rule name=""Atmos Mixer Pro OSC"""; Flags: runhidden waituntilterminated
+Filename: "{sys}\netsh.exe"; Parameters: "advfirewall firewall delete rule name=""Atmos Mixer Pro OSC (public, local subnet)"""; Flags: runhidden waituntilterminated
+Filename: "{sys}\netsh.exe"; Parameters: "advfirewall firewall add rule name=""The Awesome OSC"" dir=in action=allow program=""{app}\{#MyAppExeName}"" protocol=UDP profile=private,domain enable=yes"; Flags: runhidden waituntilterminated
+Filename: "{sys}\netsh.exe"; Parameters: "advfirewall firewall add rule name=""The Awesome OSC (public, local subnet)"" dir=in action=allow program=""{app}\{#MyAppExeName}"" protocol=UDP profile=public remoteip=localsubnet enable=yes"; Flags: runhidden waituntilterminated
+; Logon task "The Awesome Autostart" for the signed-in user (not the elevated account): starts the supervisor with
+; --logon 10 s after sign-in, with no run-time limit (the Task Scheduler default of 3 days would end a long show).
+Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\autostart.ps1"""; Flags: runhidden waituntilterminated runasoriginaluser
 Filename: "{app}\{#SupervisorExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
 
 [UninstallRun]
@@ -103,6 +129,7 @@ Filename: "{app}\{#SupervisorExeName}"; Description: "{cm:LaunchProgram,{#String
 Filename: "{sys}\taskkill.exe"; Parameters: "/F /IM {#SupervisorExeName}"; Flags: runhidden; RunOnceId: "StopSupervisor"
 Filename: "{sys}\taskkill.exe"; Parameters: "/F /IM {#MyAppExeName}"; Flags: runhidden; RunOnceId: "StopApp"
 Filename: "{sys}\netsh.exe"; Parameters: "advfirewall firewall delete rule name=all program=""{app}\{#MyAppExeName}"""; Flags: runhidden; RunOnceId: "DeleteFirewallRules"
+Filename: "{sys}\schtasks.exe"; Parameters: "/Delete /TN ""The Awesome Autostart"" /F"; Flags: runhidden; RunOnceId: "DeleteAutostartTask"
 
 [Code]
 // Installing over a running show (an upgrade): stop the supervisor before the app, for the same

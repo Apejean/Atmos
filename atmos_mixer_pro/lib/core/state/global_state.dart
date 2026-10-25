@@ -17,6 +17,21 @@ Future<String> _getConfigPath() async {
 class GlobalDeviceCache {
   static List<String>? devices;
   static Map<String, List<String>> channels = {};
+
+  /// 지금 목록이 재스캔(엔진을 멈추고 ASIO 드라이버를 열어 본 목록)에서 왔는가. 엔진이 ASIO로 도는 동안 읽은
+  /// 목록에는 다른 ASIO 장치가 드라이버를 열지 않은 채 들어 있어, 연결 여부와 채널 수를 모른다(채널은 2채널
+  /// 자리표, rust `api_get_output_devices`). ASIO는 한 번에 드라이버 하나만 열 수 있다.
+  static bool deepScanned = false;
+
+  /// [device]가 아직 연결을 확인하지 못한 ASIO 장치인가. [running]은 엔진이 쓰는(저장된) 장치다.
+  /// 2026-10-22: 연결이 빠진 Focusrite가 이렇게 목록에 보여 골랐다가 30초 뒤 "장치를 찾지 못함"이 났다.
+  static bool isUnverifiedAsio(String? device, String? running) =>
+      !deepScanned &&
+      device != null &&
+      device.startsWith('[ASIO]') &&
+      running != null &&
+      running.startsWith('[ASIO]') &&
+      running != device;
 }
 
 class _SaveTask {
@@ -65,6 +80,7 @@ class ConfigNotifier extends Notifier<AppConfig?> {
       try {
         final deviceInfos = await rust_api.apiGetOutputDevices();
         GlobalDeviceCache.devices = deviceInfos.map((d) => d.name).toList();
+        GlobalDeviceCache.deepScanned = false;
         for (final info in deviceInfos) {
           GlobalDeviceCache.channels[info.name] = info.channelNames;
         }
