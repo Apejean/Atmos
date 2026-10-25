@@ -56,7 +56,7 @@ flutter_rust_bridge_codegen generate        # rust/src/api/ 바꿨을 때만
 | Windows 실기 점검 / Windows PC 작업 | `docs/WINDOWS_FIELD_CHECKLIST.md` / `docs/windows/WINDOWS_HARNESS.md`·`WINDOWS_QUICKSTART.md` |
 | 기능 설계·계획 | `docs/superpowers/specs/`, `docs/superpowers/plans/`, `docs/02_Planning_and_Specs/` |
 | DSP 이론(DBAP·LR4·SOFA·EBU R128) | `docs/01_Architecture/CORE_SKILLS_AND_TECH_STACK.md`, `CROSSOVER_LR24_SPEC.md` |
-| 3D 방·청취자 좌표 | 저장소 루트 `docs/report/` (청취자 중심 `[W/2, D/2, 1.2m]`, 모델 `assets/models/listener_head.glb`) |
+| 3D 방·청취자 좌표 | 저장소 루트 `docs/report/` (청취자 중심 `[W/2, D/2, 1.2m]`, 모델 `atmos_mixer_pro/assets/models/listener_bust_white.obj`) |
 | 신호 주입 검증 방식 | `docs/03_Protocols_and_Workflows/ZERO_DEFECT_PROTOCOL.md` |
 
 (`docs/`는 `atmos_mixer_pro/docs/`. 옛 다중 에이전트 방식 문서는 `docs/archive/legacy-multi-agent/`에 보관했고 따르지 않는다. 서브에이전트 정의 `atmos_mixer_pro/.claude/agents/`도 같다.)

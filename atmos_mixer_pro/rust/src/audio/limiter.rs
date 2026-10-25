@@ -20,10 +20,8 @@ pub struct PeakLimiter {
 
     history: [f32; 3],
 
-    // R128 Autoguard
+    // 출력 음량 측정(3초 창, 간이 LUFS). 엔진 상태의 short_term_lufs로 보내기만 하고 소리는 바꾸지 않는다.
     pub short_term_lufs: f32,
-    pub autoguard_ducking: f32,
-    target_ducking: f32,
     lufs_integration_buffer: Vec<f32>,
     lufs_index: usize,
     sum_sq: f32,
@@ -80,8 +78,6 @@ impl PeakLimiter {
             history: [0.0; 3],
 
             short_term_lufs: -70.0,
-            autoguard_ducking: 1.0,
-            target_ducking: 1.0,
             lufs_integration_buffer: vec![0.0; (sample_rate * 3.0) as usize], // 3 seconds integration window
             lufs_index: 0,
             sum_sq: 0.0,
@@ -185,7 +181,9 @@ impl PeakLimiter {
             out
         };
 
-        // R128 Autoguard Calculation
+        // 출력 음량 측정. 예전에는 이 값이 -14를 넘으면 채널마다 따로 소리를 낮췄다(R128 Autoguard).
+        // 미터에 보이지 않고 채널별로 낮춰 공간 균형을 바꿔서 뺐다(2026-10-24 사용자 결정).
+        // 스피커 보호는 위의 피크 리미터와 0.985 안전 클립이 한다.
         let sq = final_out * final_out;
         let old_sq = self.lufs_integration_buffer[self.lufs_index];
         self.sum_sq = self.sum_sq + sq - old_sq;
@@ -205,22 +203,11 @@ impl PeakLimiter {
             } else {
                 -70.0
             };
-
-            // Autoguard threshold (e.g. -14 LUFS)
-            let autoguard_threshold = -14.0;
-            self.target_ducking = 1.0;
-            if self.short_term_lufs > autoguard_threshold {
-                let over = self.short_term_lufs - autoguard_threshold;
-                self.target_ducking = 10.0_f32.powf(-over / 20.0);
-            }
             self.lufs_decimation_counter = 127;
         } else {
             self.lufs_decimation_counter -= 1;
         }
 
-        // Smooth ducking change
-        self.autoguard_ducking += 0.001 * (self.target_ducking - self.autoguard_ducking);
-
-        final_out * self.autoguard_ducking
+        final_out
     }
 }

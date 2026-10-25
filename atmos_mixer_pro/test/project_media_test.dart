@@ -16,7 +16,6 @@ AppConfig _config(String tag) => AppConfig(
       isExhibitionMode: false,
       masterHeadroomDb: 0.0,
       peakLimiterEnabled: true,
-      oscWhitelist: const [],
       globalReverbMix: 0.0,
       globalReverbDecay: 1.0,
     );
@@ -266,7 +265,6 @@ void main() {
           isExhibitionMode: false,
           masterHeadroomDb: 0.0,
           peakLimiterEnabled: true,
-          oscWhitelist: const [],
           globalReverbMix: 0.0,
           globalReverbDecay: 1.0,
         );
@@ -345,7 +343,6 @@ void main() {
               name: 'r',
               colorHex: 'FF0000',
               volume: 1.0,
-              volumeOscAddress: '',
               clearOscAddress: '',
               tracks: tracks,
             ),
@@ -354,7 +351,6 @@ void main() {
           isExhibitionMode: false,
           masterHeadroomDb: 0.0,
           peakLimiterEnabled: true,
-          oscWhitelist: const [],
           globalReverbMix: 0.0,
           globalReverbDecay: 1.0,
         );

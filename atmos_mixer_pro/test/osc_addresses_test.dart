@@ -17,12 +17,11 @@ void main() {
         playOscAddress: play,
         stopOscAddress: stop,
       );
-  RoomConfig room(String id, String clear, List<TrackConfig> tracks, {String volume = ''}) => RoomConfig(
+  RoomConfig room(String id, String clear, List<TrackConfig> tracks) => RoomConfig(
         id: id,
         name: id,
         colorHex: '#123456',
         volume: 1.0,
-        volumeOscAddress: volume,
         clearOscAddress: clear,
         tracks: tracks,
       );
@@ -39,16 +38,14 @@ void main() {
         isExhibitionMode: true,
         masterHeadroomDb: 0.0,
         peakLimiterEnabled: true,
-        oscWhitelist: const [],
         globalReverbMix: 0.0,
         globalReverbDecay: 1.0,
       );
 
-  test('겹치는 주소를 찾는다(빈칸과 방 볼륨 주소는 보지 않는다)', () {
+  test('겹치는 주소를 찾는다(빈칸은 보지 않는다)', () {
     final c = config([
-      room('r1', '/room/clear', [track('a', '/play', '/stop'), track('b', '/play', '/stop'), track('c', '', '')],
-          volume: '/room/volume'),
-      room('r2', '/room/clear', [track('d', '/play5', '/stop5')], volume: '/room/volume'),
+      room('r1', '/room/clear', [track('a', '/play', '/stop'), track('b', '/play', '/stop'), track('c', '', '')]),
+      room('r2', '/room/clear', [track('d', '/play5', '/stop5')]),
     ]);
     expect(duplicateOscAddresses(c), {'/room/clear', '/play', '/stop'});
     expect(duplicateOscAddresses(config([room('r1', '/room1/clear', [track('a', '/p1', '/s1')])])), isEmpty);

@@ -182,7 +182,6 @@ AppConfig _withTrackPaths(AppConfig c, Map<String, String> newPaths) => AppConfi
             name: r.name,
             colorHex: r.colorHex,
             volume: r.volume,
-            volumeOscAddress: r.volumeOscAddress,
             clearOscAddress: r.clearOscAddress,
             tracks: [
               for (final t in r.tracks)
@@ -206,7 +205,6 @@ AppConfig _withTrackPaths(AppConfig c, Map<String, String> newPaths) => AppConfi
       isExhibitionMode: c.isExhibitionMode,
       masterHeadroomDb: c.masterHeadroomDb,
       peakLimiterEnabled: c.peakLimiterEnabled,
-      oscWhitelist: c.oscWhitelist,
       globalReverbMix: c.globalReverbMix,
       globalReverbDecay: c.globalReverbDecay,
     );

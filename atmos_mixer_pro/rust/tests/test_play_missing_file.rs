@@ -32,7 +32,6 @@ fn 파일이_없는_트랙을_재생하면_경로가_든_오류를_돌려주고_
         name: "테마 2".into(),
         color_hex: "#ffffff".into(),
         volume: 1.0,
-        volume_osc_address: String::new(),
         clear_osc_address: String::new(),
         tracks: vec![track("sfx", missing_sfx, false), track("bgm", missing_bgm, true)],
     });

@@ -21,7 +21,6 @@ fn config_with_track(file_path: &str) -> AppConfig {
             name: "한글 방".into(),
             color_hex: "#ffffff".into(),
             volume: 1.0,
-            volume_osc_address: String::new(),
             clear_osc_address: String::new(),
             tracks: vec![TrackConfig {
                 id: "bgm".into(),

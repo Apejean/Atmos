@@ -3,8 +3,8 @@ use crate::common::config::AppConfig;
 use lazy_static::lazy_static;
 use std::sync::RwLock;
 
-/// 방 볼륨 OSC는 쓰지 않는다(사용자 결정 2026-10-10, 메인 화면에서 조절). 설정의 `volume_osc_address`는 호환을 위해
-/// 남아 있지만 주소표에 넣지 않는다.
+/// 방 볼륨 OSC는 쓰지 않는다(사용자 결정 2026-10-10, 메인 화면에서 조절). 설정의 `volume_osc_address` 칸도
+/// 지웠다(2026-10-24). 예전 파일에 남은 그 칸은 읽을 때 무시된다.
 #[derive(Clone)]
 pub enum OscAction {
     ClearRoom(String),

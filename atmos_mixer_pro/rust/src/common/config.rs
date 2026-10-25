@@ -137,8 +137,6 @@ pub struct AppConfig {
     #[serde(default = "default_true")]
     pub peak_limiter_enabled: bool,
     #[serde(default)]
-    pub osc_whitelist: Vec<String>,
-    #[serde(default)]
     pub global_reverb_mix: f32,
     #[serde(default)]
     pub global_reverb_decay: f32,
@@ -168,7 +166,6 @@ impl Default for AppConfig {
             is_exhibition_mode: false,
             master_headroom_db: 0.0,
             peak_limiter_enabled: true,
-            osc_whitelist: Vec::new(),
         }
     }
 }
@@ -179,8 +176,6 @@ pub struct RoomConfig {
     pub name: String,
     pub color_hex: String,
     pub volume: f32, // 0.0 to 1.0
-    #[serde(default)]
-    pub volume_osc_address: String,
     #[serde(default)]
     pub clear_osc_address: String,
     #[serde(default)]

@@ -17,10 +17,9 @@ import 'package:atmos_mixer_pro/core/utils/osc_addresses.dart';
 import 'package:atmos_mixer_pro/features/dashboard/widgets/room_card.dart';
 import 'package:atmos_mixer_pro/features/settings/widgets/preferences_modal.dart';
 import 'package:atmos_mixer_pro/features/settings/widgets/tuning_modal.dart';
-import 'package:atmos_mixer_pro/features/settings/widgets/third_party_notices.dart';
+import 'package:atmos_mixer_pro/features/settings/widgets/credits_dialog.dart';
 import 'package:atmos_mixer_pro/features/dashboard/widgets/osc_monitor_dialog.dart';
 import 'package:atmos_mixer_pro/features/dashboard/widgets/missing_media_dialog.dart';
-import 'package:atmos_mixer_pro/features/dashboard/widgets/about_app_dialog.dart';
 import 'package:atmos_mixer_pro/features/dashboard/widgets/master_limiter_meter.dart';
 import 'package:atmos_mixer_pro/features/dashboard/widgets/resampler_status_badge.dart';
 import 'package:atmos_mixer_pro/features/dashboard/widgets/binaural_toggle_badge.dart';
@@ -583,16 +582,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         label: 'Help',
         menus: [
           PlatformMenuItem(
-            label: 'The Awesome',
-            onSelected: () {
-              if (context.mounted) showAboutApp(context);
-            },
-          ),
-          PlatformMenuItem(
-            label: 'Third-party Notices',
+            label: 'About Awesome...',
             onSelected: () {
               if (context.mounted) {
-                showThirdPartyNotices(context);
+                showCredits(context);
               }
             },
           ),
@@ -753,17 +746,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 menuChildren: [
                   MenuItemButton(
                     onPressed: () {
-                      if (context.mounted) showAboutApp(context);
-                    },
-                    child: const Text('The Awesome'),
-                  ),
-                  MenuItemButton(
-                    onPressed: () {
                       if (context.mounted) {
-                        showThirdPartyNotices(context);
+                        showCredits(context);
                       }
                     },
-                    child: const Text('Third-party Notices'),
+                    child: const Text('About Awesome...'),
                   ),
                 ],
                 child: const Text('Help'),
@@ -833,19 +820,16 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const ResamplerStatusBadgeWidget(
-                fileSampleRate: 44100,
-                deviceSampleRate: 48000,
-                forceActive: true,
-              ),
+              // 장치·음원 샘플레이트는 엔진이 보낸 실제 값이다(2026-10-24 기능 점검).
+              const ResamplerStatusBadgeWidget(),
               const SizedBox(width: 8),
-              MasterLimiterMeterWidget(
-                // 실측 게인 리덕션(양수 dB)을 위젯 규약(음수)으로 맞춰 넘긴다.
-                initialGainReductionDb:
-                    -ref.watch(engineStateProvider).gainReductionDb.abs(),
-                // 상용 전시 현장에서 시뮬레이션이 켜진 채 남으면 미터를
-                // 오독하게 되므로 기본적으로 끈다.
-                enableSimulationToggle: false,
+              // 미터는 16ms 주기 VU 스트림을 직접 읽으므로 이 영역만 다시 그린다.
+              const RepaintBoundary(
+                child: MasterLimiterMeterWidget(
+                  // 상용 전시 현장에서 시뮬레이션이 켜진 채 남으면 미터를
+                  // 오독하게 되므로 기본적으로 끈다.
+                  enableSimulationToggle: false,
+                ),
               ),
               const SizedBox(width: 8),
               const BinauralToggleBadge(),
@@ -990,7 +974,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       volume: 1.0,
                       // 겹치지 않는 비우기 주소. 방 볼륨 OSC는 쓰지 않는다(core/utils/osc_addresses.dart).
                       clearOscAddress: newRoomClearAddress(config),
-                      volumeOscAddress: '',
                       tracks: [],
                     );
                     final updated = config.copyWith(rooms: [...config.rooms, newRoom]);

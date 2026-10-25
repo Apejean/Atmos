@@ -71,7 +71,7 @@ void main() {
     int? parsedChannel;
     bool? parsedIsStereo;
 
-    final config = AppConfig(globalReverbMix: 0.0, globalReverbDecay: 1.0, oscWhitelist: const [], 
+    final config = AppConfig(globalReverbMix: 0.0, globalReverbDecay: 1.0, 
       oscPort: 8000,
       bufferSize: 512,
       themeStartOscAddress: '',

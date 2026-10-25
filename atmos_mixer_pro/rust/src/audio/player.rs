@@ -71,6 +71,14 @@ impl SoundData {
     }
 
     pub fn load_from_file(path: &std::path::Path, target_sample_rate: u32) -> anyhow::Result<Self> {
+        Self::load_from_file_with_source(path, target_sample_rate).map(|(data, _)| data)
+    }
+
+    /// [Self::load_from_file]과 같고, 바꾸기 전 음원의 원래 샘플레이트를 함께 돌려준다(화면의 리샘플링 배지).
+    pub fn load_from_file_with_source(
+        path: &std::path::Path,
+        target_sample_rate: u32,
+    ) -> anyhow::Result<(Self, u32)> {
         let file = Box::new(File::open(path)?);
         let mss = MediaSourceStream::new(file, Default::default());
 
@@ -160,64 +168,66 @@ impl SoundData {
                 window: WindowFunction::BlackmanHarris2,
             };
 
-            let mut resampler = SincFixedOut::<f32>::new(
-                target_sample_rate as f64 / src_sample_rate as f64,
-                2.0,
-                params,
-                1024,
-                channels as usize,
-            )
-            .expect("Failed to create resampler");
+            let ratio = target_sample_rate as f64 / src_sample_rate as f64;
+            let mut resampler = SincFixedOut::<f32>::new(ratio, 2.0, params, 1024, channels as usize)
+                .map_err(|e| anyhow::anyhow!("리샘플러를 만들지 못했다: {e}"))?;
 
-            let mut resampled_samples = Vec::new();
+            // 원래 길이 × 비율만큼 내보낸다. 입력이 끝나면 남은 자투리와 그 뒤를 0으로 채워 넣어, 리샘플러가
+            // 앞을 내다보느라 붙잡고 있던 끝부분까지 다 나오게 한다. 예전에는 마지막 자투리를 버려 끝이 최대
+            // 약 21ms(48kHz) 잘렸고, 변환 오류가 난 조각도 조용히 건너뛰었다(2026-10-24 기능 점검).
+            let out_samples_total = (frames as f64 * ratio).round() as usize * channels as usize;
+            let mut resampled_samples = Vec::with_capacity(out_samples_total + 1024 * channels as usize);
             let mut input_idx = 0;
 
             // Pre-allocate buffer outside the loop to avoid allocations
             let mut process_buf = vec![vec![0.0; 2048]; channels as usize];
 
-            while input_idx < frames {
+            while resampled_samples.len() < out_samples_total {
                 let required = resampler.input_frames_next();
-                if input_idx + required > frames {
-                    break;
-                }
-
                 if required > process_buf[0].len() {
                     for ch in 0..channels as usize {
                         process_buf[ch].resize(required, 0.0);
                     }
                 }
 
+                let take = required.min(frames - input_idx);
                 for ch in 0..channels as usize {
-                    process_buf[ch][..required]
-                        .copy_from_slice(&deinterleaved[ch][input_idx..input_idx + required]);
+                    process_buf[ch][..take]
+                        .copy_from_slice(&deinterleaved[ch][input_idx..input_idx + take]);
+                    process_buf[ch][take..required].fill(0.0);
                 }
 
                 // Create a slice view of the exact required length
                 let process_slice: Vec<&[f32]> =
                     process_buf.iter().map(|v| &v[..required]).collect();
-                if let Ok(resampled) = resampler.process(&process_slice, None) {
-                    let out_frames = resampled[0].len();
-                    for frame in 0..out_frames {
-                        for ch in 0..channels as usize {
-                            resampled_samples.push(resampled[ch][frame]);
-                        }
+                let resampled = resampler
+                    .process(&process_slice, None)
+                    .map_err(|e| anyhow::anyhow!("리샘플링 실패: {e}"))?;
+                let out_frames = resampled[0].len();
+                for frame in 0..out_frames {
+                    for ch in 0..channels as usize {
+                        resampled_samples.push(resampled[ch][frame]);
                     }
                 }
-                input_idx += required;
+                input_idx += take;
             }
+            resampled_samples.truncate(out_samples_total);
 
             all_samples = resampled_samples;
         }
 
-        Ok(Self {
-            samples: all_samples,
-            channels: actual_channels,
-            sample_rate: if needs_resampling && target_sample_rate > 0 {
-                target_sample_rate
-            } else {
-                src_sample_rate
+        Ok((
+            Self {
+                samples: all_samples,
+                channels: actual_channels,
+                sample_rate: if needs_resampling && target_sample_rate > 0 {
+                    target_sample_rate
+                } else {
+                    src_sample_rate
+                },
             },
-        })
+            src_sample_rate,
+        ))
     }
 }
 

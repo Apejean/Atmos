@@ -240,8 +240,9 @@ pub fn api_preload_sound(file_path: String) -> Result<(), AtmosError> {
     let target_sr = GLOBAL_STATE
         .engine_sample_rate
         .load(std::sync::atomic::Ordering::Relaxed);
-    match crate::audio::player::SoundData::load_from_file(path, target_sr) {
-        Ok(data) => {
+    match crate::audio::player::SoundData::load_from_file_with_source(path, target_sr) {
+        Ok((data, source_rate)) => {
+            GLOBAL_STATE.note_file_source_rate(&file_path, source_rate);
             // 100MB limit check (samples * 4 bytes per f32)
             if data.samples.len() > 25_000_000 {
                 println!(
@@ -444,6 +445,11 @@ pub(crate) fn play_track_from(
                             if crate::core::state::debug_flags::trace_cmd() {
                                 eprintln!("[CMD] 재생 시작(스트리밍) track={track_id} instance={instance_id}");
                             }
+                            GLOBAL_STATE.note_track_source_rate(
+                                &track_id,
+                                &track.file_path,
+                                Some(streamer.source_sample_rate),
+                            );
                             GLOBAL_STATE.add_playing_track(instance_id, track_id.clone());
                             GLOBAL_STATE
                                 .command_sender
@@ -498,6 +504,7 @@ pub(crate) fn play_track_from(
                             }
                         }
 
+                        GLOBAL_STATE.note_track_source_rate(&track_id, &track.file_path, None);
                         GLOBAL_STATE.add_playing_track(instance_id, track_id.clone());
                         GLOBAL_STATE
                             .command_sender
@@ -528,6 +535,7 @@ pub(crate) fn play_track_from(
                         .read()
                         .unwrap_or_else(|e| e.into_inner());
                     if let Some(data) = cache_guard.get(&track.file_path) {
+                        GLOBAL_STATE.note_track_source_rate(&track_id, &track.file_path, None);
                         GLOBAL_STATE.add_playing_track(instance_id, track_id.clone());
                         GLOBAL_STATE
                             .command_sender
@@ -567,8 +575,8 @@ pub(crate) fn play_track_from(
                         let target_sr = GLOBAL_STATE
                             .engine_sample_rate
                             .load(std::sync::atomic::Ordering::Relaxed);
-                        match crate::audio::player::SoundData::load_from_file(path, target_sr) {
-                            Ok(data) => {
+                        match crate::audio::player::SoundData::load_from_file_with_source(path, target_sr) {
+                            Ok((data, source_rate)) => {
                                 let arc_data = std::sync::Arc::new(data);
                                 {
                                     let mut cache = GLOBAL_STATE
@@ -577,6 +585,8 @@ pub(crate) fn play_track_from(
                                         .unwrap_or_else(|e| e.into_inner());
                                     cache.insert(track.file_path.clone(), arc_data.clone());
                                 }
+                                GLOBAL_STATE.note_file_source_rate(&track.file_path, source_rate);
+                                GLOBAL_STATE.note_track_source_rate(&track_id, &track.file_path, Some(source_rate));
                                 GLOBAL_STATE.add_playing_track(instance_id, track_id.clone());
                                 GLOBAL_STATE
                                     .command_sender
@@ -831,6 +841,13 @@ pub fn api_create_vu_stream(sink: StreamSink<Vec<f32>>) {
                 lufs.load(std::sync::atomic::Ordering::Relaxed),
             ));
         }
+        // 마지막 값: 피크 리미터의 마스터 게인 리덕션(dB, 0 이상). 엔진 상태는 재생·정지 같은 사건 때만 가서
+        // 미터가 멈춰 있었다(2026-10-24 기능 점검). 화면 미터가 이 16ms 주기 값을 읽는다.
+        levels.push(f32::from_bits(
+            GLOBAL_STATE
+                .current_gain_reduction_db
+                .load(std::sync::atomic::Ordering::Relaxed),
+        ));
         if sink.add(levels).is_err() {
             break; // Stop thread if port is closed
         }
@@ -1417,6 +1434,11 @@ pub struct EngineStateUpdate {
     /// 테마 화면 상태(GLOBAL_STATE.theme_started·cleared_room_ids). Start 버튼과 OSC 테마 시작이 같게 보인다.
     pub theme_started: bool,
     pub cleared_room_ids: Vec<String>,
+    /// 장치 샘플레이트(Hz)와, 재생 중인 트랙 중 그와 달라 HQ sinc로 바꾸고 있는 것의 원래 샘플레이트들
+    /// (작은 것부터)·트랙 수. 화면의 리샘플링 배지가 쓴다(core::resample_status).
+    pub device_sample_rate: u32,
+    pub resampled_source_rates: Vec<u32>,
+    pub resampled_track_count: u32,
 }
 
 pub fn api_create_engine_state_stream(sink: StreamSink<EngineStateUpdate>) {
@@ -1430,6 +1452,7 @@ pub fn api_create_engine_state_stream(sink: StreamSink<EngineStateUpdate>) {
         unique_ids.dedup();
         unique_ids
     };
+    let (device_sample_rate, resample) = GLOBAL_STATE.resample_summary(&playing_track_ids);
 
     let initial_state = EngineStateUpdate {
         active_room_id: GLOBAL_STATE
@@ -1461,6 +1484,9 @@ pub fn api_create_engine_state_stream(sink: StreamSink<EngineStateUpdate>) {
         ),
         theme_started: GLOBAL_STATE.theme_started.load(std::sync::atomic::Ordering::Relaxed),
         cleared_room_ids: GLOBAL_STATE.cleared_room_ids.read().unwrap_or_else(|e| e.into_inner()).clone(),
+        device_sample_rate,
+        resampled_source_rates: resample.source_rates,
+        resampled_track_count: resample.track_count,
     };
     let _ = sink.add(initial_state);
     *GLOBAL_STATE
@@ -1510,8 +1536,9 @@ pub fn api_preload_all_sounds(config: AppConfig) -> Result<(), AtmosError> {
         let target_sr = GLOBAL_STATE
             .engine_sample_rate
             .load(std::sync::atomic::Ordering::Relaxed);
-        match crate::audio::player::SoundData::load_from_file(path, target_sr) {
-            Ok(data) => {
+        match crate::audio::player::SoundData::load_from_file_with_source(path, target_sr) {
+            Ok((data, source_rate)) => {
+                GLOBAL_STATE.note_file_source_rate(&file, source_rate);
                 GLOBAL_STATE.log(format!("Loaded sound file: {}", file));
                 newly_loaded.push((file, std::sync::Arc::new(data)));
             }

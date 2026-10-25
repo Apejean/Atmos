@@ -443,6 +443,12 @@ class EngineStateUpdate {
   final bool themeStarted;
   final List<String> clearedRoomIds;
 
+  /// 장치 샘플레이트(Hz)와, 재생 중인 트랙 중 그와 달라 HQ sinc로 바꾸고 있는 것의 원래 샘플레이트들
+  /// (작은 것부터)·트랙 수. 화면의 리샘플링 배지가 쓴다(core::resample_status).
+  final int deviceSampleRate;
+  final Uint32List resampledSourceRates;
+  final int resampledTrackCount;
+
   const EngineStateUpdate({
     this.activeRoomId,
     required this.duckingActive,
@@ -453,6 +459,9 @@ class EngineStateUpdate {
     required this.gainReductionDb,
     required this.themeStarted,
     required this.clearedRoomIds,
+    required this.deviceSampleRate,
+    required this.resampledSourceRates,
+    required this.resampledTrackCount,
   });
 
   @override
@@ -465,7 +474,10 @@ class EngineStateUpdate {
       shortTermLufs.hashCode ^
       gainReductionDb.hashCode ^
       themeStarted.hashCode ^
-      clearedRoomIds.hashCode;
+      clearedRoomIds.hashCode ^
+      deviceSampleRate.hashCode ^
+      resampledSourceRates.hashCode ^
+      resampledTrackCount.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -480,7 +492,10 @@ class EngineStateUpdate {
           shortTermLufs == other.shortTermLufs &&
           gainReductionDb == other.gainReductionDb &&
           themeStarted == other.themeStarted &&
-          clearedRoomIds == other.clearedRoomIds;
+          clearedRoomIds == other.clearedRoomIds &&
+          deviceSampleRate == other.deviceSampleRate &&
+          resampledSourceRates == other.resampledSourceRates &&
+          resampledTrackCount == other.resampledTrackCount;
 }
 
 class OutputDeviceInfo {

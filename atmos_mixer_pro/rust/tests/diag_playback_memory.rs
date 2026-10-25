@@ -106,7 +106,6 @@ fn 재생을_오래_돌리면_엔진_메모리가_느는지_잰다() {
             name: "r1".into(),
             color_hex: "#ffffff".into(),
             volume: 1.0,
-            volume_osc_address: String::new(),
             clear_osc_address: String::new(),
             tracks: vec![track("la", &loop_a, true), track("lb", &loop_b, true), track("shot", &shot, false)],
         }],

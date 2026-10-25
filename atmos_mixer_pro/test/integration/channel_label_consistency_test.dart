@@ -78,7 +78,6 @@ ChannelSetting _setting(String name) => ChannelSetting(
 AppConfig _config() => AppConfig(
   globalReverbMix: 0.0,
   globalReverbDecay: 1.0,
-  oscWhitelist: const [],
   oscPort: 8000,
   bufferSize: 512,
   themeStartOscAddress: '',

@@ -176,8 +176,10 @@ fn 하트비트가_멈추면_강제_종료하고_다시_띄운다() {
 #[test]
 fn 하트비트가_한_번도_안_오면_첫_하트비트_기한_뒤_다시_띄운다() {
     let dir = fresh_dir("silent");
-    // 이 테스트만 첫 하트비트 기한을 짧게 준다(뒤에 준 인자가 기본값을 덮는다).
-    let mut sup = supervisor(&dir, &["--first-heartbeat-secs", "2"], &[("FAKE_FIRST", "silent"), ("FAKE_NEXT", "clean")]);
+    // 이 테스트만 첫 하트비트 기한을 짧게 준다(뒤에 준 인자가 기본값을 덮는다). 2초면 Windows 개발 PC에서 첫 가짜
+    // 앱이 실행 기록을 남기기도 전에 기한이 지나 3번 중 2번 실패했다(2026-10-25, 백신 검사 등으로 시작이 늦음). 5초면
+    // 시작이 늦어도 기록이 남고, 다시 띄운 앱이 닫힐 때까지 wait_exit의 20초 안에 끝난다.
+    let mut sup = supervisor(&dir, &["--first-heartbeat-secs", "5"], &[("FAKE_FIRST", "silent"), ("FAKE_NEXT", "clean")]);
     sup.wait_exit(20, "하트비트 없는 앱을 다시 띄웠고 그 앱이 닫혔는데 감시가 끝나지 않았다");
     assert_eq!(launch_args(&dir), vec!["--supervised", "--supervised --auto-relaunched"]);
     assert!(log_text(&dir).contains("시작 중 멈춤"), "{}", log_text(&dir));

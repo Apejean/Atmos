@@ -44,7 +44,6 @@ dependencies:
   shared_preferences: ^2.5.5
   desktop_drop: ^0.7.1
   uuid: ^4.6.0
-  model_viewer_plus: ^1.10.0
   flutter_svg: ^2.3.0
   vector_math: ^2.2.0
   webview_flutter: ^4.10.0
@@ -112,3 +111,4 @@ flutter:
     - assets/3d_simulator/icons/
     - assets/models/
     - assets/js/
+    - assets/legal/

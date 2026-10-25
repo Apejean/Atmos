@@ -38,7 +38,7 @@ $lines.Add("run=$RunId repo=$Repo branch=$Branch head=$head fetched=$(Get-Date -
 $must = @(
   'atmos_mixer_pro.exe', 'rust_lib_atmos_mixer_pro.dll', 'flutter_windows.dll', 'atmos_supervisor.exe',
   'data\icudtl.dat', 'data\app.so',
-  'data\flutter_assets\assets\3d_simulator\studio_engine.html', 'data\flutter_assets\assets\models\listener_head.glb'
+  'data\flutter_assets\assets\3d_simulator\studio_engine.html', 'data\flutter_assets\assets\models\listener_bust_white.obj'
 )
 $missing = 0
 foreach ($f in $must) {

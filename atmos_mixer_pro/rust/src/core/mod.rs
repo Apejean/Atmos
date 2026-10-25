@@ -5,6 +5,7 @@ pub mod keep_awake;
 pub mod log_file;
 pub mod media_relink;
 pub mod processing_channels;
+pub mod resample_status;
 pub mod restart_resume;
 pub mod show_state;
 pub mod state;

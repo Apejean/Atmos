@@ -212,14 +212,28 @@ fn test_zero_defect_ffi_struct_alignment() {
 }
 
 #[test]
-fn test_zero_defect_e2e_watchdog_autoguard() {
-    let mut limiter = rust_lib_atmos_mixer_pro::audio::limiter::PeakLimiter::new(48000.0, 1.0, 500.0, 1.0);
-    let target = 10.0;
-    for _ in 0..(48000 * 3) {
-        limiter.process(target);
+fn test_zero_defect_e2e_limiter_has_no_loudness_ducking() {
+    // 2026-10-24 사용자 결정: 채널마다 3초 평균 음량이 -14(간이 LUFS)를 넘으면 그 채널을 몰래 낮추던
+    // R128 Autoguard를 뺐다. 피크 리미터 문턱(0.99 × 0.97) 아래의 큰 사인파(-6 dBFS 피크, RMS 약 -9 dBFS)는
+    // 몇 초가 지나도 크기가 그대로여야 하고 게인 리덕션도 0이어야 한다. 예전 코드는 약 4.3dB 낮췄다.
+    let fs = 48000.0f32;
+    let mut limiter = rust_lib_atmos_mixer_pro::audio::limiter::PeakLimiter::new(fs, 1.0, 500.0, 0.99);
+    let amp = 0.5f32;
+    let total = (fs as usize) * 4;
+    let mut last_second_peak = 0.0f32;
+    for n in 0..total {
+        let x = amp * (2.0 * std::f32::consts::PI * 440.0 * n as f32 / fs).sin();
+        let y = limiter.process(x);
+        if n >= total - fs as usize {
+            last_second_peak = last_second_peak.max(y.abs());
+        }
     }
-    assert!(limiter.short_term_lufs > -14.0, "LUFS should be high");
-    assert!(limiter.autoguard_ducking < 1.0, "Ducking should be applied");
+    assert!(limiter.short_term_lufs > -14.0, "측정값은 그대로 높아야 한다: {}", limiter.short_term_lufs);
+    assert!(
+        (last_second_peak - amp).abs() < 0.01,
+        "큰 음량이 낮아졌다: 마지막 1초 피크 {last_second_peak} (입력 {amp})"
+    );
+    assert_eq!(limiter.current_gain_reduction_db(), 0.0);
 }
 
 #[test]

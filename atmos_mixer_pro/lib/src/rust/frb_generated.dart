@@ -3114,8 +3114,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   AppConfig dco_decode_app_config(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 18)
-      throw Exception('unexpected arr length: expect 18 but see ${arr.length}');
+    if (arr.length != 17)
+      throw Exception('unexpected arr length: expect 17 but see ${arr.length}');
     return AppConfig(
       oscPort: dco_decode_u_16(arr[0]),
       deviceName: dco_decode_opt_String(arr[1]),
@@ -3132,9 +3132,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       isExhibitionMode: dco_decode_bool(arr[12]),
       masterHeadroomDb: dco_decode_f_32(arr[13]),
       peakLimiterEnabled: dco_decode_bool(arr[14]),
-      oscWhitelist: dco_decode_list_String(arr[15]),
-      globalReverbMix: dco_decode_f_32(arr[16]),
-      globalReverbDecay: dco_decode_f_32(arr[17]),
+      globalReverbMix: dco_decode_f_32(arr[15]),
+      globalReverbDecay: dco_decode_f_32(arr[16]),
     );
   }
 
@@ -3207,8 +3206,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   EngineStateUpdate dco_decode_engine_state_update(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 9)
-      throw Exception('unexpected arr length: expect 9 but see ${arr.length}');
+    if (arr.length != 12)
+      throw Exception('unexpected arr length: expect 12 but see ${arr.length}');
     return EngineStateUpdate(
       activeRoomId: dco_decode_opt_String(arr[0]),
       duckingActive: dco_decode_bool(arr[1]),
@@ -3219,6 +3218,9 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       gainReductionDb: dco_decode_f_32(arr[6]),
       themeStarted: dco_decode_bool(arr[7]),
       clearedRoomIds: dco_decode_list_String(arr[8]),
+      deviceSampleRate: dco_decode_u_32(arr[9]),
+      resampledSourceRates: dco_decode_list_prim_u_32_strict(arr[10]),
+      resampledTrackCount: dco_decode_u_32(arr[11]),
     );
   }
 
@@ -3318,6 +3320,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   Float32List dco_decode_list_prim_f_32_strict(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw as Float32List;
+  }
+
+  @protected
+  Uint32List dco_decode_list_prim_u_32_strict(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw as Uint32List;
   }
 
   @protected
@@ -3475,16 +3483,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   RoomConfig dco_decode_room_config(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 7)
-      throw Exception('unexpected arr length: expect 7 but see ${arr.length}');
+    if (arr.length != 6)
+      throw Exception('unexpected arr length: expect 6 but see ${arr.length}');
     return RoomConfig(
       id: dco_decode_String(arr[0]),
       name: dco_decode_String(arr[1]),
       colorHex: dco_decode_String(arr[2]),
       volume: dco_decode_f_32(arr[3]),
-      volumeOscAddress: dco_decode_String(arr[4]),
-      clearOscAddress: dco_decode_String(arr[5]),
-      tracks: dco_decode_list_track_config(arr[6]),
+      clearOscAddress: dco_decode_String(arr[4]),
+      tracks: dco_decode_list_track_config(arr[5]),
     );
   }
 
@@ -3676,7 +3683,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_isExhibitionMode = sse_decode_bool(deserializer);
     var var_masterHeadroomDb = sse_decode_f_32(deserializer);
     var var_peakLimiterEnabled = sse_decode_bool(deserializer);
-    var var_oscWhitelist = sse_decode_list_String(deserializer);
     var var_globalReverbMix = sse_decode_f_32(deserializer);
     var var_globalReverbDecay = sse_decode_f_32(deserializer);
     return AppConfig(
@@ -3695,7 +3701,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       isExhibitionMode: var_isExhibitionMode,
       masterHeadroomDb: var_masterHeadroomDb,
       peakLimiterEnabled: var_peakLimiterEnabled,
-      oscWhitelist: var_oscWhitelist,
       globalReverbMix: var_globalReverbMix,
       globalReverbDecay: var_globalReverbDecay,
     );
@@ -3786,6 +3791,11 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_gainReductionDb = sse_decode_f_32(deserializer);
     var var_themeStarted = sse_decode_bool(deserializer);
     var var_clearedRoomIds = sse_decode_list_String(deserializer);
+    var var_deviceSampleRate = sse_decode_u_32(deserializer);
+    var var_resampledSourceRates = sse_decode_list_prim_u_32_strict(
+      deserializer,
+    );
+    var var_resampledTrackCount = sse_decode_u_32(deserializer);
     return EngineStateUpdate(
       activeRoomId: var_activeRoomId,
       duckingActive: var_duckingActive,
@@ -3796,6 +3806,9 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       gainReductionDb: var_gainReductionDb,
       themeStarted: var_themeStarted,
       clearedRoomIds: var_clearedRoomIds,
+      deviceSampleRate: var_deviceSampleRate,
+      resampledSourceRates: var_resampledSourceRates,
+      resampledTrackCount: var_resampledTrackCount,
     );
   }
 
@@ -3952,6 +3965,13 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var len_ = sse_decode_i_32(deserializer);
     return deserializer.buffer.getFloat32List(len_);
+  }
+
+  @protected
+  Uint32List sse_decode_list_prim_u_32_strict(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var len_ = sse_decode_i_32(deserializer);
+    return deserializer.buffer.getUint32List(len_);
   }
 
   @protected
@@ -4158,7 +4178,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_name = sse_decode_String(deserializer);
     var var_colorHex = sse_decode_String(deserializer);
     var var_volume = sse_decode_f_32(deserializer);
-    var var_volumeOscAddress = sse_decode_String(deserializer);
     var var_clearOscAddress = sse_decode_String(deserializer);
     var var_tracks = sse_decode_list_track_config(deserializer);
     return RoomConfig(
@@ -4166,7 +4185,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       name: var_name,
       colorHex: var_colorHex,
       volume: var_volume,
-      volumeOscAddress: var_volumeOscAddress,
       clearOscAddress: var_clearOscAddress,
       tracks: var_tracks,
     );
@@ -4404,7 +4422,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_bool(self.isExhibitionMode, serializer);
     sse_encode_f_32(self.masterHeadroomDb, serializer);
     sse_encode_bool(self.peakLimiterEnabled, serializer);
-    sse_encode_list_String(self.oscWhitelist, serializer);
     sse_encode_f_32(self.globalReverbMix, serializer);
     sse_encode_f_32(self.globalReverbDecay, serializer);
   }
@@ -4491,6 +4508,9 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_f_32(self.gainReductionDb, serializer);
     sse_encode_bool(self.themeStarted, serializer);
     sse_encode_list_String(self.clearedRoomIds, serializer);
+    sse_encode_u_32(self.deviceSampleRate, serializer);
+    sse_encode_list_prim_u_32_strict(self.resampledSourceRates, serializer);
+    sse_encode_u_32(self.resampledTrackCount, serializer);
   }
 
   @protected
@@ -4620,6 +4640,16 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_i_32(self.length, serializer);
     serializer.buffer.putFloat32List(self);
+  }
+
+  @protected
+  void sse_encode_list_prim_u_32_strict(
+    Uint32List self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    serializer.buffer.putUint32List(self);
   }
 
   @protected
@@ -4813,7 +4843,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_String(self.name, serializer);
     sse_encode_String(self.colorHex, serializer);
     sse_encode_f_32(self.volume, serializer);
-    sse_encode_String(self.volumeOscAddress, serializer);
     sse_encode_String(self.clearOscAddress, serializer);
     sse_encode_list_track_config(self.tracks, serializer);
   }

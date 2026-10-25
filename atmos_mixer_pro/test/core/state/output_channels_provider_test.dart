@@ -34,7 +34,6 @@ void main() {
     isExhibitionMode: false,
     masterHeadroomDb: 0.0,
     peakLimiterEnabled: true,
-    oscWhitelist: const [],
     globalReverbMix: 0.0,
     globalReverbDecay: 1.0,
   );

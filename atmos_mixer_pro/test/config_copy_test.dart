@@ -25,7 +25,6 @@ void main() {
             name: '테마 1',
             colorHex: '#123456',
             volume: 0.5,
-            volumeOscAddress: '',
             clearOscAddress: '/room1/clear',
             tracks: [],
           ),
@@ -35,7 +34,6 @@ void main() {
         isExhibitionMode: true,
         masterHeadroomDb: -3.0,
         peakLimiterEnabled: false,
-        oscWhitelist: <String>['10.0.0.7'],
         globalReverbMix: 0.4,
         globalReverbDecay: 2.5,
       );
@@ -45,14 +43,13 @@ void main() {
     expect(config.copyWith(), config);
   });
 
-  test('넘긴 칸만 바뀌고 리버브·허용 목록·추적 주소는 그대로다', () {
+  test('넘긴 칸만 바뀌고 리버브·추적 주소는 그대로다', () {
     final config = full();
     final changed = config.copyWith(rooms: <RoomConfig>[], oscPort: 9001);
     expect(changed.oscPort, 9001);
     expect(changed.rooms, isEmpty);
     expect(changed.globalReverbMix, 0.4);
     expect(changed.globalReverbDecay, 2.5);
-    expect(changed.oscWhitelist, ['10.0.0.7']);
     expect(changed.trackingOscAddress, '/hrtf/custom');
     expect(changed.copyWith(rooms: config.rooms, oscPort: config.oscPort), config);
   });

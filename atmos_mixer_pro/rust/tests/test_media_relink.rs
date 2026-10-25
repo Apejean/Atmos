@@ -43,7 +43,6 @@ fn config_with(paths: &[(&str, &str)]) -> AppConfig {
             name: "방 1".into(),
             color_hex: "#123456".into(),
             volume: 0.7,
-            volume_osc_address: "/r1/volume".into(),
             clear_osc_address: "/r1/clear".into(),
             tracks: paths.iter().map(|(id, p)| track(id, p)).collect(),
         }],

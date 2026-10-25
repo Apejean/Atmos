@@ -53,7 +53,6 @@ fn room(id: &str, tracks: Vec<TrackConfig>) -> RoomConfig {
         name: id.into(),
         color_hex: "#ffffff".into(),
         volume: 1.0,
-        volume_osc_address: String::new(),
         clear_osc_address: format!("/{id}/clear"),
         tracks,
     }

@@ -75,7 +75,6 @@ ProjectDeviceChoice deviceForImportedProject({
       isExhibitionMode: c.isExhibitionMode,
       masterHeadroomDb: c.masterHeadroomDb,
       peakLimiterEnabled: c.peakLimiterEnabled,
-      oscWhitelist: c.oscWhitelist,
       globalReverbMix: c.globalReverbMix,
       globalReverbDecay: c.globalReverbDecay,
     ),

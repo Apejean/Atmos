@@ -22,7 +22,6 @@ class AppConfig {
   final bool isExhibitionMode;
   final double masterHeadroomDb;
   final bool peakLimiterEnabled;
-  final List<String> oscWhitelist;
   final double globalReverbMix;
   final double globalReverbDecay;
 
@@ -42,7 +41,6 @@ class AppConfig {
     required this.isExhibitionMode,
     required this.masterHeadroomDb,
     required this.peakLimiterEnabled,
-    required this.oscWhitelist,
     required this.globalReverbMix,
     required this.globalReverbDecay,
   });
@@ -64,7 +62,6 @@ class AppConfig {
       isExhibitionMode.hashCode ^
       masterHeadroomDb.hashCode ^
       peakLimiterEnabled.hashCode ^
-      oscWhitelist.hashCode ^
       globalReverbMix.hashCode ^
       globalReverbDecay.hashCode;
 
@@ -88,7 +85,6 @@ class AppConfig {
           isExhibitionMode == other.isExhibitionMode &&
           masterHeadroomDb == other.masterHeadroomDb &&
           peakLimiterEnabled == other.peakLimiterEnabled &&
-          oscWhitelist == other.oscWhitelist &&
           globalReverbMix == other.globalReverbMix &&
           globalReverbDecay == other.globalReverbDecay;
 }
@@ -228,7 +224,6 @@ class RoomConfig {
   final String name;
   final String colorHex;
   final double volume;
-  final String volumeOscAddress;
   final String clearOscAddress;
   final List<TrackConfig> tracks;
 
@@ -237,7 +232,6 @@ class RoomConfig {
     required this.name,
     required this.colorHex,
     required this.volume,
-    required this.volumeOscAddress,
     required this.clearOscAddress,
     required this.tracks,
   });
@@ -248,7 +242,6 @@ class RoomConfig {
       name.hashCode ^
       colorHex.hashCode ^
       volume.hashCode ^
-      volumeOscAddress.hashCode ^
       clearOscAddress.hashCode ^
       tracks.hashCode;
 
@@ -261,7 +254,6 @@ class RoomConfig {
           name == other.name &&
           colorHex == other.colorHex &&
           volume == other.volume &&
-          volumeOscAddress == other.volumeOscAddress &&
           clearOscAddress == other.clearOscAddress &&
           tracks == other.tracks;
 }
