@@ -20,7 +20,6 @@ import 'package:atmos_mixer_pro/features/settings/widgets/tuning_modal.dart';
 import 'package:atmos_mixer_pro/features/settings/widgets/credits_dialog.dart';
 import 'package:atmos_mixer_pro/features/dashboard/widgets/osc_monitor_dialog.dart';
 import 'package:atmos_mixer_pro/features/dashboard/widgets/missing_media_dialog.dart';
-import 'package:atmos_mixer_pro/features/dashboard/widgets/about_app_dialog.dart';
 import 'package:atmos_mixer_pro/features/dashboard/widgets/master_limiter_meter.dart';
 import 'package:atmos_mixer_pro/features/dashboard/widgets/resampler_status_badge.dart';
 import 'package:atmos_mixer_pro/features/dashboard/widgets/binaural_toggle_badge.dart';
@@ -583,13 +582,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         label: 'Help',
         menus: [
           PlatformMenuItem(
-            label: 'The Awesome',
-            onSelected: () {
-              if (context.mounted) showAboutApp(context);
-            },
-          ),
-          PlatformMenuItem(
-            label: 'Credits',
+            label: 'About Awesome...',
             onSelected: () {
               if (context.mounted) {
                 showCredits(context);
@@ -753,17 +746,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 menuChildren: [
                   MenuItemButton(
                     onPressed: () {
-                      if (context.mounted) showAboutApp(context);
-                    },
-                    child: const Text('The Awesome'),
-                  ),
-                  MenuItemButton(
-                    onPressed: () {
                       if (context.mounted) {
                         showCredits(context);
                       }
                     },
-                    child: const Text('Credits'),
+                    child: const Text('About Awesome...'),
                   ),
                 ],
                 child: const Text('Help'),
