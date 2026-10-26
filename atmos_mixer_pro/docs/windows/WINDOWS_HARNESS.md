@@ -142,7 +142,7 @@ D:\VS\2022\Community  D:\VS\Shared  D:\VS\Cache   Visual Studio
 | 로그인 자동 실행 | `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`의 값 `AtmosMixerPro` | `"<설치 폴더>\atmos_supervisor.exe" --logon` |
 | Debug 빌드 | `atmos_mixer_pro\build\windows\x64\runner\Debug\` | 감시 exe가 없어 앱이 혼자 뜬다 |
 | Release 빌드 | `atmos_mixer_pro\build\windows\x64\runner\Release\` | CI처럼 감시 exe를 넣으면, 앱 exe를 직접 띄워도 감시로 넘어간다 |
-| 설치 파일 | `atmos_mixer_pro\windows\Output\AtmosMixerPro_Setup.exe` | Inno Setup 기본 출력 위치 |
+| 설치 파일 | `atmos_mixer_pro\windows\Output\The_Awesome_Setup.exe` | Inno Setup 기본 출력 위치 |
 | 바탕화면(로그 내보내기) | `[Environment]::GetFolderPath('Desktop')` | OneDrive로 옮겨졌을 수 있다 |
 
 ## 5. 단계와 게이트
@@ -327,7 +327,7 @@ CI("Build and Release")는 `main` 대상 PR마다 Windows·macOS를 빌드해 `a
 | Z3 | `deps.ps1 -Dir <app>` | VC++ 런타임 의존 목록(X1) |
 | Z4 | 감시로 실행하고 정상 종료(아래) | 감시와 앱(`--supervised`)이 뜨고 heartbeat가 갱신, 창을 닫으면 둘 다 끝나고 다시 뜨지 않음 |
 | Z5 | 설치 파일 만들기 | W3 전: 우회 / W3 뒤: `/DReleaseDir` |
-| Z5 이후 | 릴리스 설치 파일 | 태그를 올리면 CI가 만들어 붙인다(`AtmosMixerPro_Setup_v<버전>.exe`, 로컬 ISCC는 시험용) |
+| Z5 이후 | 릴리스 설치 파일 | 태그를 올리면 CI가 만들어 붙인다(`The_Awesome_Setup_v<버전>.exe`, v1.3.4까지는 `AtmosMixerPro_Setup_v<버전>.exe`). 로컬 ISCC는 시험용 |
 | Z6 | (선택) 깨끗한 PC | VC++ 런타임이 없는 환경에서의 증상 |
 
 Z4:
@@ -353,7 +353,7 @@ Z5 설치 파일(HANDOFF ⚠️ 8):
   robocopy D:\dev\artifacts\<run>\app D:\dev\Atmos\atmos_mixer_pro\windows\build\windows\x64\runner\Release /MIR   # 종료 코드 0~7은 성공
   D:\dev\InnoSetup6\ISCC.exe D:\dev\Atmos\atmos_mixer_pro\windows\installer.iss
   ```
-  → `atmos_mixer_pro\windows\Output\AtmosMixerPro_Setup.exe`. `windows\build`·`windows\Output`은 .gitignore에 있다.
+  → `atmos_mixer_pro\windows\Output\The_Awesome_Setup.exe`. `windows\build`·`windows\Output`은 .gitignore에 있다.
 - W3 뒤: `D:\dev\InnoSetup6\ISCC.exe /DReleaseDir=D:\dev\artifacts\<run>\app D:\dev\Atmos\atmos_mixer_pro\windows\installer.iss`
 - W4 뒤: ISCC 전에 `powershell -NoProfile -ExecutionPolicy Bypass -File D:\dev\Atmos\atmos_mixer_pro\tool\windows\fetch-redist.ps1`로 Microsoft 재배포 파일(VC++ 런타임, WebView2 Evergreen Standalone)을 `atmos_mixer_pro\windows\redist`에 받는다(커밋하지 않음, Microsoft 서명 확인). 없으면 ISCC가 `#error Missing Microsoft redistributables`로 멈춘다. 설치 파일은 약 250MB가 된다.
 - Legal 폴더(2026-10-25, Ableton Live처럼): ISCC 전에 `atmos_mixer_pro`에서 `dart run tool/legal/generate_third_party_licenses.dart --target x86_64-pc-windows-msvc --flutter-assets build/windows/x64/runner/Release/data/flutter_assets --webview2-license build/windows/x64/packages/Microsoft.Web.WebView2/LICENSE.txt --out build/legal/third_party_license_information.txt`로 공개 소프트웨어 라이선스 전문을 만든다(빌드 뒤에 돌린다: Flutter `NOTICES.Z`와 WebView2 SDK 라이선스는 빌드 결과물, Rust 크레이트 원문은 `CARGO_HOME` 레지스트리). 빠진 원문이 있으면 멈추고, 파일이 없으면 ISCC가 `#error Missing the third-party license file`로 멈춘다. 설치 파일은 이 파일을 `{app}\Legal\Third-party License Information.txt`로, `windows\legal\The_Awesome_EULA_Third_Party_URL_Logo.pdf`(표지·목차, EULA 영어·한국어, 맨 뒤 Third Party URLs and Logos의 ASIO 로고와 상표 두 줄, 커밋된 PDF)와 함께 깐다. PDF는 EULA나 틀(`windows\legal\legal_document_template.html`)·로고가 바뀔 때만 `tool\windows\make-legal-pdf.ps1`(Edge headless, 임시 프로필)로 다시 만들어 커밋한다. EULA가 바뀌면 `-EulaDocx <Word 파일>`을 주어 원문을 `windows\legal\eula_bilingual.txt`로 글자 그대로 다시 뽑는다. CI zip으로 만들 때(`/DReleaseDir`)는 그 zip의 `data\flutter_assets`로 생성하고 `/DLegalDir=<폴더>`를 준다.
@@ -396,7 +396,7 @@ HANDOFF "⚠️ Windows 미검증" 1~15를 확인하는 곳:
 묶음별 요령:
 
 - **A**
-  - 설치: `AtmosMixerPro_Setup.exe` 실행(UAC) → 설정 > 앱의 버전이 exe ProductVersion과 같음, `C:\Program Files\Atmos Mixer Pro\`, 바로가기, `Get-ItemProperty HKCU:\Software\Microsoft\Windows\CurrentVersion\Run | Select-Object AtmosMixerPro`.
+  - 설치: `The_Awesome_Setup.exe` 실행(UAC) → 설정 > 앱의 버전이 exe ProductVersion과 같음, `C:\Program Files\Atmos Mixer Pro\`, 바로가기, `Get-ItemProperty HKCU:\Software\Microsoft\Windows\CurrentVersion\Run | Select-Object AtmosMixerPro`.
   - 방화벽 창: 설치본을 바로가기로 처음 띄울 때 창이 뜨는지, 어떤 선택지가 있는지 사용자가 말해 준 대로 적는다. 외부에서 OSC를 보내는 확인은 C에서.
   - 앱 기동: `Select-String -Path "$env:TEMP\atmos_mixer_pro_logs\atmos_mixer_pro.log" -Pattern 'panic|ASIO Load Error'`가 비어 있다.
   - 로그 회전: 감시와 앱을 끈 뒤 로그를 백업하고 `atmos_mixer_pro.log`에 10MB 넘게 덧붙인다(예: `[IO.File]::AppendAllText($log, (('#' * 1023) + [Environment]::NewLine) * 10500)`). 앱을 띄워 `.1`로 밀리는지 본다. 메모장으로 연 채로도 한다.
