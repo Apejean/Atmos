@@ -75,10 +75,10 @@ Copy-Item supervisor\target\release\atmos_supervisor.exe build\windows\x64\runne
 - 설치 파일: 먼저 설치 파일에 넣을 Microsoft 재배포 파일(VC++ 런타임, WebView2 런타임 오프라인 설치 파일)을 받는다. `windows\redist`, `windows\Output`은 커밋하지 않는다. 설치 파일은 약 250MB다.
   ```powershell
   powershell -NoProfile -ExecutionPolicy Bypass -File tool\windows\fetch-redist.ps1   # Microsoft 서명 확인, 한 번만
-  D:\dev\InnoSetup6\ISCC.exe windows\installer.iss            # → windows\Output\AtmosMixerPro_Setup.exe
+  D:\dev\InnoSetup6\ISCC.exe windows\installer.iss            # → windows\Output\The_Awesome_Setup.exe
   ```
   CI zip으로 만들 때는 `ISCC /DReleaseDir=<zip을 푼 폴더> windows\installer.iss`.
-  태그를 올리면 CI가 설치 파일을 만들어 릴리스에 붙인다(`AtmosMixerPro_Setup_v<버전>.exe`). 위 로컬 ISCC는 시험용이다.
+  태그를 올리면 CI가 설치 파일을 만들어 릴리스에 붙인다(`The_Awesome_Setup_v<버전>.exe`, v1.3.4까지는 `AtmosMixerPro_Setup_v<버전>.exe`). 위 로컬 ISCC는 시험용이다.
 - CI의 "Patch pdfx CMakeLists" 단계는 지금 pdfx 의존성이 없어 할 일이 없다. CMake 버전 오류가 나면 하네스 8절.
 
 ## 5. 빌드 뒤 확인 순서 (우선순위)
@@ -119,4 +119,4 @@ Copy-Item supervisor\target\release\atmos_supervisor.exe build\windows\x64\runne
 - **보안 프로그램 예외**: 서명 없는 exe라 백신·보안 프로그램(Avast·알약·V3·Defender 등)이 실행 직후 지우거나, 처음 실행을 늦추거나, 샌드박스 안에서 먼저 실행할 수 있다(2026-10-07 개발 PC에서 Avast가 실제로 지웠고, 10-23에는 설치 파일을 샌드박스에서 먼저 실행해 방화벽 규칙이 어긋났다). 설치 전에 설치 파일이 있는 폴더와 설치 폴더(새로 설치하면 기본 `C:\Program Files (x86)\The Awesome`, 2026-10-22 이름 변경 전에 설치한 PC는 `…\Atmos Mixer Pro` 그대로)를 PC에 있는 보안 프로그램마다 예외에 넣는다(`WINDOWS_FIELD_CHECKLIST.md` 0절).
   - Windows 보안(Defender): 바이러스 및 위협 방지 → 바이러스 및 위협 방지 설정의 "설정 관리" → 제외 → "제외 추가 또는 제거" → 폴더.
   - 다른 백신(V3, 알약, Avast 등): 제품의 예외(제외) 메뉴에 같은 폴더를 넣고, 격리 기록(바이러스 보관소)에 atmos 파일이 없는지 본다.
-- **설치**: `AtmosMixerPro_Setup.exe`를 관리자 승인(UAC)으로 실행한다. 인터넷이 없어도 된다. 끝난 뒤 첫 실행에서 방화벽 허용 창이 뜨지 않아야 한다.
+- **설치**: `The_Awesome_Setup.exe`를 관리자 승인(UAC)으로 실행한다. 인터넷이 없어도 된다. 끝난 뒤 첫 실행에서 방화벽 허용 창이 뜨지 않아야 한다.

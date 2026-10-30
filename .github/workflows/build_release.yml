@@ -140,8 +140,8 @@ jobs:
           & $iscc "/O$PWD\installer" atmos_mixer_pro\windows\installer.iss
           if ($LASTEXITCODE -ne 0) { exit 1 }
           $version = (Get-Item atmos_mixer_pro\build\windows\x64\runner\Release\atmos_mixer_pro.exe).VersionInfo.ProductVersion
-          $name = "AtmosMixerPro_Setup_v$version.exe"
-          Move-Item installer\AtmosMixerPro_Setup.exe $name
+          $name = "The_Awesome_Setup_v$version.exe"
+          Move-Item installer\The_Awesome_Setup.exe $name
           Get-FileHash $name -Algorithm SHA256 | Format-List | Out-String
           "INSTALLER=$name" >> $env:GITHUB_ENV
 
@@ -149,7 +149,7 @@ jobs:
         if: matrix.os == 'windows-latest' && github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4
         with:
-          name: atmos_mixer_pro_windows_installer
+          name: the_awesome_windows_installer
           path: ${{ env.INSTALLER }}
           if-no-files-found: error
           retention-days: 7
@@ -190,4 +190,4 @@ jobs:
           files: |
             atmos_mixer_pro_windows.zip/atmos_mixer_pro_windows.zip
             atmos_mixer_pro_macos.zip/atmos_mixer_pro_macos.zip
-            atmos_mixer_pro_windows_installer/*.exe
+            the_awesome_windows_installer/*.exe

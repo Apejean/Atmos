@@ -4,8 +4,8 @@
   #define ReleaseDir AddBackslash(SourcePath) + "..\build\windows\x64\runner\Release"
 #endif
 ; Product name shown in the program list, shortcuts and new install folder (2026-10-22: renamed from "Atmos Mixer Pro").
-; An upgrade keeps the existing install folder (UsePreviousAppDir). The setup file name stays AtmosMixerPro_Setup
-; because the release workflow renames it.
+; An upgrade keeps the existing install folder (UsePreviousAppDir). The setup file is The_Awesome_Setup (2026-10-25;
+; v1.3.4 and earlier: AtmosMixerPro_Setup). The release workflow adds the version: The_Awesome_Setup_v<version>.exe.
 #define MyAppName "The Awesome"
 #define MyAppPublisher "The Awesome"
 #define MyAppExeName "atmos_mixer_pro.exe"
@@ -72,7 +72,7 @@ AppVersion={#MyAppVersion}
 AppPublisher={#MyAppPublisher}
 DefaultDirName={autopf}\{#MyAppName}
 DisableProgramGroupPage=yes
-OutputBaseFilename=AtmosMixerPro_Setup
+OutputBaseFilename=The_Awesome_Setup
 Compression=lzma
 SolidCompression=yes
 WizardStyle=modern
