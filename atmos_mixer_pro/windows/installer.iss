@@ -124,6 +124,13 @@ Type: files; Name: "{app}\data\flutter_assets\assets\models\listener_mannequin.g
 Type: files; Name: "{app}\data\flutter_assets\assets\models\room_with_listener.glb"
 Type: files; Name: "{app}\data\flutter_assets\assets\models\room_temp.glb"
 Type: files; Name: "{app}\data\flutter_assets\assets\models\scale_room.py"
+; v1.3.4 dropped the model_viewer_plus package (the 3D viewer is three.js in WebView2) and with it the url_launcher
+; plugin it pulled in; v1.3.3 installed both (2026-10-30).
+Type: files; Name: "{app}\url_launcher_windows_plugin.dll"
+Type: files; Name: "{app}\data\flutter_assets\packages\model_viewer_plus\assets\model-viewer.min.js"
+Type: files; Name: "{app}\data\flutter_assets\packages\model_viewer_plus\assets\template.html"
+Type: dirifempty; Name: "{app}\data\flutter_assets\packages\model_viewer_plus\assets"
+Type: dirifempty; Name: "{app}\data\flutter_assets\packages\model_viewer_plus"
 
 [Icons]
 Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#SupervisorExeName}"; IconFilename: "{app}\{#MyAppExeName}"; AppUserModelID: "{#MyAppUserModelID}"

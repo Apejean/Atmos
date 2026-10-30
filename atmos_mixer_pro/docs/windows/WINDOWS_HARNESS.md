@@ -396,7 +396,7 @@ HANDOFF "⚠️ Windows 미검증" 1~15를 확인하는 곳:
 묶음별 요령:
 
 - **A**
-  - 설치: `The_Awesome_Setup.exe` 실행(UAC) → 설정 > 앱의 버전이 exe ProductVersion과 같음, `C:\Program Files\Atmos Mixer Pro\`, 바로가기, `Get-ItemProperty HKCU:\Software\Microsoft\Windows\CurrentVersion\Run | Select-Object AtmosMixerPro`.
+  - 설치: `The_Awesome_Setup.exe` 실행(UAC) → 설정 > 앱의 버전이 exe ProductVersion과 같음, 새 설치는 `C:\Program Files (x86)\The Awesome\`(32비트 설치 모드라 Program Files (x86), 업그레이드는 옛 폴더를 그대로 씀), 바로가기, 로그인 자동 실행 작업 `Get-ScheduledTask -TaskName 'The Awesome Autostart'`(로그인한 사용자, RunLevel Limited, 동작 `atmos_supervisor.exe --logon`).
   - 방화벽 창: 설치본을 바로가기로 처음 띄울 때 창이 뜨는지, 어떤 선택지가 있는지 사용자가 말해 준 대로 적는다. 외부에서 OSC를 보내는 확인은 C에서.
   - 앱 기동: `Select-String -Path "$env:TEMP\atmos_mixer_pro_logs\atmos_mixer_pro.log" -Pattern 'panic|ASIO Load Error'`가 비어 있다.
   - 로그 회전: 감시와 앱을 끈 뒤 로그를 백업하고 `atmos_mixer_pro.log`에 10MB 넘게 덧붙인다(예: `[IO.File]::AppendAllText($log, (('#' * 1023) + [Environment]::NewLine) * 10500)`). 앱을 띄워 `.1`로 밀리는지 본다. 메모장으로 연 채로도 한다.
