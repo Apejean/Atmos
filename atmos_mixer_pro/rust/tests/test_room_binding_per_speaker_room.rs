@@ -15,6 +15,10 @@ use rust_lib_atmos_mixer_pro::core::state::GLOBAL_STATE;
 const BIG: u32 = 111;
 const SMALL: u32 = 222;
 
+/// 아래 두 시험은 전역 명령 채널(GLOBAL_STATE.command_receiver)을 함께 쓴다. 동시에 돌면 서로가 보낸
+/// UpdateSpatialConfig를 가로챈다(2026-10-30 전체 시험에서 두 시험이 서로의 명령을 받아 실패). 한 번에 하나만 돈다.
+static COMMAND_CHANNEL: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
 fn point(x: f32, y: f32, z: f32) -> Point3D {
     Point3D { x, y, z, ..Default::default() }
 }
@@ -57,6 +61,7 @@ fn 스피커는_좌표가_아니라_자기_방_id로_방에_연결된다() {
 
 #[test]
 fn 초기반사_탭은_스피커가_속한_방으로_계산된다() {
+    let _channel = COMMAND_CHANNEL.lock().unwrap_or_else(|e| e.into_inner());
     // Flutter가 보내는 JSON 그대로. 세 채널 모두 같은 좌표에 있다.
     let json = format!(
         r#"{{
@@ -103,6 +108,7 @@ fn 초기반사_탭은_스피커가_속한_방으로_계산된다() {
 
 #[test]
 fn 보고_있는_방이_payload로_엔진까지_전달된다() {
+    let _channel = COMMAND_CHANNEL.lock().unwrap_or_else(|e| e.into_inner());
     let json = format!(
         r#"{{
         "listener_position": {{"x": 2.5, "y": 2.5, "z": 1.2}},

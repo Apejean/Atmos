@@ -1,11 +1,14 @@
 use crate::audio::player::SoundInstance;
 
+// PlayTrack이 인스턴스를 값으로 담아 다른 명령보다 크다. 콜백에서 Box를 풀지 않으려고 일부러 그렇게 둔다.
+#[allow(clippy::large_enum_variant)]
 pub enum AudioCommand {
     /// 재생할 인스턴스는 오디오 스레드 밖(api_play_track, FRB 워커 스레드)에서
     /// 미리 생성해 보낸다. 오디오 스레드는 풀 슬롯에 옮겨 담기만 하므로
-    /// 콜백 내 힙 할당이 발생하지 않는다(Law 1).
+    /// 콜백 내 힙 할당이 발생하지 않는다(Law 1). Box에 담지 않고 값으로 보낸다. Box에서 꺼내면
+    /// 그 메모리가 콜백 안에서 풀렸다(2026-10-30).
     PlayTrack {
-        instance: Box<SoundInstance>,
+        instance: SoundInstance,
         room_volume: f32,
     },
     StopTrack {

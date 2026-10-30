@@ -13,6 +13,7 @@ pub enum SpatialGarbage {
     BassRouting(Vec<Option<usize>>, Vec<bool>),
     SimBands(Vec<[crate::common::config::EqBand; crate::audio::binaural::MAX_SIM_BANDS]>),
     EarlyReflectionTaps(Vec<[crate::audio::acoustic::EarlyReflectionTap; crate::audio::acoustic::MAX_EARLY_REFLECTION_TAPS]>),
+    ChannelTunings(Vec<(usize, f32, Vec<crate::common::config::EqBand>, bool, f32)>),
 }
 
 /// 베이스 매니지먼트 켜기/끄기·LFE 변경 크로스페이드 길이(초).
