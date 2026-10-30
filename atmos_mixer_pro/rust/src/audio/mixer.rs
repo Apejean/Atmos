@@ -27,6 +27,10 @@ const LFE_BOOST_LINEAR: f32 = 3.162_277_7;
 /// LFE +10dB 켜기/끄기 램프 길이(초).
 const LFE_BOOST_RAMP_S: f32 = 0.02;
 
+/// 출력 단계의 음소거·페일오버 감쇠·헤드룸과 트랙 출력 채널이 목표로 옮겨 가는 속도(초당 게인 1을 이 시간에
+/// 건넌다, 3법칙 3). 예전에는 한 샘플이나 한 블록 만에 바뀌어 딸깍 소리가 났다.
+pub const OUTPUT_RAMP_S: f32 = 0.01;
+
 /// 블록 시작값 `start`에서 `target`으로 샘플당 `step`씩 움직일 때 `frame`번째 샘플의 값.
 /// 상태가 없어서 채널 루프 안 어느 채널에서 불러도 같은 궤적이 나온다.
 #[inline(always)]
@@ -125,6 +129,11 @@ pub struct AudioMixer {
     pub listener_position: Option<crate::common::config::Point3D>,
     pub trajectory: Option<crate::common::config::Trajectory>,
     pub master_headroom_db: f32,
+    /// 출력 단계에서 지금 걸고 있는 헤드룸·음소거·페일오버 감쇠 배율. 목표(`master_headroom_db`, `master_mute`,
+    /// 전역 페일오버 상태)로 [OUTPUT_RAMP_S]의 속도로 따라간다.
+    pub headroom_gain: f32,
+    pub mute_gain: f32,
+    pub failover_gain: f32,
     pub peak_limiter_enabled: bool,
     pub limiters: Vec<crate::audio::limiter::PeakLimiter>,
     pub temp_room_vols: Vec<f32>,
@@ -326,6 +335,9 @@ impl AudioMixer {
             room_zones,
             trajectory: trajectory.clone(),
             master_headroom_db,
+            headroom_gain: 10.0f32.powf(master_headroom_db / 20.0),
+            mute_gain: 1.0,
+            failover_gain: if GLOBAL_STATE.is_failover_mode.load(Ordering::Relaxed) { 0.01 } else { 1.0 },
             peak_limiter_enabled,
             limiters,
             temp_room_vols: vec![1.0; 4096],
@@ -384,6 +396,7 @@ impl AudioMixer {
         mixer.master_mute = crate::core::state::GLOBAL_STATE
             .master_mute
             .load(std::sync::atomic::Ordering::Relaxed);
+        mixer.mute_gain = if mixer.master_mute { 0.0 } else { 1.0 };
 
         // 새 엔진의 믹서다. 옛 엔진이 남긴 위치를 지우고, 표를 여기(오디오 스레드 밖)서 초기화해 둔다.
         crate::audio::playback_cursor::CURSOR_TABLE.clear_all();
@@ -647,6 +660,7 @@ impl AudioMixer {
                 }
             }
 
+            let output_fade_step = 1.0 / (OUTPUT_RAMP_S * self.sample_rate as f32);
             for idx in 0..active_instances.len() {
                 let i = active_instances[idx];
                 let instance = match &mut self.instances[i] {
@@ -820,51 +834,46 @@ impl AudioMixer {
                 }
 
                 if has_sample {
-                    if instance.output_channel == usize::MAX && instance.current_position.is_some() {
-                        // Object Mode
-                        let mut sum = 0.0;
-                        for val in vals.iter().take(ch_limit) {
-                            sum += *val;
-                        }
-                        let mono_val = sum / ch_limit as f32;
-
-                        // OOB panic 방지: spatial_gains 고정 배열 크기로 하한 클램프 (b4a9293 패턴).
-                        let active_ch = out_channels.min(self.channel_positions.len()).min(instance.spatial_gains.len());
-                        for hw_ch in 0..active_ch {
-                            let is_enabled = if hw_ch < GLOBAL_STATE.enabled_channels.len() {
-                                GLOBAL_STATE.enabled_channels[hw_ch].load(Ordering::Relaxed)
-                            } else {
-                                false
-                            };
-                            let out_idx = frame * out_channels + hw_ch;
-                            if is_enabled && out_idx < output.len() {
-                                output[out_idx] += mono_val * current_vol * instance.spatial_gains[hw_ch];
+                    // 출력 경로를 바꾼 직후에는 옛 경로를 줄이고 새 경로를 키운다(SetTrackOutput, 3법칙 3).
+                    // 평소에는 새 경로 하나만 돈다.
+                    let fade = instance.output_fade;
+                    let routes = [
+                        (instance.output_channel, instance.output_stereo, fade),
+                        (instance.prev_output_channel, instance.prev_output_stereo, 1.0 - fade),
+                    ];
+                    let route_count = if fade < 1.0 { 2 } else { 1 };
+                    for &(output_channel, output_stereo, route_gain) in routes.iter().take(route_count) {
+                        let route_vol = current_vol * route_gain;
+                        if output_channel == usize::MAX && instance.current_position.is_some() {
+                            // Object Mode
+                            let mut sum = 0.0;
+                            for val in vals.iter().take(ch_limit) {
+                                sum += *val;
                             }
-                        }
-                    } else if !instance.output_stereo && ch_limit > 1 {
-                        // Downmix all to Mono for backwards compatibility if output_stereo is false
-                        let mut sum = 0.0;
-                        for val in vals.iter().take(ch_limit) {
-                            sum += *val;
-                        }
-                        let mono_val = sum / ch_limit as f32;
+                            let mono_val = sum / ch_limit as f32;
 
-                        let hw_ch = instance.output_channel;
-                        if hw_ch < out_channels {
-                            let is_enabled = if hw_ch < GLOBAL_STATE.enabled_channels.len() {
-                                GLOBAL_STATE.enabled_channels[hw_ch].load(Ordering::Relaxed)
-                            } else {
-                                false
-                            };
-                            let out_idx = frame * out_channels + hw_ch;
-                            if is_enabled && out_idx < output.len() {
-                                output[out_idx] += mono_val * current_vol;
+                            // OOB panic 방지: spatial_gains 고정 배열 크기로 하한 클램프 (b4a9293 패턴).
+                            let active_ch = out_channels.min(self.channel_positions.len()).min(instance.spatial_gains.len());
+                            for hw_ch in 0..active_ch {
+                                let is_enabled = if hw_ch < GLOBAL_STATE.enabled_channels.len() {
+                                    GLOBAL_STATE.enabled_channels[hw_ch].load(Ordering::Relaxed)
+                                } else {
+                                    false
+                                };
+                                let out_idx = frame * out_channels + hw_ch;
+                                if is_enabled && out_idx < output.len() {
+                                    output[out_idx] += mono_val * route_vol * instance.spatial_gains[hw_ch];
+                                }
                             }
-                        }
-                    } else {
-                        // N:N direct routing
-                        for (ch, val) in vals.iter().enumerate().take(ch_limit) {
-                            let hw_ch = instance.output_channel + ch;
+                        } else if !output_stereo && ch_limit > 1 {
+                            // Downmix all to Mono for backwards compatibility if output_stereo is false
+                            let mut sum = 0.0;
+                            for val in vals.iter().take(ch_limit) {
+                                sum += *val;
+                            }
+                            let mono_val = sum / ch_limit as f32;
+
+                            let hw_ch = output_channel;
                             if hw_ch < out_channels {
                                 let is_enabled = if hw_ch < GLOBAL_STATE.enabled_channels.len() {
                                     GLOBAL_STATE.enabled_channels[hw_ch].load(Ordering::Relaxed)
@@ -873,40 +882,59 @@ impl AudioMixer {
                                 };
                                 let out_idx = frame * out_channels + hw_ch;
                                 if is_enabled && out_idx < output.len() {
-                                    output[out_idx] += val * current_vol;
+                                    output[out_idx] += mono_val * route_vol;
                                 }
                             }
-                        }
+                        } else {
+                            // N:N direct routing
+                            for (ch, val) in vals.iter().enumerate().take(ch_limit) {
+                                let hw_ch = output_channel + ch;
+                                if hw_ch < out_channels {
+                                    let is_enabled = if hw_ch < GLOBAL_STATE.enabled_channels.len() {
+                                        GLOBAL_STATE.enabled_channels[hw_ch].load(Ordering::Relaxed)
+                                    } else {
+                                        false
+                                    };
+                                    let out_idx = frame * out_channels + hw_ch;
+                                    if is_enabled && out_idx < output.len() {
+                                        output[out_idx] += val * route_vol;
+                                    }
+                                }
+                            }
 
-                        // Mono file -> Stereo Out upmix for backwards compatibility
-                        //
-                        // 이 경로에는 두 가지 결함이 있었다.
-                        // 1) enabled_channels 게이트를 건너뛰어서 Output Config
-                        //    에서 닫은 채널로도 소리가 나갔다. 바로 위 N:N
-                        //    라우팅은 게이트를 거치므로, 왼쪽은 음소거되고
-                        //    오른쪽만 나오는 비대칭이 생겼다.
-                        // 2) channel_spatial_gains를 오른쪽에만 곱했다. 이 배열은
-                        //    궤적/공간 코드가 1.0에서 크게 벗어나게 변조하므로
-                        //    (같은 파일 436~469행), 모노 소스를 스테레오 쌍으로
-                        //    보내면 왼쪽은 원래 레벨, 오른쪽만 궤적 게인이 걸려
-                        //    이미지가 한쪽으로 쏠리거나 오른쪽이 사라졌다.
-                        //    믹스다운 전체에서 이 배열을 곱하는 곳은 여기뿐이었다.
-                        // 이제 왼쪽과 같은 규칙(게이트 통과, 추가 게인 없음)을
-                        // 적용해 좌우를 대칭으로 만든다.
-                        if ch_limit == 1 && instance.output_stereo {
-                            let hw_ch_r = instance.output_channel + 1;
-                            if hw_ch_r < out_channels {
-                                let is_enabled_r = if hw_ch_r < GLOBAL_STATE.enabled_channels.len() {
-                                    GLOBAL_STATE.enabled_channels[hw_ch_r].load(Ordering::Relaxed)
-                                } else {
-                                    false
-                                };
-                                let out_idx_r = frame * out_channels + hw_ch_r;
-                                if is_enabled_r && out_idx_r < output.len() {
-                                    output[out_idx_r] += vals[0] * current_vol;
+                            // Mono file -> Stereo Out upmix for backwards compatibility
+                            //
+                            // 이 경로에는 두 가지 결함이 있었다.
+                            // 1) enabled_channels 게이트를 건너뛰어서 Output Config
+                            //    에서 닫은 채널로도 소리가 나갔다. 바로 위 N:N
+                            //    라우팅은 게이트를 거치므로, 왼쪽은 음소거되고
+                            //    오른쪽만 나오는 비대칭이 생겼다.
+                            // 2) channel_spatial_gains를 오른쪽에만 곱했다. 이 배열은
+                            //    궤적/공간 코드가 1.0에서 크게 벗어나게 변조하므로
+                            //    (같은 파일 436~469행), 모노 소스를 스테레오 쌍으로
+                            //    보내면 왼쪽은 원래 레벨, 오른쪽만 궤적 게인이 걸려
+                            //    이미지가 한쪽으로 쏠리거나 오른쪽이 사라졌다.
+                            //    믹스다운 전체에서 이 배열을 곱하는 곳은 여기뿐이었다.
+                            // 이제 왼쪽과 같은 규칙(게이트 통과, 추가 게인 없음)을
+                            // 적용해 좌우를 대칭으로 만든다.
+                            if ch_limit == 1 && output_stereo {
+                                let hw_ch_r = output_channel + 1;
+                                if hw_ch_r < out_channels {
+                                    let is_enabled_r = if hw_ch_r < GLOBAL_STATE.enabled_channels.len() {
+                                        GLOBAL_STATE.enabled_channels[hw_ch_r].load(Ordering::Relaxed)
+                                    } else {
+                                        false
+                                    };
+                                    let out_idx_r = frame * out_channels + hw_ch_r;
+                                    if is_enabled_r && out_idx_r < output.len() {
+                                        output[out_idx_r] += vals[0] * route_vol;
+                                    }
                                 }
                             }
                         }
+                    }
+                    if fade < 1.0 {
+                        instance.output_fade = (fade + output_fade_step).min(1.0);
                     }
 
                     if instance.stream_receiver.is_some() && idx_i >= instance.stream_buffer.len() {
@@ -1070,7 +1098,20 @@ impl AudioMixer {
         }
 
         // Compute VU levels (Peak per channel) and apply soft clipping
-        let headroom_gain = 10.0f32.powf(self.master_headroom_db / 20.0);
+        //
+        // 헤드룸·음소거·페일오버 감쇠는 목표로 OUTPUT_RAMP_S의 속도로 옮겨 간다(3법칙 3). 블록 안 프레임 위치로
+        // 값을 구해 모든 채널에 같은 게인을 걸고, 블록이 끝나면 한 번 전진한다(startup_ramp와 같은 방식).
+        let gain_step = 1.0 / (OUTPUT_RAMP_S * self.sample_rate as f32);
+        let headroom_start = self.headroom_gain;
+        let headroom_target = 10.0f32.powf(self.master_headroom_db / 20.0);
+        let mute_start = self.mute_gain;
+        let mute_target = if self.master_mute { 0.0 } else { 1.0 };
+        let failover_start = self.failover_gain;
+        let failover_target = if GLOBAL_STATE.is_failover_mode.load(Ordering::Relaxed) {
+            0.01 // -40dB safety pad
+        } else {
+            1.0
+        };
         
         for ch in 0..out_channels {
             let mut peak: f32 = 0.0;
@@ -1080,7 +1121,7 @@ impl AudioMixer {
                     let mut val = output[sample_idx];
 
                     // Apply Master Headroom Padding
-                    val *= headroom_gain;
+                    val *= bass_management_ramp_at(headroom_start, headroom_target, gain_step, frame);
 
                     // Output Peak Limiter Guard
                     if self.peak_limiter_enabled && ch < self.limiters.len() {
@@ -1094,12 +1135,8 @@ impl AudioMixer {
                         }
                     }
                     val *= self.startup_ramp.block_gain(frame);
-                    if self.master_mute {
-                        val = 0.0;
-                    }
-                    if GLOBAL_STATE.is_failover_mode.load(Ordering::Relaxed) {
-                        val *= 0.01; // -40dB safety pad
-                    }
+                    val *= bass_management_ramp_at(mute_start, mute_target, gain_step, frame);
+                    val *= bass_management_ramp_at(failover_start, failover_target, gain_step, frame);
                     output[sample_idx] = val;
 
                     let abs_val = val.abs();
@@ -1115,6 +1152,11 @@ impl AudioMixer {
         // 부팅 뮤트 램프는 블록당 한 번만 전진시킨다(채널 루프 안에서 전진하면
         // 채널 수만큼 빨라진다 - block_gain 문서 참고).
         self.startup_ramp.advance_block(frames);
+        if frames > 0 {
+            self.headroom_gain = bass_management_ramp_at(headroom_start, headroom_target, gain_step, frames - 1);
+            self.mute_gain = bass_management_ramp_at(mute_start, mute_target, gain_step, frames - 1);
+            self.failover_gain = bass_management_ramp_at(failover_start, failover_target, gain_step, frames - 1);
+        }
 
         // Store first two channels LUFS to global state (assume stereo master)
         if out_channels > 0 && !self.limiters.is_empty() {
