@@ -349,7 +349,7 @@ pub fn build_play_track_command(
     );
 
     AudioCommand::PlayTrack {
-        instance: Box::new(instance),
+        instance,
         room_volume,
     }
 }
@@ -2595,6 +2595,10 @@ fn sim_band_from_json(v: &serde_json::Value) -> crate::common::config::EqBand {
 
 #[flutter_rust_bridge::frb(sync)]
 pub fn api_set_channel_pan_deg(channel: usize, pan_deg: f32) {
+    // 명령 추적은 오디오 스레드 밖(보내는 쪽)에서 찍는다. 콜백 안의 eprintln!은 블로킹이다(3법칙 2).
+    if crate::core::state::debug_flags::trace_cmd() {
+        eprintln!("[CMD] SetChannelPanDeg ch={} deg={}", channel, pan_deg);
+    }
     let _ = crate::core::state::GLOBAL_STATE
         .command_sender
         .send(crate::common::commands::AudioCommand::SetChannelPanDeg { channel, pan_deg });
@@ -2602,6 +2606,10 @@ pub fn api_set_channel_pan_deg(channel: usize, pan_deg: f32) {
 
 #[flutter_rust_bridge::frb(sync)]
 pub fn api_set_channel_early_ref_mix(channel: usize, mix: f32) {
+    // 명령 추적은 오디오 스레드 밖(보내는 쪽)에서 찍는다. 콜백 안의 eprintln!은 블로킹이다(3법칙 2).
+    if crate::core::state::debug_flags::trace_cmd() {
+        eprintln!("[CMD] SetChannelEarlyRefMix ch={} mix={}", channel, mix);
+    }
     let _ = crate::core::state::GLOBAL_STATE
         .command_sender
         .send(crate::common::commands::AudioCommand::SetChannelEarlyRefMix { channel, mix });
@@ -2829,6 +2837,10 @@ pub fn api_set_reverb_params(mix: f32, decay: f32) {
 
 #[flutter_rust_bridge::frb(sync)]
 pub fn api_set_channel_reverb_send(channel: usize, send: f32) {
+    // 명령 추적은 오디오 스레드 밖(보내는 쪽)에서 찍는다. 콜백 안의 eprintln!은 블로킹이다(3법칙 2).
+    if crate::core::state::debug_flags::trace_cmd() {
+        eprintln!("[CMD] SetChannelReverbSend ch={} send={}", channel, send);
+    }
     let _ = crate::core::state::GLOBAL_STATE
         .command_sender
         .send(crate::common::commands::AudioCommand::SetChannelReverbSend { channel, send });
@@ -2868,6 +2880,10 @@ pub fn api_set_channel_spatial_reverb(
     density: f32,
     dry_wet: f32,
 ) {
+    // 명령 추적은 오디오 스레드 밖(보내는 쪽)에서 찍는다. 콜백 안의 eprintln!은 블로킹이다(3법칙 2).
+    if crate::core::state::debug_flags::trace_cmd() {
+        eprintln!("[CMD] SetChannelSpatialReverb ch={} (0이면 전체 채널에 적용)", channel);
+    }
     let _ = crate::core::state::GLOBAL_STATE.command_sender.send(
         crate::common::commands::AudioCommand::SetChannelSpatialReverb {
             channel,

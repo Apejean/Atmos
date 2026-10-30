@@ -425,7 +425,6 @@ impl AudioEngine {
 
         let stream = match sample_format {
             SampleFormat::F32 => {
-                let copy_channels = (config.channels as usize).min(virtual_channels);
                 let sample_rate = config.sample_rate.0;
                 let mut temp_buf: Vec<f32> = vec![0.0; 65536];
                 let hw_channels = config.channels as usize;
@@ -448,35 +447,13 @@ impl AudioEngine {
                             resolved_buffer_size,
                             sample_rate,
                         );
-                        // 처리 폭 밖의 출력 채널은 무음이다(core::processing_channels).
-                        if copy_channels < hw_channels {
-                            data.fill(0.0);
-                        }
-
-                        let frames = data.len() / hw_channels;
-                        let temp_len = frames * virtual_channels;
-                        if temp_buf.len() < temp_len {
-                            temp_buf.resize(temp_len, 0.0);
-                        }
-                        let temp = &mut temp_buf[..temp_len];
-                        temp.fill(0.0);
-
-                        mixer.process(temp, virtual_channels);
-
-                        for frame in 0..frames {
-                            // 디스크리트 라우팅: 가상 채널 N -> 물리 출력 N.
-                            // 예전에는 hw_channels == 2일 때 가상 채널에 5.1 역할
-                            // (2=센터, 3=LFE, 4/5=서라운드)을 가정해 L/R로 접었다.
-                            // 이 앱은 "채널 = 물리 스피커" 모델이라 그 가정이 라우팅을
-                            // 왜곡했다(Ch-3을 고르면 양쪽에서 나는 등). 폴드다운을 제거해
-                            // 장치에 실재하는 채널만 그대로 내보낸다. 2채널 장치에서
-                            // 3번 이상 채널은 들리지 않으며, 다채널 청음은 실기로 하거나
-                            // 추후 바이노럴 모니터링(binaural)을 켜서 확인한다.
-                            for ch in 0..copy_channels {
-                                data[frame * hw_channels + ch] =
-                                    temp[frame * virtual_channels + ch];
-                            }
-                        }
+                        let frames = Self::render_block(
+                            &mut mixer,
+                            &mut temp_buf,
+                            data,
+                            hw_channels,
+                            virtual_channels,
+                        );
                         Self::record_callback_time(started, frames, sample_rate);
                     },
                     err_fn,
@@ -484,7 +461,6 @@ impl AudioEngine {
                 )
             }
             SampleFormat::I16 => {
-                let copy_channels = (config.channels as usize).min(virtual_channels);
                 let sample_rate = config.sample_rate.0;
                 let mut temp_buf: Vec<f32> = vec![0.0; 65536];
                 let hw_channels = config.channels as usize;
@@ -507,35 +483,13 @@ impl AudioEngine {
                             resolved_buffer_size,
                             sample_rate,
                         );
-                        // 처리 폭 밖의 출력 채널은 무음이다(core::processing_channels).
-                        if copy_channels < hw_channels {
-                            data.fill(<i16 as cpal::Sample>::EQUILIBRIUM);
-                        }
-
-                        let frames = data.len() / hw_channels;
-                        let temp_len = frames * virtual_channels;
-                        if temp_buf.len() < temp_len {
-                            temp_buf.resize(temp_len, 0.0);
-                        }
-                        let temp = &mut temp_buf[..temp_len];
-                        temp.fill(0.0);
-
-                        mixer.process(temp, virtual_channels);
-
-                        for frame in 0..frames {
-                            // 디스크리트 라우팅: 가상 채널 N -> 물리 출력 N.
-                            // 예전에는 hw_channels == 2일 때 가상 채널에 5.1 역할
-                            // (2=센터, 3=LFE, 4/5=서라운드)을 가정해 L/R로 접었다.
-                            // 이 앱은 "채널 = 물리 스피커" 모델이라 그 가정이 라우팅을
-                            // 왜곡했다(Ch-3을 고르면 양쪽에서 나는 등). 폴드다운을 제거해
-                            // 장치에 실재하는 채널만 그대로 내보낸다. 2채널 장치에서
-                            // 3번 이상 채널은 들리지 않으며, 다채널 청음은 실기로 하거나
-                            // 추후 바이노럴 모니터링(binaural)을 켜서 확인한다.
-                            for ch in 0..copy_channels {
-                                data[frame * hw_channels + ch] =
-                                    cpal::Sample::from_sample(temp[frame * virtual_channels + ch]);
-                            }
-                        }
+                        let frames = Self::render_block(
+                            &mut mixer,
+                            &mut temp_buf,
+                            data,
+                            hw_channels,
+                            virtual_channels,
+                        );
                         Self::record_callback_time(started, frames, sample_rate);
                     },
                     err_fn,
@@ -543,7 +497,6 @@ impl AudioEngine {
                 )
             }
             SampleFormat::I32 => {
-                let copy_channels = (config.channels as usize).min(virtual_channels);
                 let sample_rate = config.sample_rate.0;
                 let mut temp_buf: Vec<f32> = vec![0.0; 65536];
                 let hw_channels = config.channels as usize;
@@ -566,35 +519,13 @@ impl AudioEngine {
                             resolved_buffer_size,
                             sample_rate,
                         );
-                        // 처리 폭 밖의 출력 채널은 무음이다(core::processing_channels).
-                        if copy_channels < hw_channels {
-                            data.fill(<i32 as cpal::Sample>::EQUILIBRIUM);
-                        }
-
-                        let frames = data.len() / hw_channels;
-                        let temp_len = frames * virtual_channels;
-                        if temp_buf.len() < temp_len {
-                            temp_buf.resize(temp_len, 0.0);
-                        }
-                        let temp = &mut temp_buf[..temp_len];
-                        temp.fill(0.0);
-
-                        mixer.process(temp, virtual_channels);
-
-                        for frame in 0..frames {
-                            // 디스크리트 라우팅: 가상 채널 N -> 물리 출력 N.
-                            // 예전에는 hw_channels == 2일 때 가상 채널에 5.1 역할
-                            // (2=센터, 3=LFE, 4/5=서라운드)을 가정해 L/R로 접었다.
-                            // 이 앱은 "채널 = 물리 스피커" 모델이라 그 가정이 라우팅을
-                            // 왜곡했다(Ch-3을 고르면 양쪽에서 나는 등). 폴드다운을 제거해
-                            // 장치에 실재하는 채널만 그대로 내보낸다. 2채널 장치에서
-                            // 3번 이상 채널은 들리지 않으며, 다채널 청음은 실기로 하거나
-                            // 추후 바이노럴 모니터링(binaural)을 켜서 확인한다.
-                            for ch in 0..copy_channels {
-                                data[frame * hw_channels + ch] =
-                                    cpal::Sample::from_sample(temp[frame * virtual_channels + ch]);
-                            }
-                        }
+                        let frames = Self::render_block(
+                            &mut mixer,
+                            &mut temp_buf,
+                            data,
+                            hw_channels,
+                            virtual_channels,
+                        );
                         Self::record_callback_time(started, frames, sample_rate);
                     },
                     err_fn,
@@ -602,7 +533,6 @@ impl AudioEngine {
                 )
             }
             SampleFormat::U16 => {
-                let copy_channels = (config.channels as usize).min(virtual_channels);
                 let sample_rate = config.sample_rate.0;
                 let mut temp_buf: Vec<f32> = vec![0.0; 65536];
                 let hw_channels = config.channels as usize;
@@ -625,35 +555,13 @@ impl AudioEngine {
                             resolved_buffer_size,
                             sample_rate,
                         );
-                        // 처리 폭 밖의 출력 채널은 무음이다(core::processing_channels).
-                        if copy_channels < hw_channels {
-                            data.fill(<u16 as cpal::Sample>::EQUILIBRIUM);
-                        }
-
-                        let frames = data.len() / hw_channels;
-                        let temp_len = frames * virtual_channels;
-                        if temp_buf.len() < temp_len {
-                            temp_buf.resize(temp_len, 0.0);
-                        }
-                        let temp = &mut temp_buf[..temp_len];
-                        temp.fill(0.0);
-
-                        mixer.process(temp, virtual_channels);
-
-                        for frame in 0..frames {
-                            // 디스크리트 라우팅: 가상 채널 N -> 물리 출력 N.
-                            // 예전에는 hw_channels == 2일 때 가상 채널에 5.1 역할
-                            // (2=센터, 3=LFE, 4/5=서라운드)을 가정해 L/R로 접었다.
-                            // 이 앱은 "채널 = 물리 스피커" 모델이라 그 가정이 라우팅을
-                            // 왜곡했다(Ch-3을 고르면 양쪽에서 나는 등). 폴드다운을 제거해
-                            // 장치에 실재하는 채널만 그대로 내보낸다. 2채널 장치에서
-                            // 3번 이상 채널은 들리지 않으며, 다채널 청음은 실기로 하거나
-                            // 추후 바이노럴 모니터링(binaural)을 켜서 확인한다.
-                            for ch in 0..copy_channels {
-                                data[frame * hw_channels + ch] =
-                                    cpal::Sample::from_sample(temp[frame * virtual_channels + ch]);
-                            }
-                        }
+                        let frames = Self::render_block(
+                            &mut mixer,
+                            &mut temp_buf,
+                            data,
+                            hw_channels,
+                            virtual_channels,
+                        );
                         Self::record_callback_time(started, frames, sample_rate);
                     },
                     err_fn,
@@ -762,6 +670,51 @@ impl AudioEngine {
         *last_started = Some(started);
     }
 
+    /// 믹서 한 블록을 임시 버퍼에 만들어 장치 버퍼로 옮긴다(네 샘플 형식 콜백의 공통 본문). 프레임 수를 돌려준다.
+    pub fn render_block<T: cpal::SizedSample + cpal::FromSample<f32>>(
+        mixer: &mut AudioMixer,
+        temp_buf: &mut [f32],
+        data: &mut [T],
+        hw_channels: usize,
+        virtual_channels: usize,
+    ) -> usize {
+        let copy_channels = hw_channels.min(virtual_channels);
+        // 처리 폭 밖의 출력 채널은 무음이다(core::processing_channels).
+        if copy_channels < hw_channels {
+            data.fill(T::EQUILIBRIUM);
+        }
+
+        let frames = data.len() / hw_channels;
+        // 임시 버퍼는 스트림을 만들 때 한 번 잡는다. 장치가 그보다 큰 블록을 주면 늘리지 않고(콜백 안 할당,
+        // 3법칙 1) 임시 버퍼에 들어가는 만큼씩 나눠 믹서를 돌린다.
+        let chunk_frames = (temp_buf.len() / virtual_channels).max(1);
+        let mut start = 0;
+        while start < frames {
+            let n = chunk_frames.min(frames - start);
+            let temp = &mut temp_buf[..n * virtual_channels];
+            temp.fill(0.0);
+
+            mixer.process(temp, virtual_channels);
+
+            for frame in 0..n {
+                // 디스크리트 라우팅: 가상 채널 N -> 물리 출력 N.
+                // 예전에는 hw_channels == 2일 때 가상 채널에 5.1 역할
+                // (2=센터, 3=LFE, 4/5=서라운드)을 가정해 L/R로 접었다.
+                // 이 앱은 "채널 = 물리 스피커" 모델이라 그 가정이 라우팅을
+                // 왜곡했다(Ch-3을 고르면 양쪽에서 나는 등). 폴드다운을 제거해
+                // 장치에 실재하는 채널만 그대로 내보낸다. 2채널 장치에서
+                // 3번 이상 채널은 들리지 않으며, 다채널 청음은 실기로 하거나
+                // 추후 바이노럴 모니터링(binaural)을 켜서 확인한다.
+                for ch in 0..copy_channels {
+                    data[(start + frame) * hw_channels + ch] =
+                        T::from_sample(temp[frame * virtual_channels + ch]);
+                }
+            }
+            start += n;
+        }
+        frames
+    }
+
     fn process_commands(mixer: &mut AudioMixer, rx: &crossbeam_channel::Receiver<AudioCommand>) {
         // Lock-free pop from command queue
         while let Ok(cmd) = rx.try_recv() {
@@ -771,8 +724,7 @@ impl AudioEngine {
                     room_volume,
                 } => {
                     // 인스턴스는 api_play_track(비-오디오 스레드)에서 이미 생성되어
-                    // 왔다. 여기서는 풀 슬롯에 옮겨 담기만 한다(할당 없음).
-                    let instance = *instance;
+                    // 값으로 왔다. 여기서는 풀 슬롯에 옮겨 담기만 한다(할당·해제 없음).
 
                     if let Some(i) = mixer.instances.iter().position(|slot| slot.is_none()) {
                         mixer.instances[i] = Some(instance);
@@ -856,9 +808,6 @@ impl AudioEngine {
                     }
                 }
                 AudioCommand::SetChannelReverbSend { channel, send } => {
-                    if crate::core::state::debug_flags::trace_cmd() {
-                        eprintln!("[CMD] SetChannelReverbSend ch={} send={}", channel, send);
-                    }
                     if channel < mixer.channel_dsp.len() {
                         mixer.channel_dsp[channel].target_reverb_send = send.clamp(0.0, 1.0);
                     }
@@ -886,9 +835,6 @@ impl AudioEngine {
                     density,
                     dry_wet,
                 } => {
-                    if crate::core::state::debug_flags::trace_cmd() {
-                        eprintln!("[CMD] SetChannelSpatialReverb ch={} (0이면 전체 채널에 적용)", channel);
-                    }
                     if channel == 0 {
                         mixer.reverb.set_full_params(
                             is_enabled, room_size, decay_time, pre_delay_ms, damp, density,
@@ -1021,17 +967,11 @@ impl AudioEngine {
                     );
                 }
                 AudioCommand::SetChannelPanDeg { channel, pan_deg } => {
-                    if crate::core::state::debug_flags::trace_cmd() {
-                        eprintln!("[CMD] SetChannelPanDeg ch={} deg={}", channel, pan_deg);
-                    }
                     if channel < mixer.channel_pan_deg.len() {
                         mixer.channel_pan_deg[channel] = pan_deg;
                     }
                 }
                 AudioCommand::SetChannelEarlyRefMix { channel, mix } => {
-                    if crate::core::state::debug_flags::trace_cmd() {
-                        eprintln!("[CMD] SetChannelEarlyRefMix ch={} mix={}", channel, mix);
-                    }
                     // 실제 적용량은 믹서가 방 시뮬레이션 몫과 합쳐서 계산한다
                     // (mixer::refresh_early_ref_mix).
                     mixer.set_channel_early_ref_mix(channel, mix);
@@ -1073,10 +1013,9 @@ impl AudioEngine {
                         b.gain = gain_db;
                         b.q_factor = q_factor;
                         b.filter_type = filter_type;
-                        // trigger recount/rebuild
-                        let all_bands = mixer.channel_dsp[channel].target_bands.clone();
-                        mixer.channel_dsp[channel]
-                            .update_eq_targets(&all_bands, mixer.sample_rate as f32);
+                        // 목표 밴드를 제자리에서 바꾸면 끝난다. 계수는 smooth_eq_block이 목표를 따라가며 다시 만든다.
+                        // 예전에는 목표 전체를 복제해 update_eq_targets를 다시 불렀는데, 같은 값이라 아무것도 바꾸지
+                        // 않으면서 콜백 안에서 할당·해제만 했다(3법칙 1).
                     }
                 }
                 AudioCommand::UpdateSoundSourcePosition { sound_id, x, y, z } => {
@@ -1124,15 +1063,19 @@ impl AudioEngine {
                     }
                 }
                 AudioCommand::ApplyAllChannelTunings { tunings } => {
-                    for (channel, delay_ms, eq_bands, phase_invert, gain_db) in tunings {
+                    for &(channel, delay_ms, ref eq_bands, phase_invert, gain_db) in &tunings {
                         if channel < mixer.channel_dsp.len() {
                             mixer.channel_dsp[channel].update_delay_target(delay_ms);
                             mixer.channel_dsp[channel]
-                                .update_eq_targets(&eq_bands, mixer.sample_rate as f32);
+                                .update_eq_targets(eq_bands, mixer.sample_rate as f32);
                             mixer.channel_dsp[channel].phase_invert = phase_invert;
                             mixer.channel_dsp[channel].set_gain_db(gain_db);
                         }
                     }
+                    // 받은 Vec(채널마다 EQ Vec 포함)은 정리 스레드에서 푼다(3법칙 1).
+                    let _ = mixer
+                        .spatial_gc_tx
+                        .try_send(crate::audio::mixer::SpatialGarbage::ChannelTunings(tunings));
                 }
                 // catch-all(`_ => {}`)을 두지 않는다.
                 //

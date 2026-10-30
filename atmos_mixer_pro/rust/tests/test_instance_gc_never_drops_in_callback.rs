@@ -60,7 +60,7 @@ fn 풀이_가득_차면_새_재생_명령의_인스턴스를_콜백에서_버리
 
     let (cmd_tx, cmd_rx) = crossbeam_channel::unbounded();
     cmd_tx
-        .send(AudioCommand::PlayTrack { instance: Box::new(instance(99)), room_volume: 1.0 })
+        .send(AudioCommand::PlayTrack { instance: instance(99), room_volume: 1.0 })
         .unwrap();
     let generation = ENGINE_GENERATION.load(Ordering::SeqCst);
     assert!(AudioEngine::begin_callback(&mut mixer, &cmd_rx, generation));
