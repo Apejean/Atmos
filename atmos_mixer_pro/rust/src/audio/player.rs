@@ -249,6 +249,12 @@ pub struct SoundInstance {
     pub is_stopping: bool,
     pub output_channel: usize,
     pub output_stereo: bool,
+    /// 출력 채널을 바꾸기 전의 경로(SetTrackOutput). `output_fade`가 1이 될 때까지 이 경로는 줄이고 새 경로는
+    /// 키운다(3법칙 3). 예전에는 소리가 옛 채널에서 끊기고 새 채널에서 바로 시작해 양쪽에서 딸깍 소리가 났다.
+    pub prev_output_channel: usize,
+    pub prev_output_stereo: bool,
+    /// 새 출력 경로의 비중(0 -> 1). 1이면 옛 경로를 쓰지 않는다.
+    pub output_fade: f32,
     pub fade_weight: f32, // 0.0 to 1.0
     pub volume_smoother: crate::audio::dsp::dsp_utils::GainSmoother,
     pub last_samples: Vec<f32>,
@@ -314,6 +320,9 @@ impl SoundInstance {
             is_stopping: false,
             output_channel,
             output_stereo,
+            prev_output_channel: output_channel,
+            prev_output_stereo: output_stereo,
+            output_fade: 1.0,
             fade_weight: 0.0,
             volume_smoother: smoother,
             last_samples: vec![0.0; stream_channels as usize],

@@ -802,6 +802,13 @@ impl AudioEngine {
                 } => {
                     for inst in mixer.instances.iter_mut().flatten() {
                         if inst.room_id == room_id && inst.id == track_id {
+                            if inst.output_channel != output_channel || inst.output_stereo != output_stereo {
+                                // 옛 경로에서 새 경로로 짧게 크로스페이드한다(3법칙 3). 바꾸는 도중에 또 바뀌면 지금
+                                // 경로를 옛 경로로 삼아 다시 시작한다.
+                                inst.prev_output_channel = inst.output_channel;
+                                inst.prev_output_stereo = inst.output_stereo;
+                                inst.output_fade = 0.0;
+                            }
                             inst.output_channel = output_channel;
                             inst.output_stereo = output_stereo;
                         }
