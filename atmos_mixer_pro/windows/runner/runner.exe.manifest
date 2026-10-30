@@ -11,11 +11,8 @@
       <supportedOS Id="{8e0f7a12-bfb3-4fe8-b9a5-48fd50a15a9a}"/>
     </application>
   </compatibility>
-  <trustInfo xmlns="urn:schemas-microsoft-com:asm.v3">
-    <security>
-      <requestedPrivileges>
-        <requestedExecutionLevel level="requireAdministrator" uiAccess="false"/>
-      </requestedPrivileges>
-    </security>
-  </trustInfo>
+  <!-- No requestedExecutionLevel here; the linker adds asInvoker. The logon task starts atmos_supervisor
+       with a limited token and the supervisor starts this exe as a child process, so requireAdministrator
+       would make that start fail (ERROR_ELEVATION_REQUIRED) and break the logon autostart. It also clashes
+       with the linker's asInvoker and fails the link (LNK1327). -->
 </assembly>
