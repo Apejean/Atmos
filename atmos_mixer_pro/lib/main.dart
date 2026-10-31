@@ -39,6 +39,9 @@ Future<void> main(List<String> args) async {
   // 여기서 읽어 둔 상태를 쓰므로, 저장이 파일을 덮어써도 멈춘 위치를 잃지 않는다.
   await apiStartShowState(dir: await showStateDir());
 
+  // 로딩창 로고를 창이 뜨기 전에 읽어 둔다.
+  await precacheSplashLogo();
+
   // Initialize window_manager for frameless kiosk mode
   await windowManager.ensureInitialized();
 
