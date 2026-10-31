@@ -63,7 +63,7 @@
 - **3D 방 및 스피커 투영 (`CustomPaint` + `Matrix4`):** 모델 파일 없이 코드로 4x4 바닥 격자와 스피커 큐브를 3차원 투영 렌더링.
 
 ### ③ 3D 마네킹 헤드 및 Three.js/WebGL 시뮬레이터
-- **3D 리스너 모델:** 흰 흉상(`assets/models/listener_bust_white.obj`, 2026-10-24 교체)을 `studio_engine.html`이 OBJLoader로 읽어 귀를 청취자 자리의 귀 높이에 맞춘다.
+- **3D 리스너 모델:** 흰 흉상(`assets/models/listener_bust_white.obj`, 2026-10-24 교체, 10-31 저장소에서 재생성 — `tool/listener_bust/`)을 `studio_engine.html`이 OBJLoader로 읽어 귀를 청취자 자리의 귀 높이에 맞춘다.
 - **기준 좌표계:** 방 정중앙 바닥으로부터 인체 표준 좌식 귀 높이 **$1.2\text{m}$** (`W/2`, `D/2`, `1.2m`)에 귀 기준점(`listenerGroup`) 배치.
 - **스피커 방사각(Aiming) 자동 연산:** 천장 및 벽면 스피커의 Pitch/Yaw 각도를 $1.2\text{m}$ 귀 위치를 향해 조준하도록 삼각함수 벡터 유도.
 

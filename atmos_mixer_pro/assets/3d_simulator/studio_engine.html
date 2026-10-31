@@ -235,9 +235,9 @@
 
       // Standard anatomical head scale (ear-to-head-top ~ 13cm)
       // Ear canal of listener_bust_white.obj in its own units (base y 0, crown y 3.97, face toward +Z):
-      // the ears span y 2.21-2.79 and sit at z -0.076 on average (2026-10-24).
+      // the ears span y 2.21-2.77 and sit at z -0.146 on average (rebuilt bust, 2026-10-31; was -0.076).
       const rawEarY = 2.50;
-      const rawEarZ = -0.076;
+      const rawEarZ = -0.146;
       const rawTopY = box.max.y;
       const rawHeadTopOffset = Math.max(0.05, rawTopY - rawEarY);
       const targetHeadTopOffset = 0.13 * mannequinScale; // 13cm
@@ -272,7 +272,7 @@
         return;
       }
 
-      // Load listener_bust_white.obj (user-supplied white bust, 2026-10-24). It replaced listener_bust.obj
+      // Load listener_bust_white.obj (white bust, 2026-10-24; rebuilt in tool/listener_bust/ 2026-10-31). It replaced listener_bust.obj
       // and listener_head.obj, whose source and license were unknown.
       if (typeof THREE.OBJLoader !== 'undefined') {
         const objLoader = new THREE.OBJLoader();
