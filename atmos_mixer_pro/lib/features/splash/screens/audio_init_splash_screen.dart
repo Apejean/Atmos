@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:atmos_mixer_pro/features/dashboard/screens/dashboard_screen.dart';
 import 'package:atmos_mixer_pro/core/state/global_state.dart';
 import 'package:atmos_mixer_pro/core/state/launch_mode.dart';
@@ -7,6 +8,18 @@ import 'package:atmos_mixer_pro/src/rust/api/show.dart' as show_api;
 import 'package:atmos_mixer_pro/src/rust/api/simple.dart' as rust_api;
 import 'package:atmos_mixer_pro/features/settings/widgets/tuning_modal.dart';
 import 'package:atmos_mixer_pro/features/exhibition/state/three_js_engine_provider.dart';
+
+/// 로딩창 로고: 심볼·회사명·태그라인이 든 전체 로고(원본: 저장소 Image/The_Awesome_Logo, 02_SVG).
+const _logo = SvgAssetLoader('assets/branding/Full_Logo_Dark.svg');
+
+/// 로고 SVG를 창이 뜨기 전에 읽어 둔다(main). 읽어 두지 않으면 창이 뜬 뒤 로고만 0.1초쯤 늦게 나온다.
+Future<void> precacheSplashLogo() async {
+  try {
+    await _logo.loadBytes(null);
+  } catch (e) {
+    // 못 읽어도 앱은 뜬다. 로딩창에서 로고만 빠진다.
+  }
+}
 
 class AudioInitSplashScreen extends ConsumerStatefulWidget {
   const AudioInitSplashScreen({super.key});
@@ -114,29 +127,23 @@ class _AudioInitSplashScreenState extends ConsumerState<AudioInitSplashScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF1A1A1A),
+      // 로고 파일의 배경과 같은 순검정이라 로고 둘레에 경계가 보이지 않는다.
+      backgroundColor: const Color(0xFF000000),
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.graphic_eq, size: 64, color: Colors.blueAccent),
-            const SizedBox(height: 24),
-            const Text(
-              'The Awesome',
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
-            ),
-            const SizedBox(height: 16),
+            // 크기를 미리 정해 두어 로고를 그리기 전에도 아래 스피너가 움직이지 않는다.
+            const SvgPicture(_logo, width: 560, height: 420),
+            const SizedBox(height: 8),
+            // 스피너와 문구는 로고의 은회색으로 맞춘다.
             if (!_hasError)
               const SizedBox(
                 width: 32,
                 height: 32,
                 child: CircularProgressIndicator(
                   strokeWidth: 3,
-                  color: Colors.blueAccent,
+                  color: Color(0xFFC4C8CC),
                 ),
               ),
             const SizedBox(height: 16),
@@ -144,7 +151,7 @@ class _AudioInitSplashScreenState extends ConsumerState<AudioInitSplashScreen> {
               _statusMessage,
               style: TextStyle(
                 fontSize: 14,
-                color: _hasError ? Colors.redAccent : Colors.white70,
+                color: _hasError ? Colors.redAccent : const Color(0xFF9499A1),
               ),
               textAlign: TextAlign.center,
             ),
