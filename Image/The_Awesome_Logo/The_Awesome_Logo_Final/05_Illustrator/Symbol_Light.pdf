@@ -1,0 +1,265 @@
+%PDF-1.4
+%‚„œ”
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 516.2 416.9] /Contents 4 0 R /Resources << /Shading << /Sleg_right 5 0 R /Cleg_right 6 0 R /Sleg_left 10 0 R /Cleg_left 11 0 R /Sarch_front 15 0 R /Carch_front 16 0 R /Sarch_right_low 20 0 R /Carch_right_low 21 0 R /Sarch_right_band 25 0 R /Carch_right_band 26 0 R >> /ExtGState << /Mleg_right 9 0 R /Mleg_left 14 0 R /March_front 19 0 R /March_right_low 24 0 R /March_right_band 29 0 R >> >> >>
+endobj
+4 0 obj
+<< /Length 1642 >>
+stream
+q
+0.4000 0 0 -0.4000 -154.3600 449.4400 cm
+1.0000 1.0000 1.0000 rg
+385.9 81.4 1290.4 1042.2 re f
+q
+1155.7 199.1 m
+1558.7 1005.9 l
+1357.2 1005.9 l
+1049.3 389.6 l
+h
+W n
+/Sleg_right sh
+Q
+q
+1155.7 199.1 m
+1558.7 1005.9 l
+1357.2 1005.9 l
+1049.3 389.6 l
+h
+W n
+/Mleg_right gs
+/Cleg_right sh
+Q
+q
+939.1 226.2 m
+1155.7 199.1 l
+1049.3 389.6 l
+886.9 680.5 l
+1018.3 691.8 l
+921.6 721 l
+824.8 772.9 l
+728.1 851.1 l
+631.4 918 l
+534.7 980.6 l
+503.6 1005.9 l
+h
+W n
+/Sleg_left sh
+Q
+q
+939.1 226.2 m
+1155.7 199.1 l
+1049.3 389.6 l
+886.9 680.5 l
+1018.3 691.8 l
+921.6 721 l
+824.8 772.9 l
+728.1 851.1 l
+631.4 918 l
+534.7 980.6 l
+503.6 1005.9 l
+h
+W n
+/Mleg_left gs
+/Cleg_left sh
+Q
+q
+503.6 1005.9 m
+588.3 859.8 694.1 750.2 811.4 686.9 c
+928.8 623.5 1054.1 608.5 1176 643.2 c
+1178.4 643.8 l
+1226.3 739.4 l
+1223.9 739 l
+1031.9 713.4 841.3 809 692 1005.9 c
+503.6 1005.9 l
+h
+W n
+/Sarch_front sh
+Q
+q
+503.6 1005.9 m
+588.3 859.8 694.1 750.2 811.4 686.9 c
+928.8 623.5 1054.1 608.5 1176 643.2 c
+1178.4 643.8 l
+1226.3 739.4 l
+1223.9 739 l
+1031.9 713.4 841.3 809 692 1005.9 c
+503.6 1005.9 l
+h
+W n
+/March_front gs
+/Carch_front sh
+Q
+q
+1176 643.2 m
+1286.1 674.4 1390.4 745.4 1481.2 850.7 c
+1558.7 1005.9 l
+1357.2 1005.9 l
+h
+W n
+/Sarch_right_low sh
+Q
+q
+1176 643.2 m
+1286.1 674.4 1390.4 745.4 1481.2 850.7 c
+1558.7 1005.9 l
+1357.2 1005.9 l
+h
+W n
+/March_right_low gs
+/Carch_right_low sh
+Q
+q
+1176 643.2 m
+1286.1 674.4 1390.4 745.4 1481.2 850.7 c
+1400.2 788.8 1313.1 750.9 1223.9 739 c
+1176 643.2 l
+h
+W n
+/Sarch_right_band sh
+Q
+q
+1176 643.2 m
+1286.1 674.4 1390.4 745.4 1481.2 850.7 c
+1400.2 788.8 1313.1 750.9 1223.9 739 c
+1176 643.2 l
+h
+W n
+/March_right_band gs
+/Carch_right_band sh
+Q
+Q
+endstream
+endobj
+5 0 obj
+<< /ShadingType 2 /ColorSpace /DeviceRGB /Coords [1068.7 292.8 1436.4 798.2] /Function << /FunctionType 3 /Domain [0 1] /Functions [<< /FunctionType 2 /Domain [0 1] /C0 [0.5725 0.5922 0.6196] /C1 [0.5725 0.5922 0.6196] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.5725 0.5922 0.6196] /C1 [0.4314 0.4510 0.4784] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.4314 0.4510 0.4784] /C1 [0.4863 0.5098 0.5373] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.4863 0.5098 0.5373] /C1 [0.5882 0.6118 0.6353] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.5882 0.6118 0.6353] /C1 [0.6824 0.6980 0.7216] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.6824 0.6980 0.7216] /C1 [0.7608 0.7725 0.7961] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.7608 0.7725 0.7961] /C1 [0.8471 0.8549 0.8706] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.8471 0.8549 0.8706] /C1 [0.9098 0.9176 0.9255] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.9098 0.9176 0.9255] /C1 [0.9529 0.9569 0.9608] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.9529 0.9569 0.9608] /C1 [0.9882 0.9882 0.9882] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.9882 0.9882 0.9882] /C1 [0.9922 0.9922 0.9922] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.9922 0.9922 0.9922] /C1 [0.9804 0.9804 0.9804] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.9804 0.9804 0.9804] /C1 [0.9804 0.9804 0.9804] /N 1 >>] /Bounds [0.0417 0.1250 0.2083 0.2917 0.3750 0.4583 0.5417 0.6250 0.7083 0.7917 0.8750 0.9583] /Encode [0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1] >> /Extend [true true] >>
+endobj
+6 0 obj
+<< /ShadingType 2 /ColorSpace /DeviceRGB /Coords [1310.3 440.1 1140.7 570.3] /Function << /FunctionType 3 /Domain [0 1] /Functions [<< /FunctionType 2 /Domain [0 1] /C0 [1.0000 1.0000 1.0000] /C1 [1.0000 1.0000 1.0000] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [1.0000 1.0000 1.0000] /C1 [1.0000 1.0000 1.0000] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [1.0000 1.0000 1.0000] /C1 [0.0000 0.0000 0.0000] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.0000 0.0000 0.0000] /C1 [0.0000 0.0000 0.0000] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.0000 0.0000 0.0000] /C1 [0.0000 0.0000 0.0000] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.0000 0.0000 0.0000] /C1 [0.0000 0.0000 0.0000] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.0000 0.0000 0.0000] /C1 [0.0000 0.0000 0.0000] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.0000 0.0000 0.0000] /C1 [1.0000 1.0000 1.0000] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [1.0000 1.0000 1.0000] /C1 [1.0000 1.0000 1.0000] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [1.0000 1.0000 1.0000] /C1 [1.0000 1.0000 1.0000] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [1.0000 1.0000 1.0000] /C1 [1.0000 1.0000 1.0000] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [1.0000 1.0000 1.0000] /C1 [1.0000 1.0000 1.0000] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [1.0000 1.0000 1.0000] /C1 [1.0000 1.0000 1.0000] /N 1 >>] /Bounds [0.0417 0.1250 0.2083 0.2917 0.3750 0.4583 0.5417 0.6250 0.7083 0.7917 0.8750 0.9583] /Encode [0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1] >> /Extend [true true] >>
+endobj
+7 0 obj
+<< /ShadingType 2 /ColorSpace /DeviceGray /Coords [1310.3 440.1 1140.7 570.3] /Function << /FunctionType 3 /Domain [0 1] /Functions [<< /FunctionType 2 /Domain [0 1] /C0 [0.2135] /C1 [0.2135] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.2135] /C1 [0.0565] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.0565] /C1 [0.0029] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.0029] /C1 [0.0189] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.0189] /C1 [0.0138] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.0138] /C1 [0.0090] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.0090] /C1 [0.0025] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.0025] /C1 [0.0236] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.0236] /C1 [0.0345] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.0345] /C1 [0.0361] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.0361] /C1 [0.0274] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.0274] /C1 [0.1302] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.1302] /C1 [0.1302] /N 1 >>] /Bounds [0.0417 0.1250 0.2083 0.2917 0.3750 0.4583 0.5417 0.6250 0.7083 0.7917 0.8750 0.9583] /Encode [0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1] >> /Extend [true true] >>
+endobj
+8 0 obj
+<< /Type /XObject /Subtype /Form /BBox [375.9 71.4 1686.3 1133.6] /Group << /S /Transparency /CS /DeviceGray >> /Resources << /Shading << /SAleg_right 7 0 R >> >> /Length 15 >>
+stream
+/SAleg_right sh
+endstream
+endobj
+9 0 obj
+<< /Type /ExtGState /SMask << /Type /Mask /S /Luminosity /G 8 0 R >> >>
+endobj
+10 0 obj
+<< /ShadingType 2 /ColorSpace /DeviceRGB /Coords [637.9 938.4 1059.8 194.8] /Function << /FunctionType 3 /Domain [0 1] /Functions [<< /FunctionType 2 /Domain [0 1] /C0 [0.6000 0.6118 0.6353] /C1 [0.6000 0.6118 0.6353] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.6000 0.6118 0.6353] /C1 [0.3059 0.3216 0.3451] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.3059 0.3216 0.3451] /C1 [0.2039 0.2196 0.2353] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.2039 0.2196 0.2353] /C1 [0.3569 0.3765 0.3961] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.3569 0.3765 0.3961] /C1 [0.5216 0.5412 0.5686] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.5216 0.5412 0.5686] /C1 [0.6745 0.6941 0.7216] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.6745 0.6941 0.7216] /C1 [0.7961 0.8118 0.8314] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.7961 0.8118 0.8314] /C1 [0.8824 0.8902 0.9020] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.8824 0.8902 0.9020] /C1 [0.9490 0.9529 0.9569] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.9490 0.9529 0.9569] /C1 [0.9922 0.9922 0.9922] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.9922 0.9922 0.9922] /C1 [0.9922 0.9922 0.9922] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.9922 0.9922 0.9922] /C1 [0.9373 0.9451 0.9529] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.9373 0.9451 0.9529] /C1 [0.9373 0.9451 0.9529] /N 1 >>] /Bounds [0.0417 0.1250 0.2083 0.2917 0.3750 0.4583 0.5417 0.6250 0.7083 0.7917 0.8750 0.9583] /Encode [0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1] >> /Extend [true true] >>
+endobj
+11 0 obj
+<< /ShadingType 2 /ColorSpace /DeviceRGB /Coords [796.1 494.7 975.2 550.8] /Function << /FunctionType 3 /Domain [0 1] /Functions [<< /FunctionType 2 /Domain [0 1] /C0 [1.0000 1.0000 1.0000] /C1 [1.0000 1.0000 1.0000] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [1.0000 1.0000 1.0000] /C1 [0.0000 0.0000 0.0000] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.0000 0.0000 0.0000] /C1 [0.0000 0.0000 0.0000] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.0000 0.0000 0.0000] /C1 [0.0000 0.0000 0.0000] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.0000 0.0000 0.0000] /C1 [0.0000 0.0000 0.0000] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.0000 0.0000 0.0000] /C1 [0.0000 0.0000 0.0000] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.0000 0.0000 0.0000] /C1 [0.0000 0.0000 0.0000] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.0000 0.0000 0.0000] /C1 [0.0000 0.0000 0.0000] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.0000 0.0000 0.0000] /C1 [1.0000 1.0000 1.0000] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [1.0000 1.0000 1.0000] /C1 [0.0000 0.0000 0.0000] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.0000 0.0000 0.0000] /C1 [0.0000 0.0000 0.0000] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.0000 0.0000 0.0000] /C1 [0.0000 0.0000 0.0000] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.0000 0.0000 0.0000] /C1 [0.0000 0.0000 0.0000] /N 1 >>] /Bounds [0.0417 0.1250 0.2083 0.2917 0.3750 0.4583 0.5417 0.6250 0.7083 0.7917 0.8750 0.9583] /Encode [0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1] >> /Extend [true true] >>
+endobj
+12 0 obj
+<< /ShadingType 2 /ColorSpace /DeviceGray /Coords [796.1 494.7 975.2 550.8] /Function << /FunctionType 3 /Domain [0 1] /Functions [<< /FunctionType 2 /Domain [0 1] /C0 [0.0860] /C1 [0.0860] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.0860] /C1 [0.0019] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.0019] /C1 [0.0058] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.0058] /C1 [0.0071] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.0071] /C1 [0.0091] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.0091] /C1 [0.0043] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.0043] /C1 [0.0037] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.0037] /C1 [0.0025] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.0025] /C1 [0.0038] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.0038] /C1 [0.0001] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.0001] /C1 [0.0038] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.0038] /C1 [0.0155] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.0155] /C1 [0.0155] /N 1 >>] /Bounds [0.0417 0.1250 0.2083 0.2917 0.3750 0.4583 0.5417 0.6250 0.7083 0.7917 0.8750 0.9583] /Encode [0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1] >> /Extend [true true] >>
+endobj
+13 0 obj
+<< /Type /XObject /Subtype /Form /BBox [375.9 71.4 1686.3 1133.6] /Group << /S /Transparency /CS /DeviceGray >> /Resources << /Shading << /SAleg_left 12 0 R >> >> /Length 14 >>
+stream
+/SAleg_left sh
+endstream
+endobj
+14 0 obj
+<< /Type /ExtGState /SMask << /Type /Mask /S /Luminosity /G 13 0 R >> >>
+endobj
+15 0 obj
+<< /ShadingType 2 /ColorSpace /DeviceRGB /Coords [922 943.8 762.1 725] /Function << /FunctionType 3 /Domain [0 1] /Functions [<< /FunctionType 2 /Domain [0 1] /C0 [0.1176 0.1255 0.1333] /C1 [0.1176 0.1255 0.1333] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.1176 0.1255 0.1333] /C1 [0.2941 0.3059 0.3294] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.2941 0.3059 0.3294] /C1 [0.5098 0.5333 0.5608] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.5098 0.5333 0.5608] /C1 [0.7020 0.7176 0.7412] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.7020 0.7176 0.7412] /C1 [0.8510 0.8588 0.8745] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.8510 0.8588 0.8745] /C1 [0.8627 0.8706 0.8824] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.8627 0.8706 0.8824] /C1 [0.8824 0.8902 0.8980] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.8824 0.8902 0.8980] /C1 [0.8941 0.9020 0.9098] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.8941 0.9020 0.9098] /C1 [0.8745 0.8824 0.8941] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.8745 0.8824 0.8941] /C1 [0.8549 0.8627 0.8784] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.8549 0.8627 0.8784] /C1 [0.8275 0.8353 0.8549] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.8275 0.8353 0.8549] /C1 [0.7922 0.8078 0.8275] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.7922 0.8078 0.8275] /C1 [0.7922 0.8078 0.8275] /N 1 >>] /Bounds [0.0417 0.1250 0.2083 0.2917 0.3750 0.4583 0.5417 0.6250 0.7083 0.7917 0.8750 0.9583] /Encode [0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1] >> /Extend [true true] >>
+endobj
+16 0 obj
+<< /ShadingType 2 /ColorSpace /DeviceRGB /Coords [575.3 1067.4 1084.3 567.8] /Function << /FunctionType 3 /Domain [0 1] /Functions [<< /FunctionType 2 /Domain [0 1] /C0 [1.0000 1.0000 1.0000] /C1 [1.0000 1.0000 1.0000] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [1.0000 1.0000 1.0000] /C1 [0.0000 0.0000 0.0000] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.0000 0.0000 0.0000] /C1 [0.0000 0.0000 0.0000] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.0000 0.0000 0.0000] /C1 [0.0000 0.0000 0.0000] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.0000 0.0000 0.0000] /C1 [0.0000 0.0000 0.0000] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.0000 0.0000 0.0000] /C1 [1.0000 1.0000 1.0000] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [1.0000 1.0000 1.0000] /C1 [1.0000 1.0000 1.0000] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [1.0000 1.0000 1.0000] /C1 [1.0000 1.0000 1.0000] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [1.0000 1.0000 1.0000] /C1 [1.0000 1.0000 1.0000] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [1.0000 1.0000 1.0000] /C1 [1.0000 1.0000 1.0000] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [1.0000 1.0000 1.0000] /C1 [0.0000 0.0000 0.0000] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.0000 0.0000 0.0000] /C1 [0.0000 0.0000 0.0000] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.0000 0.0000 0.0000] /C1 [0.0000 0.0000 0.0000] /N 1 >>] /Bounds [0.0417 0.1250 0.2083 0.2917 0.3750 0.4583 0.5417 0.6250 0.7083 0.7917 0.8750 0.9583] /Encode [0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1] >> /Extend [true true] >>
+endobj
+17 0 obj
+<< /ShadingType 2 /ColorSpace /DeviceGray /Coords [575.3 1067.4 1084.3 567.8] /Function << /FunctionType 3 /Domain [0 1] /Functions [<< /FunctionType 2 /Domain [0 1] /C0 [0.1576] /C1 [0.1576] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.1576] /C1 [0.0118] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.0118] /C1 [0.0761] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.0761] /C1 [0.1157] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.1157] /C1 [0.0473] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.0473] /C1 [0.2934] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.2934] /C1 [0.7050] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.7050] /C1 [0.8561] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.8561] /C1 [0.5183] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.5183] /C1 [0.1181] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.1181] /C1 [0.0735] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.0735] /C1 [0.2178] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.2178] /C1 [0.2178] /N 1 >>] /Bounds [0.0417 0.1250 0.2083 0.2917 0.3750 0.4583 0.5417 0.6250 0.7083 0.7917 0.8750 0.9583] /Encode [0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1] >> /Extend [true true] >>
+endobj
+18 0 obj
+<< /Type /XObject /Subtype /Form /BBox [375.9 71.4 1686.3 1133.6] /Group << /S /Transparency /CS /DeviceGray >> /Resources << /Shading << /SAarch_front 17 0 R >> >> /Length 16 >>
+stream
+/SAarch_front sh
+endstream
+endobj
+19 0 obj
+<< /Type /ExtGState /SMask << /Type /Mask /S /Luminosity /G 18 0 R >> >>
+endobj
+20 0 obj
+<< /ShadingType 2 /ColorSpace /DeviceRGB /Coords [1231 735.3 1527.8 1009.6] /Function << /FunctionType 3 /Domain [0 1] /Functions [<< /FunctionType 2 /Domain [0 1] /C0 [0.3412 0.3569 0.3804] /C1 [0.3412 0.3569 0.3804] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.3412 0.3569 0.3804] /C1 [0.4431 0.4627 0.4902] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.4431 0.4627 0.4902] /C1 [0.5137 0.5373 0.5647] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.5137 0.5373 0.5647] /C1 [0.5804 0.6000 0.6314] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.5804 0.6000 0.6314] /C1 [0.6431 0.6627 0.6902] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.6431 0.6627 0.6902] /C1 [0.6980 0.7137 0.7412] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.6980 0.7137 0.7412] /C1 [0.7490 0.7647 0.7882] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.7490 0.7647 0.7882] /C1 [0.8000 0.8118 0.8314] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.8000 0.8118 0.8314] /C1 [0.8431 0.8510 0.8667] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.8431 0.8510 0.8667] /C1 [0.8824 0.8902 0.9020] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.8824 0.8902 0.9020] /C1 [0.9255 0.9333 0.9412] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.9255 0.9333 0.9412] /C1 [0.9569 0.9608 0.9647] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.9569 0.9608 0.9647] /C1 [0.9569 0.9608 0.9647] /N 1 >>] /Bounds [0.0417 0.1250 0.2083 0.2917 0.3750 0.4583 0.5417 0.6250 0.7083 0.7917 0.8750 0.9583] /Encode [0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1] >> /Extend [true true] >>
+endobj
+21 0 obj
+<< /ShadingType 2 /ColorSpace /DeviceRGB /Coords [1431.2 815.1 1325.6 958.8] /Function << /FunctionType 3 /Domain [0 1] /Functions [<< /FunctionType 2 /Domain [0 1] /C0 [1.0000 1.0000 1.0000] /C1 [1.0000 1.0000 1.0000] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [1.0000 1.0000 1.0000] /C1 [1.0000 1.0000 1.0000] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [1.0000 1.0000 1.0000] /C1 [1.0000 1.0000 1.0000] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [1.0000 1.0000 1.0000] /C1 [0.0000 0.0000 0.0000] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.0000 0.0000 0.0000] /C1 [1.0000 1.0000 1.0000] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [1.0000 1.0000 1.0000] /C1 [1.0000 1.0000 1.0000] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [1.0000 1.0000 1.0000] /C1 [0.0000 0.0000 0.0000] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.0000 0.0000 0.0000] /C1 [0.0000 0.0000 0.0000] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.0000 0.0000 0.0000] /C1 [0.0000 0.0000 0.0000] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.0000 0.0000 0.0000] /C1 [0.0000 0.0000 0.0000] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.0000 0.0000 0.0000] /C1 [0.0000 0.0000 0.0000] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.0000 0.0000 0.0000] /C1 [0.0000 0.0000 0.0000] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.0000 0.0000 0.0000] /C1 [0.0000 0.0000 0.0000] /N 1 >>] /Bounds [0.0417 0.1250 0.2083 0.2917 0.3750 0.4583 0.5417 0.6250 0.7083 0.7917 0.8750 0.9583] /Encode [0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1] >> /Extend [true true] >>
+endobj
+22 0 obj
+<< /ShadingType 2 /ColorSpace /DeviceGray /Coords [1431.2 815.1 1325.6 958.8] /Function << /FunctionType 3 /Domain [0 1] /Functions [<< /FunctionType 2 /Domain [0 1] /C0 [0.0460] /C1 [0.0460] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.0460] /C1 [0.0229] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.0229] /C1 [0.0048] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.0048] /C1 [0.0012] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.0012] /C1 [0.0143] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.0143] /C1 [0.0051] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.0051] /C1 [0.0026] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.0026] /C1 [0.0014] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.0014] /C1 [0.0010] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.0010] /C1 [0.0009] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.0009] /C1 [0.0005] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.0005] /C1 [0.0042] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.0042] /C1 [0.0042] /N 1 >>] /Bounds [0.0417 0.1250 0.2083 0.2917 0.3750 0.4583 0.5417 0.6250 0.7083 0.7917 0.8750 0.9583] /Encode [0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1] >> /Extend [true true] >>
+endobj
+23 0 obj
+<< /Type /XObject /Subtype /Form /BBox [375.9 71.4 1686.3 1133.6] /Group << /S /Transparency /CS /DeviceGray >> /Resources << /Shading << /SAarch_right_low 22 0 R >> >> /Length 20 >>
+stream
+/SAarch_right_low sh
+endstream
+endobj
+24 0 obj
+<< /Type /ExtGState /SMask << /Type /Mask /S /Luminosity /G 23 0 R >> >>
+endobj
+25 0 obj
+<< /ShadingType 2 /ColorSpace /DeviceRGB /Coords [1229.7 619.1 1254.1 782.1] /Function << /FunctionType 3 /Domain [0 1] /Functions [<< /FunctionType 2 /Domain [0 1] /C0 [0.1059 0.1137 0.1255] /C1 [0.1059 0.1137 0.1255] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.1059 0.1137 0.1255] /C1 [0.1686 0.1725 0.1882] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.1686 0.1725 0.1882] /C1 [0.2118 0.2235 0.2353] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.2118 0.2235 0.2353] /C1 [0.2549 0.2588 0.2745] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.2549 0.2588 0.2745] /C1 [0.2784 0.2863 0.3020] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.2784 0.2863 0.3020] /C1 [0.3098 0.3216 0.3451] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.3098 0.3216 0.3451] /C1 [0.3569 0.3765 0.3922] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.3569 0.3765 0.3922] /C1 [0.4196 0.4353 0.4549] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.4196 0.4353 0.4549] /C1 [0.4745 0.4824 0.5059] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.4745 0.4824 0.5059] /C1 [0.5137 0.5255 0.5529] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.5137 0.5255 0.5529] /C1 [0.5098 0.5333 0.5608] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.5098 0.5333 0.5608] /C1 [0.5255 0.5471 0.5804] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.5255 0.5471 0.5804] /C1 [0.5255 0.5471 0.5804] /N 1 >>] /Bounds [0.0417 0.1250 0.2083 0.2917 0.3750 0.4583 0.5417 0.6250 0.7083 0.7917 0.8750 0.9583] /Encode [0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1] >> /Extend [true true] >>
+endobj
+26 0 obj
+<< /ShadingType 2 /ColorSpace /DeviceRGB /Coords [1337.8 629 1188 711.9] /Function << /FunctionType 3 /Domain [0 1] /Functions [<< /FunctionType 2 /Domain [0 1] /C0 [0.0000 0.0000 0.0000] /C1 [0.0000 0.0000 0.0000] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.0000 0.0000 0.0000] /C1 [0.0000 0.0000 0.0000] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.0000 0.0000 0.0000] /C1 [0.0000 0.0000 0.0000] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.0000 0.0000 0.0000] /C1 [0.0000 0.0000 0.0000] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.0000 0.0000 0.0000] /C1 [0.0000 0.0000 0.0000] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.0000 0.0000 0.0000] /C1 [0.0000 0.0000 0.0000] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.0000 0.0000 0.0000] /C1 [0.0000 0.0000 0.0000] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.0000 0.0000 0.0000] /C1 [0.0000 0.0000 0.0000] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.0000 0.0000 0.0000] /C1 [0.0000 0.0000 0.0000] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.0000 0.0000 0.0000] /C1 [0.0000 0.0000 0.0000] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.0000 0.0000 0.0000] /C1 [0.0000 0.0000 0.0000] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.0000 0.0000 0.0000] /C1 [0.0000 0.0000 0.0000] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.0000 0.0000 0.0000] /C1 [0.0000 0.0000 0.0000] /N 1 >>] /Bounds [0.0417 0.1250 0.2083 0.2917 0.3750 0.4583 0.5417 0.6250 0.7083 0.7917 0.8750 0.9583] /Encode [0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1] >> /Extend [true true] >>
+endobj
+27 0 obj
+<< /ShadingType 2 /ColorSpace /DeviceGray /Coords [1337.8 629 1188 711.9] /Function << /FunctionType 3 /Domain [0 1] /Functions [<< /FunctionType 2 /Domain [0 1] /C0 [0.0139] /C1 [0.0139] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.0139] /C1 [0.0171] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.0171] /C1 [0.0219] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.0219] /C1 [0.0062] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.0062] /C1 [0.0109] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.0109] /C1 [0.0161] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.0161] /C1 [0.0140] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.0140] /C1 [0.0030] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.0030] /C1 [0.0051] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.0051] /C1 [0.0193] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.0193] /C1 [0.0457] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.0457] /C1 [0.0414] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0.0414] /C1 [0.0414] /N 1 >>] /Bounds [0.0417 0.1250 0.2083 0.2917 0.3750 0.4583 0.5417 0.6250 0.7083 0.7917 0.8750 0.9583] /Encode [0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1] >> /Extend [true true] >>
+endobj
+28 0 obj
+<< /Type /XObject /Subtype /Form /BBox [375.9 71.4 1686.3 1133.6] /Group << /S /Transparency /CS /DeviceGray >> /Resources << /Shading << /SAarch_right_band 27 0 R >> >> /Length 21 >>
+stream
+/SAarch_right_band sh
+endstream
+endobj
+29 0 obj
+<< /Type /ExtGState /SMask << /Type /Mask /S /Luminosity /G 28 0 R >> >>
+endobj
+xref
+0 30
+0000000000 65535 f 
+0000000015 00000 n 
+0000000064 00000 n 
+0000000121 00000 n 
+0000000576 00000 n 
+0000002270 00000 n 
+0000003835 00000 n 
+0000005400 00000 n 
+0000006602 00000 n 
+0000006827 00000 n 
+0000006914 00000 n 
+0000008479 00000 n 
+0000010043 00000 n 
+0000011244 00000 n 
+0000011469 00000 n 
+0000011558 00000 n 
+0000013118 00000 n 
+0000014684 00000 n 
+0000015887 00000 n 
+0000016116 00000 n 
+0000016205 00000 n 
+0000017770 00000 n 
+0000019336 00000 n 
+0000020539 00000 n 
+0000020776 00000 n 
+0000020865 00000 n 
+0000022431 00000 n 
+0000023993 00000 n 
+0000025192 00000 n 
+0000025431 00000 n 
+trailer
+<< /Size 30 /Root 1 0 R >>
+startxref
+25520
+%%EOF

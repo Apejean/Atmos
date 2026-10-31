@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-3 -3.5 41 35" width="2050" height="1750">
+<style>.g{fill:none;stroke:#c8961e;stroke-width:0.05}.gl{fill:none;stroke:#2f6fdc;stroke-width:0.045;stroke-dasharray:0.3 0.2}.c{fill:none;stroke:#d33;stroke-width:0.045;stroke-dasharray:0.25 0.15}.f{fill:#e9ebee;stroke:#222;stroke-width:0.06}.pt{fill:#d33}.lab{font:0.55px Arial,sans-serif;fill:#222}.dim{font:0.6px Arial,sans-serif;fill:#c8961e;font-weight:bold}.ttl{font:0.8px Arial,sans-serif;fill:#111;font-weight:bold}</style>
+<rect x="-3" y="-3.5" width="41" height="35" fill="#ffffff"/>
+<path class="f" d="M21 0L34 26L27.5 26L17.6 6.1Z"/>
+<path class="f" d="M14 0.9L21 0L17.6 6.1L12.3 15.5L16.6 15.9L13.5 16.8L10.4 18.5L7.2 21L4.1 23.2L1 25.2L0 26Z"/>
+<path class="f" d="M0 26C2.7 21.3 6.1 17.8 9.9 15.7C13.7 13.7 17.7 13.2 21.7 14.3L21.7 14.3L23.3 17.4L23.2 17.4C17 16.6 10.9 19.7 6.1 26L0 26Z"/>
+<path class="f" d="M21.7 14.3C25.2 15.3 28.6 17.6 31.5 21L34 26L27.5 26Z"/>
+<path class="f" d="M21.7 14.3C25.2 15.3 28.6 17.6 31.5 21C28.9 19 26.1 17.8 23.2 17.4L21.7 14.3Z"/>
+<rect class="g" x="0" y="0" width="34" height="26" style="stroke-width:0.09"/>
+<line x1="13" y1="0" x2="13" y2="26" class="g"/>
+<line x1="21" y1="0" x2="21" y2="26" class="g"/>
+<line x1="0" y1="16.1" x2="34" y2="16.1" class="g"/>
+<line x1="0" y1="9.9" x2="34" y2="9.9" class="g"/>
+<line x1="0" y1="21" x2="34" y2="21" class="g"/>
+<defs><clipPath id="cp"><rect x="-1.5" y="-1.5" width="37" height="29"/></clipPath></defs><g clip-path="url(#cp)">
+<line x1="29.3" y1="-26.4" x2="-29.3" y2="78.4" class="gl"/>
+<line x1="50.3" y1="-52.4" x2="-8.2" y2="52.4" class="gl"/>
+<line x1="-5.8" y1="-53.7" x2="47.8" y2="53.7" class="gl"/>
+<line x1="0.7" y1="-27.7" x2="54.3" y2="79.7" class="gl"/>
+<line x1="80.5" y1="-7.4" x2="-38.5" y2="7.4" class="gl"/>
+<ellipse class="c" cx="17.5" cy="52.6" rx="24" ry="38.8"/>
+<ellipse class="c" cx="21.2" cy="56.1" rx="24" ry="38.8"/>
+</g>
+<circle class="pt" cx="21" cy="0" r="0.16"/>
+<text x="21.3" y="-0.3" class="lab">A (21.01, 26.00)</text>
+<circle class="pt" cx="14" cy="0.9" r="0.16"/>
+<text x="14.3" y="0.6" class="lab">TL (14.03, 25.13)</text>
+<circle class="pt" cx="17.6" cy="6.1" r="0.16"/>
+<text x="17.9" y="5.8" class="lab">P_hole (17.59, 19.86)</text>
+<circle class="pt" cx="0" cy="26" r="0.16"/>
+<text x="0.3" y="25.7" class="lab">BLc (0.00, 0.00)</text>
+<circle class="pt" cx="6.1" cy="26" r="0.16"/>
+<text x="6.4" y="25.7" class="lab">F (6.07, 0.00)</text>
+<circle class="pt" cx="27.5" cy="26" r="0.16"/>
+<text x="27.8" y="25.7" class="lab">BRR (27.51, 0.00)</text>
+<circle class="pt" cx="34" cy="26" r="0.16"/>
+<text x="34.3" y="25.7" class="lab">BRL (34.00, 0.00)</text>
+<circle class="pt" cx="31.5" cy="21" r="0.16"/>
+<text x="31.8" y="20.7" class="lab">E (31.50, 5.00)</text>
+<circle class="pt" cx="21.7" cy="14.3" r="0.16"/>
+<text x="22" y="14" class="lab">pa (21.67, 11.69)</text>
+<circle class="pt" cx="23.2" cy="17.4" r="0.16"/>
+<text x="23.5" y="17.1" class="lab">lb (23.21, 8.60)</text>
+<circle class="pt" cx="17.5" cy="13.7" r="0.16"/>
+<text x="17.8" y="13.4" class="lab">crest (17.51, 12.28)</text>
+<text class="dim" x="17" y="-1.6" text-anchor="middle">W = 34u</text><text class="dim" x="-1.7" y="13" text-anchor="middle" transform="rotate(-90 -1.7 13)">H = 26u</text>
+<text class="dim" x="10.5" y="27.3" text-anchor="middle">W/phi = 21u</text><text class="dim" x="27.5" y="27.3" text-anchor="middle">W/phi^2 = 13u</text>
+<text class="dim" x="34.3" y="10.1">H/phi</text><text class="dim" x="34.3" y="16.3">H/phi^2</text><text class="dim" x="34.3" y="21.2">5u</text>
+<text class="ttl" x="-2.5" y="30.6">The Awesome symbol - golden construction (u = H/26; coordinates = (x, height above base))</text>
+</svg>

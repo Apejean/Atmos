@@ -76,6 +76,12 @@ OutputBaseFilename=The_Awesome_Setup
 Compression=lzma
 SolidCompression=yes
 WizardStyle=modern
+; App icon (2026-10-31: The Awesome logo, Image\The_Awesome_Logo): the setup file and the installed-apps list use it.
+; ChangesAssociations makes Explorer refresh its cached icons when setup ends, so an upgrade shows the new icon on the
+; shortcuts at once.
+SetupIconFile=runner\resources\app_icon.ico
+UninstallDisplayIcon={app}\{#MyAppExeName}
+ChangesAssociations=yes
 PrivilegesRequired=admin
 ; %TEMP%\Setup Log <date> #<n>.txt: shows whether the prerequisites were installed or skipped.
 SetupLogging=yes
