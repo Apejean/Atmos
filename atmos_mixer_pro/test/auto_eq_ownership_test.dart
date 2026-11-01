@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -218,6 +220,59 @@ void main() {
       List.filled(kAutoEqSlotCount, false),
       reason: '명시적 임포트는 자동 계산이 덮어쓰지 않아야 한다',
     );
+  });
+
+  test('앱 시작 때 config 동기화가 저장값 불러오기보다 먼저 와도 튜닝이 사라지지 않는다', () async {
+    // 2026-11-01 Windows 실기: 로딩 화면이 config를 먼저 읽어(loadConfigAsync) 튜닝 상태를 처음
+    // 읽는 곳이 syncFromBackendConfig였다. 아직 빈 상태에 config 채널을 기본값으로 채워 곧바로
+    // 저장했고, 이어진 불러오기가 그 기본값을 읽어 스피커가 없는 CH2의 게인 −4.5dB가 0dB가 됐다
+    // (스피커가 있는 채널은 자동 계산이 다시 채워 드러나지 않았다).
+    final stored = ChannelTuningState.initial().copyWith(gainDb: -4.5);
+    SharedPreferences.setMockInitialValues({
+      'tuning_state': jsonEncode({'2': stored.toJson()}),
+      'tuning_state_schema_version': 4,
+    });
+    // 앱에서는 다른 상태들이 저장소를 먼저 열어 둔다. 그래야 config 동기화의 저장이 불러오기보다
+    // 먼저 끝난다(여기서 처음 열면 불러오기가 먼저 끝나 문제가 드러나지 않는다).
+    await SharedPreferences.getInstance();
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+
+    ChannelSetting channel(String name) => ChannelSetting(
+          enabled: true,
+          customName: name,
+          delayMs: 0.0,
+          eqBands: [],
+          phaseInvert: false,
+          gainDb: 0.0,
+        );
+    // 앱 시작과 같은 순서: 튜닝 상태를 처음 읽는 곳이 config 동기화다.
+    container.read(tuningStateProvider.notifier).syncFromBackendConfig(AppConfig(
+          oscPort: 8000,
+          bufferSize: 256,
+          themeStartOscAddress: '',
+          systemResetOscAddress: '',
+          monoConfigs: {1: channel('ch1'), 2: channel('ch2')},
+          stereoConfigs: {},
+          multiConfigs: {},
+          rooms: [],
+          roomZones: [],
+          isExhibitionMode: false,
+          masterHeadroomDb: 0.0,
+          peakLimiterEnabled: true,
+          globalReverbMix: 0.0,
+          globalReverbDecay: 1.0,
+        ));
+    final notifier = container.read(tuningStateProvider.notifier);
+    await notifier.ensureLoaded();
+    await pumpEventQueue();
+
+    expect(notifier.getTuning(2).gainDb, -4.5,
+        reason: '저장된 CH2 게인이 config 기본값(0dB)으로 바뀌었다');
+    final saved = jsonDecode(
+        (await SharedPreferences.getInstance()).getString('tuning_state')!) as Map;
+    expect((saved['2']['gainDb'] as num).toDouble(), -4.5,
+        reason: '기본값이 저장값을 덮어써 다음 실행에도 사라진다');
   });
 
   test('저장된 슬로프가 드롭다운에 없는 값이면 불러올 때 정리한다', () {

@@ -68,6 +68,13 @@ Future<void> main(List<String> args) async {
   ));
 }
 
+/// 앱 화면 전체를 접근성 트리에서 뺀다(MaterialApp.builder). Flutter Windows 엔진의 접근성 연결부는 화면
+/// 낭독기 같은 접근성 프로그램이 붙어 있을 때 창 크기 변경 등으로 노드가 옮겨지면 빈 포인터를 읽어 앱을
+/// 끈다(flutter/flutter#192689, 2026-11-01 실기: AccessibilityBridge::CreateRemoveReparentedNodesUpdate).
+/// 운영 앱이라 화면 낭독기를 쓰지 않으므로 트리를 만들지 않아 그 경로를 없앤다(2026-11-01 사용자 결정).
+Widget excludeAppSemantics(BuildContext context, Widget? child) =>
+    ExcludeSemantics(child: child ?? const SizedBox.shrink());
+
 class AtmosMixerProApp extends ConsumerStatefulWidget {
   const AtmosMixerProApp({super.key});
 
@@ -173,6 +180,7 @@ class _AtmosMixerProAppState extends ConsumerState<AtmosMixerProApp>
         brightness: Brightness.dark,
         fontFamily: 'Pretendard', // Fallback to system font if not provided
       ),
+      builder: excludeAppSemantics,
       home: const AudioInitSplashScreen(),
     );
   }

@@ -431,6 +431,17 @@ class TuningStateNotifier extends Notifier<Map<int, ChannelTuningState>>
 
     // config에 없는 채널의 상태까지 날리지 않는다.
     state = {...state, ...newState};
+    if (!_isLoaded) {
+      // 저장된 튜닝을 아직 불러오지 않았다(앱 시작 때 로딩 화면이 config를 먼저 읽는다). 지금 저장하면
+      // 방금 채운 기본값이 저장값을 덮고 이어지는 불러오기가 그 기본값을 읽어, 스피커가 없는 채널의
+      // 튜닝이 사라진다(2026-11-01 Windows 실기: CH2 -4.5dB -> 0dB). 불러온 값 위에서 다시 맞춘다.
+      ensureLoaded().then((_) {
+        if (ref.mounted) {
+          syncFromBackendConfig(config, treatAsManual: treatAsManual);
+        }
+      }, onError: (Object e) => debugPrint('채널 튜닝 불러오기 실패, config 동기화 건너뜀: $e'));
+      return;
+    }
     _saveToPrefs();
   }
 
