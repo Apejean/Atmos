@@ -1,7 +1,8 @@
 /// 설치 폴더 Legal\Third-party License Information.txt를 만든다(Ableton Live의 같은 이름 파일처럼, 2026-10-25 사용자
 /// 결정). 빌드 뒤·설치 파일 전에 돌린다. Flutter가 만든 NOTICES.Z, Rust 크레이트(cargo tree와 로컬 레지스트리의
 /// 원문), 앱이 함께 내보내는 파일(three.js, 흉상 귀의 MakeHuman 출처, WebView2 로더, Material Icons 글꼴, 있으면
-/// model-viewer), 데이터(KEMAR)와 상표(ASIO) 고지를 모은다. 빠진 원문이 있으면 멈춘다(고지 없는 설치 파일을 막는다).
+/// model-viewer), 데이터(KEMAR)와 상표(ASIO) 고지, Windows 설치 파일이 함께 설치하는 Microsoft 런타임(VC++·WebView2)의
+/// 약관 전문을 모은다. 빠진 원문이 있으면 멈춘다(고지 없는 설치 파일을 막는다).
 ///
 /// atmos_mixer_pro 폴더에서:
 ///   dart run tool/legal/generate_third_party_licenses.dart --target x86_64-pc-windows-msvc
@@ -24,6 +25,63 @@ const _band = '=================================================================
 const _extraCrateFiles = <String, List<String>>{
   'dart-sys': ['dart-sdk/LICENSE'],
 };
+
+/// Windows 설치 파일이 함께 넣고 없거나 오래됐을 때만 설치하는 Microsoft 런타임(tool/windows/fetch-redist.ps1이 받는
+/// 것)과 그 약관 전문. 원문은 각 런타임이 가리키는 Microsoft 공식 문서를 글자 그대로 옮겼다(2026-11-02 사용자 결정
+/// "전문 포함시켜"). 원문이 없거나 다른 문서면 멈춘다.
+class _MicrosoftRuntime {
+  const _MicrosoftRuntime(this.name, this.url, this.terms, this.product, this.title, this.source, {this.notice});
+
+  final String name;
+
+  /// 받는 곳(fetch-redist.ps1과 같은 주소).
+  final String url;
+
+  /// 약관 원문 파일(tool/legal/licenses).
+  final String terms;
+
+  /// 약관 둘째 줄의 제품 이름(원문 확인용).
+  final String product;
+
+  /// 부록 제목.
+  final String title;
+
+  /// 원문을 옮겨 온 곳·판·날짜.
+  final String source;
+
+  /// 약관이 최종 사용자에게 알리라고 한 것.
+  final String? notice;
+}
+
+const _microsoftRuntimes = [
+  _MicrosoftRuntime(
+    'Microsoft Visual C++ v14 Redistributable (VC_redist.x64.exe)',
+    'https://aka.ms/vc14/vc_redist.x64.exe',
+    'tool/legal/licenses/Microsoft-VC-v14-Redistributable-and-Runtime.txt',
+    'MICROSOFT VISUAL C++ V14 REDISTRIBUTABLE and RUNTIME',
+    'Microsoft Visual C++ v14 Redistributable and Runtime license terms',
+    // 재배포 설치 파일의 설치 창 문구(thm.wxl)와 LicenseUrl이 이 주소를 가리킨다(14.51.36247.0에서 확인). 그 주소의
+    // 영문 문서(Visual-C-V14-License-Redistributable_and_Runtime_ENU.docx)를 옮겼다.
+    "Text of the license terms at https://aka.ms/VCRedistLicense, the address the redistributable's setup window "
+        'gives for its license terms (Last Updated: October 1, 2025; EULA ID: Cpp_v14_ENU.1033). Copied on 2026-11-02.',
+  ),
+  _MicrosoftRuntime(
+    'Microsoft Edge WebView2 Runtime, Evergreen Standalone Installer (MicrosoftEdgeWebView2RuntimeInstallerX64.exe)',
+    'https://go.microsoft.com/fwlink/?linkid=2124701',
+    'tool/legal/licenses/Microsoft-Edge-WebView2-Runtime.txt',
+    'MICROSOFT EDGE WEBVIEW2 RUNTIME',
+    'Microsoft Edge WebView2 Runtime license terms',
+    // 내려받기 페이지가 받기 전에 보이는 약관이다. 그 창이 읽는 주소(developer.microsoft.com/microsoft-edge/api/eula/
+    // webview2)의 본문을 옮겼다(문서에 날짜가 없다).
+    'Text of the license terms that https://developer.microsoft.com/microsoft-edge/webview2/ shows before the '
+        'download of the Evergreen Standalone Installer. Copied on 2026-11-02.',
+    // 약관 3조 b·9조 a: SmartScreen을 끄지 않으면 모든 사용자에게 알린다. 앱은 WebView2의 SmartScreen을 끄지 않는다.
+    notice: 'Notice: The 3D room viewer of The Awesome runs in the Microsoft Edge WebView2 Runtime, which includes '
+        "Microsoft Defender SmartScreen. SmartScreen collects and sends the end user's information to Microsoft as "
+        "disclosed in Microsoft's Privacy Statement at https://aka.ms/privacy and the Microsoft Edge Privacy "
+        'Whitepaper at https://learn.microsoft.com/en-us/microsoft-edge/privacy-whitepaper#smartscreen.',
+  ),
+];
 
 Future<void> main(List<String> args) async {
   final opt = _options(args);
@@ -50,6 +108,11 @@ Future<void> main(List<String> args) async {
   final notices = _flutterNotices(assets);
   // ASIO는 Windows 판에서만 쓴다: 다른 대상에는 상표 절을 두지 않는다(ASIO 계약 3조 1항 g, 2026-10-25 사용자 결정).
   final asio = target.contains('windows');
+  // Microsoft 런타임은 Windows 설치 파일만 넣는다. 부록 글자는 A(Apache)·B(MPL, 쓸 때) 다음부터 붙인다.
+  final microsoft = target.contains('windows')
+      ? [for (final r in _microsoftRuntimes) (r, _microsoftTerms(r))]
+      : <(_MicrosoftRuntime, String)>[];
+  String appendix(int i) => 'Appendix ${String.fromCharCode('A'.codeUnitAt(0) + (usesMpl ? 2 : 1) + i)}';
   final b = StringBuffer()
     ..writeln('The Awesome $version - Third-party License Information')
     ..writeln('Target: $target')
@@ -65,9 +128,11 @@ Future<void> main(List<String> args) async {
     ..writeln('  4. Other files distributed with the application')
     ..writeln('  5. Data');
   if (asio) b.writeln('  6. Trademarks');
-  b
-    ..writeln('  Appendix A. Apache License, Version 2.0')
-    ..writeln(usesMpl ? '  Appendix B. Mozilla Public License, Version 2.0' : '');
+  b.writeln('  Appendix A. Apache License, Version 2.0');
+  if (usesMpl) b.writeln('  Appendix B. Mozilla Public License, Version 2.0');
+  for (var i = 0; i < microsoft.length; i++) {
+    b.writeln('  ${appendix(i)}. ${microsoft[i].$1.title}');
+  }
   _section(b, '1. Audio engine (rust_lib_atmos_mixer_pro): ${engine.length} Rust crates');
   for (final c in engine) {
     _crateEntry(b, c);
@@ -93,6 +158,21 @@ Future<void> main(List<String> args) async {
 
   _section(b, '4. Other files distributed with the application');
   final usesApacheFont = _otherFiles(b, assets, opt['webview2-license']);
+  for (var i = 0; i < microsoft.length; i++) {
+    final r = microsoft[i].$1;
+    b
+      ..writeln(_line)
+      ..writeln(r.name)
+      ..writeln(r.url)
+      ..writeln('Setup installs it only when this computer needs it. License: Microsoft Software License Terms '
+          '(full text in ${appendix(i)}).');
+    if (r.notice != null) {
+      b
+        ..writeln()
+        ..writeln(r.notice);
+    }
+    b.writeln();
+  }
 
   _section(b, '5. Data');
   b
@@ -119,13 +199,31 @@ Future<void> main(List<String> args) async {
     _section(b, 'Appendix B. Mozilla Public License, Version 2.0');
     b.writeln(mpl!.trim());
   }
+  for (var i = 0; i < microsoft.length; i++) {
+    final (r, terms) = microsoft[i];
+    _section(b, '${appendix(i)}. ${r.title}');
+    b
+      ..writeln(r.source)
+      ..writeln()
+      ..writeln(terms.trim());
+  }
 
   var text = b.toString().replaceAll('\r\n', '\n');
   if (target.contains('windows')) text = text.replaceAll('\n', '\r\n');
   await out.parent.create(recursive: true);
   await out.writeAsString(text, encoding: utf8);
   stdout.writeln('engine=${engine.length} supervisor=${supervisor.length} '
-      'mpl=${all.where((c) => c.chosen.contains('MPL-2.0')).length} out=${out.path} bytes=${await out.length()}');
+      'mpl=${all.where((c) => c.chosen.contains('MPL-2.0')).length} microsoft=${microsoft.length} '
+      'out=${out.path} bytes=${await out.length()}');
+}
+
+/// tool/legal/licenses의 Microsoft 약관 원문. 없거나 다른 문서면 멈춘다.
+String _microsoftTerms(_MicrosoftRuntime r) {
+  final f = File(r.terms);
+  if (!f.existsSync()) throw StateError('Microsoft 약관 원문이 없다: ${r.terms}');
+  final text = _read(f);
+  if (!isMicrosoftLicenseTerms(text, r.product)) throw StateError('${r.product} 약관 원문이 아니다: ${r.terms}');
+  return text;
 }
 
 Map<String, String> _options(List<String> args) {
