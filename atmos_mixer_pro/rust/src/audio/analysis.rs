@@ -3,6 +3,24 @@ use std::sync::atomic::Ordering;
 use crate::core::state::GLOBAL_STATE;
 use crate::audio::rta::RtaAnalyzer;
 
+/// 마스터 LUFS 측정기(순간·단기·통합 음량, 트루 피크).
+///
+/// 통합 음량은 히스토그램으로 잰다(칸 1000개 고정). 기본(큐) 방식은 켠 뒤의 0.4초 블록을 모두 쌓고
+/// 물을 때마다 전부 다시 훑어서, 이 스레드가 오디오마다 묻는 동안 메모리와 CPU가 켠 시간에 비례해
+/// 늘었다(2026-11-01 Windows 28시간 시험: 앱 CPU 0.90→1.01코어, 메모리 분당 약 0.005MB).
+fn new_lufs_meter(channels: u32, sample_rate: u32) -> Option<ebur128::EbuR128> {
+    ebur128::EbuR128::new(
+        channels,
+        sample_rate,
+        ebur128::Mode::M
+            | ebur128::Mode::S
+            | ebur128::Mode::I
+            | ebur128::Mode::TRUE_PEAK
+            | ebur128::Mode::HISTOGRAM,
+    )
+    .ok()
+}
+
 pub fn start_analysis_thread(
     mut rx: Consumer<f32>,
     sample_rate: u32,
@@ -18,11 +36,7 @@ pub fn start_analysis_thread(
             *lock = Some(rta_analyzer.get_magnitudes_arc());
         }
 
-        let mut lufs_meter = ebur128::EbuR128::new(
-            channels.max(1) as u32,
-            sample_rate,
-            ebur128::Mode::M | ebur128::Mode::S | ebur128::Mode::I | ebur128::Mode::TRUE_PEAK
-        ).ok();
+        let mut lufs_meter = new_lufs_meter(channels.max(1) as u32, sample_rate);
 
         let mut temp_buffer = Vec::with_capacity(16384);
         let mut mono_mix = Vec::with_capacity(16384);
@@ -114,4 +128,46 @@ pub fn start_analysis_thread(
             }
         }
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// 10초 1kHz 사인(-20dBFS 근처) 스테레오를 측정기에 넣고 통합 음량을 돌려준다.
+    fn integrated_of_sine(meter: &mut ebur128::EbuR128) -> f64 {
+        let rate = 48_000;
+        let mut buf = Vec::with_capacity(rate * 10 * 2);
+        for n in 0..rate * 10 {
+            let s = 0.1 * (2.0 * std::f32::consts::PI * 1000.0 * n as f32 / rate as f32).sin();
+            buf.push(s);
+            buf.push(s);
+        }
+        meter.add_frames_f32(&buf).expect("add_frames_f32");
+        meter.loudness_global().expect("loudness_global")
+    }
+
+    #[test]
+    fn integrated_loudness_uses_fixed_size_histogram() {
+        // 기본(큐) 방식은 켠 뒤의 0.4초 블록을 모두 쌓고(초당 10개) 통합 음량을 물을 때마다 전부 다시
+        // 훑는다. 이 스레드는 오디오가 들어올 때마다 묻기 때문에 무인 운영에서 메모리와 CPU가 시간에
+        // 비례해 늘었다(2026-11-01 28시간 시험). 히스토그램은 칸 1000개로 고정이다.
+        let meter = new_lufs_meter(2, 48_000).expect("측정기를 만들지 못했다");
+        assert!(meter.mode().contains(ebur128::Mode::I));
+        assert!(meter.mode().contains(ebur128::Mode::HISTOGRAM), "통합 음량이 큐 방식이다");
+    }
+
+    #[test]
+    fn histogram_integrated_loudness_matches_queue_within_a_tenth_lu() {
+        // 히스토그램은 0.1LU 칸으로 재므로 값이 거의 같아야 한다.
+        let mut ours = new_lufs_meter(2, 48_000).expect("측정기를 만들지 못했다");
+        let mut queue = ebur128::EbuR128::new(
+            2,
+            48_000,
+            ebur128::Mode::M | ebur128::Mode::S | ebur128::Mode::I | ebur128::Mode::TRUE_PEAK,
+        )
+        .expect("큐 측정기");
+        let (a, b) = (integrated_of_sine(&mut ours), integrated_of_sine(&mut queue));
+        assert!((a - b).abs() < 0.1, "히스토그램 {a:.3} LUFS, 큐 {b:.3} LUFS");
+    }
 }
