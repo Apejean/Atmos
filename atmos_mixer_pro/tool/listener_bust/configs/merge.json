@@ -1,0 +1,1 @@
+{"voxel": 0.006, "c": [0.95, 2.655, -0.12], "r_in": [0.22, 0.52, 0.34], "r_out": [0.4, 0.85, 0.62], "c_ear": [0.97, 2.655, -0.12], "r_ear": [0.19, 0.55, 0.36], "sink": 0.0, "band": [0.85, 1.15], "smooth_rep": 20, "target_tris": 90000, "recess": 0.12, "recess_fall": 0.35, "lap_iter": 3, "lap_lambda": 0.4, "skin_iter": 45, "skin_lambda": 0.6, "skin_band": [0.92, 1.15, 2.3]}

@@ -1,7 +1,7 @@
 /// 설치 폴더 Legal\Third-party License Information.txt를 만든다(Ableton Live의 같은 이름 파일처럼, 2026-10-25 사용자
 /// 결정). 빌드 뒤·설치 파일 전에 돌린다. Flutter가 만든 NOTICES.Z, Rust 크레이트(cargo tree와 로컬 레지스트리의
-/// 원문), 앱이 함께 내보내는 파일(three.js, WebView2 로더, Material Icons 글꼴, 있으면 model-viewer), 데이터(KEMAR)와
-/// 상표(ASIO) 고지를 모은다. 빠진 원문이 있으면 멈춘다(고지 없는 설치 파일을 막는다).
+/// 원문), 앱이 함께 내보내는 파일(three.js, 흉상 귀의 MakeHuman 출처, WebView2 로더, Material Icons 글꼴, 있으면
+/// model-viewer), 데이터(KEMAR)와 상표(ASIO) 고지를 모은다. 빠진 원문이 있으면 멈춘다(고지 없는 설치 파일을 막는다).
 ///
 /// atmos_mixer_pro 폴더에서:
 ///   dart run tool/legal/generate_third_party_licenses.dart --target x86_64-pc-windows-msvc
@@ -280,7 +280,7 @@ String _flutterNotices(Directory assets) {
   return text.replaceAll('\r\n', '\n');
 }
 
-/// three.js, WebView2 로더, Material Icons 글꼴, model-viewer(들어 있을 때). Apache 부록을 쓰면 true.
+/// three.js, 흉상 귀의 MakeHuman 출처, WebView2 로더, Material Icons 글꼴, model-viewer(들어 있을 때). Apache 부록을 쓰면 true.
 bool _otherFiles(StringBuffer b, Directory assets, String? webview2License) {
   final sep = Platform.pathSeparator;
   var apache = false;
@@ -303,6 +303,17 @@ bool _otherFiles(StringBuffer b, Directory assets, String? webview2License) {
       ..writeln('Copyright $copyright Three.js Authors')
       ..writeln()
       ..writeln(_mitBody)
+      ..writeln();
+  }
+
+  // 흉상 귀는 MakeHuman 기본 메시(CC0)로 만들었다. 표기 의무는 없지만 출처를 적는다(2026-10-31 사용자 결정).
+  if (File('${assets.path}${sep}assets${sep}models${sep}listener_bust_white.obj').existsSync()) {
+    b
+      ..writeln(_line)
+      ..writeln('3D listener bust ears (data/flutter_assets/assets/models/listener_bust_white.obj), derived from the '
+          'MakeHuman base mesh and targets (MPFB2 data)')
+      ..writeln('https://github.com/makehumancommunity/mpfb2')
+      ..writeln('License: CC0 1.0 Universal (public domain dedication). No attribution required.')
       ..writeln();
   }
 
