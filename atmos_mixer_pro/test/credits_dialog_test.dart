@@ -108,11 +108,19 @@ void main() {
     expect(find.text(r'Legal 폴더를 찾지 못했습니다: C:\App\Legal'), findsOneWidget);
   });
 
-  testWidgets('Windows가 아니면(ASIO 없음) ASIO 상표 줄과 Legal information이 없고 KEMAR 출처는 있다', (tester) async {
+  test('Legal 폴더 경로: Windows는 실행 파일 옆, macOS는 번들 Resources/Legal, 그 밖은 없음', () {
+    expect(legalFolderFor(r'C:\Program Files (x86)\The Awesome\atmos_mixer_pro.exe', TargetPlatform.windows),
+        r'C:\Program Files (x86)\The Awesome\Legal');
+    expect(legalFolderFor('/Applications/The Awesome.app/Contents/MacOS/atmos_mixer_pro', TargetPlatform.macOS),
+        '/Applications/The Awesome.app/Contents/Resources/Legal');
+    expect(legalFolderFor('/usr/bin/atmos', TargetPlatform.linux), isNull);
+  });
+
+  testWidgets('macOS는 ASIO 상표 줄 없이 KEMAR 출처와 Legal information이 있다', (tester) async {
     await openCredits(tester);
 
-    expect(legalFolderPath(), isNull);
-    expect(find.text('Legal information'), findsNothing);
+    expect(legalFolderPath(), endsWith('/Resources/Legal'));
+    expect(find.text('Legal information'), findsOneWidget);
     expect(find.text('Trademarks'), findsNothing);
     expect(find.textContaining('ASIO'), findsNothing);
     expect(find.textContaining('Gardner, W. G., and Martin, K. D. (1995)'), findsOneWidget);

@@ -8,8 +8,8 @@ import 'package:package_info_plus/package_info_plus.dart';
 
 /// Help → About Awesome...(2026-10-25 사용자 결정: 버전 창 "The Awesome"과 Credits를 하나로, Ableton Live처럼).
 /// 맨 위에 로고처럼 큰 "The Awesome"과 그 아래 작은 설치 버전, 그 밑에 Credits 글자 고지를 둔다. 공개 소프트웨어
-/// 라이선스 전문, EULA와 ASIO 로고는 설치 폴더 Legal 폴더의 문서에 두고, Windows에서는 "Legal information"을
-/// 누르면 탐색기로 그 폴더를 연다. 로고 그림은 여기 두지 않는다(ASIO 지침 1절 f의 로고는 ASIO를 고르는 환경설정에 있다).
+/// 라이선스 전문, EULA와 ASIO 로고는 설치 폴더 Legal 폴더의 문서에 두고(macOS는 앱 번들 Resources/Legal), "Legal information"을
+/// 누르면 탐색기(macOS는 Finder)로 그 폴더를 연다. 로고 그림은 여기 두지 않는다(ASIO 지침 1절 f의 로고는 ASIO를 고르는 환경설정에 있다).
 /// About 창이 이것 하나라 ASIO 계약 3조 1항 c(제3자를 언급하는 모든 About 창에 고지)를 이 창이 채운다.
 Future<void> showCredits(BuildContext context) async {
   final info = await PackageInfo.fromPlatform();
@@ -65,24 +65,37 @@ String aboutVersionText(PackageInfo info) {
   return '버전 ${info.version}${hasBuild ? ' (빌드 $build)' : ''}';
 }
 
-/// 설치 폴더의 Legal 폴더 경로. Windows만 실행 파일 옆이라고 알 수 있고, 다른 OS는 null(문구만 보인다).
-String? legalFolderPath() {
-  if (defaultTargetPlatform != TargetPlatform.windows) return null;
-  final exe = Platform.resolvedExecutable;
-  final cut = exe.lastIndexOf(RegExp(r'[\\/]'));
-  return '${cut < 0 ? '.' : exe.substring(0, cut)}\\$legalFolderName';
+/// 앱에 들어 있는 Legal 폴더 경로. Windows는 실행 파일 옆, macOS는 번들의 Contents/Resources/Legal이고, 다른 OS는
+/// null(문구만 보인다).
+String? legalFolderPath() => legalFolderFor(Platform.resolvedExecutable, defaultTargetPlatform);
+
+/// [executable](실행 파일 경로)과 [platform]으로 Legal 폴더 경로를 정한다(시험에서 경로 규칙만 따로 본다).
+String? legalFolderFor(String executable, TargetPlatform platform) {
+  final cut = executable.lastIndexOf(RegExp(r'[\\/]'));
+  final dir = cut < 0 ? '.' : executable.substring(0, cut);
+  switch (platform) {
+    case TargetPlatform.windows:
+      return '$dir\\$legalFolderName';
+    case TargetPlatform.macOS:
+      // .app/Contents/MacOS/<실행 파일> → .app/Contents/Resources/Legal
+      final contents = dir.lastIndexOf('/');
+      if (contents < 0) return null;
+      return '${dir.substring(0, contents)}/Resources/$legalFolderName';
+    default:
+      return null;
+  }
 }
 
-/// Windows 탐색기로 폴더를 연다. 폴더가 없으면 false(탐색기는 없는 경로를 받으면 다른 폴더를 연다).
-Future<bool> openFolderInExplorer(String path) async {
+/// 파일 관리자(Windows 탐색기, macOS Finder)로 폴더를 연다. 폴더가 없으면 false(탐색기는 없는 경로를 받으면 다른 폴더를 연다).
+Future<bool> openFolderInFileManager(String path) async {
   if (!Directory(path).existsSync()) return false;
-  await Process.start('explorer.exe', [path]);
+  await Process.start(Platform.isMacOS ? 'open' : 'explorer.exe', [path]);
   return true;
 }
 
 /// Credits 창 본문: 상표, 데이터 출처, 공개 소프트웨어 안내와 Legal 폴더 열기.
 class CreditsText extends StatefulWidget {
-  const CreditsText({super.key, this.legalFolder, this.openFolder = openFolderInExplorer});
+  const CreditsText({super.key, this.legalFolder, this.openFolder = openFolderInFileManager});
 
   /// 열 Legal 폴더 경로(없으면 "Legal information"이 안 보인다).
   final String? legalFolder;

@@ -164,12 +164,47 @@ jobs:
           directory: atmos_mixer_pro/build/windows/x64/runner/Release
           filename: ../../../../../../${{ matrix.artifact_name }}
 
-      - name: Archive Release (macOS)
+      # 배포 이름은 "The Awesome.app"이다(2026-11-03 사용자 결정). 실행 파일 이름(atmos_mixer_pro)은 감시·시험 스크립트가
+      # 쓰므로 빌드 결과 이름은 두고, 묶을 때만 이름을 바꾼다. zip은 심볼릭 링크가 깨지지 않게 ditto로 만든다.
+      - name: Package Release (macOS zip and pkg)
         if: matrix.os == 'macos-latest'
         run: |
-          cd atmos_mixer_pro/build/macos/Build/Products/Release
-          zip -r ../../../../../../${{ matrix.artifact_name }} atmos_mixer_pro.app
-          
+          set -euo pipefail
+          built=atmos_mixer_pro/build/macos/Build/Products/Release/atmos_mixer_pro.app
+          stage="$RUNNER_TEMP/pkgroot"
+          rm -rf "$stage" && mkdir -p "$stage"
+          ditto "$built" "$stage/The Awesome.app"
+          version=$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' "$stage/The Awesome.app/Contents/Info.plist")
+          ditto -c -k --sequesterRsrc --keepParent "$stage/The Awesome.app" "${{ matrix.artifact_name }}"
+          # 설치 위치는 /Applications로 고정한다(번들이 다른 곳에 있어도 거기를 덮어쓰지 않게 BundleIsRelocatable=false).
+          pkgbuild --analyze --root "$stage" "$RUNNER_TEMP/component.plist"
+          python3 - "$RUNNER_TEMP/component.plist" <<'PY'
+          import plistlib, sys
+          path = sys.argv[1]
+          with open(path, 'rb') as f:
+              items = plistlib.load(f)
+          for item in items:
+              item['BundleIsRelocatable'] = False
+          with open(path, 'wb') as f:
+              plistlib.dump(items, f)
+          PY
+          pkgbuild --root "$stage" --component-plist "$RUNNER_TEMP/component.plist" \
+            --identifier com.example.atmosMixerPro.pkg --version "$version" --install-location /Applications \
+            "$RUNNER_TEMP/component.pkg"
+          productbuild --package "$RUNNER_TEMP/component.pkg" "The_Awesome_v$version.pkg"
+          pkgutil --payload-files "The_Awesome_v$version.pkg" | head -5
+          echo "MACOS_PKG=The_Awesome_v$version.pkg" >> "$GITHUB_ENV"
+          shasum -a 256 "The_Awesome_v$version.pkg"
+
+      - name: Upload pkg (macOS)
+        if: matrix.os == 'macos-latest' && github.event_name != 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: the_awesome_macos_pkg
+          path: ${{ env.MACOS_PKG }}
+          if-no-files-found: error
+          retention-days: 7
+
       - name: Upload Artifact
         if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4
@@ -193,3 +228,4 @@ jobs:
             atmos_mixer_pro_windows.zip/atmos_mixer_pro_windows.zip
             atmos_mixer_pro_macos.zip/atmos_mixer_pro_macos.zip
             the_awesome_windows_installer/*.exe
+            the_awesome_macos_pkg/*.pkg
