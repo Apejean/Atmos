@@ -243,6 +243,7 @@
 				33CC10EB2044A3C60003C045 /* Resources */,
 				33CC110E2044A8840003C045 /* Bundle Framework */,
 				3399D490228B24CF009A79C7 /* ShellScript */,
+				7A1B2C3D4E5F60718293A4B5 /* Add Legal Documents */,
 				DC5F478C19E6DE8C53D462AD /* Remove Extended Attributes */,
 				EF1186A5862341D06670FC3F /* [CP] Embed Pods Frameworks */,
 			);
@@ -414,6 +415,24 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "\"$FLUTTER_ROOT\"/packages/flutter_tools/bin/macos_assemble.sh && touch Flutter/ephemeral/tripwire";
+		};
+		7A1B2C3D4E5F60718293A4B5 /* Add Legal Documents */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Add Legal Documents";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"$SRCROOT/Runner/add_legal.sh\"\n";
 		};
 		DC5F478C19E6DE8C53D462AD /* Remove Extended Attributes */ = {
 			isa = PBXShellScriptBuildPhase;
