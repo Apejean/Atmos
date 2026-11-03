@@ -4,6 +4,14 @@
 
 #include "flutter/generated_plugin_registrant.h"
 
+namespace {
+
+// Shows the window if main.dart has not shown it by then (see OnCreate).
+constexpr UINT_PTR kShowFallbackTimer = 1;
+constexpr UINT kShowFallbackDelayMs = 5000;
+
+}  // namespace
+
 FlutterWindow::FlutterWindow(const flutter::DartProject& project)
     : project_(project) {}
 
@@ -27,13 +35,20 @@ bool FlutterWindow::OnCreate() {
   RegisterPlugins(flutter_controller_->engine());
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
 
+  // main.dart shows the window through window_manager after it has set the
+  // size and centred it. Showing it here on the first frame raced with that:
+  // the resized window could appear at the creation origin (10,10) for 40 to
+  // 80 ms before it moved to the centre (installed 1.3.8: 5 of 5 starts on
+  // 2026-11-03).
+  // The timer shows the window only if the Dart side never does, so the app
+  // cannot stay invisible.
   flutter_controller_->engine()->SetNextFrameCallback([&]() {
-    this->Show();
+    SetTimer(GetHandle(), kShowFallbackTimer, kShowFallbackDelayMs, nullptr);
   });
 
-  // Flutter can complete the first frame before the "show window" callback is
-  // registered. The following call ensures a frame is pending to ensure the
-  // window is shown. It is a no-op if the first frame hasn't completed yet.
+  // Flutter can complete the first frame before the callback above is
+  // registered. The following call ensures a frame is pending so that the
+  // callback runs. It is a no-op if the first frame hasn't completed yet.
   flutter_controller_->ForceRedraw();
 
   return true;
@@ -51,6 +66,14 @@ LRESULT
 FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
                               WPARAM const wparam,
                               LPARAM const lparam) noexcept {
+  if (message == WM_TIMER && wparam == kShowFallbackTimer) {
+    KillTimer(hwnd, kShowFallbackTimer);
+    if (!IsWindowVisible(hwnd)) {
+      Show();
+    }
+    return 0;
+  }
+
   // Give Flutter, including plugins, an opportunity to handle window messages.
   if (flutter_controller_) {
     std::optional<LRESULT> result =
