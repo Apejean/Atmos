@@ -109,6 +109,13 @@ LicenseKind classifyLicenseFile(String fileName, String text) {
   return LicenseKind.other;
 }
 
+/// 저장소에 옮겨 둔 Microsoft 약관 원문(tool/legal/licenses)인가: 빈 줄을 빼고 첫 줄이 "MICROSOFT SOFTWARE LICENSE
+/// TERMS", 다음 줄이 제품 이름이고 본문이 있어야 한다. 빈 파일이나 다른 제품의 약관으로 설치 파일을 만들지 않게 한다.
+bool isMicrosoftLicenseTerms(String text, String product) {
+  final lines = [for (final l in text.split('\n')) if (l.trim().isNotEmpty) l.trim()];
+  return lines.length > 2 && lines[0] == 'MICROSOFT SOFTWARE LICENSE TERMS' && lines[1] == product;
+}
+
 /// 크레이트마다 실을 파일. MIT를 골랐으면 MIT 원문 파일, Apache-2.0·MPL-2.0은 부록 원문을 가리키므로 따로 싣지
 /// 않는다. 그 밖의 라이선스(AND로 붙은 BSD-3-Clause·Unicode-3.0 등)는 MIT·Apache·MPL이 아닌 파일을 싣고,
 /// COPYRIGHT·NOTICE 파일은 늘 싣는다. 고른 라이선스에 맞는 파일이 없거나 표현이 비면 라이선스 파일을 모두 싣는다.

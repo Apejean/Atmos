@@ -87,4 +87,15 @@ void main() {
     expect(classifyLicenseFile('LICENSE', 'Mozilla Public License Version 2.0'), LicenseKind.mpl);
     expect(classifyLicenseFile('COPYRIGHT', 'Permission is hereby granted, free of charge'), LicenseKind.other);
   });
+
+  test('Microsoft 약관 원문은 첫 두 줄(문서 이름·제품 이름)로 확인한다', () {
+    const product = 'MICROSOFT EDGE WEBVIEW2 RUNTIME';
+    const terms = 'MICROSOFT SOFTWARE LICENSE TERMS\nMICROSOFT EDGE WEBVIEW2 RUNTIME\nIF YOU LIVE IN ...\n';
+    expect(isMicrosoftLicenseTerms(terms, product), isTrue);
+    expect(isMicrosoftLicenseTerms('\r\n${terms.replaceAll('\n', '\r\n')}', product), isTrue);
+    // 빈 파일, 다른 제품의 약관, 제목만 있는 파일로는 설치 파일을 만들지 않는다.
+    expect(isMicrosoftLicenseTerms('', product), isFalse);
+    expect(isMicrosoftLicenseTerms(terms, 'MICROSOFT VISUAL C++ V14 REDISTRIBUTABLE and RUNTIME'), isFalse);
+    expect(isMicrosoftLicenseTerms('MICROSOFT SOFTWARE LICENSE TERMS\nMICROSOFT EDGE WEBVIEW2 RUNTIME\n', product), isFalse);
+  });
 }
