@@ -56,6 +56,9 @@ Future<void> main(List<String> args) async {
     titleBarStyle: TitleBarStyle.normal,
   );
 
+  // Windows에서는 창이 여기서 처음 보인다(크기를 정하고 가운데로 옮긴 뒤). runner(flutter_window.cpp)가 첫
+  // 프레임에 창을 보이면 크기만 바뀌고 아직 가운데로 가지 않은 창이 (10,10)에 잠깐 보였다(1.3.8 설치본, 2026-11-03
+  // 5번 중 5번 41~83ms). 여기까지 오지 못하면 runner가 5초 뒤에 창을 보인다.
   windowManager.waitUntilReadyToShow(windowOptions, () async {
     await windowManager.setPreventClose(true);
     await windowManager.show();
