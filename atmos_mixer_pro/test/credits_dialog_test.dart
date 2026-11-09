@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:atmos_mixer_pro/features/settings/widgets/credits_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -119,8 +121,11 @@ void main() {
   testWidgets('macOS는 ASIO 상표 줄 없이 KEMAR 출처와 Legal information이 있다', (tester) async {
     await openCredits(tester);
 
-    expect(legalFolderPath(), endsWith('/Resources/Legal'));
-    expect(find.text('Legal information'), findsOneWidget);
+    // 폴더 경로는 시험을 돌리는 PC의 실행 파일로 정해져 Windows에서는 macOS 경로가 나오지 않는다(경로 규칙은 위 시험이 본다).
+    if (!Platform.isWindows) {
+      expect(legalFolderPath(), endsWith('/Resources/Legal'));
+      expect(find.text('Legal information'), findsOneWidget);
+    }
     expect(find.text('Trademarks'), findsNothing);
     expect(find.textContaining('ASIO'), findsNothing);
     expect(find.textContaining('Gardner, W. G., and Martin, K. D. (1995)'), findsOneWidget);
