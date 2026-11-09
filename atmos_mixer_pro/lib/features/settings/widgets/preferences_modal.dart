@@ -14,6 +14,7 @@ import 'package:atmos_mixer_pro/core/utils/channel_dropdown_helper.dart';
 import 'package:atmos_mixer_pro/core/utils/channel_routing.dart';
 import 'package:atmos_mixer_pro/core/utils/osc_addresses.dart';
 import 'package:atmos_mixer_pro/features/settings/widgets/asio_setting_notice.dart';
+import 'package:atmos_mixer_pro/features/settings/widgets/startup_settings.dart';
 
 
 class PreferencesModal extends ConsumerStatefulWidget {
@@ -34,6 +35,9 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
   bool _isScanning = false;
   // 이 컴퓨터의 운영 설정이라 config.json이 아니라 환경설정(SharedPreferences)에 둔다.
   bool _autoResumeOnLogon = true;
+  // 감시 프로그램도 읽어야 해서 앱 데이터 폴더의 표시 파일로 둔다(launch_mode.dart).
+  bool _windowsAutostart = true;
+  bool get _isWindows => defaultTargetPlatform == TargetPlatform.windows;
   final Map<String, int> _trackChannels = {};
 
   String _getDriverType(String? deviceName) {
@@ -78,6 +82,11 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
     loadAutoResumeOnLogon().then((value) {
       if (mounted) setState(() => _autoResumeOnLogon = value);
     });
+    if (_isWindows) {
+      showStateDir().then(loadWindowsAutostart).then((value) {
+        if (mounted) setState(() => _windowsAutostart = value);
+      });
+    }
     // clone config for editing
     final currentConfig = ref.read(configProvider);
     _tempConfig = currentConfig != null
@@ -331,8 +340,19 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
       rooms: newRooms,
     );
     unawaited(saveAutoResumeOnLogon(_autoResumeOnLogon));
+    if (_isWindows) unawaited(_saveWindowsAutostart());
     ref.read(configProvider.notifier).saveConfig(finalConfig);
     Navigator.of(context).pop();
+  }
+
+  Future<void> _saveWindowsAutostart() async {
+    // 저장이 끝나기 전에 창이 닫히므로(이후 ref를 못 쓴다) 오류를 알릴 곳을 미리 잡아 둔다.
+    final errors = ref.read(globalErrorProvider.notifier);
+    try {
+      await saveWindowsAutostart(await showStateDir(), _windowsAutostart);
+    } catch (e) {
+      errors.showOperationError('Windows 시작 시 자동 실행 저장 실패: ${errorText(e)}');
+    }
   }
 
   @override
@@ -1024,36 +1044,12 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
 
 
         const SizedBox(height: 16),
-        Row(
-          children: [
-            const SizedBox(
-              width: 120,
-              child: Text(
-                '로그인할 때\n공연 자동 시작',
-                style: TextStyle(
-                  color: Colors.white70,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
-                ),
-              ),
-            ),
-            Switch(
-              value: _autoResumeOnLogon,
-              activeTrackColor: AppColors.primaryNeon.withValues(alpha: 0.5),
-              activeThumbColor: AppColors.primaryNeon,
-              onChanged: (val) => setState(() => _autoResumeOnLogon = val),
-            ),
-            const SizedBox(width: 8),
-            Text(
-              _autoResumeOnLogon ? 'On' : 'Off',
-              style: TextStyle(
-                color: _autoResumeOnLogon
-                    ? AppColors.primaryNeon
-                    : Colors.white54,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
+        StartupSettings(
+          showWindowsAutostart: _isWindows,
+          windowsAutostart: _windowsAutostart,
+          autoResumeOnLogon: _autoResumeOnLogon,
+          onWindowsAutostartChanged: (val) => setState(() => _windowsAutostart = val),
+          onAutoResumeOnLogonChanged: (val) => setState(() => _autoResumeOnLogon = val),
         ),
         const SizedBox(height: 24),
         const Text(

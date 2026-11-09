@@ -74,6 +74,8 @@ fn supervisor_with_app(
         .args(extra)
         .env("FAKE_DIR", dir)
         .env_remove("FAKE_MODE")
+        // 이 PC의 실제 앱 데이터 폴더(자동 실행 끔 표시)를 보지 않게 테스트마다 따로 둔다.
+        .env("APPDATA", dir.join("appdata"))
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::null());
@@ -81,6 +83,13 @@ fn supervisor_with_app(
         command.env(key, value);
     }
     Supervised(command.spawn().unwrap())
+}
+
+/// 환경설정 "Windows 시작 시 자동 실행"을 끈 상태를 만든다(앱이 앱 데이터 폴더에 남기는 표시 파일).
+fn turn_autostart_off(dir: &Path) {
+    let folder = dir.join("appdata").join("com.example").join("atmos_mixer_pro");
+    std::fs::create_dir_all(&folder).unwrap();
+    std::fs::write(folder.join("windows_autostart_off"), "").unwrap();
 }
 
 /// 가짜 앱 실행 기록(줄마다 "PID 인자…")
@@ -203,6 +212,28 @@ fn 로그인_자동_실행이면_첫_실행에만_logon을_넘긴다() {
     let mut sup = supervisor(&dir, &["--logon"], &[("FAKE_FIRST", "crash"), ("FAKE_NEXT", "clean")]);
     sup.wait_exit(15, "감시가 끝나지 않았다");
     assert_eq!(launch_args(&dir), vec!["--supervised --logon", "--supervised --auto-relaunched"]);
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+fn 자동_실행을_껐으면_로그인_실행은_앱을_띄우지_않고_끝난다() {
+    let dir = fresh_dir("autostart_off_logon");
+    turn_autostart_off(&dir);
+    let mut sup = supervisor(&dir, &["--logon"], &[("FAKE_FIRST", "clean")]);
+    let status = sup.wait_exit(15, "감시가 끝나지 않았다");
+    assert!(status.success(), "종료 코드: {status:?}");
+    assert_eq!(launches(&dir), Vec::<String>::new(), "앱을 띄우면 안 된다");
+    assert!(log_text(&dir).contains("자동 실행이 꺼져"), "감시 기록: {}", log_text(&dir));
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+fn 자동_실행을_껐어도_사람이_켜면_앱을_띄운다() {
+    let dir = fresh_dir("autostart_off_manual");
+    turn_autostart_off(&dir);
+    let mut sup = supervisor(&dir, &[], &[("FAKE_FIRST", "clean")]);
+    sup.wait_exit(15, "감시가 끝나지 않았다");
+    assert_eq!(launch_args(&dir), vec!["--supervised"]);
     let _ = std::fs::remove_dir_all(dir);
 }
 

@@ -53,6 +53,15 @@ pub fn default_dir() -> PathBuf {
     }
 }
 
+/// 환경설정 "Windows 시작 시 자동 실행"을 껐는가. 앱이 앱 데이터 폴더에 표시 파일을 둔다 — 폴더와 이름은 앱의
+/// `saveWindowsAutostart`(lib/core/state/launch_mode.dart)와 같아야 한다. 로그인 작업은 그대로 두고 여기서 끝낸다:
+/// 앱은 관리자 권한 없이 돌아 관리자 설치가 등록한 작업을 끄거나 켤 수 없다(사용자 계정은 읽기 권한뿐).
+fn windows_autostart_off() -> bool {
+    std::env::var_os("APPDATA").is_some_and(|appdata| {
+        Path::new(&appdata).join("com.example").join("atmos_mixer_pro").join("windows_autostart_off").exists()
+    })
+}
+
 impl Config {
     /// 인자를 읽는다. [exe_dir]는 감시 프로그램이 있는 폴더다.
     pub fn parse(args: &[String], exe_dir: &Path) -> Result<Config, String> {
@@ -132,6 +141,10 @@ struct Supervisor<'a> {
 /// 감시를 돌린다. 운영자가 앱을 닫았거나 감시가 이미 돌고 있으면 돌아온다.
 pub fn run(cfg: &Config) {
     let _ = std::fs::create_dir_all(&cfg.dir);
+    if cfg.logon && windows_autostart_off() {
+        log(&cfg.dir, "Windows 시작 시 자동 실행이 꺼져 있다 — 앱을 띄우지 않고 끝낸다");
+        return;
+    }
     let Some(_lock) = acquire_lock(&cfg.dir.join(SUPERVISOR_LOCK)) else {
         hand_to_running_supervisor(cfg);
         return;

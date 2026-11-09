@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -31,3 +33,19 @@ Future<void> saveAutoResumeOnLogon(bool value) async {
 
 /// 공연 상태 파일(show_state.json)을 두는 앱 지원 폴더. 설정 파일과 같은 곳이다.
 Future<String> showStateDir() async => (await getApplicationSupportDirectory()).path;
+
+/// 환경설정 "Windows 시작 시 자동 실행"을 끈 표시 파일. [dir]는 앱 지원 폴더([showStateDir])다. 파일이 없으면
+/// 켜짐이라 업데이트해도 지금 동작 그대로다. 로그인 작업으로 시작한 감시 프로그램이 이 파일을 보면 앱을 띄우지
+/// 않고 끝난다 — 이름은 감시 프로그램의 `windows_autostart_off`(supervisor/src/run.rs)와 같아야 한다.
+File _windowsAutostartOffFile(String dir) => File('$dir${Platform.pathSeparator}windows_autostart_off');
+
+Future<bool> loadWindowsAutostart(String dir) async => !await _windowsAutostartOffFile(dir).exists();
+
+Future<void> saveWindowsAutostart(String dir, bool value) async {
+  final marker = _windowsAutostartOffFile(dir);
+  if (!value) {
+    await marker.create(recursive: true);
+  } else if (await marker.exists()) {
+    await marker.delete();
+  }
+}
