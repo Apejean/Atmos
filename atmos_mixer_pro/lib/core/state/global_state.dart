@@ -537,6 +537,20 @@ final engineStateProvider = NotifierProvider<EngineStateNotifier, EngineState>(
   EngineStateNotifier.new,
 );
 
+/// 정지한 트랙이 줄어드는 시간(mixer.rs `fade_frames`, 300ms)보다 조금 길다.
+const Duration kUnmuteAfterStopDelay = Duration(milliseconds: 350);
+
+/// Reset·프로젝트 불러오기에서 전체 정지 뒤에 부른다. [EngineStateNotifier.reset]은 화면의 음소거 표시만 끄므로, 엔진 음소거를
+/// 같이 풀지 않으면 표시는 꺼졌는데 소리가 안 나는 상태가 된다. 트랙이 줄어드는 중에 풀면 음소거해 둔 소리가 새므로 기다린다.
+Future<void> clearEngineMuteAfterStop({
+  required bool muted,
+  required Future<void> Function() unmute,
+}) async {
+  if (!muted) return;
+  await Future<void>.delayed(kUnmuteAfterStopDelay);
+  await unmute();
+}
+
 /// 오류를 사람이 읽을 문장으로. AtmosError는 toString()이 없어 '$e'로 쓰면 `Instance of 'AtmosError'`가 된다.
 String errorText(Object error) => error is AtmosError ? error.message : '$error';
 

@@ -305,7 +305,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         available: available,
       );
       final importedConfig = device.config;
+      final wasMuted = ref.read(engineStateProvider).masterMuteActive;
       await rust_api.apiStopAll();
+      await clearEngineMuteAfterStop(
+        muted: wasMuted,
+        unmute: () => rust_api.apiSetMasterMute(muted: false),
+      );
       if (context.mounted) {
         ref.read(engineStateProvider.notifier).reset();
         ref.read(configProvider.notifier).saveConfig(importedConfig);
@@ -930,6 +935,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 ),
                 onPressed: () async {
                   try {
+                    final wasMuted = ref.read(engineStateProvider).masterMuteActive;
                     try {
                       await rust_api.apiStopAll();
                     } catch (e) {
@@ -937,6 +943,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                           .read(globalErrorProvider.notifier)
                           .showError('시스템 리셋 실패: ${errorText(e)}');
                     }
+                    await clearEngineMuteAfterStop(
+                      muted: wasMuted,
+                      unmute: () => rust_api.apiSetMasterMute(muted: false),
+                    );
                     ref.read(engineStateProvider.notifier).reset();
                   } catch (e) {
                     ref
