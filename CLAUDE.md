@@ -1,7 +1,7 @@
 # CLAUDE.md - Atmos Mixer Pro
 
 ## 프로젝트
-- 몰입형 전시(d'strict, Silo Lab)용 3D 공간 음향 믹서·DAW. 오디오 끊김은 허용되지 않는다.
+- 몰입형 전시(d'strict, Silo Lab)용 PCM 오디오 분배·운영 프로그램. 오브젝트를 실시간으로 배치하는 렌더러가 아니라, 미리 만든 PCM 오디오를 전시장 출력 채널에 안정적으로 분배·운영하고 스피커를 보정·관리한다. 다만 바이노럴(출력 채널을 헤드폰으로 미리 듣기), 3D 방 뷰어, 베이스 매니지먼트 같은 기능의 렌더링은 지원한다. 오디오 끊김은 허용되지 않는다.
 - 설계·개발은 macOS, **현장 운영은 Windows**(ASIO/WASAPI). macOS 결과를 현장 보증으로 보지 않는다.
 - 스택: Flutter(macOS·Windows 데스크톱, Riverpod) + Rust 2021(`rust_lib_atmos_mixer_pro`, cpal 0.16, rtrb) + `flutter_rust_bridge` =2.12.0.
 - 앱 코드는 `atmos_mixer_pro/`: `lib/`(Dart), `rust/`(엔진), `supervisor/`(충돌 후 재실행 감시), `integration_test/`, `docs/`.
