@@ -8,7 +8,6 @@ import 'package:atmos_mixer_pro/core/state/global_state.dart';
 import 'package:atmos_mixer_pro/src/rust/api/simple.dart' as rust_api;
 import 'package:atmos_mixer_pro/core/utils/channel_dropdown_helper.dart';
 import 'package:atmos_mixer_pro/core/utils/channel_routing.dart';
-import 'package:atmos_mixer_pro/features/dashboard/widgets/trajectory_settings_modal.dart';
 
 class TrackCard extends ConsumerStatefulWidget {
   final TrackConfig track;
@@ -124,7 +123,8 @@ class _TrackCardState extends ConsumerState<TrackCard> {
 
   @override
   Widget build(BuildContext context) {
-    final bool isObjectMode = widget.track.outputChannel == 4294967295;
+    // 엔진은 무한루프 트랙을 저장값과 상관없이 디스크에서 읽는다(play_track_from·api_preload_all_sounds의 is_loop 조건).
+    final bool readsFromDisk = widget.track.isLoop || widget.track.isStreaming;
 
     final engineState = ref.watch(engineStateProvider);
     final isPlaying = engineState.playingTrackIds.contains(widget.track.id);
@@ -178,7 +178,8 @@ class _TrackCardState extends ConsumerState<TrackCard> {
 
     bool valueExists = outputItems.any((item) => item.value == currentValue);
 
-    if (!valueExists && currentKey != 4294967295) {
+    // 예전에 3D OBJECT로 저장한 트랙(출력 4294967295)도 여기서 첫 출력으로 옮겨진다.
+    if (!valueExists) {
       if (outputItems.isNotEmpty) {
         final firstVal = outputItems.first.value;
         if (firstVal != null) {
@@ -268,116 +269,84 @@ class _TrackCardState extends ConsumerState<TrackCard> {
                       ),
                     ],
                   ),
-                  // Row 2: Mode Segment
+                  // Row 2: Loop & Memory/Disk
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Row(
                         children: [
-                          SegmentedButton<bool>(
-                            segments: const [
-                              ButtonSegment<bool>(value: false, label: Text('BED', style: TextStyle(fontSize: 10))),
-                              ButtonSegment<bool>(value: true, label: Text('3D OBJECT', style: TextStyle(fontSize: 10))),
-                            ],
-                            selected: {isObjectMode},
-                            style: SegmentedButton.styleFrom(
-                              backgroundColor: AppColors.cardSurfaceSolid,
-                              selectedBackgroundColor: widget.accentColor.withValues(alpha: 0.2),
-                              selectedForegroundColor: widget.accentColor,
-                              side: BorderSide(color: widget.accentColor.withValues(alpha: 0.5)),
-                            ),
-                            onSelectionChanged: (Set<bool> newSelection) {
-                              // BED <-> 3D OBJECT 전환 시 사용자가 고른 모노/스테레오
-                              // 선택은 유지한다. 예전에는 양쪽 모두 false를 넘겨서
-                              // BED로 돌아올 때마다 스테레오 설정이 모노로 리셋됐다.
-                              final bool keepStereo = widget.track.outputStereo;
-                              if (newSelection.first) {
-                                widget.onOutputChanged?.call(4294967295, keepStereo);
-                              } else {
-                                widget.onOutputChanged?.call(0, keepStereo);
-                              }
-                            },
-                          ),
-                          const SizedBox(width: 8),
-                          // Loop & Stream
                           IconButton(
                             icon: const Icon(Icons.all_inclusive),
                             color: widget.track.isLoop ? widget.accentColor : AppColors.darkGrey,
                             iconSize: 18,
                             onPressed: () => widget.onLoopChanged?.call(!widget.track.isLoop),
                           ),
-                          IconButton(
-                            icon: Icon(widget.track.isStreaming ? Icons.storage : Icons.memory),
-                            color: widget.track.isStreaming ? widget.accentColor : AppColors.darkGrey,
-                            iconSize: 18,
-                            onPressed: () => widget.onStreamChanged?.call(!widget.track.isStreaming),
+                          Tooltip(
+                            message: widget.track.isLoop
+                                ? '무한루프 트랙은 항상 디스크에서 읽습니다'
+                                : readsFromDisk
+                                    ? '재생하면서 디스크에서 읽습니다. 누르면 메모리로 바꿉니다'
+                                    : '파일 전체를 미리 메모리에 올려 둡니다. 누르면 디스크로 바꿉니다',
+                            child: TextButton.icon(
+                              style: TextButton.styleFrom(
+                                // 방 색이 어두워도 이름은 읽혀야 하므로 글자는 무채색, 아이콘만 방 색으로 켠다.
+                                foregroundColor: AppColors.textSecondary,
+                                iconColor: readsFromDisk ? widget.accentColor : AppColors.textSecondary,
+                                disabledForegroundColor: Colors.white38,
+                                disabledIconColor: Colors.white38,
+                              ),
+                              icon: Icon(readsFromDisk ? Icons.storage : Icons.memory, size: 18),
+                              label: Text(readsFromDisk ? '디스크' : '메모리', style: const TextStyle(fontSize: 12)),
+                              onPressed: widget.track.isLoop
+                                  ? null
+                                  : () => widget.onStreamChanged?.call(!widget.track.isStreaming),
+                            ),
                           ),
                         ],
                       ),
                     ],
                   ),
                   const SizedBox(height: 4),
-                  // Row 3: Output / Trajectory
-                  if (!isObjectMode) ...[
-                    Row(
-                      children: [
-                        const Text('Ext. Out: ', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
-                        // 항목이 하나도 없으면 왜 없는지 알려준다. 예전에는 빈
-                        // 드롭다운만 남아 장치 미인식과 조회 실패를 구분할 수
-                        // 없었다(무음 실패).
-                        if (outputItems.isEmpty)
-                          Expanded(
-                            child: Text(
-                              _emptyOutputReason(outputChannels),
-                              style: const TextStyle(
-                                color: Colors.orangeAccent,
-                                fontSize: 11,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          )
-                        else
-                        // 장치 채널 이름이 붙은 라벨은 길어서, 남은 폭을 채우고 넘치면 줄인다.
+                  // Row 3: Output
+                  Row(
+                    children: [
+                      const Text('Ext. Out: ', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+                      // 항목이 하나도 없으면 왜 없는지 알려준다. 예전에는 빈
+                      // 드롭다운만 남아 장치 미인식과 조회 실패를 구분할 수
+                      // 없었다(무음 실패).
+                      if (outputItems.isEmpty)
                         Expanded(
-                          child: DropdownButtonHideUnderline(
-                          child: DropdownButton<String>(
-                            isExpanded: true,
-                            value: currentValue,
-                            items: outputItems,
-                            dropdownColor: AppColors.cardSurfaceSolid,
-                            style: const TextStyle(color: Colors.white, fontSize: 12),
-                            onChanged: (val) {
-                              if (val != null) {
-                                final isStereo = ChannelDropdownValueHelper.isStereo(val) || ChannelDropdownValueHelper.isMulti(val);
-                                final key = ChannelDropdownValueHelper.getChannel(val);
-                                if (key != null) widget.onOutputChanged?.call(key, isStereo);
-                              }
-                            },
+                          child: Text(
+                            _emptyOutputReason(outputChannels),
+                            style: const TextStyle(
+                              color: Colors.orangeAccent,
+                              fontSize: 11,
+                            ),
+                            overflow: TextOverflow.ellipsis,
                           ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ] else ...[
-                    Row(
-                      children: [
-                        const Icon(Icons.view_in_ar, size: 16, color: Colors.amberAccent),
-                        const SizedBox(width: 4),
-                        const Text('3D Spatial Routing Active', style: TextStyle(color: Colors.amberAccent, fontSize: 12, fontWeight: FontWeight.bold)),
-                        const Spacer(),
-                        ElevatedButton(
-                          style: ElevatedButton.styleFrom(backgroundColor: widget.accentColor, padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0)),
-                          onPressed: () {
-                            showDialog(
-                              context: context,
-                              builder: (context) => TrajectorySettingsModal(trackId: widget.track.id),
-                            );
-                          },
-                          child: const Text('3D Trajectory', style: TextStyle(color: Colors.black, fontSize: 10)),
                         )
-                      ],
-                    ),
-                  ],
+                      else
+                      // 장치 채널 이름이 붙은 라벨은 길어서, 남은 폭을 채우고 넘치면 줄인다.
+                      Expanded(
+                        child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          isExpanded: true,
+                          value: currentValue,
+                          items: outputItems,
+                          dropdownColor: AppColors.cardSurfaceSolid,
+                          style: const TextStyle(color: Colors.white, fontSize: 12),
+                          onChanged: (val) {
+                            if (val != null) {
+                              final isStereo = ChannelDropdownValueHelper.isStereo(val) || ChannelDropdownValueHelper.isMulti(val);
+                              final key = ChannelDropdownValueHelper.getChannel(val);
+                              if (key != null) widget.onOutputChanged?.call(key, isStereo);
+                            }
+                          },
+                        ),
+                        ),
+                      ),
+                    ],
+                  ),
                   const SizedBox(height: 4),
                   // Row 4: Volume
                   Row(
