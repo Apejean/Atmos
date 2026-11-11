@@ -672,8 +672,11 @@ impl AudioEngine {
                     .duration_since(std::time::UNIX_EPOCH)
                     .map(|d| d.as_millis() as u64)
                     .unwrap_or(0);
-                state.callback_big_gap_us.fetch_max(gap_us, Ordering::Relaxed);
-                state.callback_big_gap_at_ms.store(at_ms, Ordering::Relaxed);
+                // 점검 사이 가장 긴 공백의 시각만 남긴다(길이와 시각이 다른 공백끼리 짝지어지지 않게).
+                let prev = state.callback_big_gap_us.fetch_max(gap_us, Ordering::Relaxed);
+                if gap_us > prev {
+                    state.callback_big_gap_at_ms.store(at_ms, Ordering::Relaxed);
+                }
             }
             if u64::from(gap_us) * 2 > budget_us * 3 {
                 state.callback_late.fetch_add(1, Ordering::Relaxed);

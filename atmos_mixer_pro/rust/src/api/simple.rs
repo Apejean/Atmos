@@ -1296,13 +1296,16 @@ fn start_audio_system(device_name: Option<String>) -> Result<(), AtmosError> {
                         };
                         if !started {
                             // 복구 스레드는 여기서 끝나 더 시도하지 않는다. 사라지지 않는 배너로 알린다.
+                            let cause = crate::core::event_log::CAUSE_RESTART_FAILED;
                             crate::core::event_log::log_event(
                                 "engine_down",
-                                &[("cause", "restart_and_failover_failed"), ("retry", "none")],
+                                &[
+                                    ("cause", cause),
+                                    ("detail", "failover_also_failed"),
+                                    ("retry", "none"),
+                                ],
                             );
-                            broadcast_stream_status(crate::core::event_log::engine_down_status(
-                                "restart_failed",
-                            ));
+                            broadcast_stream_status(crate::core::event_log::engine_down_status(cause));
                         }
                         crate::core::restart_resume::set_short_startup_ramp(false);
                         if started {

@@ -17,6 +17,8 @@ pub const RECENT_CAPACITY: usize = 32;
 pub const DUMP_COUNT: usize = 8;
 /// 상태 스트림에서 복구 실패를 알리는 접두사.
 pub const ENGINE_DOWN_PREFIX: &str = "EngineDown:";
+/// 자기 재시작과 기본 장치 전환이 모두 실패한 원인. 사건 로그와 상태 스트림(배너·OSC)이 같은 값을 쓴다.
+pub const CAUSE_RESTART_FAILED: &str = "restart_failed";
 
 struct Entry {
     at: String,
@@ -131,5 +133,12 @@ mod tests {
         assert_eq!(s, "EngineDown:device_not_found");
         assert_eq!(parse_engine_down(&s), Some("device_not_found"));
         assert_eq!(parse_engine_down("Running"), None);
+    }
+
+    #[test]
+    fn restart_failed_cause_is_fixed_contract() {
+        // Dart 배너와 OSC 규격(status/engine)이 이 문자열을 그대로 쓴다.
+        assert_eq!(CAUSE_RESTART_FAILED, "restart_failed");
+        assert_eq!(engine_down_status(CAUSE_RESTART_FAILED), "EngineDown:restart_failed");
     }
 }

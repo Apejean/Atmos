@@ -38,8 +38,9 @@ class _EngineDownBannerState extends State<EngineDownBanner> {
     final cause = parseEngineDown(status);
     if (cause != null) {
       setState(() {
+        // "…부터"는 처음 내려간 시각이다. 이어지는 실패는 원인과 횟수만 바꾼다.
+        if (_cause == null) _since = widget.now();
         _cause = cause;
-        _since = widget.now();
         _count += 1;
       });
     } else if ((status == 'Running' || status == 'Failover') && _cause != null) {
