@@ -68,6 +68,9 @@ pub struct GlobalEngineState {
     pub callback_total_us: AtomicU32,
     pub callback_count: AtomicU32,
     pub callback_gap_max_us: AtomicU32,
+    /// 콜백 간격이 100ms를 넘었을 때의 간격(µs, 0이면 없음)과 그 시각(unix ms). 엔진 점검 루프가 가져가 사건 로그에 남긴다.
+    pub callback_big_gap_us: AtomicU32,
+    pub callback_big_gap_at_ms: std::sync::atomic::AtomicU64,
     /// 점검 사이 처리 시간이 자기 버퍼 길이(받은 프레임)의 70%를 넘은 콜백 수, 앞 콜백과의 간격이
     /// 장치를 연 버퍼 길이의 1.5배를 넘은(장치가 늦게 불러 그 사이 이전 버퍼를 다시 냈을 수 있는) 콜백 수.
     pub callback_heavy: AtomicU32,
@@ -147,6 +150,8 @@ impl GlobalEngineState {
             callback_total_us: AtomicU32::new(0),
             callback_count: AtomicU32::new(0),
             callback_gap_max_us: AtomicU32::new(0),
+            callback_big_gap_us: AtomicU32::new(0),
+            callback_big_gap_at_ms: std::sync::atomic::AtomicU64::new(0),
             callback_heavy: AtomicU32::new(0),
             callback_late: AtomicU32::new(0),
             engine_sample_rate: AtomicU32::new(48000),

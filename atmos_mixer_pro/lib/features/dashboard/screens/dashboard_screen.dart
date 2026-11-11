@@ -27,6 +27,7 @@ import 'package:atmos_mixer_pro/features/exhibition/state/spatial_sync_provider.
 import 'package:atmos_mixer_pro/features/exhibition/screens/speaker_canvas_screen.dart'
     as atmos_exhibition;
 import 'package:atmos_mixer_pro/features/dashboard/widgets/safety_alert_border.dart';
+import 'package:atmos_mixer_pro/features/dashboard/widgets/engine_down_banner.dart';
 import 'package:atmos_mixer_pro/src/rust/api/show.dart' as show_api;
 import 'package:atmos_mixer_pro/src/rust/api/simple.dart' as rust_api;
 import 'package:atmos_mixer_pro/src/rust/api/project.dart' as project_api;
@@ -94,12 +95,15 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   bool _isAutoGuardActive = false;
   final ScrollController _scrollController = ScrollController();
   StreamSubscription<String>? _statusSub;
+  // 엔진 상태 스트림을 배너와 나눠 쓴다(Rust 쪽 싱크는 하나라 여기서 다시 내보낸다).
+  final StreamController<String> _statusRelay = StreamController<String>.broadcast();
 
   @override
   void initState() {
     super.initState();
     _statusSub = rust_api.apiCreateStreamStatusStream().listen((status) {
       if (!mounted) return;
+      _statusRelay.add(status);
       if (status == 'Failover') {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -146,6 +150,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   @override
   void dispose() {
     _statusSub?.cancel();
+    _statusRelay.close();
     _scrollController.dispose();
     super.dispose();
   }
@@ -169,6 +174,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               if (!Platform.isMacOS) _buildMaterialMenuBar(context),
+              EngineDownBanner(statusStream: _statusRelay.stream),
               _buildHeader(context),
               Expanded(child: _buildRoomPanels(context)),
             ],

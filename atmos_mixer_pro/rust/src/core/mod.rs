@@ -1,6 +1,7 @@
 pub mod app_signals;
 pub mod device_return;
 pub mod device_search;
+pub mod event_log;
 pub mod keep_awake;
 pub mod log_file;
 pub mod media_relink;

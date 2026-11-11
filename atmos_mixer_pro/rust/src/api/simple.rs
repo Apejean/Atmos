@@ -355,6 +355,7 @@ pub fn build_play_track_command(
 }
 
 pub fn api_play_track(room_id: String, track_id: String) -> Result<(), AtmosError> {
+    crate::core::event_log::record_request("play", &format!("{room_id}/{track_id}"));
     play_track_from(room_id, track_id, 0.0)
 }
 
@@ -631,6 +632,7 @@ pub(crate) fn play_track_from(
 }
 
 pub fn api_stop_track(room_id: String, track_id: String) -> Result<(), AtmosError> {
+    crate::core::event_log::record_request("stop", &format!("{room_id}/{track_id}"));
     crate::core::restart_resume::cancel_track(&track_id);
     if crate::core::state::debug_flags::trace_cmd() {
         eprintln!("[CMD] 정지 요청 room={room_id} track={track_id}");
@@ -649,6 +651,7 @@ pub fn api_stop_track(room_id: String, track_id: String) -> Result<(), AtmosErro
 }
 
 pub fn api_stop_all() -> Result<(), AtmosError> {
+    crate::core::event_log::record_request("stop_all", "-");
     crate::core::restart_resume::cancel_all();
     if crate::core::state::debug_flags::trace_cmd() {
         eprintln!("[CMD] 전체 정지 요청");
@@ -688,6 +691,7 @@ pub fn api_set_active_room(room_id: Option<String>) -> Result<(), AtmosError> {
 }
 
 pub fn api_clear_room(room_id: String) -> Result<(), AtmosError> {
+    crate::core::event_log::record_request("clear_room", &room_id);
     {
         let mut guard = GLOBAL_STATE
             .active_room_id
@@ -1059,6 +1063,7 @@ fn start_audio_system(device_name: Option<String>) -> Result<(), AtmosError> {
                 let mut last_device_count: Option<usize> = None;
                 let mut last_device_names: Vec<String> = Vec::new();
                 let mut monitor_timer = 0;
+                let mut stop_reason = "generation_changed";
                 let mut load_timer = 0;
                 let mut last_load_log: Option<std::time::Instant> = None;
 
@@ -1072,6 +1077,7 @@ fn start_audio_system(device_name: Option<String>) -> Result<(), AtmosError> {
                         .load(std::sync::atomic::Ordering::Acquire)
                     {
                         println!("⚠️ [디버깅] 장치 유실·재설정 요청 수신 (DeviceNotAvailable / kAsioResetRequest)");
+                        stop_reason = "device_reset_request";
                         crate::core::state::GLOBAL_STATE
                             .device_needs_reset
                             .store(false, std::sync::atomic::Ordering::Release);
@@ -1088,6 +1094,7 @@ fn start_audio_system(device_name: Option<String>) -> Result<(), AtmosError> {
                             println!(
                                 "⚠️ [디버깅] 오디오 장치 유실 감지! (rtrb SPSC 환경, 큐 대기 상태)"
                             );
+                            stop_reason = "device_not_available";
                             break;
                         }
                     }
@@ -1109,7 +1116,28 @@ fn start_audio_system(device_name: Option<String>) -> Result<(), AtmosError> {
                             "🚨 [Watchdog] 오디오 콜백 공백 {}ms (임계 1000ms)! 엔진 강제 재기동...",
                             now_ms - last_cb
                         ));
+                        stop_reason = "callback_gap_watchdog";
                         break;
+                    }
+
+                    // 콜백 간격이 100ms를 넘은 적이 있으면 사건 로그에 남긴다(콜백은 원자형만 저장한다).
+                    {
+                        let state = &crate::core::state::GLOBAL_STATE;
+                        let gap_us = state
+                            .callback_big_gap_us
+                            .swap(0, std::sync::atomic::Ordering::Relaxed);
+                        if gap_us > 0 {
+                            let at_ms = state
+                                .callback_big_gap_at_ms
+                                .load(std::sync::atomic::Ordering::Relaxed);
+                            crate::core::event_log::log_event(
+                                "callback_gap",
+                                &[
+                                    ("gap_ms", &(gap_us / 1000).to_string()),
+                                    ("at_unix_ms", &at_ms.to_string()),
+                                ],
+                            );
+                        }
                     }
 
                     // 오디오 처리 부하(10초마다): 처리 시간이 자기 버퍼 길이의 70%를 넘은 콜백이나, 앞
@@ -1172,6 +1200,7 @@ fn start_audio_system(device_name: Option<String>) -> Result<(), AtmosError> {
                                             .write()
                                             .unwrap_or_else(|e| e.into_inner());
                                         *err_guard = Some("DeviceListChanged".to_string());
+                                        stop_reason = "device_list_changed";
                                         // Trigger auto-recovery by breaking the loop (similar to Ableton's behavior)
                                         break;
                                     }
@@ -1191,6 +1220,8 @@ fn start_audio_system(device_name: Option<String>) -> Result<(), AtmosError> {
                 // 세대가 그대로면 자기 재시작(워치독·장치 오류·장치 목록 변화)이다. 옛 엔진을
                 // 버리기 전에 재생 상태를 떠 둔다(core::restart_resume, 세대는 그 안에서 확인한다).
                 crate::core::restart_resume::take_snapshot(gen);
+                let self_restart = ENGINE_GENERATION.load(std::sync::atomic::Ordering::SeqCst) == gen;
+                crate::core::event_log::log_engine_stop(stop_reason, self_restart);
                 drop(engine);
                 ENGINE_ACTIVE.store(false, std::sync::atomic::Ordering::SeqCst);
                 broadcast_stream_status("Stopped".to_string());
@@ -1263,6 +1294,16 @@ fn start_audio_system(device_name: Option<String>) -> Result<(), AtmosError> {
                                 init_audio_system(None).is_ok() // None forces default OS device
                             }
                         };
+                        if !started {
+                            // 복구 스레드는 여기서 끝나 더 시도하지 않는다. 사라지지 않는 배너로 알린다.
+                            crate::core::event_log::log_event(
+                                "engine_down",
+                                &[("cause", "restart_and_failover_failed"), ("retry", "none")],
+                            );
+                            broadcast_stream_status(crate::core::event_log::engine_down_status(
+                                "restart_failed",
+                            ));
+                        }
                         crate::core::restart_resume::set_short_startup_ramp(false);
                         if started {
                             crate::core::restart_resume::resume_after_resync();
