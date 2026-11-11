@@ -102,6 +102,20 @@ impl OscListener {
     }
 }
 
+/// 주소만 있는 메시지(인자 없음)는 트리거다. QLab·Companion이 보내는 형식이고 규격 §2와 같다(2026-11-12).
+/// 숫자 0(Float·Double, Int·Long)과 거짓(Bool false)은 버튼을 뗄 때 보내는 값이라 무시한다. 그 밖의 형식(문자열 등)은 트리거다.
+pub fn is_trigger(args: &[rosc::OscType]) -> bool {
+    args.is_empty()
+        || args.iter().any(|arg| match arg {
+            rosc::OscType::Float(f) => *f > 0.0,
+            rosc::OscType::Double(d) => *d > 0.0,
+            rosc::OscType::Int(i) => *i > 0,
+            rosc::OscType::Long(l) => *l > 0,
+            rosc::OscType::Bool(b) => *b,
+            _ => true,
+        })
+}
+
 fn check_gating(room_id: &str, is_exhibition: bool) -> bool {
     if is_exhibition {
         return true;
@@ -218,13 +232,7 @@ fn handle_packet(packet: OscPacket, debouncer: &OscDebouncer) {
             // 임시값을 보내 어떤 트랙에도 맞지 않았다. 문서에 없고 쓰는 곳도 없어 지웠다(2026-10-24 사용자 결정).
 
             // For static triggers, check trigger condition and debounce
-            let is_trigger = msg.args.iter().any(|arg| match arg {
-                rosc::OscType::Float(f) => *f > 0.0,
-                rosc::OscType::Int(i) => *i > 0,
-                _ => true,
-            });
-
-            if !is_trigger || !debouncer.should_process(&msg.addr) {
+            if !is_trigger(&msg.args) || !debouncer.should_process(&msg.addr) {
                 return;
             }
 
