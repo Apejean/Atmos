@@ -4,14 +4,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  var clock = DateTime(2026, 11, 12, 9, 5, 7);
+
   Future<StreamController<String>> pump(WidgetTester tester) async {
+    clock = DateTime(2026, 11, 12, 9, 5, 7);
     final c = StreamController<String>.broadcast(sync: true);
     addTearDown(c.close);
     await tester.pumpWidget(MaterialApp(
       home: Scaffold(
         body: EngineDownBanner(
           statusStream: c.stream,
-          now: () => DateTime(2026, 11, 12, 9, 5, 7),
+          now: () => clock,
         ),
       ),
     ));
@@ -41,9 +44,13 @@ void main() {
       expect(find.textContaining('restart_failed'), findsOneWidget, reason: s);
     }
 
+    clock = DateTime(2026, 11, 12, 9, 6, 30);
     c.add('EngineDown:restart_failed');
     await tester.pump();
     expect(find.textContaining('연속 2회'), findsOneWidget);
+    // 두 번째 실패 뒤에도 시작 시각은 처음 값이다.
+    expect(find.textContaining('09:05:07'), findsOneWidget);
+    expect(find.textContaining('09:06:30'), findsNothing);
   });
 
   testWidgets('clears on Running and on Failover', (tester) async {
