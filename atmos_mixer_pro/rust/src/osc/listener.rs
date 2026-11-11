@@ -55,6 +55,10 @@ impl OscListener {
                         let err_msg = format!("Failed to bind OSC port {}: {}", p, e);
                         println!("{}", err_msg);
                         crate::core::state::GLOBAL_STATE.log(err_msg);
+                        crate::core::event_log::log_event(
+                            "osc_bind_failed",
+                            &[("port", &p.to_string()), ("error", &e.to_string())],
+                        );
                         return;
                     }
                 };
@@ -227,6 +231,7 @@ fn handle_packet(packet: OscPacket, debouncer: &OscDebouncer) {
             // 2. High-performance Router (HashMap cached)
             if let Some(action) = get_osc_action(&msg.addr, &config, config_version) {
                 crate::core::state::GLOBAL_STATE.log(format!("Valid OSC Action: {}", msg.addr));
+                crate::core::event_log::record_request("osc", &msg.addr);
                 match action {
                     OscAction::SystemReset => {
                         let _ = crate::api::simple::api_stop_all();
@@ -316,6 +321,8 @@ fn handle_packet(packet: OscPacket, debouncer: &OscDebouncer) {
                     "No matching track found for OSC address: {}",
                     msg.addr
                 ));
+                crate::core::event_log::record_request("osc_unregistered", &msg.addr);
+                crate::core::event_log::log_event("osc_unregistered", &[("addr", &msg.addr)]);
             }
         }
         OscPacket::Bundle(bundle) => {

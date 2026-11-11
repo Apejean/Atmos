@@ -34,6 +34,9 @@ impl Drop for AudioEngine {
     }
 }
 
+/// 콜백 시작 간격이 이 값(µs, 100ms)을 넘으면 사건 로그 대상이다.
+const BIG_GAP_US: u32 = 100_000;
+
 impl AudioEngine {
     pub fn new() -> Self {
         Self { stream: None }
@@ -663,6 +666,15 @@ impl AudioEngine {
             let budget_us = frames as u64 * 1_000_000 / u64::from(sample_rate.max(1));
             let state = &crate::core::state::GLOBAL_STATE;
             state.callback_gap_max_us.fetch_max(gap_us, Ordering::Relaxed);
+            // 100ms를 넘는 공백은 시각과 함께 남긴다(원자형 저장만, 로그는 점검 루프가 쓴다).
+            if gap_us > BIG_GAP_US {
+                let at_ms = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .map(|d| d.as_millis() as u64)
+                    .unwrap_or(0);
+                state.callback_big_gap_us.fetch_max(gap_us, Ordering::Relaxed);
+                state.callback_big_gap_at_ms.store(at_ms, Ordering::Relaxed);
+            }
             if u64::from(gap_us) * 2 > budget_us * 3 {
                 state.callback_late.fetch_add(1, Ordering::Relaxed);
             }
