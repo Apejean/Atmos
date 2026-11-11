@@ -358,6 +358,9 @@ impl AudioEngine {
         crate::core::state::GLOBAL_STATE
             .processing_channels
             .store(virtual_channels as u32, std::sync::atomic::Ordering::SeqCst);
+        crate::core::state::GLOBAL_STATE
+            .output_processing_channels
+            .store(processing as u32, std::sync::atomic::Ordering::SeqCst);
         crate::core::state::GLOBAL_STATE.log(format!(
             "오디오 엔진: 장치 출력 {}채널 중 {}채널 처리(믹서 폭 {}), 버퍼 {}프레임, {}Hz",
             config.channels, processing, virtual_channels, resolved_buffer_size, config.sample_rate.0

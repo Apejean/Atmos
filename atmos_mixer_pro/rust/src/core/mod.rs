@@ -3,6 +3,7 @@ pub mod device_return;
 pub mod device_search;
 pub mod event_log;
 pub mod keep_awake;
+pub mod load_warning;
 pub mod log_file;
 pub mod media_relink;
 pub mod processing_channels;

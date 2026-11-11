@@ -2,7 +2,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 /// 엔진 상태 문자열이 "복구 실패로 엔진이 내려갔다"를 뜻하는 접두사(Rust `core::event_log::ENGINE_DOWN_PREFIX`).
-/// 값 계약: Running · Failover · Stopped · HotReloading · WatchdogActive · AutoGuardActive · EngineDown:<원인>.
+/// 값 계약: Running · Failover · Stopped · HotReloading · WatchdogActive · AutoGuardActive · EngineDown:<원인>
+/// · LoadHigh:<최대ms>/<예산ms>/<초과회>/<늦은회>/<처리채널> · LoadNormal(load_warning_banner.dart).
 const String engineDownPrefix = 'EngineDown:';
 
 /// `EngineDown:<원인>`이면 원인을, 아니면 null을 돌려준다.
