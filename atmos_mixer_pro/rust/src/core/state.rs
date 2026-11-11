@@ -59,6 +59,8 @@ pub struct GlobalEngineState {
     pub active_device_channels: AtomicU32,
     /// 믹서가 처리하는 채널 수(core::processing_channels::mixer_width). 0이면 엔진이 아직 없다.
     pub processing_channels: AtomicU32,
+    /// 출력 설정에서 켠 가장 높은 채널까지의 수(엔진 시작 로그의 "M채널 처리", 믹서 폭과 달리 16 하한 없음). 부하 배너가 쓴다.
+    pub output_processing_channels: AtomicU32,
     /// 오디오 콜백 처리 시간(µs). 콜백은 최댓값·예산 초과 횟수만 원자형으로 남기고,
     /// 엔진 스레드의 점검 루프가 읽어서 비우며 부하가 높으면 앱 로그에 남긴다.
     pub callback_max_us: AtomicU32,
@@ -144,6 +146,7 @@ impl GlobalEngineState {
             state_sink: RwLock::new(None),
             active_device_channels: AtomicU32::new(0),
             processing_channels: AtomicU32::new(0),
+            output_processing_channels: AtomicU32::new(0),
             callback_max_us: AtomicU32::new(0),
             callback_budget_us: AtomicU32::new(0),
             callback_overruns: AtomicU32::new(0),
