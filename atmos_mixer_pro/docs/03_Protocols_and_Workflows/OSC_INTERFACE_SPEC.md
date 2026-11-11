@@ -18,7 +18,7 @@ The Awesome은 미리 만든 PCM을 안정적으로 분배·운영하는 프로�
 | 항목 | 현재 동작 |
 |---|---|
 | 주소 | 설정의 `play_osc_address`·`stop_osc_address`(트랙), `clear_osc_address`(방), `theme_start_osc_address`, `system_reset_osc_address`. 글자 그대로 일치 |
-| 트리거 조건 | 인자가 없으면 트리거(주소만 보내는 QLab·Companion 형식, 작업 A로 코드를 맞춤). Float > 0, Int > 0, Bool true, 문자열 등 그 밖의 형식도 트리거. Float 0·Int 0·Bool false는 무시(버튼을 뗄 때 보내는 값). 여러 인자는 하나라도 조건을 만족하면 트리거 |
+| 트리거 조건 | 인자가 없으면 트리거(주소만 보내는 QLab·Companion 형식, 작업 A로 코드를 맞춤). Float > 0, Int > 0(64비트 Double·Long 포함, 0보다 클 때), Bool true, 문자열 등 그 밖의 형식도 트리거. 숫자 0(32·64비트 모두)과 Bool false는 무시(버튼을 뗄 때 보내는 값). 여러 인자는 하나라도 조건을 만족하면 트리거 |
 | 디바운스 | 같은 주소는 250 ms 안에 다시 오면 무시(`osc/debouncer.rs`) |
 | 겹친 주소 | 마지막에 등록된 하나만 반응, 로그에 남김 |
 | 미등록 주소 | 무시하고 로그 `사건: osc_unregistered addr=…` (PR #86) |

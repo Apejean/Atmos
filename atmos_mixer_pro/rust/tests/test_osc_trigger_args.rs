@@ -37,6 +37,23 @@ fn 숫자_인자는_양수일_때만_트리거다() {
 }
 
 #[test]
+fn 숫자_64비트_인자도_양수일_때만_트리거다() {
+    assert!(
+        is_trigger(&[OscType::Double(0.5)]),
+        "Double 양수는 트리거다"
+    );
+    assert!(is_trigger(&[OscType::Long(1)]), "Long 양수는 트리거다");
+    assert!(
+        !is_trigger(&[OscType::Double(0.0)]),
+        "Double 0은 버튼을 뗀 값이라 무시한다(64비트 'd')"
+    );
+    assert!(
+        !is_trigger(&[OscType::Long(0)]),
+        "Long 0은 버튼을 뗀 값이라 무시한다(64비트 'h')"
+    );
+}
+
+#[test]
 fn 문자열_인자는_트리거다() {
     assert!(is_trigger(&[OscType::String("go".into())]));
 }

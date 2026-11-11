@@ -103,12 +103,14 @@ impl OscListener {
 }
 
 /// 주소만 있는 메시지(인자 없음)는 트리거다. QLab·Companion이 보내는 형식이고 규격 §2와 같다(2026-11-12).
-/// 숫자 0(Float·Int)과 거짓(Bool false)은 버튼을 뗄 때 보내는 값이라 무시한다. 그 밖의 형식(문자열 등)은 트리거다.
+/// 숫자 0(Float·Double, Int·Long)과 거짓(Bool false)은 버튼을 뗄 때 보내는 값이라 무시한다. 그 밖의 형식(문자열 등)은 트리거다.
 pub fn is_trigger(args: &[rosc::OscType]) -> bool {
     args.is_empty()
         || args.iter().any(|arg| match arg {
             rosc::OscType::Float(f) => *f > 0.0,
+            rosc::OscType::Double(d) => *d > 0.0,
             rosc::OscType::Int(i) => *i > 0,
+            rosc::OscType::Long(l) => *l > 0,
             rosc::OscType::Bool(b) => *b,
             _ => true,
         })
