@@ -155,7 +155,12 @@ fn request_restart_if_processing_width_changed(config: &AppConfig) {
 }
 
 pub fn api_get_config(path: String) -> AppConfig {
-    let config = AppConfig::load_from_file(path).unwrap_or_default();
+    // 없거나 손상됐으면 임시 파일·직전 정상본으로 되살린다(설정 파일 손상 복구). 예전에는 손상이면 기본값을
+    // 돌려주고 다음 저장이 원본을 덮었으며, 화면에는 아무 알림이 없었다.
+    let (config, recovery) = AppConfig::load_with_recovery(&path);
+    if let Some(r) = &recovery {
+        crate::core::config_notice::record(std::path::Path::new(&path), r);
+    }
 
     apply_enabled_channels(&config);
     {
@@ -216,7 +221,8 @@ pub fn api_get_config(path: String) -> AppConfig {
 }
 
 pub fn api_save_config(path: String, config: AppConfig) -> Result<(), AtmosError> {
-    config.save_to_file(path)?;
+    // 앱 설정은 직전 정상본(config.json.bak)을 남기며 저장한다.
+    config.save_with_backup(path)?;
     apply_enabled_channels(&config);
     {
         let mut global_config = GLOBAL_STATE

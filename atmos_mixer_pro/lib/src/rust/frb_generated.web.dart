@@ -7,6 +7,7 @@
 // ignore_for_file: argument_type_not_assignable
 
 import 'api/acoustics.dart';
+import 'api/config_file.dart';
 import 'api/error.dart';
 import 'api/lifecycle.dart';
 import 'api/osc.dart';

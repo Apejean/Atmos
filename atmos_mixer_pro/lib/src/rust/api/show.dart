@@ -22,5 +22,7 @@ Future<void> apiResumeShow() =>
 /// 아니면 첫 방을 활성 방으로 하고 그 방의 루프 트랙을 튼다. 그 밖의 트랙은 OSC 신호로 틀고, 전시 모드가 아니면 방
 /// 클리어 때 다음 방 루프가 이어진다(osc::listener). 루프 트랙 재생이 실패해도 나머지는 다 틀고, 실패한 트랙을 모아
 /// Err로 알린다(앱 로그에도 남긴다). 방이 없으면 정지만 한다.
+/// 루프들은 한 그룹으로 같은 샘플에 함께 시작한다(core::group_start, 그룹 시작 설계). 예전에는 하나씩 틀어, 보내는
+/// 도중 콜백 경계가 지나가면 뒤 트랙들이 한 블록(1024프레임에서 21.3ms) 늦게 시작한 채로 남았다(진단 T252).
 Future<void> apiThemeStart() =>
     RustLib.instance.api.crateApiShowApiThemeStart();

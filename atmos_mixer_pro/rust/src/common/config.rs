@@ -233,22 +233,228 @@ impl AppConfig {
 
     pub fn save_to_file<P: AsRef<Path>>(&self, path: P) -> anyhow::Result<()> {
         let content = serde_json::to_string_pretty(self)?;
-        // 부모 디렉토리가 없으면 생성
-        let path_ref = path.as_ref();
-        if let Some(parent) = path_ref.parent() {
-            fs::create_dir_all(parent)?;
-        }
-
-        // 원자적 쓰기(Atomic Write) 적용: tmp에 먼저 쓰고 rename (OS 수준 안전 보장)
-        let tmp_path = path_ref.with_extension("tmp");
-        fs::write(&tmp_path, content)?;
-        if path_ref.exists() {
-            let _ = fs::remove_file(path_ref);
-        }
-        fs::rename(&tmp_path, path_ref)?;
-
+        write_file_atomically(path.as_ref(), &content)?;
         Ok(())
     }
+
+    /// 앱 설정(config.json) 저장. 지금 파일이 정상 JSON이면 먼저 `config.json.bak`으로 남겨(직전 정상본 하나)
+    /// 다음 실행에서 손상을 발견해도 되살릴 수 있게 한다. 프로젝트 파일(.atmos)은 [`Self::save_to_file`]을 쓴다
+    /// (프로젝트 폴더에 .bak을 만들지 않는다).
+    pub fn save_with_backup<P: AsRef<Path>>(&self, path: P) -> anyhow::Result<()> {
+        let path = path.as_ref();
+        if let Ok(current) = fs::read_to_string(path) {
+            if serde_json::from_str::<AppConfig>(&current).is_ok() {
+                // 백업 실패는 저장을 막지 않는다(로그만).
+                if let Err(e) = write_file_atomically(&config_backup_path(path), &current) {
+                    crate::core::state::GLOBAL_STATE
+                        .log(format!("설정 백업을 쓰지 못했다(저장은 계속): {e}"));
+                }
+            }
+        }
+        self.save_to_file(path)
+    }
+
+    /// 앱 설정을 읽고, 없거나 손상됐으면 되살린다(설정 파일 손상 복구).
+    /// 순서: 정상이면 그대로 → 저장 중 남은 임시 파일(`config.tmp`, 완전할 때)과 직전 정상본(`config.json.bak`) 중
+    /// 더 최근 것 → 둘 다 없으면 기본값. 손상 원본은 `config.corrupted-<시각>.json`으로 보존하고 덮어쓰지 않는다.
+    /// 되살린 내용은 config.json으로 다시 쓴다. 파일이 아예 없고 살릴 것도 없으면 첫 실행으로 보고 알리지 않는다.
+    pub fn load_with_recovery<P: AsRef<Path>>(path: P) -> (Self, Option<ConfigRecovery>) {
+        let path = path.as_ref();
+        let reason = match fs::read_to_string(path) {
+            Ok(content) => match serde_json::from_str::<AppConfig>(&content) {
+                Ok(config) => {
+                    // 정상이면 예전 충돌·저장 실패로 남은 임시 파일은 쓰지 않고 지운다.
+                    let leftover = path.with_extension("tmp");
+                    if leftover.exists() && fs::remove_file(&leftover).is_ok() {
+                        crate::core::state::GLOBAL_STATE.log(format!(
+                            "설정 파일은 정상이라 남아 있던 임시 파일을 지웠다: {}",
+                            leftover.display()
+                        ));
+                    }
+                    return (config, None);
+                }
+                Err(e) => {
+                    let kept = preserve_corrupted(path);
+                    RecoveryReason::Corrupted { error: e.to_string(), kept }
+                }
+            },
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => RecoveryReason::Missing,
+            Err(e) => {
+                let kept = preserve_corrupted(path);
+                RecoveryReason::Corrupted { error: e.to_string(), kept }
+            }
+        };
+
+        // 읽을 수 있는 후보 중 가장 최근에 쓴 것을 쓴다(예전 충돌에서 남은 오래된 임시 파일이 더 새 백업을
+        // 이기지 않게). 수정 시각이 같거나 모르면 임시 파일이 먼저다(저장 직전 내용).
+        let mut candidates: Vec<(std::time::SystemTime, RecoverySource, AppConfig)> = Vec::new();
+        for (source, candidate) in [
+            (RecoverySource::Temp, path.with_extension("tmp")),
+            (RecoverySource::Backup, config_backup_path(path)),
+        ] {
+            let Ok(content) = fs::read_to_string(&candidate) else { continue };
+            let Ok(config) = serde_json::from_str::<AppConfig>(&content) else { continue };
+            let modified = fs::metadata(&candidate)
+                .and_then(|m| m.modified())
+                .unwrap_or(std::time::UNIX_EPOCH);
+            candidates.push((modified, source, config));
+        }
+        if let Some(best) = candidates.iter().map(|c| c.0).max() {
+            if let Some(idx) = candidates.iter().position(|c| c.0 == best) {
+                let (_, source, config) = candidates.swap_remove(idx);
+                let _ = config.save_to_file(path);
+                return (config, Some(ConfigRecovery { reason, source }));
+            }
+        }
+
+        let config = Self::default();
+        match reason {
+            // 첫 실행: 기본 설정 파일을 만든다(지금까지와 같다).
+            RecoveryReason::Missing => {
+                let _ = config.save_to_file(path);
+                (config, None)
+            }
+            // 손상됐는데 살릴 것이 없다: 기본값으로 시작한다. 손상 원본은 이미 따로 보존했다.
+            reason @ RecoveryReason::Corrupted { .. } => {
+                (config, Some(ConfigRecovery { reason, source: RecoverySource::Default }))
+            }
+        }
+    }
+}
+
+/// 설정을 되살린 까닭.
+#[derive(Debug, Clone, PartialEq)]
+pub enum RecoveryReason {
+    /// config.json이 없었다.
+    Missing,
+    /// 읽거나 해석하지 못했다. `kept`는 보존한 손상본 경로(보존 실패면 None).
+    Corrupted { error: String, kept: Option<String> },
+}
+
+/// 설정을 어디서 되살렸는가.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RecoverySource {
+    Temp,
+    Backup,
+    Default,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ConfigRecovery {
+    pub reason: RecoveryReason,
+    pub source: RecoverySource,
+}
+
+impl ConfigRecovery {
+    /// 사건 로그 한 줄(`사건: config_recovered …`)의 값들.
+    pub fn log_fields(&self) -> (String, String) {
+        let reason = match &self.reason {
+            RecoveryReason::Missing => "missing".to_string(),
+            RecoveryReason::Corrupted { .. } => "corrupted".to_string(),
+        };
+        let source = match self.source {
+            RecoverySource::Temp => "temp",
+            RecoverySource::Backup => "backup",
+            RecoverySource::Default => "default",
+        };
+        (reason, source.to_string())
+    }
+
+    /// 화면에 한 번 보일 안내.
+    pub fn notice(&self) -> String {
+        let what = match &self.reason {
+            RecoveryReason::Missing => "설정 파일(config.json)이 없어졌습니다".to_string(),
+            RecoveryReason::Corrupted { kept: Some(k), .. } => {
+                format!("설정 파일(config.json)이 손상되어 읽지 못했습니다. 손상된 파일은 {k}에 보존했습니다")
+            }
+            RecoveryReason::Corrupted { kept: None, .. } => {
+                "설정 파일(config.json)이 손상되어 읽지 못했습니다".to_string()
+            }
+        };
+        let how = match self.source {
+            RecoverySource::Temp => "저장 중이던 마지막 설정으로 되살렸습니다.",
+            RecoverySource::Backup => "직전에 정상이던 설정으로 되살렸습니다. 마지막 변경 하나가 빠졌을 수 있으니 확인해 주세요.",
+            RecoverySource::Default => "되살릴 백업이 없어 기본 설정으로 시작했습니다. 프로젝트 파일(.atmos)을 다시 열어 주세요.",
+        };
+        format!("{what}. {how}")
+    }
+}
+
+/// 직전 정상본 경로(`config.json` → `config.json.bak`).
+pub fn config_backup_path(path: &Path) -> std::path::PathBuf {
+    let mut p = path.as_os_str().to_owned();
+    p.push(".bak");
+    std::path::PathBuf::from(p)
+}
+
+/// 손상본을 `<이름>.corrupted-<시각>.json`으로 복사한다(이전 손상본을 덮어쓰지 않는다).
+fn preserve_corrupted(path: &Path) -> Option<String> {
+    let stamp = chrono::Local::now().format("%Y%m%d-%H%M%S");
+    let stem = path.file_stem()?.to_string_lossy().into_owned();
+    let mut target = path.with_file_name(format!("{stem}.corrupted-{stamp}.json"));
+    let mut n = 1;
+    while target.exists() {
+        target = path.with_file_name(format!("{stem}.corrupted-{stamp}-{n}.json"));
+        n += 1;
+    }
+    fs::copy(path, &target).ok()?;
+    prune_corrupted(path, MAX_CORRUPTED_COPIES);
+    Some(target.to_string_lossy().into_owned())
+}
+
+/// 보존하는 손상본 최대 개수(손상이 되풀이돼도 쌓이지 않게).
+pub const MAX_CORRUPTED_COPIES: usize = 5;
+
+/// 손상본을 이름(시각) 순으로 보고 오래된 것부터 지워 `keep`개만 남긴다.
+fn prune_corrupted(path: &Path, keep: usize) {
+    let (Some(dir), Some(stem)) = (path.parent(), path.file_stem()) else { return };
+    let prefix = format!("{}.corrupted-", stem.to_string_lossy());
+    let dir = if dir.as_os_str().is_empty() { Path::new(".") } else { dir };
+    let Ok(entries) = fs::read_dir(dir) else { return };
+    let mut copies: Vec<std::path::PathBuf> = entries
+        .filter_map(|e| e.ok().map(|e| e.path()))
+        .filter(|p| {
+            p.file_name()
+                .map_or(false, |n| n.to_string_lossy().starts_with(&prefix))
+        })
+        .collect();
+    if copies.len() <= keep {
+        return;
+    }
+    // 이름의 시각이 같으면 수정 시각으로 가른다.
+    copies.sort_by_key(|p| {
+        (
+            fs::metadata(p).and_then(|m| m.modified()).unwrap_or(std::time::UNIX_EPOCH),
+            p.clone(),
+        )
+    });
+    for old in &copies[..copies.len() - keep] {
+        let _ = fs::remove_file(old);
+    }
+}
+
+/// 임시 파일(`<이름>.tmp`)에 쓰고 디스크에 내린 뒤 이름을 바꾼다. 원본을 먼저 지우지 않는다(지우고 바꾸는 사이에
+/// 꺼지면 파일이 없어져 다음 실행이 기본값으로 덮었다). Windows의 rename도 기존 파일을 바꿔친다.
+fn write_file_atomically(path: &Path, content: &str) -> std::io::Result<()> {
+    use std::io::Write;
+    if let Some(parent) = path.parent() {
+        if !parent.as_os_str().is_empty() {
+            fs::create_dir_all(parent)?;
+        }
+    }
+    let tmp_path = if path.extension().map_or(false, |e| e == "bak") {
+        let mut p = path.as_os_str().to_owned();
+        p.push(".tmp");
+        std::path::PathBuf::from(p)
+    } else {
+        path.with_extension("tmp")
+    };
+    {
+        let mut file = fs::File::create(&tmp_path)?;
+        file.write_all(content.as_bytes())?;
+        file.sync_all()?;
+    }
+    fs::rename(&tmp_path, path)
 }
 
 #[cfg(test)]
