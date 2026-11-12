@@ -218,3 +218,52 @@ fn corrupted_copies_are_capped_at_five() {
     assert!(newest.contains(&"bad 7".to_string()), "가장 최근 손상본은 남는다");
     assert!(!newest.contains(&"bad 0".to_string()), "가장 오래된 손상본은 지운다");
 }
+
+#[test]
+fn unreadable_file_starts_from_backup_without_overwriting() {
+    let d = dir("unreadable");
+    let path = d.join("config.json");
+    let other = d.join("seed.json");
+    // 직전 정상본만 만든다.
+    cfg(9001).save_with_backup(&other).unwrap();
+    cfg(9002).save_with_backup(&other).unwrap();
+    fs::copy(config_backup_path(&other), config_backup_path(&path)).unwrap();
+    // config.json 자리에 폴더가 있으면 NotFound가 아닌 읽기 오류가 난다(잠깐 잡혀 있는 파일과 같은 쪽).
+    fs::create_dir_all(path.join("x")).unwrap();
+
+    let (c, rec) = AppConfig::load_with_recovery(&path);
+    let rec = rec.expect("알림이 있어야 한다");
+    assert_eq!(c.osc_port, 9001);
+    assert!(matches!(rec.reason, RecoveryReason::Unreadable { .. }));
+    assert_eq!(rec.source, RecoverySource::Backup);
+    assert!(rec.notice().contains("읽지 못했습니다"));
+    assert!(path.join("x").exists(), "읽지 못한 자리는 덮지 않는다");
+    assert!(corrupted_copies(&d).is_empty(), "손상으로 보지 않는다");
+}
+
+#[test]
+fn corrupted_copies_order_by_name_stamp() {
+    let d = dir("order");
+    let path = d.join("config.json");
+    // 같은 초 안의 번호가 붙은 것(더 나중)이 남아야 한다.
+    for name in [
+        "config.corrupted-20261112-100000.json",
+        "config.corrupted-20261112-100001.json",
+        "config.corrupted-20261112-100002.json",
+        "config.corrupted-20261112-100003.json",
+        "config.corrupted-20261112-100004.json",
+        "config.corrupted-20261112-100004-1.json",
+    ] {
+        fs::write(d.join(name), "x").unwrap();
+    }
+    fs::write(&path, "bad").unwrap();
+    let _ = AppConfig::load_with_recovery(&path); // 새 손상본 하나 + 정리
+    let names: Vec<String> = corrupted_copies(&d)
+        .iter()
+        .map(|p| p.file_name().unwrap().to_string_lossy().into_owned())
+        .collect();
+    assert_eq!(names.len(), 5);
+    assert!(!names.contains(&"config.corrupted-20261112-100000.json".to_string()));
+    assert!(!names.contains(&"config.corrupted-20261112-100001.json".to_string()));
+    assert!(names.contains(&"config.corrupted-20261112-100004-1.json".to_string()));
+}

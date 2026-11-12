@@ -260,7 +260,7 @@ impl AppConfig {
     /// 되살린 내용은 config.json으로 다시 쓴다. 파일이 아예 없고 살릴 것도 없으면 첫 실행으로 보고 알리지 않는다.
     pub fn load_with_recovery<P: AsRef<Path>>(path: P) -> (Self, Option<ConfigRecovery>) {
         let path = path.as_ref();
-        let reason = match fs::read_to_string(path) {
+        let reason = match read_with_retry(path) {
             Ok(content) => match serde_json::from_str::<AppConfig>(&content) {
                 Ok(config) => {
                     // 정상이면 예전 충돌·저장 실패로 남은 임시 파일은 쓰지 않고 지운다.
@@ -279,11 +279,12 @@ impl AppConfig {
                 }
             },
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => RecoveryReason::Missing,
-            Err(e) => {
-                let kept = preserve_corrupted(path);
-                RecoveryReason::Corrupted { error: e.to_string(), kept }
-            }
+            // 권한·공유 위반·백신이 잠깐 잡고 있음 등: 파일은 멀쩡할 수 있으니 손상으로 보지 않는다(덮지 않는다).
+            Err(e) => RecoveryReason::Unreadable { error: e.to_string() },
         };
+        // config.json을 되살린 내용으로 다시 써도 되는가. 못 읽은 경우와 손상본을 보존하지 못한 경우에는
+        // 원본(최근 변경일 수 있음)을 지키려고 메모리에서만 쓰고, 다음 정상 저장 때 바뀌게 둔다.
+        let may_overwrite = reason.may_overwrite();
 
         // 읽을 수 있는 후보 중 가장 최근에 쓴 것을 쓴다(예전 충돌에서 남은 오래된 임시 파일이 더 새 백업을
         // 이기지 않게). 수정 시각이 같거나 모르면 임시 파일이 먼저다(저장 직전 내용).
@@ -302,7 +303,9 @@ impl AppConfig {
         if let Some(best) = candidates.iter().map(|c| c.0).max() {
             if let Some(idx) = candidates.iter().position(|c| c.0 == best) {
                 let (_, source, config) = candidates.swap_remove(idx);
-                let _ = config.save_to_file(path);
+                if may_overwrite {
+                    let _ = config.save_to_file(path);
+                }
                 return (config, Some(ConfigRecovery { reason, source }));
             }
         }
@@ -314,8 +317,8 @@ impl AppConfig {
                 let _ = config.save_to_file(path);
                 (config, None)
             }
-            // 손상됐는데 살릴 것이 없다: 기본값으로 시작한다. 손상 원본은 이미 따로 보존했다.
-            reason @ RecoveryReason::Corrupted { .. } => {
+            // 손상됐거나 읽지 못했는데 살릴 것이 없다: 기본값으로 시작하고 원본은 덮지 않는다.
+            reason => {
                 (config, Some(ConfigRecovery { reason, source: RecoverySource::Default }))
             }
         }
@@ -327,8 +330,21 @@ impl AppConfig {
 pub enum RecoveryReason {
     /// config.json이 없었다.
     Missing,
-    /// 읽거나 해석하지 못했다. `kept`는 보존한 손상본 경로(보존 실패면 None).
+    /// 읽었지만 해석하지 못했다(손상). `kept`는 보존한 손상본 경로(보존 실패면 None).
     Corrupted { error: String, kept: Option<String> },
+    /// 다시 시도해도 읽지 못했다(파일은 멀쩡할 수 있다). config.json은 덮지 않는다.
+    Unreadable { error: String },
+}
+
+impl RecoveryReason {
+    /// 되살린 내용으로 config.json을 다시 써도 되는가.
+    pub fn may_overwrite(&self) -> bool {
+        match self {
+            RecoveryReason::Missing => true,
+            RecoveryReason::Corrupted { kept, .. } => kept.is_some(),
+            RecoveryReason::Unreadable { .. } => false,
+        }
+    }
 }
 
 /// 설정을 어디서 되살렸는가.
@@ -351,6 +367,7 @@ impl ConfigRecovery {
         let reason = match &self.reason {
             RecoveryReason::Missing => "missing".to_string(),
             RecoveryReason::Corrupted { .. } => "corrupted".to_string(),
+            RecoveryReason::Unreadable { .. } => "unreadable".to_string(),
         };
         let source = match self.source {
             RecoverySource::Temp => "temp",
@@ -368,7 +385,10 @@ impl ConfigRecovery {
                 format!("설정 파일(config.json)이 손상되어 읽지 못했습니다. 손상된 파일은 {k}에 보존했습니다")
             }
             RecoveryReason::Corrupted { kept: None, .. } => {
-                "설정 파일(config.json)이 손상되어 읽지 못했습니다".to_string()
+                "설정 파일(config.json)이 손상되어 읽지 못했고 손상본을 따로 보존하지 못해 원본은 그대로 두었습니다(다음 저장 때 바뀝니다)".to_string()
+            }
+            RecoveryReason::Unreadable { .. } => {
+                "설정 파일(config.json)을 읽지 못했습니다(다른 프로그램이 잡고 있을 수 있음). 파일은 그대로 두었습니다(다음 저장 때 바뀝니다)".to_string()
             }
         };
         let how = match self.source {
@@ -380,6 +400,21 @@ impl ConfigRecovery {
     }
 }
 
+/// NotFound가 아닌 읽기 오류(권한·공유 위반·백신이 잠깐 잡고 있음)는 짧게 다시 시도한다(200ms 간격 3회).
+fn read_with_retry(path: &Path) -> std::io::Result<String> {
+    let mut last = fs::read_to_string(path);
+    for _ in 0..3 {
+        match &last {
+            Err(e) if e.kind() != std::io::ErrorKind::NotFound => {
+                std::thread::sleep(std::time::Duration::from_millis(200));
+                last = fs::read_to_string(path);
+            }
+            _ => break,
+        }
+    }
+    last
+}
+
 /// 직전 정상본 경로(`config.json` → `config.json.bak`).
 pub fn config_backup_path(path: &Path) -> std::path::PathBuf {
     let mut p = path.as_os_str().to_owned();
@@ -389,14 +424,31 @@ pub fn config_backup_path(path: &Path) -> std::path::PathBuf {
 
 /// 손상본을 `<이름>.corrupted-<시각>.json`으로 복사한다(이전 손상본을 덮어쓰지 않는다).
 fn preserve_corrupted(path: &Path) -> Option<String> {
-    let stamp = chrono::Local::now().format("%Y%m%d-%H%M%S");
+    let stamp = chrono::Local::now().format("%Y%m%d-%H%M%S").to_string();
     let stem = path.file_stem()?.to_string_lossy().into_owned();
-    let mut target = path.with_file_name(format!("{stem}.corrupted-{stamp}.json"));
-    let mut n = 1;
-    while target.exists() {
-        target = path.with_file_name(format!("{stem}.corrupted-{stamp}-{n}.json"));
-        n += 1;
-    }
+    let prefix = format!("{stem}.corrupted-");
+    // 같은 초에 이미 손상본이 있으면 그 번호들의 다음 번호를 쓴다. 정리로 지워진 이름을 다시 쓰면 새 손상본이
+    // 가장 오래된 것으로 정렬되어 바로 지워졌다.
+    let dir = match path.parent() {
+        Some(d) if !d.as_os_str().is_empty() => d.to_path_buf(),
+        _ => std::path::PathBuf::from("."),
+    };
+    let next = fs::read_dir(&dir)
+        .ok()
+        .map(|entries| {
+            entries
+                .filter_map(|e| e.ok().map(|e| e.path()))
+                .filter(|p| p.file_name().map_or(false, |n| n.to_string_lossy().starts_with(&prefix)))
+                .map(|p| corrupted_copy_order(&p, &prefix))
+                .filter(|(s, _)| *s == stamp)
+                .map(|(_, n)| n + 1)
+                .max()
+        })
+        .flatten();
+    let target = match next {
+        None => path.with_file_name(format!("{prefix}{stamp}.json")),
+        Some(n) => path.with_file_name(format!("{prefix}{stamp}-{n}.json")),
+    };
     fs::copy(path, &target).ok()?;
     prune_corrupted(path, MAX_CORRUPTED_COPIES);
     Some(target.to_string_lossy().into_owned())
@@ -421,15 +473,22 @@ fn prune_corrupted(path: &Path, keep: usize) {
     if copies.len() <= keep {
         return;
     }
-    // 이름의 시각이 같으면 수정 시각으로 가른다.
-    copies.sort_by_key(|p| {
-        (
-            fs::metadata(p).and_then(|m| m.modified()).unwrap_or(std::time::UNIX_EPOCH),
-            p.clone(),
-        )
-    });
+    // 이름의 시각 도장(`<시각>[-n]`)으로 정렬한다. Windows의 fs::copy는 원본의 수정 시각을 가져오므로 수정
+    // 시각은 보존한 순서와 다를 수 있다.
+    copies.sort_by_key(|p| corrupted_copy_order(p, &prefix));
     for old in &copies[..copies.len() - keep] {
         let _ = fs::remove_file(old);
+    }
+}
+
+/// 손상본 이름 `<prefix><YYYYMMDD-HHMMSS>[-n].json`의 순서 키(시각 도장, 같은 초 안의 번호).
+fn corrupted_copy_order(p: &Path, prefix: &str) -> (String, u32) {
+    let name = p.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+    let rest = name.strip_prefix(prefix).unwrap_or(&name);
+    let rest = rest.strip_suffix(".json").unwrap_or(rest);
+    match rest.get(15..).and_then(|tail| tail.strip_prefix('-')) {
+        Some(n) => (rest[..15].to_string(), n.parse().unwrap_or(0)),
+        None => (rest.to_string(), 0),
     }
 }
 
