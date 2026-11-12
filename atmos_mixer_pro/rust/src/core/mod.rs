@@ -1,4 +1,5 @@
 pub mod app_signals;
+pub mod config_notice;
 pub mod device_return;
 pub mod device_search;
 pub mod event_log;

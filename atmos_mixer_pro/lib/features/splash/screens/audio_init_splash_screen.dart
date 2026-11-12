@@ -6,6 +6,8 @@ import 'package:atmos_mixer_pro/core/state/global_state.dart';
 import 'package:atmos_mixer_pro/core/state/launch_mode.dart';
 import 'package:atmos_mixer_pro/src/rust/api/show.dart' as show_api;
 import 'package:atmos_mixer_pro/src/rust/api/osc.dart' as osc_api;
+import 'package:atmos_mixer_pro/src/rust/api/config_file.dart' as config_file_api;
+import 'package:atmos_mixer_pro/core/state/config_notice.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:atmos_mixer_pro/src/rust/api/simple.dart' as rust_api;
 import 'package:atmos_mixer_pro/features/settings/widgets/tuning_modal.dart';
@@ -76,11 +78,14 @@ class _AudioInitSplashScreenState extends ConsumerState<AudioInitSplashScreen> {
 
       await _resumeShowIfLaunchedForIt();
       await _announceOscBoot();
+      // 설정 파일을 되살렸으면 시작 절차가 끝난 뒤 배너로 알린다(확인을 기다리지 않는다).
+      await _loadConfigNotice();
 
       _navigateToDashboard();
     } catch (e) {
       // 엔진을 못 열었어도 외부 장비는 앱이 켜졌음을 알아야 한다(상태는 WaitingForDevice로 간다).
       await _announceOscBoot();
+      await _loadConfigNotice();
       if (mounted) {
         setState(() {
           _hasError = true;
@@ -106,6 +111,11 @@ class _AudioInitSplashScreenState extends ConsumerState<AudioInitSplashScreen> {
       // 이어 가지 못해도 앱은 계속 쓴다(이유는 Rust가 앱 로그에 남긴다).
     }
   }
+
+  Future<void> _loadConfigNotice() => loadConfigNotice(
+        fetch: config_file_api.apiTakeConfigNotice,
+        show: ref.read(configNoticeProvider.notifier).show,
+      );
 
   /// OSC 시작 신호를 보낸다(rust osc::reply, 규격 §3.2). 이어 가기·테마 시작이 정해진 뒤 한 번이다.
   /// Rust 쪽이 같은 실행에서 두 번째 호출을 무시한다. 목적지가 비어 있으면 아무것도 보내지 않는다.

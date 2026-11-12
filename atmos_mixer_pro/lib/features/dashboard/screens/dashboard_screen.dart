@@ -29,6 +29,7 @@ import 'package:atmos_mixer_pro/features/exhibition/screens/speaker_canvas_scree
 import 'package:atmos_mixer_pro/features/dashboard/widgets/safety_alert_border.dart';
 import 'package:atmos_mixer_pro/features/dashboard/widgets/engine_down_banner.dart';
 import 'package:atmos_mixer_pro/features/dashboard/widgets/load_warning_banner.dart';
+import 'package:atmos_mixer_pro/features/dashboard/widgets/config_notice_banner.dart';
 import 'package:atmos_mixer_pro/src/rust/api/show.dart' as show_api;
 import 'package:atmos_mixer_pro/src/rust/api/simple.dart' as rust_api;
 import 'package:atmos_mixer_pro/src/rust/api/project.dart' as project_api;
@@ -177,6 +178,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               if (!Platform.isMacOS) _buildMaterialMenuBar(context),
               EngineDownBanner(statusStream: _statusRelay.stream),
               LoadWarningBanner(statusStream: _statusRelay.stream),
+              const ConfigNoticeBanner(),
               _buildHeader(context),
               Expanded(child: _buildRoomPanels(context)),
             ],
