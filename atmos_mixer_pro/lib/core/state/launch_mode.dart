@@ -20,6 +20,14 @@ bool shouldResumeShow({required List<String> args, required bool resumeOnLogon})
   return false;
 }
 
+/// OSC 시작 신호(`/awesome/status/boot`)의 시작 종류(규격 §3.2): 감시가 다시 띄움 relaunch, 로그인 자동 실행 logon,
+/// 그 밖(사람이 켬) manual.
+String bootStartKind(List<String> args) {
+  if (args.contains('--auto-relaunched')) return 'relaunch';
+  if (args.contains('--logon')) return 'logon';
+  return 'manual';
+}
+
 /// "로그인할 때 공연 자동 시작"(기본 켜짐). 점검하러 재부팅할 때 끈다.
 Future<bool> loadAutoResumeOnLogon() async {
   final prefs = await SharedPreferences.getInstance();

@@ -5,6 +5,8 @@ import 'package:atmos_mixer_pro/features/dashboard/screens/dashboard_screen.dart
 import 'package:atmos_mixer_pro/core/state/global_state.dart';
 import 'package:atmos_mixer_pro/core/state/launch_mode.dart';
 import 'package:atmos_mixer_pro/src/rust/api/show.dart' as show_api;
+import 'package:atmos_mixer_pro/src/rust/api/osc.dart' as osc_api;
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:atmos_mixer_pro/src/rust/api/simple.dart' as rust_api;
 import 'package:atmos_mixer_pro/features/settings/widgets/tuning_modal.dart';
 import 'package:atmos_mixer_pro/features/exhibition/state/three_js_engine_provider.dart';
@@ -73,9 +75,12 @@ class _AudioInitSplashScreenState extends ConsumerState<AudioInitSplashScreen> {
       ref.read(tuningStateProvider.notifier).applyAllToBackend();
 
       await _resumeShowIfLaunchedForIt();
+      await _announceOscBoot();
 
       _navigateToDashboard();
     } catch (e) {
+      // 엔진을 못 열었어도 외부 장비는 앱이 켜졌음을 알아야 한다(상태는 WaitingForDevice로 간다).
+      await _announceOscBoot();
       if (mounted) {
         setState(() {
           _hasError = true;
@@ -99,6 +104,20 @@ class _AudioInitSplashScreenState extends ConsumerState<AudioInitSplashScreen> {
       await show_api.apiResumeShow();
     } catch (e) {
       // 이어 가지 못해도 앱은 계속 쓴다(이유는 Rust가 앱 로그에 남긴다).
+    }
+  }
+
+  /// OSC 시작 신호를 보낸다(rust osc::reply, 규격 §3.2). 이어 가기·테마 시작이 정해진 뒤 한 번이다.
+  /// Rust 쪽이 같은 실행에서 두 번째 호출을 무시한다. 목적지가 비어 있으면 아무것도 보내지 않는다.
+  Future<void> _announceOscBoot() async {
+    try {
+      final info = await PackageInfo.fromPlatform();
+      await osc_api.apiOscAnnounceBoot(
+        startKind: bootStartKind(ref.read(launchArgsProvider)),
+        appVersion: info.version,
+      );
+    } catch (e) {
+      // 시작 신호를 못 보내도 앱은 계속 쓴다.
     }
   }
 
