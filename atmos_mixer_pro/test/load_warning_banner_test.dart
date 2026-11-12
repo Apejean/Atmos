@@ -38,16 +38,16 @@ void main() {
     await tester.pump();
     expect(find.textContaining('최대 22.5ms'), findsOneWidget);
 
-    for (final s in ['Stopped', 'HotReloading', 'EngineDown:x', 'Failover']) {
+    for (final s in ['Stopped', 'HotReloading', 'EngineDown:x', 'WatchdogActive']) {
       c.add(s);
       await tester.pump();
       expect(find.textContaining('부하가 높아'), findsOneWidget, reason: s);
     }
   });
 
-  testWidgets('clears on LoadNormal and on Running', (tester) async {
+  testWidgets('clears on LoadNormal, Running and Failover', (tester) async {
     final c = await pump(tester);
-    for (final clear in ['LoadNormal', 'Running']) {
+    for (final clear in ['LoadNormal', 'Running', 'Failover']) {
       c.add('LoadHigh:24.0/21.3/3/1/64');
       await tester.pump();
       expect(find.textContaining('부하가 높아'), findsOneWidget);

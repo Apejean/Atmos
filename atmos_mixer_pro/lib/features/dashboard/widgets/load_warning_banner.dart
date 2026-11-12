@@ -47,7 +47,8 @@ class LoadHigh {
 }
 
 /// 오디오 처리 부하가 예산을 넘거나 콜백이 늦은 동안 보이는 배너. 상태 스트림은 주입받는다.
-/// `LoadHigh`를 받으면 보이고(값은 최근 구간으로 갱신), `LoadNormal`(1분 정상)이나 `Running`(엔진 다시 시작)에서 사라진다.
+/// `LoadHigh`를 받으면 보이고(값은 최근 구간으로 갱신), `LoadNormal`(1분 정상)이나 `Running`·`Failover`(엔진 다시 시작)에서
+/// 사라진다. 새 엔진은 경고 없음으로 시작해 `LoadNormal`을 보내지 않으므로 엔진 시작 신호에서 지워야 한다.
 class LoadWarningBanner extends StatefulWidget {
   const LoadWarningBanner({super.key, required this.statusStream});
 
@@ -72,7 +73,7 @@ class _LoadWarningBannerState extends State<LoadWarningBanner> {
     final load = LoadHigh.parse(status);
     if (load != null) {
       setState(() => _load = load);
-    } else if ((status == loadNormalStatus || status == 'Running') && _load != null) {
+    } else if ((status == loadNormalStatus || status == 'Running' || status == 'Failover') && _load != null) {
       setState(() => _load = null);
     }
   }
