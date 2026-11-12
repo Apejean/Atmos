@@ -72,9 +72,23 @@ pub fn play_group(plan: &[(String, String, f64)]) -> Vec<(String, AtmosError)> {
 
 /// [`play_group`]과 같고, `epoch`(계획을 만든 순간의 정지 순번) 뒤에 들어온 정지가 있으면 시작하지 않는다.
 pub fn play_group_since(plan: &[(String, String, f64)], epoch: u64) -> Vec<(String, AtmosError)> {
+    play_group_outcome(plan, epoch).failed
+}
+
+/// 그룹 시작 결과.
+pub struct GroupOutcome {
+    /// 재생하지 못한 트랙(트랙 id, 오류).
+    pub failed: Vec<(String, AtmosError)>,
+    /// StartGroup을 보냈다. 계획이 비었거나 준비 중 정지가 들어와 CancelGroup을 보냈으면 false
+    /// (예: OSC 시작 신호의 "이어 재생한 트랙 수"를 0으로 둔다).
+    pub started: bool,
+}
+
+/// [`play_group_since`]와 같고, 시작했는지도 함께 돌려준다.
+pub fn play_group_outcome(plan: &[(String, String, f64)], epoch: u64) -> GroupOutcome {
     let mut failed = Vec::new();
     if plan.is_empty() {
-        return failed;
+        return GroupOutcome { failed, started: false };
     }
     crate::core::event_log::record_request("play_group", &format!("{}tracks", plan.len()));
     let mut group = GroupStart::new();
@@ -105,14 +119,15 @@ pub fn play_group_since(plan: &[(String, String, f64)], epoch: u64) -> Vec<(Stri
             PREROLL_TIMEOUT.as_millis()
         ));
     }
-    let cmd = if STOP_EPOCH.load(Ordering::SeqCst) == epoch {
+    let started = STOP_EPOCH.load(Ordering::SeqCst) == epoch;
+    let cmd = if started {
         AudioCommand::StartGroup { group_id: group.id }
     } else {
         GLOBAL_STATE.log("그룹 시작: 준비하는 사이 정지가 들어와 시작하지 않는다".to_string());
         AudioCommand::CancelGroup { group_id: group.id }
     };
     let _ = GLOBAL_STATE.command_sender.send(cmd);
-    failed
+    GroupOutcome { failed, started }
 }
 
 /// 같은 그룹에서 파일 길이(프레임 수, 샘플레이트)가 같은 트랙들은 위치를 그중 가장 앞선 위치 하나로 맞춘다(설계 3.5).
@@ -174,6 +189,22 @@ mod tests {
         let mut s = [1.0, 2.0];
         align_same_length(&mut s, &[Some((480_000, 48_000)), Some((480_000, 44_100))]);
         assert_eq!(s, [1.0, 2.0]);
+    }
+
+    #[test]
+    fn 계획_뒤에_정지가_있었으면_보내지도_시작하지도_않았다고_돌려준다() {
+        // 기준 순번이 지금보다 앞이면 계획 뒤에 정지가 들어온 것이다(다른 시험이 순번을 올려도 결과는 같다).
+        let plan = vec![("없는방".to_string(), "없는트랙".to_string(), 0.0)];
+        let outcome = play_group_outcome(&plan, current_epoch().wrapping_sub(1));
+        assert!(!outcome.started, "정지가 끼어들었는데 시작했다고 돌려줬다");
+        assert!(outcome.failed.is_empty(), "정지 뒤에는 트랙을 보내지도 않아야 한다");
+    }
+
+    #[test]
+    fn 빈_계획은_시작하지_않았다고_돌려준다() {
+        let outcome = play_group_outcome(&[], current_epoch());
+        assert!(!outcome.started);
+        assert!(outcome.failed.is_empty());
     }
 
     #[test]
