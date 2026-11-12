@@ -560,78 +560,40 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                                 glowColor: AppColors.primaryNeon,
                                 onPressed: isActive
                                     ? () async {
+                                        // OSC 방 클리어와 같은 함수 하나를 부른다(api_clear_room_and_advance). 이 방을
+                                        // 비우고, 다음 방을 활성으로 올려 그 방의 루프를 한 그룹으로 같은 샘플에 함께
+                                        // 튼다. 예전에는 여기서 다음 방 루프를 하나씩 틀어 트랙끼리 어긋날 수 있었다.
+                                        // 바뀐 활성 방은 엔진 상태 알림으로 화면에 온다.
+                                        final rust_api.ClearRoomResult result;
                                         try {
-                                          try {
-                                            await rust_api.apiClearRoom(
-                                              roomId: room.id,
-                                            );
-                                          } catch (e) {
-                                            ref
-                                                .read(
-                                                  globalErrorProvider.notifier,
-                                                )
-                                                .showError('룸 클리어 중단: ${errorText(e)}');
-                                            return; // Error means it's already cleared or not active. Do not auto-promote.
-                                          }
-
+                                          result = await rust_api
+                                              .apiClearRoomAndAdvance(
+                                                roomId: room.id,
+                                              );
+                                        } catch (e) {
+                                          // 이미 비웠거나 활성 방이 아니다. 아무것도 바뀌지 않았다.
                                           ref
                                               .read(
-                                                engineStateProvider.notifier,
+                                                globalErrorProvider.notifier,
                                               )
-                                              .clearRoom(room.id);
-
-                                          // Automatically activate next room if possible
-                                          final currentConfig = ref.read(
-                                            configProvider,
-                                          );
-                                          if (currentConfig != null) {
-                                            final idx = currentConfig.rooms
-                                                .indexWhere(
-                                                  (r) => r.id == room.id,
-                                                );
-                                            if (idx != -1 &&
-                                                idx + 1 <
-                                                    currentConfig
-                                                        .rooms
-                                                        .length) {
-                                              final nextRoom =
-                                                  currentConfig.rooms[idx + 1];
-                                              ref
-                                                  .read(
-                                                    engineStateProvider
-                                                        .notifier,
-                                                  )
-                                                  .setActiveRoom(nextRoom.id);
-                                              // Auto play loop tracks of next room
-                                              for (final track
-                                                  in nextRoom.tracks) {
-                                                if (track.isLoop) {
-                                                  try {
-                                                    await rust_api.apiPlayTrack(
-                                                      roomId: nextRoom.id,
-                                                      trackId: track.id,
-                                                    );
-                                                  } catch (e) {
-                                                    if (context.mounted) {
-                                                      showTrackPlayFailure(context, e);
-                                                    }
-                                                  }
-                                                }
-                                              }
-                                            } else {
-                                              // It's the last room
-                                              ref
-                                                  .read(
-                                                    engineStateProvider
-                                                        .notifier,
-                                                  )
-                                                  .clearActiveRoom();
-                                            }
-                                            }
-                                          } catch (e) {
-                                            // ignored or handled
-                                          }
+                                              .showError('룸 클리어 중단: ${errorText(e)}');
+                                          return;
                                         }
+                                        // 클리어한 방 표시는 화면 상태다.
+                                        ref
+                                            .read(
+                                              engineStateProvider.notifier,
+                                            )
+                                            .clearRoom(room.id);
+                                        if (result.failedTracks.isNotEmpty &&
+                                            context.mounted) {
+                                          showTrackPlayFailure(
+                                            context,
+                                            result.failedTracks.join(' / '),
+                                            prefix: '다음 방 루프 재생 실패',
+                                          );
+                                        }
+                                      }
                                     : null,
                               ),
                             ),
