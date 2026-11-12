@@ -139,3 +139,32 @@ fn 장치가_임시_버퍼보다_큰_블록을_줘도_늘리지_않고_나눠서
     // 재생 중인 소리가 없으니 믹서 출력은 무음이다. 마지막 프레임까지 모두 덮어써야 한다.
     assert!(data.iter().all(|&s| s == 0.0), "임시 버퍼를 넘는 뒤쪽 프레임을 채우지 않았다");
 }
+
+#[test]
+fn 그룹_시작과_밀린_만큼_건너뛰기는_힙을_건드리지_않는다() {
+    let mut mixer = mixer();
+    let (mut tx, rx) = rtrb::RingBuffer::<Vec<f32>>::new(64);
+    let mut inst = instance(9);
+    inst.stream_receiver = Some(rx);
+    inst.arm_for_group(5);
+    mixer.instances[0] = Some(inst);
+    let cmd = AudioCommand::StartGroup { group_id: 5 };
+    assert_eq!(ops_for_command(&mut mixer, cmd), 0, "그룹 시작 처리 중 콜백에서 힙을 건드렸다");
+
+    let mut temp = vec![0.0f32; BLOCK * CH];
+    let mut data = vec![0.0f32; BLOCK * CH];
+    // 첫 묶음이 아직 없어 한 블록 밀린다.
+    let ops = heap_ops(|| {
+        AudioEngine::render_block(&mut mixer, &mut temp, &mut data, CH, CH);
+    });
+    assert_eq!(ops, 0, "묶음을 기다리며 밀린 프레임을 셀 때 힙을 건드렸다");
+    // 디코더가 이제 보낸다(할당은 시험 스레드에서, 세지 않는 동안).
+    for _ in 0..4 {
+        assert!(tx.push(vec![0.1f32; 300]).is_ok());
+    }
+    let ops = heap_ops(|| {
+        AudioEngine::render_block(&mut mixer, &mut temp, &mut data, CH, CH);
+    });
+    assert_eq!(ops, 0, "밀린 만큼 건너뛰며 묶음을 바꿀 때 콜백에서 힙을 건드렸다");
+    assert_eq!(mixer.instances[0].as_ref().map(|i| i.lag_frames), Some(0.0), "밀린 프레임을 다 건너뛰지 않았다");
+}

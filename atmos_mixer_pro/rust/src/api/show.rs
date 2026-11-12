@@ -1,6 +1,6 @@
 //! 공연 시작·이어 가기(docs/superpowers/specs/2026-10-05-crash-relaunch-supervisor-design.md 4.4).
 use crate::api::error::AtmosError;
-use crate::api::simple::{api_play_track, api_set_active_room, api_stop_all};
+use crate::api::simple::{api_set_active_room, stop_all};
 use crate::core::state::GLOBAL_STATE;
 
 /// 지난 공연 상태를 읽어 두고 5초마다 저장을 시작한다. 앱 시작 때(시작 관문 다음) 한 번 부른다.
@@ -20,8 +20,11 @@ pub fn api_resume_show() -> Result<(), AtmosError> {
 /// 아니면 첫 방을 활성 방으로 하고 그 방의 루프 트랙을 튼다. 그 밖의 트랙은 OSC 신호로 틀고, 전시 모드가 아니면 방
 /// 클리어 때 다음 방 루프가 이어진다(osc::listener). 루프 트랙 재생이 실패해도 나머지는 다 틀고, 실패한 트랙을 모아
 /// Err로 알린다(앱 로그에도 남긴다). 방이 없으면 정지만 한다.
+/// 루프들은 한 그룹으로 같은 샘플에 함께 시작한다(core::group_start, 그룹 시작 설계). 예전에는 하나씩 틀어, 보내는
+/// 도중 콜백 경계가 지나가면 뒤 트랙들이 한 블록(1024프레임에서 21.3ms) 늦게 시작한 채로 남았다(진단 T252).
 pub fn api_theme_start() -> Result<(), AtmosError> {
-    api_stop_all()?;
+    // 이 정지가 올린 순번이 기준이다. 그 뒤 루프를 준비하는 사이 다른 정지(Emergency 등)가 들어오면 시작하지 않는다.
+    let epoch = stop_all()?;
     let plan = GLOBAL_STATE.config.read().unwrap_or_else(|e| e.into_inner()).as_ref().map(|config| {
         let rooms = if config.is_exhibition_mode { config.rooms.len() } else { 1 };
         let loops: Vec<(String, String, String)> = config
@@ -42,12 +45,13 @@ pub fn api_theme_start() -> Result<(), AtmosError> {
         GLOBAL_STATE.set_theme_started(true);
         api_set_active_room(Some(first_room))?;
     }
+    let plan: Vec<(String, String, f64)> =
+        loops.iter().map(|(room_id, track_id, _)| (room_id.clone(), track_id.clone(), 0.0)).collect();
     let mut failed = Vec::new();
-    for (room_id, track_id, name) in loops {
-        if let Err(e) = api_play_track(room_id, track_id) {
-            GLOBAL_STATE.log(format!("테마 시작: {name} 재생 실패: {}", e.message));
-            failed.push(format!("{name}: {}", e.message));
-        }
+    for (track_id, e) in crate::core::group_start::play_group_since(&plan, epoch) {
+        let name = loops.iter().find(|(_, t, _)| *t == track_id).map_or(track_id.as_str(), |(_, _, n)| n.as_str());
+        GLOBAL_STATE.log(format!("테마 시작: {name} 재생 실패: {}", e.message));
+        failed.push(format!("{name}: {}", e.message));
     }
     if failed.is_empty() {
         Ok(())

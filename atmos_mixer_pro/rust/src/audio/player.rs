@@ -266,6 +266,14 @@ pub struct SoundInstance {
     pub position_base_frames: f64,
     /// 루프 한 바퀴 길이(프레임). 모르면 None이라 위치를 바퀴 안으로 접지 못한다.
     pub loop_len_frames: Option<f64>,
+    /// 그룹 시작 묶음 번호(0이면 그룹 아님, docs/superpowers/specs/2026-11-12-group-start-design.md).
+    pub group_id: u64,
+    /// StartGroup을 기다리는 중. 이 동안은 소리·위치·페이드가 움직이지 않는다.
+    pub armed: bool,
+    /// 그룹 인스턴스가 스트림이 비어 따라가지 못한 프레임 수. 묶음이 오면 이만큼 건너뛰어 그룹 위치로 돌아간다.
+    pub lag_frames: f64,
+    /// 건너뛴 직후 다시 들어오는 페이드(0 -> 1, 딸깍 방지, 3법칙 3). 평소에는 1.
+    pub rejoin_gain: f32,
 }
 
 impl SoundInstance {
@@ -332,12 +340,23 @@ impl SoundInstance {
             spatial_gains_target: vec![0.0; spatial_channel_capacity],
             position_base_frames: 0.0,
             loop_len_frames,
+            group_id: 0,
+            armed: false,
+            lag_frames: 0.0,
+            rejoin_gain: 1.0,
         }
     }
 
-    /// 파일 기준 재생 위치(초). 루프면 한 바퀴 안의 위치다.
+    /// 그룹 `group_id`(0이 아님)의 대기 인스턴스로 표시한다. StartGroup이 오면 그룹과 함께 시작한다.
+    pub fn arm_for_group(&mut self, group_id: u64) {
+        self.group_id = group_id;
+        self.armed = true;
+    }
+
+    /// 파일 기준 재생 위치(초). 루프면 한 바퀴 안의 위치다. 그룹 인스턴스가 스트림이 비어 밀렸으면
+    /// 있어야 할 자리(밀린 프레임 포함)를 돌려준다 — 재시작 스냅샷이 그룹 위치로 이어 가게.
     pub fn position_seconds(&self) -> f64 {
-        let mut frames = self.position_base_frames + self.cursor;
+        let mut frames = self.position_base_frames + self.cursor + self.lag_frames;
         if let Some(len) = self.loop_len_frames {
             if len > 0.0 {
                 frames %= len;

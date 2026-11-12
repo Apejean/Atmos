@@ -767,6 +767,9 @@ impl AudioEngine {
                         inst.is_stopping = true;
                     }
                 }
+                // 그룹 시작·취소(그룹 시작 설계 3.2): 대기 중인 같은 그룹 인스턴스를 함께 시작하거나 정리한다.
+                AudioCommand::StartGroup { group_id } => mixer.start_group(group_id),
+                AudioCommand::CancelGroup { group_id } => mixer.cancel_group(group_id),
                 AudioCommand::SetBinauralEnabled { enabled } => {
                     mixer.binaural.enabled = enabled;
                     // 방 시뮬레이션은 헤드폰 미리듣기에서만 걸린다(mixer::refresh_early_ref_mix).

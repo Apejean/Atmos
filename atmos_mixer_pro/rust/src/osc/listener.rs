@@ -263,7 +263,8 @@ fn handle_packet(packet: OscPacket, debouncer: &OscDebouncer) {
                             return;
                         }
 
-                        crate::core::restart_resume::cancel_room(&room_id);
+                        // 이 비우기가 올린 정지 순번. 아래에서 다음 방 루프를 그룹으로 틀 때 기준이 된다.
+                        let stop_epoch = crate::core::restart_resume::cancel_room(&room_id);
                         crate::core::state::GLOBAL_STATE.mark_room_cleared(&room_id);
                         crate::core::state::GLOBAL_STATE.remove_playing_tracks_of_room(&room_id);
                         let _ = crate::core::state::GLOBAL_STATE.command_sender.send(
@@ -294,14 +295,15 @@ fn handle_packet(packet: OscPacket, debouncer: &OscDebouncer) {
 
                             // 다음 방 BGM(루프)은 대시보드와 같은 재생 경로로 튼다. 예전에는 RAM 캐시(sound_cache)에서만
                             // 찾았는데 루프 트랙은 스트리밍이라 거기 없어서 아무것도 나오지 않았다. 이미 재생 중인
-                            // 루프는 api_play_track이 다시 틀지 않는다.
+                            // 루프는 다시 틀지 않는다. 한 그룹으로 같은 샘플에 함께 시작한다(core::group_start).
                             if let Some(next_r) = config.rooms.iter().find(|r| r.id == next_id) {
-                                for next_t in next_r.tracks.iter().filter(|t| t.is_loop) {
-                                    let _ = crate::api::simple::api_play_track(
-                                        next_id.clone(),
-                                        next_t.id.clone(),
-                                    );
-                                }
+                                let plan: Vec<(String, String, f64)> = next_r
+                                    .tracks
+                                    .iter()
+                                    .filter(|t| t.is_loop)
+                                    .map(|t| (next_id.clone(), t.id.clone(), 0.0))
+                                    .collect();
+                                let _ = crate::core::group_start::play_group_since(&plan, stop_epoch);
                             }
                         } else {
                             crate::core::state::GLOBAL_STATE.set_active_room(None);

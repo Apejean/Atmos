@@ -229,6 +229,8 @@ fn silent_now() -> bool {
 
 /// 시작할 때 읽어 둔 지난 상태로 이어 간다. 이어 갈 수 없으면 첫 방 테마로 시작한다. 읽어 둔 상태는 한 번만 쓴다.
 pub fn resume(now_ms: u64) -> Result<(), AtmosError> {
+    // 이어 갈 계획을 정하는 순간의 정지 순번. 그 뒤 준비하는 사이 정지가 들어오면 그룹을 시작하지 않는다.
+    let stop_epoch = crate::core::group_start::current_epoch();
     let previous = PREVIOUS.lock().unwrap_or_else(|e| e.into_inner()).take();
     let plan = {
         let config = GLOBAL_STATE.config.read().unwrap_or_else(|e| e.into_inner());
@@ -241,10 +243,13 @@ pub fn resume(now_ms: u64) -> Result<(), AtmosError> {
                 tracks.len()
             ));
             GLOBAL_STATE.set_active_room(active_room_id);
-            for t in tracks {
-                if let Err(e) = crate::api::simple::play_track_from(t.room_id, t.track_id.clone(), t.seconds) {
-                    GLOBAL_STATE.log(format!("공연 이어 가기: {} 재생 실패: {}", t.track_id, e.message));
-                }
+            // 한 그룹으로 같은 샘플에 함께 시작하고, 길이가 같은 트랙은 가장 앞선 위치로 맞춘다(그룹 시작 설계 3.5).
+            // 예전에는 하나씩 틀어 위치가 뒤일수록 트랙끼리 어긋났다(진단 T264: 290초에서 최대 103ms).
+            let mut plan: Vec<(String, String, f64)> =
+                tracks.into_iter().map(|t| (t.room_id, t.track_id, t.seconds)).collect();
+            crate::core::group_start::align_plan(&mut plan);
+            for (track_id, e) in crate::core::group_start::play_group_since(&plan, stop_epoch) {
+                GLOBAL_STATE.log(format!("공연 이어 가기: {track_id} 재생 실패: {}", e.message));
             }
             Ok(())
         }

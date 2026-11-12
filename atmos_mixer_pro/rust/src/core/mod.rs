@@ -2,6 +2,7 @@ pub mod app_signals;
 pub mod device_return;
 pub mod device_search;
 pub mod event_log;
+pub mod group_start;
 pub mod keep_awake;
 pub mod load_warning;
 pub mod log_file;
