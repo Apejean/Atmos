@@ -248,15 +248,14 @@ pub fn resume(now_ms: u64) -> Result<(), AtmosError> {
             let mut plan: Vec<(String, String, f64)> =
                 tracks.into_iter().map(|t| (t.room_id, t.track_id, t.seconds)).collect();
             crate::core::group_start::align_plan(&mut plan);
-            let failures = crate::core::group_start::play_group_since(&plan, stop_epoch);
-            for (track_id, e) in &failures {
+            let outcome = crate::core::group_start::play_group_outcome(&plan, stop_epoch);
+            for (track_id, e) in &outcome.failed {
                 GLOBAL_STATE.log(format!("공연 이어 가기: {track_id} 재생 실패: {}", e.message));
             }
-            // OSC 시작 신호의 "이어 재생한 트랙 수"(osc::reply, 규격 §3.2).
-            crate::osc::reply::RESUMED_TRACKS.store(
-                plan.len().saturating_sub(failures.len()) as u32,
-                Ordering::Relaxed,
-            );
+            // OSC 시작 신호의 "이어 재생한 트랙 수"(osc::reply, 규격 §3.2). 준비하는 사이 정지가 들어와 그룹을
+            // 시작하지 않았으면 이어 간 것이 없으므로 0이다.
+            let resumed = if outcome.started { plan.len().saturating_sub(outcome.failed.len()) } else { 0 };
+            crate::osc::reply::RESUMED_TRACKS.store(resumed as u32, Ordering::Relaxed);
             Ok(())
         }
         ResumePlan::ThemeStart(reason) => {
