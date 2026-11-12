@@ -8,7 +8,6 @@
 //!
 //! 기다리는 사이 사용자가 정지하면(트랙 정지, 전체 정지, 방 비우기 — 대시보드·OSC 모두) 그
 //! 트랙은 다시 틀지 않는다(`cancel_*`). 재개 전에 또 재시작하면 남은 항목은 다음 재개로 넘어간다.
-use crate::api::simple::play_track_from;
 use crate::audio::engine::ENGINE_GENERATION;
 use crate::audio::playback_cursor::CURSOR_TABLE;
 use crate::common::commands::AudioCommand;
@@ -98,19 +97,32 @@ pub fn take_snapshot(generation: u64) {
     GLOBAL_STATE.clear_playing_tracks();
 }
 
-/// 사용자가 전체 정지하거나 엔진을 직접 다시 띄우면 재개 대기를 버린다.
-pub fn cancel_all() {
-    pending().clear();
+// 아래 cancel_*는 대기열 잠금 안에서 정지 순번을 올린다. 재개 쪽(resume_pending)도 같은 잠금 안에서 순번을 읽고
+// 대기열을 꺼내므로, 정지는 "꺼내기 전(대기열이 비어 아무것도 안 틂)"이나 "꺼낸 뒤(순번이 바뀌어 그룹을 시작하지
+// 않음)" 둘 중 하나로만 보인다. 새 순번을 돌려준다(그 뒤 바로 그룹을 트는 쪽이 기준으로 쓴다).
+
+/// 사용자가 전체 정지하거나 엔진을 직접 다시 띄우면 재개 대기를 버린다. 준비 중인 그룹 시작도 멈춘다(정지 순번).
+pub fn cancel_all() -> u64 {
+    let mut queue = pending();
+    let epoch = crate::core::group_start::note_stop();
+    queue.clear();
+    epoch
 }
 
-/// 사용자가 트랙을 정지하면 그 트랙은 재개하지 않는다.
-pub fn cancel_track(track_id: &str) {
-    pending().retain(|e| e.track_id != track_id);
+/// 사용자가 트랙을 정지하면 그 트랙은 재개하지 않는다. 준비 중인 그룹 시작도 멈춘다(정지 순번).
+pub fn cancel_track(track_id: &str) -> u64 {
+    let mut queue = pending();
+    let epoch = crate::core::group_start::note_stop();
+    queue.retain(|e| e.track_id != track_id);
+    epoch
 }
 
-/// 사용자가 방을 비우면(룸 전환) 그 방의 트랙은 재개하지 않는다.
-pub fn cancel_room(room_id: &str) {
-    pending().retain(|e| e.room_id != room_id);
+/// 사용자가 방을 비우면(룸 전환) 그 방의 트랙은 재개하지 않는다. 준비 중인 그룹 시작도 멈춘다(정지 순번).
+pub fn cancel_room(room_id: &str) -> u64 {
+    let mut queue = pending();
+    let epoch = crate::core::group_start::note_stop();
+    queue.retain(|e| e.room_id != room_id);
+    epoch
 }
 
 /// 지금 재개를 기다리는 항목(테스트·진단용).
@@ -136,19 +148,25 @@ pub fn wait_for_ack(seq: u32, timeout: Duration) -> bool {
 }
 
 /// 대기열을 지금 재생한다. 실패한 항목(설정에서 사라진 트랙 등)은 기록하고 건너뛴다.
-/// 한 항목씩 잠금을 쥔 채 꺼내 재생한다. 통째로 꺼낸 뒤 재생하면 그 사이의 정지·전체 정지(Emergency)가
-/// 대기열에서 아무것도 못 지우고, 남은 항목이 정지 명령 뒤에 재생된다. 취소하는 쪽은 다른 잠금을 쥐지
-/// 않고 이 잠금을 잡으므로 교착은 없다.
+/// 대기열을 한 번에 꺼내 한 그룹으로 같은 샘플에 함께 시작한다(그룹 시작 설계 3.5). 위치는 한 콜백의 커서 표에서
+/// 나왔으므로 같은 그룹 안에서 맞고, 길이가 같은 트랙은 가장 앞선 위치로 맞춘다(그룹 시작 전 버전이 남긴 어긋남).
+/// 예전에는 한 항목씩 잠금을 쥔 채 꺼내 재생해, 통째로 꺼낸 뒤 그 사이 들어온 정지·전체 정지(Emergency) 뒤에 남은
+/// 항목이 재생되는 것을 막았다. 그룹은 모든 트랙을 준비한 뒤 함께 시작하므로 잠금을 쥔 채 기다리면 비상 정지가 그만큼
+/// 늦어진다. 대신 준비하는 사이 정지가 들어오면 정지 순번(group_start::STOP_EPOCH)이 바뀌어 그룹을 시작하지 않고
+/// 정리하므로, 정지 명령 뒤에 소리가 나는 일은 여전히 없다.
 pub fn resume_pending() {
-    loop {
+    let (entries, epoch) = {
         let mut queue = pending();
-        if queue.is_empty() {
-            break;
-        }
-        let e = queue.remove(0);
-        if let Err(err) = play_track_from(e.room_id.clone(), e.track_id.clone(), e.seconds) {
-            GLOBAL_STATE.log(format!("재시작 복원: {} 재개 실패: {}", e.track_id, err.message));
-        }
+        (std::mem::take(&mut *queue), crate::core::group_start::current_epoch())
+    };
+    if entries.is_empty() {
+        return;
+    }
+    let mut plan: Vec<(String, String, f64)> =
+        entries.into_iter().map(|e| (e.room_id, e.track_id, e.seconds)).collect();
+    crate::core::group_start::align_plan(&mut plan);
+    for (track_id, err) in crate::core::group_start::play_group_since(&plan, epoch) {
+        GLOBAL_STATE.log(format!("재시작 복원: {track_id} 재개 실패: {}", err.message));
     }
 }
 

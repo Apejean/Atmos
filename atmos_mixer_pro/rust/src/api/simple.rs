@@ -359,22 +359,38 @@ pub fn api_play_track(room_id: String, track_id: String) -> Result<(), AtmosErro
     play_track_from(room_id, track_id, 0.0)
 }
 
-/// 재생 명령의 인스턴스를 `seconds` 지점부터 시작하게 한다(0이면 그대로).
-fn with_start(mut cmd: AudioCommand, seconds: f64) -> AudioCommand {
-    if seconds > 0.0 {
-        if let AudioCommand::PlayTrack { instance, .. } = &mut cmd {
+/// 재생 명령의 인스턴스를 `seconds` 지점부터 시작하게 하고(0이면 그대로), 그룹이면 대기로 표시한다
+/// (그룹 시작 설계 3.1: StartGroup이 올 때까지 소리·위치가 움직이지 않는다).
+fn with_start(mut cmd: AudioCommand, seconds: f64, group_id: Option<u64>) -> AudioCommand {
+    if let AudioCommand::PlayTrack { instance, .. } = &mut cmd {
+        if seconds > 0.0 {
             instance.set_start_position(seconds);
+        }
+        if let Some(id) = group_id {
+            instance.arm_for_group(id);
         }
     }
     cmd
 }
 
-/// `start_seconds`(파일 기준)부터 재생한다. 재시작 복원(core::restart_resume)이 멈춘 위치를 넘긴다.
+/// `start_seconds`(파일 기준)부터 재생한다. 하나씩 트는 재생(대시보드 트랙 버튼, OSC 트랙 play)이 쓴다.
 pub(crate) fn play_track_from(
     room_id: String,
     track_id: String,
     start_seconds: f64,
 ) -> Result<(), AtmosError> {
+    play_track_from_in(room_id, track_id, start_seconds, None)
+}
+
+/// [`play_track_from`]과 같고, `group`이 있으면 인스턴스를 그 그룹의 대기로 보내고 디스크 트랙의 첫 묶음 표시를
+/// 모은다(core::group_start::play_group이 모아 함께 시작한다).
+pub(crate) fn play_track_from_in(
+    room_id: String,
+    track_id: String,
+    start_seconds: f64,
+    mut group: Option<&mut crate::core::group_start::GroupStart>,
+) -> Result<(), AtmosError> {
+    let group_id = group.as_ref().map(|g| g.id);
     if crate::core::state::debug_flags::trace_cmd() {
         eprintln!("[CMD] 재생 요청 room={room_id} track={track_id}");
     }
@@ -443,6 +459,10 @@ pub(crate) fn play_track_from(
                         Ok(streamer) => {
                             let sample_rate = streamer.sample_rate;
                             let channels = streamer.channels;
+                            if let Some(g) = group.as_mut() {
+                                // 그룹 시작은 이 표시가 켜질 때까지(첫 묶음 준비) 기다린 뒤 함께 시작한다.
+                                g.ready.push(streamer.first_chunk_ready.clone());
+                            }
                             if crate::core::state::debug_flags::trace_cmd() {
                                 eprintln!("[CMD] 재생 시작(스트리밍) track={track_id} instance={instance_id}");
                             }
@@ -469,7 +489,7 @@ pub(crate) fn play_track_from(
                                     track.output_channel as usize,
                                     track.output_stereo,
                                     None,
-                                ), start_seconds))
+                                ), start_seconds, group_id))
                                 .map_err(|e| AtmosError {
                                     message: e.to_string(),
                                 })?;
@@ -524,7 +544,7 @@ pub(crate) fn play_track_from(
                                 track.output_channel as usize,
                                 track.output_stereo,
                                 None,
-                            ), start_seconds))
+                            ), start_seconds, group_id))
                             .map_err(|e| AtmosError {
                                 message: e.to_string(),
                             })?;
@@ -555,7 +575,7 @@ pub(crate) fn play_track_from(
                                 track.output_channel as usize,
                                 track.output_stereo,
                                 None,
-                            ), start_seconds))
+                            ), start_seconds, group_id))
                             .map_err(|e| AtmosError {
                                 message: e.to_string(),
                             })?;
@@ -606,7 +626,7 @@ pub(crate) fn play_track_from(
                                         track.output_channel as usize,
                                         track.output_stereo,
                                         None,
-                                    ), start_seconds))
+                                    ), start_seconds, group_id))
                                     .map_err(|e| AtmosError {
                                         message: e.to_string(),
                                     })?;
@@ -651,8 +671,14 @@ pub fn api_stop_track(room_id: String, track_id: String) -> Result<(), AtmosErro
 }
 
 pub fn api_stop_all() -> Result<(), AtmosError> {
+    stop_all().map(|_| ())
+}
+
+/// 전체 정지하고, 이 정지가 올린 정지 순번을 돌려준다. 바로 뒤에 그룹을 트는 테마 시작이 기준으로 쓴다
+/// (그 사이에 들어온 다른 정지가 있으면 그룹을 시작하지 않는다, core::group_start).
+pub(crate) fn stop_all() -> Result<u64, AtmosError> {
     crate::core::event_log::record_request("stop_all", "-");
-    crate::core::restart_resume::cancel_all();
+    let epoch = crate::core::restart_resume::cancel_all();
     if crate::core::state::debug_flags::trace_cmd() {
         eprintln!("[CMD] 전체 정지 요청");
     }
@@ -682,7 +708,7 @@ pub fn api_stop_all() -> Result<(), AtmosError> {
         .map_err(|e| AtmosError {
             message: e.to_string(),
         })?;
-    Ok(())
+    Ok(epoch)
 }
 
 pub fn api_set_active_room(room_id: Option<String>) -> Result<(), AtmosError> {
@@ -2274,13 +2300,15 @@ pub fn api_play_all_loop_tracks() -> Result<(), AtmosError> {
     };
 
     if let Some(config) = config {
-        for room in config.rooms {
-            for track in room.tracks {
-                if track.is_loop {
-                    let _ = api_play_track(room.id.clone(), track.id.clone());
-                }
-            }
-        }
+        // 모든 방의 루프를 한 그룹으로 같은 샘플에 함께 시작한다(그룹 시작 설계 3.1).
+        let plan: Vec<(String, String, f64)> = config
+            .rooms
+            .iter()
+            .flat_map(|room| {
+                room.tracks.iter().filter(|t| t.is_loop).map(|t| (room.id.clone(), t.id.clone(), 0.0))
+            })
+            .collect();
+        let _ = crate::core::group_start::play_group(&plan);
     }
     Ok(())
 }

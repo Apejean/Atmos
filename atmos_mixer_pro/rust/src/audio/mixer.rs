@@ -27,6 +27,11 @@ const LFE_BOOST_LINEAR: f32 = 3.162_277_7;
 /// LFE +10dB 켜기/끄기 램프 길이(초).
 const LFE_BOOST_RAMP_S: f32 = 0.02;
 
+/// 그룹 인스턴스가 밀린 만큼 건너뛴 뒤 다시 키우는 시간(초, 딸깍 방지, 3법칙 3).
+const REJOIN_RAMP_S: f32 = 0.005;
+/// 한 샘플에서 꺼낼 수 있는 스트림 묶음 수의 상한. 평소에는 1이고 건너뛰기 직후에만 커진다(DiskStreamer 링은 128칸).
+const MAX_CHUNK_POPS_PER_SAMPLE: usize = 256;
+
 /// 출력 단계의 음소거·페일오버 감쇠·헤드룸과 트랙 출력 채널이 목표로 옮겨 가는 속도(초당 게인 1을 이 시간에
 /// 건넌다, 3법칙 3). 예전에는 한 샘플이나 한 블록 만에 바뀌어 딸깍 소리가 났다.
 pub const OUTPUT_RAMP_S: f32 = 0.01;
@@ -424,9 +429,10 @@ impl AudioMixer {
 
 
         // Check if any SFX is playing (not loop)
+        // 그룹 시작을 기다리는 인스턴스(armed)는 아직 소리가 나지 않으므로 세지 않는다.
         let has_sfx = self.instances.iter().any(|inst| {
             if let Some(inst) = inst {
-                !inst.is_loop && inst.is_playing && !inst.is_stopping
+                !inst.is_loop && inst.is_playing && !inst.is_stopping && !inst.armed
             } else {
                 false
             }
@@ -661,6 +667,7 @@ impl AudioMixer {
             }
 
             let output_fade_step = 1.0 / (OUTPUT_RAMP_S * self.sample_rate as f32);
+            let rejoin_step = 1.0 / (REJOIN_RAMP_S * self.sample_rate as f32);
             for idx in 0..active_instances.len() {
                 let i = active_instances[idx];
                 let instance = match &mut self.instances[i] {
@@ -670,6 +677,15 @@ impl AudioMixer {
 
                 // 블록 도중 재생이 끝날 수 있으므로 여기서도 확인한다.
                 if !instance.is_playing {
+                    continue;
+                }
+
+                // 그룹 시작을 기다리는 중(armed): 소리·위치·페이드가 움직이지 않는다. 그 사이 정지되면 들린 적이
+                // 없으니 페이드 없이 바로 끝낸다(블록 끝에서 정리 스레드로 넘어간다).
+                if instance.armed {
+                    if instance.is_stopping {
+                        instance.is_playing = false;
+                    }
                     continue;
                 }
 
@@ -733,9 +749,25 @@ impl AudioMixer {
                 let mut has_sample = false;
 
                 if let Some(stream_rx) = &mut instance.stream_receiver {
-                    if idx_i >= instance.stream_buffer.len() {
+                    // 그룹 인스턴스가 스트림이 비어 밀렸다가 묶음이 오면, 밀린 만큼 건너뛰어 그룹 위치로 돌아간다
+                    // (그룹 시계, 설계 3.3, 사용자 결정 2026-11-10 "밀린 만큼 건너뛰어 다시 맞춘다"). 건너뛰기는
+                    // 커서만 옮기고, 넘어간 묶음은 아래에서 이어서 꺼내 버린다. 다시 들어오는 소리는 짧게 키운다.
+                    if instance.lag_frames > 0.0 && !stream_rx.is_empty() {
+                        instance.cursor += instance.lag_frames;
+                        instance.lag_frames = 0.0;
+                        instance.rejoin_gain = 0.0;
+                        idx_f = instance.cursor;
+                        idx_base = idx_f as usize;
+                        frac = (idx_f - (idx_base as f64)) as f32;
+                        idx_i = idx_base * channels;
+                    }
+                    // 커서가 지금 묶음을 넘었으면 다음 묶음으로 간다. 평소에는 한 번이고, 건너뛰기 직후에만 여러 번이다
+                    // (링에 있는 만큼까지, 고정 상한 — 할당·잠금 없음).
+                    let mut pops = 0;
+                    while idx_i >= instance.stream_buffer.len() && pops < MAX_CHUNK_POPS_PER_SAMPLE {
                         match stream_rx.pop() {
                             Ok(new_chunk) => {
+                                pops += 1;
                                 instance.anti_click_multiplier = 1.0;
                                 let frames_in_chunk = (instance.stream_buffer.len() / channels) as f64;
                                 instance.position_base_frames += frames_in_chunk;
@@ -765,6 +797,7 @@ impl AudioMixer {
                                 if !instance.is_stopping && stream_rx.is_abandoned() && stream_rx.is_empty() {
                                     instance.is_stopping = true;
                                 }
+                                break;
                             }
                         }
                     }
@@ -831,6 +864,12 @@ impl AudioMixer {
                             *val = crate::audio::dsp::dsp_utils::interpolate_hermite(s0, s1, s2, s3, frac);
                         }
                     }
+                }
+
+                // 밀린 만큼 건너뛴 직후에는 짧게 다시 키운다(딸깍 방지, 3법칙 3). 평소에는 1이라 영향이 없다.
+                if instance.rejoin_gain < 1.0 {
+                    current_vol *= instance.rejoin_gain;
+                    instance.rejoin_gain = (instance.rejoin_gain + rejoin_step).min(1.0);
                 }
 
                 if has_sample {
@@ -939,6 +978,11 @@ impl AudioMixer {
 
                     if instance.stream_receiver.is_some() && idx_i >= instance.stream_buffer.len() {
                         // Buffer is empty, stream is lagging. Don't advance cursor.
+                        // 그룹 인스턴스는 밀린 프레임을 세어 두었다가 묶음이 오면 그만큼 건너뛴다(그룹 시계).
+                        // 그룹이 아니면 예전처럼 그 자리에서 기다린다.
+                        if instance.group_id != 0 {
+                            instance.lag_frames += step;
+                        }
                     } else {
                         instance.cursor += step;
                     }
@@ -1214,6 +1258,26 @@ impl AudioMixer {
                         }
                     }
                 }
+            }
+        }
+    }
+
+    /// StartGroup: 대기 중인 `group_id` 인스턴스를 모두 이 블록의 첫 샘플에서 함께 시작한다(그룹 시작 설계 3.2).
+    /// 명령은 블록 처리 전(begin_callback)에 처리되므로 대기를 풀면 바로 다음 process의 0번째 샘플부터 같이 움직인다.
+    /// 첫 묶음이 아직 없는 인스턴스는 그 동안 밀린 프레임을 세었다가 합류한다. 고정 풀 순회뿐이다(할당 없음).
+    pub fn start_group(&mut self, group_id: u64) {
+        for inst in self.instances.iter_mut().flatten() {
+            if inst.group_id == group_id && inst.armed {
+                inst.armed = false;
+            }
+        }
+    }
+
+    /// CancelGroup: 준비 중 정지가 끼어든 그룹의 대기 인스턴스를 들리지 않게 정리한다(대기 중 정지와 같은 길).
+    pub fn cancel_group(&mut self, group_id: u64) {
+        for inst in self.instances.iter_mut().flatten() {
+            if inst.group_id == group_id && inst.armed {
+                inst.is_stopping = true;
             }
         }
     }

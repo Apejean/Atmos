@@ -16,6 +16,16 @@ pub enum AudioCommand {
         track_id: u32,
     },
     StopAll,
+    /// 그룹 시작: 대기(armed) 중인 같은 그룹의 인스턴스를 이 명령이 든 블록의 첫 샘플에서 함께 시작한다
+    /// (docs/superpowers/specs/2026-11-12-group-start-design.md). 인스턴스는 PlayTrack으로 먼저 들어와 있고,
+    /// 이 명령은 id만 싣는다(콜백 안 할당 금지).
+    StartGroup {
+        group_id: u64,
+    },
+    /// 그룹 취소: 준비하는 동안 정지가 끼어들었을 때, 아직 대기 중인 그 그룹 인스턴스를 들리지 않게 정리한다.
+    CancelGroup {
+        group_id: u64,
+    },
     SetBinauralEnabled {
         enabled: bool,
     },

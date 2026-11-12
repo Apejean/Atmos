@@ -18,6 +18,8 @@ pub struct DiskStreamer {
     pub loop_len_frames: Option<f64>,
     /// 바꾸기 전 음원의 원래 샘플레이트. [Self::sample_rate]와 다르면 HQ sinc로 바꾸고 있다(화면 배지).
     pub source_sample_rate: u32,
+    /// 첫 묶음을 링에 넣었다. 그룹 시작이 모든 트랙의 첫 묶음을 기다린 뒤 함께 시작하는 데 쓴다(그룹 시작 설계 3.1).
+    pub first_chunk_ready: Arc<AtomicBool>,
 }
 
 impl Default for DiskStreamer {
@@ -31,6 +33,7 @@ impl Default for DiskStreamer {
             thread_handle: None,
             loop_len_frames: None,
             source_sample_rate: 48000,
+            first_chunk_ready: Arc::new(AtomicBool::new(true)),
         }
     }
 }
@@ -87,10 +90,10 @@ impl DiskStreamer {
         // 이 위치까지는 디코딩만 하고 버린다. 믹서가 세는 위치와 같게 출력(리샘플링 뒤) 프레임으로 센다.
         let mut skip_samples =
             (start_seconds.max(0.0) * output_sample_rate as f64).round() as usize * channels as usize;
-        let loop_len_frames = track
-            .codec_params
-            .n_frames
-            .map(|n| n as f64 * output_sample_rate as f64 / src_sample_rate as f64);
+        let total_frames = track.codec_params.n_frames;
+        let loop_len_frames = total_frames.map(|n| n as f64 * output_sample_rate as f64 / src_sample_rate as f64);
+        let first_chunk_ready = Arc::new(AtomicBool::new(false));
+        let ready_flag = first_chunk_ready.clone();
 
         let handle = std::thread::spawn(move || {
             let file = match std::fs::File::open(&path) {
@@ -123,6 +126,25 @@ impl DiskStreamer {
                     return;
                 }
             };
+
+            // 시작 위치로 바로 찾는다(그룹 시작 설계 3.5). 처음부터 해독해 버리면 위치가 뒤일수록 첫 묶음이 늦고 그
+            // 시간이 트랙마다 달라진다(진단 T264: 290초 이어 가기에서 최대 103ms 어긋남). 샘플레이트를 바꾸지 않는 파일만
+            // 찾고(출력 프레임 = 파일 프레임), 찾은 자리와 요청한 자리의 차이만 해독해 버려 샘플 단위로 맞춘다. 찾기를
+            // 못 하는 형식이면 예전처럼 처음부터 해독해 버린다.
+            if skip_samples > 0 && !needs_resampling {
+                let ch = (channels as usize).max(1);
+                let mut target = (skip_samples / ch) as u64;
+                if let Some(len) = total_frames {
+                    if is_loop && len > 0 {
+                        target %= len;
+                    }
+                }
+                let to = symphonia::core::formats::SeekTo::TimeStamp { ts: target, track_id };
+                if let Ok(seeked) = format.seek(symphonia::core::formats::SeekMode::Accurate, to) {
+                    decoder.reset();
+                    skip_samples = target.saturating_sub(seeked.actual_ts) as usize * ch;
+                }
+            }
 
             let mut sample_buf = None;
             
@@ -224,13 +246,13 @@ impl DiskStreamer {
                                                 chunk.push(resampled[ch][frame]);
                                             }
                                         }
-                                        send_chunk(&mut tx, &run_flag, &mut skip_samples, chunk);
+                                        send_chunk(&mut tx, &run_flag, &ready_flag, &mut skip_samples, chunk);
                                     }
                                 }
                             } else {
                                 let mut chunk = Vec::with_capacity(buf.samples().len());
                                 chunk.extend_from_slice(buf.samples());
-                                send_chunk(&mut tx, &run_flag, &mut skip_samples, chunk);
+                                send_chunk(&mut tx, &run_flag, &ready_flag, &mut skip_samples, chunk);
                             }
                         }
                     }
@@ -247,14 +269,33 @@ impl DiskStreamer {
             thread_handle: Some(handle),
             loop_len_frames,
             source_sample_rate: src_sample_rate,
+            first_chunk_ready,
         })
     }
 }
 
+/// 파일의 프레임 수와 샘플레이트(머리말만 읽는다). 모르면 None. 그룹 이어 가기가 길이가 같은 트랙을 가리는 데
+/// 쓴다(core::group_start::align_plan). 오디오 스레드에서 부르지 않는다(파일 I/O).
+pub fn file_frames(path: &str) -> Option<(u64, u32)> {
+    let file = std::fs::File::open(path).ok()?;
+    let mss = symphonia::core::io::MediaSourceStream::new(Box::new(file), Default::default());
+    let mut hint = symphonia::core::probe::Hint::new();
+    if let Some(ext) = std::path::Path::new(path).extension().and_then(|s| s.to_str()) {
+        hint.with_extension(&ext.to_lowercase());
+    }
+    let probed = symphonia::default::get_probe()
+        .format(&hint, mss, &Default::default(), &Default::default())
+        .ok()?;
+    let track = probed.format.default_track()?;
+    Some((track.codec_params.n_frames?, track.codec_params.sample_rate?))
+}
+
 /// 시작 위치까지의 샘플은 버리고 나머지를 링버퍼로 보낸다. 링이 차 있으면 자리가 날 때까지 기다린다(디코더 스레드).
+/// 링에 넣으면 `ready`를 켠다(첫 묶음 준비, 그룹 시작이 기다린다).
 fn send_chunk(
     tx: &mut rtrb::Producer<Vec<f32>>,
     run_flag: &CachePadded<AtomicBool>,
+    ready: &AtomicBool,
     skip_samples: &mut usize,
     mut chunk: Vec<f32>,
 ) {
@@ -272,7 +313,10 @@ fn send_chunk(
             break;
         }
         match tx.push(item) {
-            Ok(_) => break,
+            Ok(_) => {
+                ready.store(true, Ordering::Release);
+                break;
+            }
             Err(rtrb::PushError::Full(returned)) => {
                 std::thread::sleep(std::time::Duration::from_millis(1));
                 item = returned;
