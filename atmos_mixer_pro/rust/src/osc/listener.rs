@@ -1,4 +1,5 @@
 use crate::osc::debouncer::OscDebouncer;
+use crate::osc::reply::{reason, send_reply, ReplyStage};
 use crate::osc::router::{get_osc_action, OscAction};
 use rosc::OscPacket;
 use std::net::UdpSocket;
@@ -231,6 +232,12 @@ fn handle_packet(packet: OscPacket, debouncer: &OscDebouncer) {
             // 예전에는 /atmos/track/{번호}/volume을 받아 트랙 볼륨을 바꾸려 했지만, 엔진에 방 0·트랙=번호라는
             // 임시값을 보내 어떤 트랙에도 맞지 않았다. 문서에 없고 쓰는 곳도 없어 지웠다(2026-10-24 사용자 결정).
 
+            // 상태 조회(규격 §3.6): 디바운스하지 않고 응답 목적지로 스냅샷을 보낸다.
+            if msg.addr == crate::osc::reply::ADDR_QUERY_STATUS {
+                crate::osc::reply::send_status_snapshot();
+                return;
+            }
+
             // For static triggers, check trigger condition and debounce
             if !is_trigger(&msg.args) || !debouncer.should_process(&msg.addr) {
                 return;
@@ -242,11 +249,13 @@ fn handle_packet(packet: OscPacket, debouncer: &OscDebouncer) {
                 crate::core::event_log::record_request("osc", &msg.addr);
                 match action {
                     OscAction::SystemReset => {
+                        send_reply(&msg.addr, ReplyStage::Ack, "");
                         let _ = crate::api::simple::api_stop_all();
                         crate::core::state::GLOBAL_STATE
                             .log("OSC Triggered: System Reset".to_string());
                     }
                     OscAction::ThemeStart => {
+                        send_reply(&msg.addr, ReplyStage::Ack, "");
                         // 감시가 다시 띄운 앱이 이어 갈 수 없을 때와 같은 동작이다(api::show).
                         let _ = crate::api::show::api_theme_start();
                     }
@@ -257,11 +266,14 @@ fn handle_packet(packet: OscPacket, debouncer: &OscDebouncer) {
                         if config.is_exhibition_mode {
                             crate::core::state::GLOBAL_STATE
                                 .log(format!("전시 모드라 방 클리어 신호를 무시한다: {room_id}"));
+                            send_reply(&msg.addr, ReplyStage::Rejected, reason::EXHIBITION_IGNORED);
                             return;
                         }
                         if !check_gating(&room_id, config.is_exhibition_mode) {
+                            send_reply(&msg.addr, ReplyStage::Rejected, reason::GATED);
                             return;
                         }
+                        send_reply(&msg.addr, ReplyStage::Ack, "");
 
                         // 이 비우기가 올린 정지 순번. 아래에서 다음 방 루프를 그룹으로 틀 때 기준이 된다.
                         let stop_epoch = crate::core::restart_resume::cancel_room(&room_id);
@@ -311,16 +323,33 @@ fn handle_packet(packet: OscPacket, debouncer: &OscDebouncer) {
                     }
                     OscAction::PlayTrack(room_id, track_id) => {
                         if !check_gating(&room_id, config.is_exhibition_mode) {
+                            send_reply(&msg.addr, ReplyStage::Rejected, reason::GATED);
                             return;
                         }
+                        send_reply(&msg.addr, ReplyStage::Ack, "");
                         // 대시보드와 같은 재생 경로다. 예전에는 RAM 캐시(sound_cache)에서만 찾아서 루프·스트리밍
                         // 트랙(캐시에 없음)은 OSC로 틀어도 아무것도 나오지 않았다.
-                        let _ = crate::api::simple::api_play_track(room_id, track_id);
+                        // 응답(규격 §3.4): 엔진이 돌 때 명령이 엔진 큐에 들어가면 started. 엔진이 꺼진 동안은 동작을
+                        // 그대로 두고(명령은 넘김) started를 보내지 않는다. 대기 중 버리기·engine_waiting은 안정성 3단계.
+                        match crate::api::simple::api_play_track(room_id, track_id) {
+                            Ok(()) => {
+                                if crate::api::simple::ENGINE_ACTIVE.load(Ordering::SeqCst) {
+                                    send_reply(&msg.addr, ReplyStage::Started, "");
+                                }
+                            }
+                            Err(e) => send_reply(
+                                &msg.addr,
+                                ReplyStage::Rejected,
+                                crate::osc::reply::reason_for_play_error(&e.message),
+                            ),
+                        }
                     }
                     OscAction::StopTrack(room_id, track_id) => {
                         if !check_gating(&room_id, config.is_exhibition_mode) {
+                            send_reply(&msg.addr, ReplyStage::Rejected, reason::GATED);
                             return;
                         }
+                        send_reply(&msg.addr, ReplyStage::Ack, "");
                         // 대시보드 정지와 같은 경로다. 재생 목록에서 바로 빼야 그 직후 엔진이 스스로
                         // 재시작해도 스냅샷이 이 트랙을 다시 틀지 않는다(core::restart_resume).
                         let _ = crate::api::simple::api_stop_track(room_id, track_id);
@@ -333,6 +362,7 @@ fn handle_packet(packet: OscPacket, debouncer: &OscDebouncer) {
                 ));
                 crate::core::event_log::record_request("osc_unregistered", &msg.addr);
                 crate::core::event_log::log_event("osc_unregistered", &[("addr", &msg.addr)]);
+                send_reply(&msg.addr, ReplyStage::Rejected, reason::UNREGISTERED);
             }
         }
         OscPacket::Bundle(bundle) => {
