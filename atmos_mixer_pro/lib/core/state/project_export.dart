@@ -207,4 +207,5 @@ AppConfig _withTrackPaths(AppConfig c, Map<String, String> newPaths) => AppConfi
       peakLimiterEnabled: c.peakLimiterEnabled,
       globalReverbMix: c.globalReverbMix,
       globalReverbDecay: c.globalReverbDecay,
+      oscReplyTargets: c.oscReplyTargets,
     );

@@ -107,6 +107,7 @@ pub struct ChannelSetting {
     pub gain_db: f32,
 }
 
+#[flutter_rust_bridge::frb]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppConfig {
     pub osc_port: u16,
@@ -140,6 +141,11 @@ pub struct AppConfig {
     pub global_reverb_mix: f32,
     #[serde(default)]
     pub global_reverb_decay: f32,
+    /// OSC 응답·시작 신호를 보낼 곳("IP:포트" 목록, 규격 §3.1). 비면 보내지 않는다. 잘못된 항목은 보낼 때만
+    /// 건너뛰고 로그에 남기며, 저장할 때는 사용자가 적은 문자열을 그대로 둔다(osc::reply).
+    #[serde(default)]
+    #[frb(default = "const []")]
+    pub osc_reply_targets: Vec<String>,
 }
 
 fn default_master_headroom() -> f32 {
@@ -166,6 +172,7 @@ impl Default for AppConfig {
             is_exhibition_mode: false,
             master_headroom_db: 0.0,
             peak_limiter_enabled: true,
+            osc_reply_targets: Vec::new(),
         }
     }
 }

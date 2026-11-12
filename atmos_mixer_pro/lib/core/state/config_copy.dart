@@ -24,6 +24,7 @@ extension AppConfigCopy on AppConfig {
     bool? peakLimiterEnabled,
     double? globalReverbMix,
     double? globalReverbDecay,
+    List<String>? oscReplyTargets,
   }) =>
       AppConfig(
         oscPort: oscPort ?? this.oscPort,
@@ -45,6 +46,7 @@ extension AppConfigCopy on AppConfig {
         peakLimiterEnabled: peakLimiterEnabled ?? this.peakLimiterEnabled,
         globalReverbMix: globalReverbMix ?? this.globalReverbMix,
         globalReverbDecay: globalReverbDecay ?? this.globalReverbDecay,
+        oscReplyTargets: oscReplyTargets ?? this.oscReplyTargets,
       );
 }
 

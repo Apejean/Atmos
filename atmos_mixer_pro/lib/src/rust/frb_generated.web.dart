@@ -9,6 +9,7 @@
 import 'api/acoustics.dart';
 import 'api/error.dart';
 import 'api/lifecycle.dart';
+import 'api/osc.dart';
 import 'api/project.dart';
 import 'api/scene.dart';
 import 'api/show.dart';

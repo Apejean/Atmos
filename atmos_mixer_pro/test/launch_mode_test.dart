@@ -62,4 +62,10 @@ void main() {
       expect(await loadWindowsAutostart(dir.path), isFalse);
     });
   });
+
+  test('OSC 시작 신호의 시작 종류는 실행 인자로 정한다', () {
+    expect(bootStartKind(['--supervised', '--auto-relaunched']), 'relaunch');
+    expect(bootStartKind(['--logon']), 'logon');
+    expect(bootStartKind(const []), 'manual');
+  });
 }

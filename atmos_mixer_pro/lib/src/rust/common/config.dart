@@ -25,6 +25,10 @@ class AppConfig {
   final double globalReverbMix;
   final double globalReverbDecay;
 
+  /// OSC 응답·시작 신호를 보낼 곳("IP:포트" 목록, 규격 §3.1). 비면 보내지 않는다. 잘못된 항목은 보낼 때만
+  /// 건너뛰고 로그에 남기며, 저장할 때는 사용자가 적은 문자열을 그대로 둔다(osc::reply).
+  final List<String> oscReplyTargets;
+
   const AppConfig({
     required this.oscPort,
     this.deviceName,
@@ -43,6 +47,7 @@ class AppConfig {
     required this.peakLimiterEnabled,
     required this.globalReverbMix,
     required this.globalReverbDecay,
+    this.oscReplyTargets = const [],
   });
 
   @override
@@ -63,7 +68,8 @@ class AppConfig {
       masterHeadroomDb.hashCode ^
       peakLimiterEnabled.hashCode ^
       globalReverbMix.hashCode ^
-      globalReverbDecay.hashCode;
+      globalReverbDecay.hashCode ^
+      oscReplyTargets.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -86,7 +92,8 @@ class AppConfig {
           masterHeadroomDb == other.masterHeadroomDb &&
           peakLimiterEnabled == other.peakLimiterEnabled &&
           globalReverbMix == other.globalReverbMix &&
-          globalReverbDecay == other.globalReverbDecay;
+          globalReverbDecay == other.globalReverbDecay &&
+          oscReplyTargets == other.oscReplyTargets;
 }
 
 class ChannelSetting {

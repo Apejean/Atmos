@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'package:atmos_mixer_pro/core/state/engine_resync.dart';
 import 'package:atmos_mixer_pro/core/state/launch_mode.dart';
+import 'package:atmos_mixer_pro/core/utils/osc_reply_targets.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -1636,6 +1637,34 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
               ),
             ),
           ],
+        ),
+        const SizedBox(height: 12),
+        // OSC 응답·시작 신호를 보낼 곳(규격 §3.1). 비우면 보내지 않는다. 잘못된 항목도 적은 그대로 저장하고 경고만 보인다.
+        TextFormField(
+          initialValue: replyTargetsText(_tempConfig.oscReplyTargets),
+          style: const TextStyle(color: Colors.white),
+          decoration: InputDecoration(
+            labelText: '응답 보낼 곳 (IP:포트, 쉼표로 구분, 최대 $maxReplyTargets곳 — 비우면 보내지 않음)',
+            labelStyle: const TextStyle(color: Colors.white70),
+            hintText: '192.168.0.20:9000, 192.168.0.21:9000',
+            isDense: true,
+            filled: true,
+            fillColor: AppColors.cardSurface,
+            errorText: () {
+              final bad = invalidReplyTargets(_tempConfig.oscReplyTargets);
+              final over = _tempConfig.oscReplyTargets.length > maxReplyTargets;
+              if (bad.isEmpty && !over) return null;
+              return [
+                if (bad.isNotEmpty) '보내지 않을 항목: ${bad.join(', ')} (IP 숫자:포트만, 브로드캐스트·멀티캐스트 불가)',
+                if (over) '$maxReplyTargets곳을 넘는 항목은 보내지 않습니다',
+              ].join(' · ');
+            }(),
+          ),
+          onChanged: (val) {
+            setState(() {
+              _tempConfig = _tempConfig.copyWith(oscReplyTargets: parseReplyTargetsText(val));
+            });
+          },
         ),
       ],
     );

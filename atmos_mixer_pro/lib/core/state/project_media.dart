@@ -77,6 +77,7 @@ ProjectDeviceChoice deviceForImportedProject({
       peakLimiterEnabled: c.peakLimiterEnabled,
       globalReverbMix: c.globalReverbMix,
       globalReverbDecay: c.globalReverbDecay,
+      oscReplyTargets: c.oscReplyTargets,
     ),
     keptCurrent: true,
     projectDevice: wanted,
