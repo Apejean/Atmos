@@ -55,6 +55,20 @@ pub mod reason {
     pub const ENGINE_WAITING: &str = "engine_waiting";
     pub const FILE_MISSING: &str = "file_missing";
     pub const EXHIBITION_IGNORED: &str = "exhibition_ignored";
+    /// 파일 없음 밖의 재생 실패(스트리머 열기 실패 등).
+    pub const PLAY_FAILED: &str = "play_failed";
+}
+
+/// 재생 함수(api::simple::play_track_from)가 파일을 못 찾았을 때 돌려주는 오류 문구의 앞부분.
+pub const FILE_MISSING_PREFIX: &str = "파일을 찾을 수 없습니다";
+
+/// 재생 실패 오류를 거절 이유 코드로 바꾼다.
+pub fn reason_for_play_error(message: &str) -> &'static str {
+    if message.starts_with(FILE_MISSING_PREFIX) {
+        reason::FILE_MISSING
+    } else {
+        reason::PLAY_FAILED
+    }
 }
 
 /// 목적지 하나를 검사한다. 거부하면 이유를 돌려준다.
@@ -184,11 +198,16 @@ pub fn snapshot_message(
 // ---- 송신 스레드 ----
 
 static SENDER: Mutex<Option<Sender<OscMessage>>> = Mutex::new(None);
+/// [`shutdown`] 뒤에는 송신 스레드를 다시 띄우지 않는다(종료 절차 중 응답이 스레드를 되살리지 않게).
+static CLOSED: AtomicBool = AtomicBool::new(false);
 /// 대기열이 가득 차 버린 메시지 수.
 pub static DROPPED: AtomicU32 = AtomicU32::new(0);
 
 fn sender() -> Option<Sender<OscMessage>> {
     let mut guard = SENDER.lock().unwrap_or_else(|e| e.into_inner());
+    if CLOSED.load(Ordering::SeqCst) {
+        return None;
+    }
     if guard.is_none() {
         let (tx, rx) = bounded::<OscMessage>(QUEUE_LEN);
         let spawned = std::thread::Builder::new()
@@ -203,9 +222,16 @@ fn sender() -> Option<Sender<OscMessage>> {
     guard.clone()
 }
 
-/// 송신 대기열을 닫는다. 송신 스레드는 남은 메시지를 보내고 끝난다.
+/// 송신 대기열을 닫는다. 송신 스레드는 남은 메시지를 보내고 끝나며, 그 뒤 [`send`]는 아무것도 하지 않는다.
 pub fn shutdown() {
-    SENDER.lock().unwrap_or_else(|e| e.into_inner()).take();
+    let mut guard = SENDER.lock().unwrap_or_else(|e| e.into_inner());
+    CLOSED.store(true, Ordering::SeqCst);
+    guard.take();
+}
+
+/// 송신이 닫혔는지(시험용).
+pub fn is_closed() -> bool {
+    CLOSED.load(Ordering::SeqCst)
 }
 
 fn configured_targets() -> Vec<String> {
@@ -350,4 +376,43 @@ pub fn engine_state_and_device() -> (&'static str, String) {
     } else {
         ("WaitingForDevice", String::new())
     }
+}
+
+// ---- 상태 조회 ----
+
+/// 재생 중 트랙을 `방id/트랙id`로(이름 순, 같은 트랙은 한 번). 방을 못 찾으면 트랙 id만 쓴다.
+pub fn playing_track_labels() -> Vec<String> {
+    let state = &crate::core::state::GLOBAL_STATE;
+    let mut track_ids: Vec<String> = state
+        .playing_track_ids
+        .read()
+        .unwrap_or_else(|e| e.into_inner())
+        .values()
+        .cloned()
+        .collect();
+    track_ids.sort();
+    track_ids.dedup();
+    let config = state.config.read().unwrap_or_else(|e| e.into_inner());
+    track_ids
+        .into_iter()
+        .map(|track_id| {
+            let room = config.as_ref().and_then(|c| {
+                c.rooms.iter().find(|r| r.tracks.iter().any(|t| t.id == track_id))
+            });
+            match room {
+                Some(r) => format!("{}/{}", r.id, track_id),
+                None => track_id,
+            }
+        })
+        .collect()
+}
+
+/// `/awesome/query/status`에 답한다(`/awesome/status/snapshot`, 규격 §3.6). 목적지 목록으로만 간다.
+pub fn send_status_snapshot() {
+    let (engine_state, _) = engine_state_and_device();
+    let channels = crate::core::state::GLOBAL_STATE
+        .output_processing_channels
+        .load(Ordering::Relaxed)
+        .min(i32::MAX as u32) as i32;
+    send(snapshot_message(engine_state, "", &playing_track_labels(), channels));
 }
