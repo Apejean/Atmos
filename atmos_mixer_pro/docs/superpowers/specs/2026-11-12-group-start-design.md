@@ -15,7 +15,7 @@
 - **그룹 = 한 번의 시작 동작으로 함께 시작하는 같은 방의 루프 트랙 묶음.** 사용자가 만들거나 고르는 단위가 아니고, 화면·설정은 그대로다.
 - **대상 경로(4곳):**
   1. 테마 시작 `api::show::api_theme_start`: Start 버튼, OSC 테마 시작, 이어 가기를 못 할 때.
-  2. OSC 방 비우기 뒤 다음 방 루프: `osc/listener.rs` ClearRoom의 자동 승격.
+  2. 방 비우기 뒤 다음 방 루프: OSC 방 비우기(`osc/listener.rs` ClearRoom의 자동 승격)와 대시보드 방 카드의 클리어 버튼. 둘 다 공통 함수 `api::simple::clear_room_and_advance`를 쓴다. 대시보드는 새 API `api_clear_room_and_advance`로 부른다(2026-11-13 추가, API 추가는 사용자 승인). 처음 구현 때는 대시보드 버튼이 Dart(`room_card.dart`)에서 다음 방 루프를 `apiPlayTrack`으로 하나씩 틀어 이 경로가 빠져 있었다. 다음 방으로 넘기지 않는 비우기(설정에서 활성 방이 지워졌을 때)는 그대로 `api_clear_room`이다.
   3. 앱 재실행·로그인 이어 가기: `core/show_state.rs` `resume`.
   4. 엔진 자기 재시작 이어 가기: `core/restart_resume.rs`.
 - **대상 아님:** 하나씩 트는 재생(대시보드 트랙 버튼 `room_card.dart`, OSC 트랙 play). 지금 경로를 그대로 쓴다.

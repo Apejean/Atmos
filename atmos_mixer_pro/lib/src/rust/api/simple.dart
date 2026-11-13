@@ -9,9 +9,9 @@ import '../osc/metrics.dart';
 import 'error.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These functions are ignored because they are not marked as `pub`: `apply_enabled_channels`, `init_audio_system`, `monitored_output_device_names`, `play_track_from_in`, `play_track_from`, `request_restart_if_processing_width_changed`, `sim_band_from_json`, `start_audio_system`, `stop_all`, `stop_audio_engine`, `with_start`
+// These functions are ignored because they are not marked as `pub`: `apply_enabled_channels`, `clear_room_and_advance`, `init_audio_system`, `monitored_output_device_names`, `play_track_from_in`, `play_track_from`, `request_restart_if_processing_width_changed`, `room_after`, `sim_band_from_json`, `start_audio_system`, `stop_all`, `stop_audio_engine`, `with_start`
 // These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `ENGINE_ACTIVE`, `ENGINE_THREAD`, `STREAM_STATUS_SINK`, `VU_THREAD_RUNNING`
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `deref`, `deref`, `deref`, `deref`, `fmt`, `fmt`, `fmt`, `initialize`, `initialize`, `initialize`, `initialize`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `clone`, `deref`, `deref`, `deref`, `deref`, `fmt`, `fmt`, `fmt`, `fmt`, `initialize`, `initialize`, `initialize`, `initialize`
 // These functions have error during generation (see debug logs or enable `stop_on_error: true` for more details): `build_play_track_command`
 
 Future<void> apiUpdateSingleBandEq({
@@ -111,6 +111,13 @@ Future<void> apiSetActiveRoom({String? roomId}) =>
 
 Future<void> apiClearRoom({required String roomId}) =>
     RustLib.instance.api.crateApiSimpleApiClearRoom(roomId: roomId);
+
+/// 대시보드 방 카드의 클리어 버튼. OSC 방 클리어와 같은 공통 함수([`clear_room_and_advance`])로 이 방을 비우고, 다음
+/// 방을 활성으로 올려 그 방의 루프를 한 그룹으로 같은 샘플에 함께 튼다. 예전에는 화면(Dart)이 다음 방 루프를 하나씩
+/// 틀어 트랙끼리 어긋날 수 있었다(그룹 시작 설계). 전시 모드이거나 이 방이 활성 방이 아니면 아무것도 하지 않고 Err.
+/// 다음 방으로 넘기지 않는 비우기(설정에서 활성 방이 지워졌을 때)는 [`api_clear_room`]이다.
+Future<ClearRoomResult> apiClearRoomAndAdvance({required String roomId}) =>
+    RustLib.instance.api.crateApiSimpleApiClearRoomAndAdvance(roomId: roomId);
 
 Future<void> apiSetMasterMute({required bool muted}) =>
     RustLib.instance.api.crateApiSimpleApiSetMasterMute(muted: muted);
@@ -428,6 +435,28 @@ class ChannelTuningParams {
           eqBands == other.eqBands &&
           phaseInvert == other.phaseInvert &&
           gainDb == other.gainDb;
+}
+
+/// 방 클리어 결과(대시보드 클리어 버튼). 화면이 실패 알림에 쓴다. 활성 방은 상태 알림으로 함께 간다.
+class ClearRoomResult {
+  /// 새로 활성이 된 다음 방. 마지막 방이었으면 None(활성 방 없음).
+  final String? nextRoomId;
+
+  /// 다음 방 루프 가운데 틀지 못한 트랙("트랙 이름: 이유").
+  final List<String> failedTracks;
+
+  const ClearRoomResult({this.nextRoomId, required this.failedTracks});
+
+  @override
+  int get hashCode => nextRoomId.hashCode ^ failedTracks.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ClearRoomResult &&
+          runtimeType == other.runtimeType &&
+          nextRoomId == other.nextRoomId &&
+          failedTracks == other.failedTracks;
 }
 
 class EngineStateUpdate {

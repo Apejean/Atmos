@@ -79,6 +79,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   ChannelTuningParams dco_decode_channel_tuning_params(dynamic raw);
 
   @protected
+  ClearRoomResult dco_decode_clear_room_result(dynamic raw);
+
+  @protected
   EngineStateUpdate dco_decode_engine_state_update(dynamic raw);
 
   @protected
@@ -267,6 +270,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   ChannelTuningParams sse_decode_channel_tuning_params(
     SseDeserializer deserializer,
   );
+
+  @protected
+  ClearRoomResult sse_decode_clear_room_result(SseDeserializer deserializer);
 
   @protected
   EngineStateUpdate sse_decode_engine_state_update(
@@ -494,6 +500,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_channel_tuning_params(
     ChannelTuningParams self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_clear_room_result(
+    ClearRoomResult self,
     SseSerializer serializer,
   );
 

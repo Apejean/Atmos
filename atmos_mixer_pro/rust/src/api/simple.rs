@@ -756,6 +756,105 @@ pub fn api_clear_room(room_id: String) -> Result<(), AtmosError> {
     Ok(())
 }
 
+/// 방 클리어 결과(대시보드 클리어 버튼). 화면이 실패 알림에 쓴다. 활성 방은 상태 알림으로 함께 간다.
+#[derive(Debug, Clone)]
+pub struct ClearRoomResult {
+    /// 새로 활성이 된 다음 방. 마지막 방이었으면 None(활성 방 없음).
+    pub next_room_id: Option<String>,
+    /// 다음 방 루프 가운데 틀지 못한 트랙("트랙 이름: 이유").
+    pub failed_tracks: Vec<String>,
+}
+
+/// 대시보드 방 카드의 클리어 버튼. OSC 방 클리어와 같은 공통 함수([`clear_room_and_advance`])로 이 방을 비우고, 다음
+/// 방을 활성으로 올려 그 방의 루프를 한 그룹으로 같은 샘플에 함께 튼다. 예전에는 화면(Dart)이 다음 방 루프를 하나씩
+/// 틀어 트랙끼리 어긋날 수 있었다(그룹 시작 설계). 전시 모드이거나 이 방이 활성 방이 아니면 아무것도 하지 않고 Err.
+/// 다음 방으로 넘기지 않는 비우기(설정에서 활성 방이 지워졌을 때)는 [`api_clear_room`]이다.
+pub fn api_clear_room_and_advance(room_id: String) -> Result<ClearRoomResult, AtmosError> {
+    crate::core::event_log::record_request("clear_room_and_advance", &room_id);
+    let config = GLOBAL_STATE
+        .config
+        .read()
+        .unwrap_or_else(|e| e.into_inner())
+        .clone()
+        .ok_or_else(|| AtmosError {
+            message: "설정이 아직 없습니다".to_string(),
+        })?;
+    // 전시 모드는 방마다 루프가 계속 도는 운영이라 클리어하지 않는다(OSC 클리어와 같음, 2026-10-12 사용자 결정).
+    if config.is_exhibition_mode {
+        return Err(AtmosError {
+            message: "전시 모드에서는 방 클리어를 하지 않습니다".to_string(),
+        });
+    }
+    {
+        // 확인과 넘김을 한 번에 한다. 버튼을 두 번 눌러도 두 번째는 여기서 막혀 다음 방까지 비우지 않는다.
+        let mut guard = GLOBAL_STATE
+            .active_room_id
+            .write()
+            .unwrap_or_else(|e| e.into_inner());
+        if guard.as_ref() != Some(&room_id) {
+            return Err(AtmosError {
+                message: "Room is not active or already cleared".to_string(),
+            });
+        }
+        *guard = room_after(&config, &room_id).map(|r| r.id.clone());
+    }
+    Ok(clear_room_and_advance(&room_id, &config))
+}
+
+/// 설정의 방 순서에서 `room_id` 다음 방. 마지막 방이거나 없는 방이면 None.
+fn room_after<'a>(config: &'a AppConfig, room_id: &str) -> Option<&'a crate::common::config::RoomConfig> {
+    config.rooms.iter().skip_while(|r| r.id != room_id).nth(1)
+}
+
+/// 방 클리어의 공통 본체(OSC 방 클리어, 대시보드 클리어 버튼). 그 방의 재시작 대기를 빼고(정지 순번이 오른다),
+/// 재생 목록에서 빼고, 엔진에 ClearRoom을 보내 그 방 소리를 함께 줄여 끈다. 다음 방이 있으면 활성으로 올리고 그
+/// 방의 루프를 한 그룹으로 같은 샘플에 함께 튼다(core::group_start). 전시 모드·활성 방 확인은 부르는 쪽이 한다.
+pub(crate) fn clear_room_and_advance(room_id: &str, config: &AppConfig) -> ClearRoomResult {
+    // 이 비우기가 올린 정지 순번. 아래에서 다음 방 루프를 그룹으로 틀 때 기준이 된다.
+    let stop_epoch = crate::core::restart_resume::cancel_room(room_id);
+    GLOBAL_STATE.mark_room_cleared(room_id);
+    GLOBAL_STATE.remove_playing_tracks_of_room(room_id);
+    let _ = GLOBAL_STATE.command_sender.send(AudioCommand::ClearRoom {
+        room_id: hash_id(room_id),
+    });
+
+    let Some(next_room) = room_after(config, room_id) else {
+        GLOBAL_STATE.set_active_room(None);
+        return ClearRoomResult {
+            next_room_id: None,
+            failed_tracks: Vec::new(),
+        };
+    };
+    GLOBAL_STATE.set_active_room(Some(next_room.id.clone()));
+    GLOBAL_STATE.log(format!("Interlock: Auto-promoted room {} to active", next_room.id));
+
+    // 다음 방 BGM(루프)은 대시보드와 같은 재생 경로로 튼다. 예전에는 RAM 캐시(sound_cache)에서만 찾았는데 루프
+    // 트랙은 스트리밍이라 거기 없어서 아무것도 나오지 않았다. 이미 재생 중인 루프는 다시 틀지 않는다. 한 그룹으로
+    // 같은 샘플에 함께 시작한다(core::group_start).
+    let plan: Vec<(String, String, f64)> = next_room
+        .tracks
+        .iter()
+        .filter(|t| t.is_loop)
+        .map(|t| (next_room.id.clone(), t.id.clone(), 0.0))
+        .collect();
+    let failed_tracks = crate::core::group_start::play_group_since(&plan, stop_epoch)
+        .into_iter()
+        .map(|(track_id, e)| {
+            let name = next_room
+                .tracks
+                .iter()
+                .find(|t| t.id == track_id)
+                .map_or(track_id.as_str(), |t| t.name.as_str());
+            GLOBAL_STATE.log(format!("방 클리어: 다음 방 루프 {name} 재생 실패: {}", e.message));
+            format!("{name}: {}", e.message)
+        })
+        .collect();
+    ClearRoomResult {
+        next_room_id: Some(next_room.id.clone()),
+        failed_tracks,
+    }
+}
+
 pub fn api_set_master_mute(muted: bool) -> Result<(), AtmosError> {
     // 엔진이 재시작돼도 유지되도록 전역에 먼저 기록한다(state.rs 주석 참고).
     GLOBAL_STATE
