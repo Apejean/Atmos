@@ -1,4 +1,4 @@
-//! OSC 응답 연결 시험(규격 OSC_INTERFACE_SPEC.md §3.4·§3.6). 실제 OSC 리스너에 UDP로 보내고,
+//! OSC 응답 연결 시험(규격 OSC_INTERFACE_SPEC.md §3.4·§3.6, 방 클리어 응답 포함). 실제 OSC 리스너에 UDP로 보내고,
 //! 설정의 응답 목적지(이 시험의 소켓)로 오는 `/awesome/reply`·`/awesome/status/snapshot`을 읽는다.
 //! 전역 상태를 쓰므로 이 파일의 시험은 하나다.
 use rosc::{encoder, OscMessage, OscPacket, OscType};
@@ -143,4 +143,31 @@ fn 실제_리스너는_명령마다_응답하고_상태_조회에_답한다() {
     rx.set_read_timeout(Some(Duration::from_millis(500))).unwrap();
     let mut buf = [0u8; 512];
     assert!(rx.recv_from(&mut buf).is_err(), "엔진이 꺼져 있으면 started가 오면 안 된다");
+    rx.set_read_timeout(Some(Duration::from_secs(3))).unwrap();
+
+    // 7) 방 클리어(규격 §3.4): 응답은 OSC 쪽(listener)에서만 보내고, 본체는 대시보드와 같은 공통 함수다.
+    //    활성 방이 아닌 방의 클리어 → rejected gated
+    send("/b/clear");
+    assert_eq!(reply(&rx), ("/b/clear".into(), "rejected".into(), "gated".into()));
+
+    //    활성 방의 클리어 → ack(본체 실행 전에 보냄). 다음 방(b)이 활성이 된다.
+    send("/a/clear");
+    assert_eq!(reply(&rx), ("/a/clear".into(), "ack".into(), "".into()));
+    let end = std::time::Instant::now() + Duration::from_secs(2);
+    while GLOBAL_STATE.active_room_id.read().unwrap().as_deref() != Some("b") {
+        assert!(std::time::Instant::now() < end, "클리어 뒤 다음 방이 활성이 되어야 한다");
+        std::thread::sleep(Duration::from_millis(20));
+    }
+
+    //    전시 모드에서는 클리어를 무시한다 → rejected exhibition_ignored
+    {
+        let mut guard = GLOBAL_STATE.config.write().unwrap();
+        if let Some(c) = guard.as_mut() {
+            c.is_exhibition_mode = true;
+        }
+    }
+    GLOBAL_STATE.config_version.fetch_add(1, Ordering::SeqCst);
+    std::thread::sleep(Duration::from_millis(300)); // 같은 주소 디바운스(250ms)를 넘긴다
+    send("/b/clear");
+    assert_eq!(reply(&rx), ("/b/clear".into(), "rejected".into(), "exhibition_ignored".into()));
 }
