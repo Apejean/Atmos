@@ -25,7 +25,7 @@
 - 창을 닫으면 `main.dart`의 `onWindowClose`가 엔진을 멈추고 창을 없앤다. Windows 러너는 그 뒤 `EXIT_SUCCESS`(0)를 돌려준다.
 - 충돌을 다루는 코드, 앱 중복 실행을 막는 코드가 없다.
 - 오디오 엔진 안의 멈춤(콜백 공백)은 엔진 워치독과 재시작 복원이 이미 다룬다. 이 설계는 **앱 프로세스 전체**가 죽거나 멈춘 경우를 다룬다.
-  - 마지막 오디오 콜백 시각: `GLOBAL_STATE.watchdog_last_callback`(밀리초)
+  - 마지막 오디오 콜백 시각: `GLOBAL_STATE.watchdog_last_callback`(밀리초). 2026-11-14부터 벽시계가 아니라 앱 시작 기준 단조 밀리초(`GLOBAL_STATE.monotonic_ms()`, 1부터)다. 감시는 값이 바뀌는지만 본다.
   - 엔진이 켜져 있는지: `ENGINE_ACTIVE`
   - 재생 위치: 커서 표(`CURSOR_TABLE`)와 `api_get_playback_positions`
   - 위치부터 재생: `play_track_from(room, track, seconds)`

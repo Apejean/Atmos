@@ -25,20 +25,25 @@ fn 자동재연결은_엔진스레드에서_직접_호출되면_안된다() {
     let start = src
         .find(marker)
         .expect("자동 재연결 블록 표식을 찾을 수 없다(블록이 사라졌거나 주석이 바뀌었다)");
-    let region = &src[start..];
+    // 자동 재연결 블록은 시작 실패 분기(`Err(e) => {`) 앞에서 끝난다.
+    let len = src[start..].find("Err(e) => {").expect("자동 재연결 블록의 끝을 찾을 수 없다");
+    let region = &src[start..start + len];
 
-    let spawn_at = region.find("std::thread::spawn").expect(
-        "자동 재연결이 별도 스레드에서 수행되지 않는다: \
-         엔진 스레드가 ENGINE_THREAD의 자기 핸들을 join해 영구 교착된다",
-    );
-    let call_at = region
-        .find("init_audio_system(")
-        .expect("자동 재연결 블록에서 init_audio_system 호출을 찾을 수 없다");
-
+    // 2026-11-14(안정성 ③)부터 다시 열기는 엔진 유지자 스레드가 한다. 엔진 스레드는 알리고 바로 끝나야 한다.
     assert!(
-        spawn_at < call_at,
-        "init_audio_system이 std::thread::spawn보다 먼저 나온다 = \
-         엔진 스레드가 직접 재기동을 수행한다 = 자기 join 교착(무음 사고 재발)"
+        region.contains("engine_keeper::report_self_restart("),
+        "자동 재연결 블록이 엔진 유지자에 넘기지 않는다"
+    );
+    assert!(
+        !region.contains("init_audio_system("),
+        "엔진 스레드가 init_audio_system을 직접 부른다 = 자기 join 교착(무음 사고 재발)"
+    );
+
+    let keeper = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/src/core/engine_keeper.rs"))
+        .expect("src/core/engine_keeper.rs를 읽을 수 없다");
+    assert!(
+        keeper.contains(".spawn(keeper_loop)"),
+        "엔진 유지자가 자기 스레드에서 돌지 않는다: 엔진 스레드에서 다시 열면 자기 join 교착이 난다"
     );
 }
 

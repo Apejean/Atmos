@@ -24,7 +24,15 @@ pub struct ResumeEntry {
     pub seconds: f64,
 }
 
-static PENDING: Mutex<Vec<ResumeEntry>> = Mutex::new(Vec::new());
+/// 재개 대기 항목과 그것을 뜬 순간(단조 밀리초, `GLOBAL_STATE.monotonic_ms`). 재개할 때 그 사이 흐른 시간만큼
+/// 건너뛴다(유지 스레드 설계 D12·U2).
+#[derive(Debug, Clone)]
+struct Pending {
+    entry: ResumeEntry,
+    taken_ms: u64,
+}
+
+static PENDING: Mutex<Vec<Pending>> = Mutex::new(Vec::new());
 /// 새 엔진이 준비된 자기 재시작의 순번. 장치 이벤트 스트림이 "EngineRestarted:<순번>"으로 알린다.
 pub static RESTART_SEQ: AtomicU32 = AtomicU32::new(0);
 /// Dart가 재동기화를 마쳤다고 알린 가장 큰 순번.
@@ -47,7 +55,7 @@ pub const RESYNC_TIMEOUT: Duration = Duration::from_secs(2);
 /// 실행되므로, 신호가 마지막 상태 명령보다 먼저 닿을 수 있다. 재개는 300ms 페이드 인으로 시작한다.
 const SETTLE_AFTER_ACK: Duration = Duration::from_millis(100);
 
-fn pending() -> MutexGuard<'static, Vec<ResumeEntry>> {
+fn pending() -> MutexGuard<'static, Vec<Pending>> {
     PENDING.lock().unwrap_or_else(|e| e.into_inner())
 }
 
@@ -91,7 +99,8 @@ pub fn take_snapshot(generation: u64) {
         })
         .collect();
     entries.sort_by(|a, b| a.track_id.cmp(&b.track_id).then(a.seconds.total_cmp(&b.seconds)));
-    queue.extend(entries);
+    let taken_ms = GLOBAL_STATE.monotonic_ms();
+    queue.extend(entries.into_iter().map(|entry| Pending { entry, taken_ms }));
     drop(queue);
 
     GLOBAL_STATE.clear_playing_tracks();
@@ -113,7 +122,7 @@ pub fn cancel_all() -> u64 {
 pub fn cancel_track(track_id: &str) -> u64 {
     let mut queue = pending();
     let epoch = crate::core::group_start::note_stop();
-    queue.retain(|e| e.track_id != track_id);
+    queue.retain(|p| p.entry.track_id != track_id);
     epoch
 }
 
@@ -121,13 +130,50 @@ pub fn cancel_track(track_id: &str) -> u64 {
 pub fn cancel_room(room_id: &str) -> u64 {
     let mut queue = pending();
     let epoch = crate::core::group_start::note_stop();
-    queue.retain(|e| e.room_id != room_id);
+    queue.retain(|p| p.entry.room_id != room_id);
     epoch
 }
 
 /// 지금 재개를 기다리는 항목(테스트·진단용).
 pub fn pending_entries() -> Vec<ResumeEntry> {
-    pending().clone()
+    pending().iter().map(|p| p.entry.clone()).collect()
+}
+
+/// 끊긴 시간만큼 건너뛴 재개 항목(순수 함수, 유지 스레드 설계 6절). `info`는 트랙 id로 (반복인가, 파일 길이 초)를
+/// 돌려준다. 길이를 모르면 그 항목은 건너뛰지 않는다. 반복은 길이의 나머지로, 반복이 아닌 트랙은 끝을 넘으면 뺀다.
+pub fn skip_outage(
+    entries: Vec<(ResumeEntry, f64)>,
+    info: impl Fn(&str) -> Option<(bool, f64)>,
+) -> Vec<ResumeEntry> {
+    entries
+        .into_iter()
+        .filter_map(|(mut entry, outage_s)| {
+            let Some((is_loop, length_s)) = info(&entry.track_id).filter(|(_, len)| *len > 0.0) else {
+                return Some(entry);
+            };
+            let moved = entry.seconds + outage_s.max(0.0);
+            if is_loop {
+                entry.seconds = moved % length_s;
+                Some(entry)
+            } else if moved >= length_s {
+                None
+            } else {
+                entry.seconds = moved;
+                Some(entry)
+            }
+        })
+        .collect()
+}
+
+/// 설정에서 트랙이 반복인지와 파일 길이(초, 파일 머리에서 읽음)를 찾는다. 오디오 스레드 밖에서만 부른다.
+fn track_length_info(track_id: &str) -> Option<(bool, f64)> {
+    let (is_loop, path) = {
+        let config = GLOBAL_STATE.config.read().unwrap_or_else(|e| e.into_inner());
+        let track = config.as_ref()?.rooms.iter().flat_map(|r| r.tracks.iter()).find(|t| t.id == track_id)?;
+        (track.is_loop, track.file_path.clone())
+    };
+    let (frames, rate) = crate::audio::streaming::file_frames(&path)?;
+    (rate > 0).then(|| (is_loop, frames as f64 / f64::from(rate)))
 }
 
 /// Dart가 `seq`번 재시작의 재동기화를 마쳤다.
@@ -155,10 +201,25 @@ pub fn wait_for_ack(seq: u32, timeout: Duration) -> bool {
 /// 늦어진다. 대신 준비하는 사이 정지가 들어오면 정지 순번(group_start::STOP_EPOCH)이 바뀌어 그룹을 시작하지 않고
 /// 정리하므로, 정지 명령 뒤에 소리가 나는 일은 여전히 없다.
 pub fn resume_pending() {
-    let (entries, epoch) = {
+    let (waiting, epoch) = {
         let mut queue = pending();
         (std::mem::take(&mut *queue), crate::core::group_start::current_epoch())
     };
+    if waiting.is_empty() {
+        return;
+    }
+    // 뜬 뒤 흐른 시간만큼 건너뛴다. 같은 순간에 뜬 항목은 같은 시간을 더하므로 그룹 안 상대 위치가 지켜진다.
+    let now_ms = GLOBAL_STATE.monotonic_ms();
+    let entries = skip_outage(
+        waiting
+            .into_iter()
+            .map(|p| {
+                let outage_s = now_ms.saturating_sub(p.taken_ms) as f64 / 1000.0;
+                (p.entry, outage_s)
+            })
+            .collect(),
+        track_length_info,
+    );
     if entries.is_empty() {
         return;
     }

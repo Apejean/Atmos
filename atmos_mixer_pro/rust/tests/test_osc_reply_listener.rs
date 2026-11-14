@@ -101,6 +101,8 @@ fn 실제_리스너는_명령마다_응답하고_상태_조회에_답한다() {
     api_set_active_room(Some("a".into())).unwrap();
     // 장치 없이 시험한다. 엔진이 도는 것으로 표시해야 started가 온다.
     ENGINE_ACTIVE.store(true, Ordering::SeqCst);
+    // 엔진 상태값은 엔진 유지자가 정한다(안정성 ③). 앱에서처럼 사용자 시작이 성공한 것으로 알린다.
+    rust_lib_atmos_mixer_pro::core::engine_keeper::user_started(None, &Ok(()));
 
     let sock = UdpSocket::bind("127.0.0.1:0").unwrap();
     let send = |addr: &str| {

@@ -69,6 +69,8 @@ The Awesome은 미리 만든 PCM을 안정적으로 분배·운영하는 프로�
 
 현재 코드의 상태 문자열(`Running`·`Failover`·`Stopped`·`HotReloading`·`EngineDown:<원인>`)과의 대응은 유지 스레드와 하트비트 상태값을 구현할 때(안정성 3단계) 확정한다. 그 전에는 이 신호를 구현하지 않는다.
 
+**3단계 반영(2026-11-14, `core/engine_keeper.rs`):** 시작 신호 인자 2와 상태 조회의 엔진 상태는 엔진 유지자의 값(`Running / WaitingForDevice / Failed / StoppedByUser`)이다. 비상 전환(기본 장치) 중은 `Running`이고 장치 이름은 빈 문자열이다. 실패 원인 문자열은 `start_hung`·`open_failed`·`unavailable`(배너 `EngineDown:<원인>`과 같음).
+
 ### 3.4 명령 응답
 
 주소 `/awesome/reply`. 외부 명령을 하나 처리할 때마다 보낸다.
@@ -95,6 +97,8 @@ The Awesome은 미리 만든 PCM을 안정적으로 분배·운영하는 프로�
 디바운스에 걸러진 중복 신호에는 응답하지 않는다. `started`는 재생 명령에만 보낸다(정지·방 비우기·테마 시작·시스템 리셋은 `ack`만).
 
 **구현 현황(2026-11-12):** 안정성 3단계(대기 상태값) 전에는 엔진이 꺼진 동안(`ENGINE_ACTIVE` 거짓 — 수백 ms~수 초의 자기 재시작 포함)의 재생 명령을 지금처럼 엔진 경로로 넘기고 `ack`만 보낸다(`started`·`engine_waiting` 없음). 재시작 중 큐에 든 명령은 재시작 복원이 살린다. 대기 중 재생 명령 버리기와 `engine_waiting` 거절은 3단계에서 함께 한다.
+
+**구현 현황(2026-11-14, 3단계):** 엔진 상태가 `WaitingForDevice`·`Failed`이면 재생 명령을 큐에 넣지 않고 `rejected engine_waiting`으로 답한다. 짧은 자기 재시작 중(상태 `Running` 유지)에는 지금처럼 엔진 경로로 넘기고 재시작 복원이 살린다.
 
 ### 3.5 재생 끝 신호 (비루프 한정)
 
