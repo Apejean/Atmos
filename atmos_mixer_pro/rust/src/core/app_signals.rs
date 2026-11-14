@@ -46,7 +46,8 @@ pub struct HeartbeatValues {
     pub pid: u32,
     /// UI가 하트비트를 부른 시각(밀리초). 부를 때마다 커진다.
     pub ui_ms: u64,
-    /// 마지막 오디오 콜백 시각(GLOBAL_STATE.watchdog_last_callback, 밀리초).
+    /// 마지막 오디오 콜백 시각(GLOBAL_STATE.watchdog_last_callback). 앱 시작 기준 단조 밀리초(1부터, 0은 콜백 없음)이고
+    /// 벽시계가 아니다. 감시는 값이 바뀌는지만 본다.
     pub audio_cb_ms: u64,
     pub engine_active: bool,
     pub silent_warnings: u32,

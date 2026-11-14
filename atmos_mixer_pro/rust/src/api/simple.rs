@@ -1232,21 +1232,19 @@ fn start_audio_system(device_name: Option<String>) -> Result<(), AtmosError> {
                     }
 
                     // Watchdog: Check if callback hasn't fired in >1000ms
-                    let now_ms = std::time::SystemTime::now()
-                        .duration_since(std::time::UNIX_EPOCH)
-                        .unwrap_or(std::time::Duration::from_secs(0))
-                        .as_millis() as u64;
+                    // 콜백과 같은 단조 시계로 잰다(벽시계는 시간 동기화로 뛰면 오발한다, 검토 A2).
+                    let now_ms = crate::core::state::GLOBAL_STATE.monotonic_ms();
                     let last_cb = crate::core::state::GLOBAL_STATE
                         .watchdog_last_callback
                         .load(std::sync::atomic::Ordering::Relaxed);
-                    if last_cb > 0 && (now_ms > last_cb + 1000) {
+                    if last_cb > 0 && now_ms.saturating_sub(last_cb) > 1000 {
                         // 다음 발생 때 트리거를 좁히려면 실제 공백 길이를 남겨야 한다.
                         // 장치 열거로 인한 일시 정지(수백 ms~수 초)와 스레드 사망은
                         // 공백 길이가 다르게 찍힌다. println!은 앱 로그에 남지 않아
                         // 사후 분석이 불가능했으므로 파일 로그로 남긴다.
                         crate::core::state::GLOBAL_STATE.log(format!(
                             "🚨 [Watchdog] 오디오 콜백 공백 {}ms (임계 1000ms)! 엔진 강제 재기동...",
-                            now_ms - last_cb
+                            now_ms.saturating_sub(last_cb)
                         ));
                         stop_reason = "callback_gap_watchdog";
                         break;
