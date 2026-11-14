@@ -12,10 +12,17 @@ import 'package:atmos_mixer_pro/src/rust/api/lifecycle.dart';
 import 'package:atmos_mixer_pro/src/rust/api/show.dart';
 import 'package:atmos_mixer_pro/src/rust/api/simple.dart';
 import 'package:atmos_mixer_pro/core/utils/rust_library.dart';
+import 'package:atmos_mixer_pro/core/utils/ui_error_reporter.dart';
+import 'package:atmos_mixer_pro/src/rust/api/ui_log.dart';
 
 import 'package:atmos_mixer_pro/features/splash/screens/audio_init_splash_screen.dart';
 import 'package:atmos_mixer_pro/features/exhibition/state/acoustic_sync_provider.dart';
 import 'package:atmos_mixer_pro/features/exhibition/state/three_js_engine_provider.dart';
+
+/// 화면 쪽 예외 기록기(core/utils/ui_error_reporter.dart). 앱 로그(rust api::ui_log)로 보내고 기다리지 않는다.
+final uiErrorReporter = UiErrorReporter(
+  sink: (kind, message, stack) => apiLogUiError(kind: kind, message: message, stack: stack),
+);
 
 Future<void> main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -25,6 +32,8 @@ Future<void> main(List<String> args) async {
   // 앱 안의 Rust 라이브러리를 직접 연다(core/utils/rust_library.dart). 기본 로더는 작업
   // 디렉터리의 rust/target/release/를 먼저 봐서, 프로젝트 폴더에서 flutter run하면 옛 Rust가 실렸다.
   await RustLib.init(externalLibrary: bundledRustLibrary());
+  // 화면 쪽 예외를 앱 로그에 남긴다(Rust가 준비된 뒤). 기록만 하고 기존 처리는 그대로다.
+  uiErrorReporter.install();
 
   // 시작 관문(rust api::lifecycle). 창을 띄우기 전에 감시 프로그램으로 넘기거나, 이미 떠 있으면 끝낸다.
   switch (await apiStartupGate(args: args)) {
@@ -122,6 +131,8 @@ class _AtmosMixerProAppState extends ConsumerState<AtmosMixerProApp>
 
   @override
   void onWindowClose() async {
+    // 종료 중에는 화면 오류를 남기지 않는다(엔진·Rust가 정리되는 중).
+    uiErrorReporter.enabled = false;
     // 운영자가 닫는다. 감시 프로그램이 다시 띄우지 않도록 엔진을 멈추기 전에 표시한다(rust api::lifecycle).
     await Future.any([
       apiMarkCleanExit(),
