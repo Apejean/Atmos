@@ -115,7 +115,7 @@ fn 앱이_이미_떠_있으면_그_창을_앞으로_가져오고_중복으로_�
 }
 
 #[test]
-fn 하트비트에는_다섯_값이_들어가고_부를_때마다_ui_ms가_커진다() {
+fn 하트비트에는_일곱_값이_들어가고_부를_때마다_ui_ms가_커진다() {
     GLOBAL_STATE.watchdog_last_callback.store(777, Ordering::Relaxed);
     SILENT_WARNINGS.store(2, Ordering::Relaxed);
     let a = current_heartbeat();
@@ -130,12 +130,15 @@ fn 하트비트에는_다섯_값이_들어가고_부를_때마다_ui_ms가_커�
     write_heartbeat(&dir, &b).unwrap();
     let text = std::fs::read_to_string(dir.join(HEARTBEAT)).unwrap();
     let kv: HashMap<&str, &str> = text.lines().filter_map(|l| l.split_once('=')).collect();
-    assert_eq!(kv.len(), 5, "감시가 읽는 키는 다섯 개다: {text}");
+    // 감시가 읽는 키 다섯 개 + 엔진 상태값·진행 카운터(안정성 ③, 감시 정책은 ⑥). 감시 파서는 모르는 키를 건너뛴다.
+    assert_eq!(kv.len(), 7, "하트비트 키는 일곱 개다: {text}");
     assert_eq!(kv["pid"], b.pid.to_string());
     assert_eq!(kv["ui_ms"], b.ui_ms.to_string());
     assert_eq!(kv["audio_cb_ms"], "777");
     assert_eq!(kv["engine_active"], "0");
     assert_eq!(kv["silent_warnings"], "2");
+    assert_eq!(kv["engine_state"], "StoppedByUser", "테스트에는 엔진을 시작한 적이 없다");
+    assert!(kv["engine_progress"].parse::<u64>().is_ok());
     assert!(!dir.join(format!("{HEARTBEAT}.tmp")).exists(), "임시 파일이 남았다");
     let _ = std::fs::remove_dir_all(dir);
 }

@@ -400,6 +400,17 @@ pub(crate) fn play_track_from_in(
     if crate::core::state::debug_flags::trace_cmd() {
         eprintln!("[CMD] 재생 요청 room={room_id} track={track_id}");
     }
+    // 장치를 기다리거나 실패한 동안의 재생 명령은 쌓지 않고 버린다(유지 스레드 설계 D11, OSC 규격 §4). 큐에 남았다가
+    // 장치가 돌아올 때 한꺼번에 나면 안 된다. 짧은 자기 재시작 중(상태 Running 유지)에는 지금처럼 받는다.
+    if !crate::core::engine_keeper::accepts_play() {
+        return Err(AtmosError {
+            message: format!(
+                "{} ({})",
+                crate::osc::reply::ENGINE_WAITING_PREFIX,
+                crate::core::engine_keeper::state().name()
+            ),
+        });
+    }
     let config_guard = GLOBAL_STATE
         .config
         .read()
@@ -1026,12 +1037,29 @@ pub fn api_create_stream_status_stream(sink: StreamSink<String>) {
         } else {
             let _ = sink.add("Running".to_string());
         }
+    } else if let Some(status) = crate::core::engine_keeper::current_status_string() {
+        // 장치를 기다리거나 실패한 상태면 그 배너를 바로 보이게 한다(엔진 유지자).
+        let _ = sink.add(status);
     } else {
         let _ = sink.add("Stopped".to_string());
     }
 }
 
 pub fn api_init_audio_system(device_name: Option<String>) -> Result<(), AtmosError> {
+    // 엔진 유지자(core::engine_keeper)의 재시도와 겹치지 않게 열기 잠금을 쥔다. 결과는 유지자에 알린다 — 실패해도 장치가
+    // 나타날 수 있으면 유지자가 계속 찾는다(안정성 ③).
+    let _open = crate::core::engine_keeper::open_lock();
+    let result = init_audio_system_for_user(device_name.clone());
+    let outcome = match &result {
+        Ok(()) => Ok(()),
+        Err(e) => Err(classify_start_error(device_name.as_deref(), &e.message)),
+    };
+    crate::core::engine_keeper::user_started(device_name, &outcome);
+    result
+}
+
+/// 사용자 시작·장치 변경의 본체(예전 `api_init_audio_system`).
+fn init_audio_system_for_user(device_name: Option<String>) -> Result<(), AtmosError> {
     // 사용자가 엔진을 직접 다시 띄우면 재시작 복원 대기는 버린다(core::restart_resume).
     // 세대를 먼저 올려야 감시 루프의 스냅샷이 버린 뒤에 끼어들지 못한다.
     stop_audio_engine();
@@ -1077,8 +1105,139 @@ fn init_audio_system(device_name: Option<String>) -> Result<(), AtmosError> {
     start_audio_system(device_name)
 }
 
+/// [`init_audio_system`]과 같고 장치 찾기 시간을 정하며, 실패를 분류해 돌려준다(엔진 유지자용).
+fn init_audio_system_with(
+    device_name: Option<String>,
+    search: std::time::Duration,
+) -> Result<(), crate::core::engine_keeper::StartFailure> {
+    stop_audio_engine();
+    start_audio_system_with(device_name, search)
+}
+
+/// 엔진 시작 결과를 기다리는 시간 = 장치 찾기 시간 + 이 여유. 넘으면 시작 호출이 멈춘 것으로 본다(유지 스레드 설계 D5).
+const START_REPLY_MARGIN: std::time::Duration = std::time::Duration::from_secs(15);
+
+/// 엔진 시작 오류 문구를 유지자의 분류로 바꾼다.
+fn classify_start_error(device_name: Option<&str>, message: &str) -> crate::core::engine_keeper::StartFailure {
+    use crate::core::engine_keeper::StartFailure;
+    if crate::core::engine_keeper::is_hung() {
+        return StartFailure::Hung;
+    }
+    if device_name.is_some_and(|name| !crate::core::device_search::may_appear_later(name)) {
+        return StartFailure::Unavailable(message.to_string());
+    }
+    if message.contains(crate::audio::engine::DEVICE_NOT_FOUND_MARK) || message.contains("No default output device") {
+        StartFailure::NotFound(message.to_string())
+    } else {
+        StartFailure::OpenFailed(message.to_string())
+    }
+}
+
+/// 엔진 유지자가 엔진을 여는 함수(core::engine_keeper의 기본 열기 함수, 열기 잠금 안에서 불린다).
+///
+/// 자기 재시작이면 예전 일회성 재연결 스레드와 같은 순서다: 비상 엔진이면 설정의 장치가 돌아왔는지 보고 장치를 정한 뒤
+/// "HotReloading"을 알리고 짧은 부팅 램프로 연다(장치 찾기 30초 그대로). 장치를 기다리는 재시도면 원하는 장치를 짧게
+/// (`engine_keeper::RETRY_SEARCH`) 찾는다. 이름 있는 장치를 못 열면 기본 장치로 비상 전환한다(안정성 ⑤까지 유지).
+/// 그것도 못 열면 비상 표시를 되돌리고 원래 장치의 실패를 돌려준다.
+pub(crate) fn keeper_open(
+    req: &crate::core::engine_keeper::OpenRequest,
+) -> Result<(), crate::core::engine_keeper::StartFailure> {
+    use crate::core::engine_keeper::StartFailure;
+    let (device, search) = if req.self_restart {
+        // 비상 엔진(기본 장치)이면 설정의 장치가 돌아왔는지 보고, 돌아왔으면 이름을 지정해 연다.
+        // 그래야 비상 감쇠가 풀린다(core::device_return).
+        let failover = crate::core::state::GLOBAL_STATE
+            .is_failover_mode
+            .load(std::sync::atomic::Ordering::Relaxed);
+        let requested = crate::core::device_return::requested_device();
+        let available: Vec<String> = if failover && requested.is_some() {
+            api_get_output_devices()
+                .map(|devices| devices.into_iter().map(|d| d.name).collect())
+                .unwrap_or_default()
+        } else {
+            Vec::new()
+        };
+        let restart_device = crate::core::device_return::device_for_self_restart(
+            req.device.as_deref(),
+            failover,
+            requested.as_deref(),
+            &available,
+        );
+        if restart_device != req.device {
+            if let Some(ref name) = restart_device {
+                crate::core::state::GLOBAL_STATE.log(format!(
+                    "비상 전환 해제 시도: 설정의 장치 '{name}'가 돌아와 이름을 지정해 다시 연다"
+                ));
+            }
+        }
+        println!("🔄 [디버깅] 자동 재연결(Hot-Reload) 수행!");
+        broadcast_stream_status("HotReloading".to_string());
+        // 이 재시작이 만드는 믹서는 부팅 뮤트 램프를 짧게 쓴다(core::restart_resume).
+        crate::core::restart_resume::set_short_startup_ramp(true);
+        (restart_device, crate::audio::engine::DEVICE_SEARCH_TIMEOUT)
+    } else {
+        (req.device.clone(), crate::core::engine_keeper::RETRY_SEARCH)
+    };
+    let first = match device.as_deref() {
+        Some(name) if !crate::core::device_search::may_appear_later(name) => {
+            Err(StartFailure::Unavailable(format!("'{name}'는 이 컴퓨터에서 열 수 없는 장치입니다")))
+        }
+        _ => init_audio_system_with(device.clone(), search),
+    };
+    let result = match first {
+        Ok(()) => Ok(()),
+        Err(StartFailure::Hung) => Err(StartFailure::Hung),
+        Err(failure) if device.is_some() => {
+            // Emergency Failover
+            println!("🚨 [Failover] 장치 재연결 실패. WASAPI 기본 장치로 강제 비상 전환!");
+            crate::core::state::GLOBAL_STATE.log(
+                "비상 전환: 장치를 다시 열지 못해 기본 장치로 임시 전환한다(출력 −40dB)".to_string(),
+            );
+            crate::core::state::GLOBAL_STATE
+                .is_failover_mode
+                .store(true, std::sync::atomic::Ordering::Relaxed);
+            match init_audio_system_with(None, search) {
+                Ok(()) => Ok(()),
+                Err(StartFailure::Hung) => Err(StartFailure::Hung),
+                Err(_) => {
+                    // 기본 장치도 못 열면 비상 표시를 되돌린다(예전에는 켜진 채 남아 상태가 "Failover"로 보였다).
+                    crate::core::state::GLOBAL_STATE
+                        .is_failover_mode
+                        .store(false, std::sync::atomic::Ordering::Relaxed);
+                    Err(failure)
+                }
+            }
+        }
+        Err(failure) => Err(failure),
+    };
+    if req.self_restart {
+        crate::core::restart_resume::set_short_startup_ramp(false);
+    }
+    result
+}
+
+/// 엔진 유지자가 연 뒤 사용자가 이미 정지했으면 곧바로 내린다(세대를 올려 엔진 스레드가 끝나게 한다).
+pub(crate) fn keeper_stop_engine() {
+    stop_audio_engine();
+}
+
 /// 엔진 기동 본체. 부르기 전에 `stop_audio_engine`으로 세대를 올려 둔다.
 fn start_audio_system(device_name: Option<String>) -> Result<(), AtmosError> {
+    start_audio_system_with(device_name, crate::audio::engine::DEVICE_SEARCH_TIMEOUT)
+        .map_err(|failure| AtmosError { message: failure.message() })
+}
+
+/// [`start_audio_system`]과 같고 장치 찾기 시간을 정한다. 시작 결과를 시간 제한(찾기 + 15초)으로 기다리고, 실패를
+/// 장치 없음·열기 실패·멈춤으로 나눠 돌려준다.
+fn start_audio_system_with(
+    device_name: Option<String>,
+    search: std::time::Duration,
+) -> Result<(), crate::core::engine_keeper::StartFailure> {
+    use crate::core::engine_keeper::StartFailure;
+    // 앞선 시작 호출이 멈춰 엔진 스레드가 돌아오지 않았다. 새 스레드가 그것을 join하면 같이 멈추므로 바로 거절한다.
+    if crate::core::engine_keeper::is_hung() {
+        return Err(StartFailure::Hung);
+    }
     let rx = crate::core::state::GLOBAL_STATE.command_receiver.clone();
 
     let gen = ENGINE_GENERATION.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1;
@@ -1120,7 +1279,7 @@ fn start_audio_system(device_name: Option<String>) -> Result<(), AtmosError> {
         // Windows 실기, 점검표 3-4).
         let is_asio = device_name_clone.as_deref().is_some_and(|name| name.starts_with("[ASIO]"));
 
-        match engine.start(device_name_clone, rx, gen) {
+        match engine.start_with_search(device_name_clone, rx, gen, search) {
             Ok(_) => {
                 ENGINE_ACTIVE.store(true, std::sync::atomic::Ordering::SeqCst);
                 if crate::core::state::debug_flags::trace_cmd() {
@@ -1383,76 +1542,11 @@ fn start_audio_system(device_name: Option<String>) -> Result<(), AtmosError> {
                     // 스트림이 다시 열리지 않고 앱이 조용히 무음이 된다(실기 증상:
                     // 워치독 발동 후 75분간 무음, Stream: 로그가 다시 찍히지 않음,
                     // 리스캔의 apiInitAudioSystem await도 끝나지 않음).
-                    // 여기서 스레드를 띄우고 즉시 반환하면 이 스레드가 종료되므로
+                    // 유지자 스레드에 넘기고 즉시 반환하면 이 스레드가 종료되므로
                     // 새 스레드의 join이 풀린다.
-                    let current_device = device_name.clone();
-                    std::thread::spawn(move || {
-                        std::thread::sleep(std::time::Duration::from_millis(100)); // Fast auto hot-reload
-                        if ENGINE_GENERATION.load(std::sync::atomic::Ordering::SeqCst) != gen {
-                            return; // 그 사이 사용자가 직접 정지/재기동했다
-                        }
-                        // 비상 엔진(기본 장치)이면 설정의 장치가 돌아왔는지 보고, 돌아왔으면 이름을 지정해 연다.
-                        // 그래야 비상 감쇠가 풀린다(core::device_return).
-                        let failover = crate::core::state::GLOBAL_STATE
-                            .is_failover_mode
-                            .load(std::sync::atomic::Ordering::Relaxed);
-                        let requested = crate::core::device_return::requested_device();
-                        let available: Vec<String> = if failover && requested.is_some() {
-                            api_get_output_devices()
-                                .map(|devices| devices.into_iter().map(|d| d.name).collect())
-                                .unwrap_or_default()
-                        } else {
-                            Vec::new()
-                        };
-                        let restart_device = crate::core::device_return::device_for_self_restart(
-                            current_device.as_deref(),
-                            failover,
-                            requested.as_deref(),
-                            &available,
-                        );
-                        if restart_device != current_device {
-                            if let Some(ref name) = restart_device {
-                                crate::core::state::GLOBAL_STATE.log(format!(
-                                    "비상 전환 해제 시도: 설정의 장치 '{name}'가 돌아와 이름을 지정해 다시 연다"
-                                ));
-                            }
-                        }
-                        println!("🔄 [디버깅] 자동 재연결(Hot-Reload) 수행!");
-                        broadcast_stream_status("HotReloading".to_string());
-                        // 이 재시작이 만드는 믹서는 부팅 뮤트 램프를 짧게 쓴다(core::restart_resume).
-                        crate::core::restart_resume::set_short_startup_ramp(true);
-                        let started = match init_audio_system(restart_device) {
-                            Ok(()) => true,
-                            Err(_e) => {
-                                // Emergency Failover
-                                println!("🚨 [Failover] 장치 재연결 실패. WASAPI 기본 장치로 강제 비상 전환!");
-                                crate::core::state::GLOBAL_STATE.log(
-                                    "비상 전환: 장치를 다시 열지 못해 기본 장치로 임시 전환한다(출력 −40dB)".to_string(),
-                                );
-                                crate::core::state::GLOBAL_STATE
-                                    .is_failover_mode
-                                    .store(true, std::sync::atomic::Ordering::Relaxed);
-                                init_audio_system(None).is_ok() // None forces default OS device
-                            }
-                        };
-                        if !started {
-                            // 복구 스레드는 여기서 끝나 더 시도하지 않는다. 사라지지 않는 배너로 알린다.
-                            let cause = crate::core::event_log::CAUSE_RESTART_FAILED;
-                            crate::core::event_log::log_event(
-                                "engine_down",
-                                &[
-                                    ("cause", cause),
-                                    ("detail", "failover_also_failed"),
-                                    ("retry", "none"),
-                                ],
-                            );
-                            broadcast_stream_status(crate::core::event_log::engine_down_status(cause));
-                        }
-                        crate::core::restart_resume::set_short_startup_ramp(false);
-                        if started {
-                            crate::core::restart_resume::resume_after_resync();
-                        }
-                    });
+                    // 다시 열기는 엔진 유지자(core::engine_keeper)의 스레드가 한다. 설정 장치·기본 장치가 모두 실패해도
+                    // 포기하지 않고 장치를 계속 찾는다(안정성 ③). 예전에는 여기서 일회성 스레드를 띄워 한 번만 시도했다.
+                    crate::core::engine_keeper::report_self_restart(gen, device_name.clone());
                 }
             }
             Err(e) => {
@@ -1468,12 +1562,28 @@ fn start_audio_system(device_name: Option<String>) -> Result<(), AtmosError> {
         *guard = Some(handle);
     }
 
-    rx_init
-        .recv()
-        .unwrap_or_else(|_| Err("Failed to communicate with audio thread".to_string()))
-        .map_err(|e| AtmosError {
-            message: format!("Failed to start audio engine: {}", e),
-        })
+    let limit = search + START_REPLY_MARGIN;
+    match rx_init.recv_timeout(limit) {
+        Ok(Ok(())) => Ok(()),
+        Ok(Err(e)) => {
+            let message = format!("Failed to start audio engine: {}", e);
+            if e.contains(crate::audio::engine::DEVICE_NOT_FOUND_MARK) || e.contains("No default output device") {
+                Err(StartFailure::NotFound(message))
+            } else {
+                Err(StartFailure::OpenFailed(message))
+            }
+        }
+        Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
+            crate::core::state::GLOBAL_STATE.log(format!(
+                "엔진 시작 호출이 {}초 안에 돌아오지 않았다(오디오 드라이버 멈춤으로 본다)",
+                limit.as_secs()
+            ));
+            Err(StartFailure::Hung)
+        }
+        Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => Err(StartFailure::OpenFailed(
+            "Failed to start audio engine: Failed to communicate with audio thread".to_string(),
+        )),
+    }
 }
 
 pub fn api_start_audio_engine(device_name: Option<String>) {
@@ -1522,6 +1632,8 @@ pub fn api_is_engine_ready() -> bool {
 pub fn api_stop_audio_engine() {
     stop_audio_engine();
     crate::core::restart_resume::cancel_all();
+    // 사용자 정지: 유지자는 다시 시도하지 않는다(상태 StoppedByUser).
+    crate::core::engine_keeper::user_stopped();
 }
 
 fn stop_audio_engine() {
