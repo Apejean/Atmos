@@ -15,6 +15,7 @@ import 'api/project.dart';
 import 'api/scene.dart';
 import 'api/show.dart';
 import 'api/simple.dart';
+import 'api/ui_log.dart';
 import 'common/config.dart';
 import 'dart:async';
 import 'dart:convert';
