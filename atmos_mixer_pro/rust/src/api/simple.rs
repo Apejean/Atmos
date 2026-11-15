@@ -1029,6 +1029,10 @@ pub fn api_create_stream_status_stream(sink: StreamSink<String>) {
     } else {
         let _ = sink.add("Stopped".to_string());
     }
+    // 구독 전에 설정한 OSC 수신 포트가 막혔으면 처음 값으로 알린다(osc::listener, 엔진 상태가 아님).
+    if let Some(status) = crate::osc::listener::current_port_status() {
+        let _ = sink.add(status);
+    }
 }
 
 pub fn api_init_audio_system(device_name: Option<String>) -> Result<(), AtmosError> {
