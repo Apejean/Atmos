@@ -4,7 +4,6 @@ use std::sync::atomic::Ordering;
 use crate::audio::dsp::dsp_utils::ChannelDspState;
 
 pub enum SpatialGarbage {
-    TrackPositions(std::collections::HashMap<String, crate::common::config::Point3D>),
     EqBands(Vec<crate::common::config::EqBand>),
     RoomZones(Vec<crate::common::config::RoomZone>),
     Trajectory(Option<crate::common::config::Trajectory>),
@@ -459,45 +458,6 @@ impl AudioMixer {
                             break;
                         }
                     }
-                    
-                    if inst.output_channel == usize::MAX && inst.current_position.is_some() {
-                        // inst.spatial_gains는 SoundInstance 생성 시 고정 크기로 사전 할당되므로
-                        // (Dante/MADI 등 128채널 초과 인터페이스에서도) OOB panic 방지를 위해 하한 클램프.
-                        let active_ch = out_channels.min(self.channel_positions.len()).min(inst.spatial_gains.len());
-                        // if inst.spatial_gains.len() != active_ch {
-                            // inst.spatial_gains.resize(active_ch, 0.0);
-                            // inst.spatial_gains_target.resize(active_ch, 0.0);
-                        // }
-                        
-                        let default_pos = crate::common::config::Point3D::default();
-                        let pos = inst.current_position.as_ref().unwrap_or(&default_pos);
-                        let mut sum_sq = 0.0;
-                        let mut min_dist = f32::MAX;
-                        let r_blur = 2.0f32;
-                        
-                        for ch in 0..active_ch {
-                            if let Some(c_pos) = &self.channel_positions[ch] {
-                                let dx = c_pos.x - pos.x;
-                                let dy = c_pos.y - pos.y;
-                                let dz = c_pos.z - pos.z;
-                                let dist = (dx*dx + dy*dy + dz*dz).sqrt();
-                                if dist < min_dist { min_dist = dist; }
-                                let effective_blur = r_blur * (1.0 + pos.size * 3.0);
-                                let weight = 1.0 / (dist.powi(2) + effective_blur.powi(2));
-                                inst.spatial_gains_target[ch] = weight;
-                                sum_sq += weight * weight;
-                            } else {
-                                inst.spatial_gains_target[ch] = 0.0;
-                            }
-                        }
-                        
-                        let norm_factor = if sum_sq > 0.0 { 1.0 / sum_sq.sqrt() } else { 0.0 };
-                        let distance_attenuation = 1.0 / min_dist.max(1.0);
-                        for ch in 0..active_ch {
-                            let pan_ratio = inst.spatial_gains_target[ch] * norm_factor;
-                            inst.spatial_gains_target[ch] = pan_ratio * distance_attenuation;
-                        }
-                    }
                 }
             }
         }
@@ -704,14 +664,6 @@ impl AudioMixer {
                     self.temp_room_vols[i] += 0.005 * (self.temp_room_vols_target[i] - self.temp_room_vols[i]);
                 }
                 
-                if instance.output_channel == usize::MAX {
-                    // OOB panic 방지: spatial_gains 고정 배열 크기로 하한 클램프 (b4a9293 패턴).
-                    let active_ch = out_channels.min(self.channel_positions.len()).min(instance.spatial_gains.len());
-                    for ch in 0..active_ch {
-                        instance.spatial_gains[ch] += 0.005 * (instance.spatial_gains_target[ch] - instance.spatial_gains[ch]);
-                    }
-                }
-
                 // Update fade weight
                 if instance.is_stopping {
                     instance.fade_weight -= 1.0 / fade_frames as f32;
@@ -883,28 +835,7 @@ impl AudioMixer {
                     let route_count = if fade < 1.0 { 2 } else { 1 };
                     for &(output_channel, output_stereo, route_gain) in routes.iter().take(route_count) {
                         let route_vol = current_vol * route_gain;
-                        if output_channel == usize::MAX && instance.current_position.is_some() {
-                            // Object Mode
-                            let mut sum = 0.0;
-                            for val in vals.iter().take(ch_limit) {
-                                sum += *val;
-                            }
-                            let mono_val = sum / ch_limit as f32;
-
-                            // OOB panic 방지: spatial_gains 고정 배열 크기로 하한 클램프 (b4a9293 패턴).
-                            let active_ch = out_channels.min(self.channel_positions.len()).min(instance.spatial_gains.len());
-                            for hw_ch in 0..active_ch {
-                                let is_enabled = if hw_ch < GLOBAL_STATE.enabled_channels.len() {
-                                    GLOBAL_STATE.enabled_channels[hw_ch].load(Ordering::Relaxed)
-                                } else {
-                                    false
-                                };
-                                let out_idx = frame * out_channels + hw_ch;
-                                if is_enabled && out_idx < output.len() {
-                                    output[out_idx] += mono_val * route_vol * instance.spatial_gains[hw_ch];
-                                }
-                            }
-                        } else if !output_stereo && ch_limit > 1 {
+                        if !output_stereo && ch_limit > 1 {
                             // Downmix all to Mono for backwards compatibility if output_stereo is false
                             let mut sum = 0.0;
                             for val in vals.iter().take(ch_limit) {
