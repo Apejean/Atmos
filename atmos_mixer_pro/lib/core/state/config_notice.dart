@@ -7,11 +7,24 @@ class ConfigNoticeNotifier extends Notifier<String?> {
   @override
   String? build() => null;
 
+  /// 안내를 더한다(설정 파일과 설계 데이터 파일 안내가 함께 있으면 줄을 바꿔 둘 다 보인다).
   void show(String? message) {
-    if (message != null && message.isNotEmpty) state = message;
+    if (message == null || message.isEmpty) return;
+    final current = state;
+    state = current == null ? message : '$current\n$message';
   }
 
   void dismiss() => state = null;
+}
+
+/// main.dart가 runApp 전에 받은 설계 데이터 파일 안내(rust api::prefs_file). 스플래시가 시작 절차 뒤 한 번 꺼낸다.
+String? pendingPrefsNotice;
+
+/// [pendingPrefsNotice]를 꺼내고 비운다.
+String? takePendingPrefsNotice() {
+  final n = pendingPrefsNotice;
+  pendingPrefsNotice = null;
+  return n;
 }
 
 final configNoticeProvider = NotifierProvider<ConfigNoticeNotifier, String?>(ConfigNoticeNotifier.new);

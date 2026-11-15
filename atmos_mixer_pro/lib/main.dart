@@ -14,6 +14,8 @@ import 'package:atmos_mixer_pro/src/rust/api/simple.dart';
 import 'package:atmos_mixer_pro/core/utils/rust_library.dart';
 import 'package:atmos_mixer_pro/core/utils/ui_error_reporter.dart';
 import 'package:atmos_mixer_pro/src/rust/api/ui_log.dart';
+import 'package:atmos_mixer_pro/core/state/config_notice.dart';
+import 'package:atmos_mixer_pro/src/rust/api/prefs_file.dart';
 
 import 'package:atmos_mixer_pro/features/splash/screens/audio_init_splash_screen.dart';
 import 'package:atmos_mixer_pro/features/exhibition/state/acoustic_sync_provider.dart';
@@ -47,6 +49,17 @@ Future<void> main(List<String> args) async {
   // 지난 공연 상태를 읽어 두고 5초마다 저장을 시작한다(rust api::show). 이어 가기(스플래시)는
   // 여기서 읽어 둔 상태를 쓰므로, 저장이 파일을 덮어써도 멈춘 위치를 잃지 않는다.
   await apiStartShowState(dir: await showStateDir());
+
+  // 설계 데이터 파일(shared_preferences.json)을 앱이 처음 읽기 전에 검사한다(rust core::prefs_guard, 검토 A3).
+  // 플러그인은 처음 읽은 내용을 메모리에 두므로 반드시 SharedPreferences를 쓰는 어떤 코드보다 먼저여야 한다
+  // (test/prefs_check_order_test.dart가 이 순서를 지킨다). 안내는 시작 절차가 끝난 뒤 설정 복구 배너로 보인다.
+  try {
+    pendingPrefsNotice = await apiCheckPrefsFile(
+      path: '${await showStateDir()}${Platform.pathSeparator}shared_preferences.json',
+    );
+  } catch (_) {
+    // 검사에 실패해도 앱은 뜬다(플러그인이 지금처럼 읽는다).
+  }
 
   // 로딩창 로고를 창이 뜨기 전에 읽어 둔다.
   await precacheSplashLogo();
