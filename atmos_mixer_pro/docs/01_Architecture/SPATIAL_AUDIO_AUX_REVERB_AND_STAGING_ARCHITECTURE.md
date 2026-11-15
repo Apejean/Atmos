@@ -1,5 +1,7 @@
 # 🏛️ 다채널 공간음향 오디오 엔진: 개별 Aux Send 리버브 버스 & 공간 연출 아키텍처 설계서
 
+> 현황(2026-11-15): **초기 청사진이다(기록용).** 이 문서의 파일 이름(`channel_strip.rs`, `reverb_engine.rs`)과 Aux Send 버스 구조는 코드에 없다. 실제 구현은 `rust/src/audio/reverb.rs`·`dsp.rs`이고, 리버브에 관한 결정은 `HANDOFF.md` 확정된 결정의 "공간 리버브(2026-10-09)"가 기준이다.
+
 > **문서 버전**: v1.0.0 (Architecture Blueprint)  
 > **대상 프로젝트**: Atmos Mixer Pro (Flutter + Rust DSP + WebGL)  
 > **핵심 목적**: 스피커 시공 튜닝(Dry 신호)과 이머시브 공간 사운드 연출(Wet 신호)을 완벽히 분리 지원하는 하이브리드 멀티 버스 오디오 파이프라인 구축

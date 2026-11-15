@@ -14,7 +14,7 @@
 - SOFA 파일에 적힌 사용 조건(전역 속성 `License` 원문):
   > This HRTF data is provided without any usage restrictions. It is requested that you cite Gardner and Martin (1995) when using this data for research or commercial applications.
 - MIT 원본 페이지(http://sound.media.mit.edu/resources/KEMAR.html, 2026-10-22 확인): 데이터는 MIT Media Laboratory 저작물이며, 연구·상업 응용에 쓸 때 저자를 인용하는 조건으로 사용 제한 없이 무료로 제공된다고 적혀 있다.
-- 앱 안의 고지: Help → Third-party Notices(`lib/features/settings/widgets/third_party_notices.dart`).
+- 앱 안의 고지: Help → About Awesome... → Credits(`lib/features/settings/widgets/credits_dialog.dart`, 문구는 `lib/core/legal/legal_texts.dart`의 `kemarHrtfNotice`). 설치 폴더 `Legal\Third-party License Information.txt`에도 같은 문구가 들어간다(`tool/legal/generate_third_party_licenses.dart`).
 - 이 문서와 앱의 고지는 원본의 사용 조건을 옮긴 것이며, 그보다 넓은 권리를 주장하지 않는다.
 
 ## 변환 이력
