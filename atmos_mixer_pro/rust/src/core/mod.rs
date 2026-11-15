@@ -8,6 +8,7 @@ pub mod keep_awake;
 pub mod load_warning;
 pub mod log_file;
 pub mod media_relink;
+pub mod prefs_guard;
 pub mod processing_channels;
 pub mod resample_status;
 pub mod restart_resume;
