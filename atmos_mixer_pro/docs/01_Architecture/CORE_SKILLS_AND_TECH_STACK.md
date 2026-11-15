@@ -11,6 +11,7 @@
 - **수학적 모델:** 스피커 $i$와 가상 음원 간의 유클리드 거리 $d_i = \sqrt{(x - x_i)^2 + (y - y_i)^2 + (z - z_i)^2}$를 계산하고, 롤오프 계수($a$)를 적용하여 에너지 보존 법칙($\sum g_i^2 = 1$)에 따라 게인을 정규화:
   $$g_i = \frac{d_i^{-a}}{\sqrt{\sum_{k=1}^N d_k^{-2a}}}$$
 - **구현 특징:** 스피커 이동 및 음원 이동 시 지퍼 노이즈를 방지하기 위해 샘플 단위 선형 보간(Linear Smoothing) 적용.
+- **지금 쓰이는 곳:** 스피커 배치 화면의 DBAP 히트맵 계산(`api_calculate_dbap_heatmap`). 트랙을 좌표로 패닝하는 경로는 없다(제품 정의: 오브젝트 렌더러가 아니다).
 
 ### ② SOFA (AES69) 표준 3D 바이노럴 HRTF 렌더링
 - **적용 라이브러리:** 자체 HRTF 로더(`audio::hrtf_data` — 원본 SOFA를 개발용 도구 `tool/hrtf_convert`로 옮긴 내장 데이터), `rubato` (샘플레이트 변환)
@@ -31,6 +32,7 @@
   - True-Peak (dBTP - 4x/8x FIR 오버샘플링을 통한 인터샘플 클리핑 감지)
 
 ### ⑤ 3D 소리 궤적(Trajectory) 오토메이션 & 스플라인 보간
+> 현황(2026-11-15): **지금 제품 기능이 아니다.** 트랙 카드의 3D Object·Trajectory는 2026-11-10 사용자 결정으로 없앴고 트랙별 오브젝트 경로는 PR #106으로 지웠다. 전역 궤적 상태와 엔진 계산은 코드에 남아 있지만 화면에서 편집할 수 없고 계산값이 출력에 쓰이지 않는다. 아래는 옛 설계 기록이다.
 - **적용 알고리즘:** Catmull-Rom Spline (등속도 곡선 보간)
 - **실시간 연산:** 3D 웨이포인트 노드 사이를 지날 때 이동 시간(Duration)과 곡선에 맞춰 매 오디오 버퍼마다 현재 $(X, Y, Z)$ 좌표를 $0\%$ 지연으로 도출하여 DBAP 엔진에 전달.
 
@@ -54,13 +56,13 @@
 
 ### ① Rust ⇄ Flutter 고속 FFI 브릿지
 - **도구:** `flutter_rust_bridge` (v2.12.0)
-- **메모리 정렬:** C 호환 바이트 정렬(`#[repr(C)]`) 구조체 설계로 언어 간 메모리 복사 최소화.
+- **자료형:** `rust/src/api/`의 공개 구조체·함수에서 `flutter_rust_bridge`가 Dart 쪽 코드를 만든다(`lib/src/rust/`). 직접 `#[repr(C)]` 구조체를 설계하지 않는다.
 - **수명 주기 통일:** 메모리 할당 및 해제 책임을 Rust 엔진에 일원화하여 다트 GC(가비지 컬렉터)와의 충돌 및 메모리 릭 원천 방지.
 
 ### ② Flutter 60fps/120Hz 고주파 캔버스 렌더링 최적화
 - **상태 관리:** Riverpod를 활용한 세분화된 상태 구독.
 - **Decoupled 렌더링:** 빈번한 60fps 애니메이션 프레임(오디오 궤적 이동, 레벨 미터) 시 전체 위젯 트리가 리빌드되지 않도록 `Listenable`, `ValueNotifier`, `RepaintBoundary`를 사용해 페인팅 영역 격리.
-- **3D 방 및 스피커 투영 (`CustomPaint` + `Matrix4`):** 모델 파일 없이 코드로 4x4 바닥 격자와 스피커 큐브를 3차원 투영 렌더링.
+- **3D 방과 스피커:** Flutter 캔버스가 아니라 웹뷰 안의 three.js(`assets/3d_simulator/studio_engine.html`)가 그린다(아래 ③). Windows는 `webview_windows`(WebView2), macOS는 `webview_flutter`.
 
 ### ③ 3D 마네킹 헤드 및 Three.js/WebGL 시뮬레이터
 - **3D 리스너 모델:** 흰 흉상(`assets/models/listener_bust_white.obj`, 2026-10-24 교체, 10-31 저장소에서 재생성 — `tool/listener_bust/`)을 `studio_engine.html`이 OBJLoader로 읽어 귀를 청취자 자리의 귀 높이에 맞춘다.
@@ -73,10 +75,8 @@
 
 ### ① OSC (Open Sound Control) 실시간 제어
 - **적용 라이브러리:** `rosc`, UDP 소켓 통신
-- **주요 명령어 명세:**
-  - `/track/{id}/play`, `/track/{id}/stop`, `/track/{id}/reset`
-  - `/track/{id}/pos {x} {y} {z}` (외부 트래커를 통한 실시간 소리 객체 위치 제어)
-  - 미디어 서버(Resolume, TouchDesigner, QLab) 연동 지원.
+- **주소:** 정해진 주소 체계가 없다. 방·트랙마다 설정에 적은 주소를 글자 그대로 맞춘다. 받는 포트, 트리거 조건, 앱이 보내는 응답·시작 신호·상태 조회는 `docs/03_Protocols_and_Workflows/OSC_INTERFACE_SPEC.md`가 기준이다.
+- 큐 장비(QLab, Companion 등)와 미디어 서버가 보내는 OSC로 재생·정지·방 비우기·테마 시작을 한다.
 
 ### ② 데이터 직렬화 및 영속성 (Persistence)
 - **설정 파일:** `config.json`
@@ -93,6 +93,7 @@
 - **허용 오차:** 물리 수치 오차 $0.001\%$ 미만 유지.
 
 ### ② 7단계 순환 루프 (Automated 7-Step QA Loop)
+> 옛 다중 에이전트 방식의 절차다(기록용). 지금 작업 방식과 검증 보고 규칙은 저장소 루트 `CLAUDE.md`가 기준이다.
 1. **구현 (Implementation)**
 2. **리뷰 요청 (Review Request)**
 3. **코드 감사 (Code Audit against 3 DSP Laws)**

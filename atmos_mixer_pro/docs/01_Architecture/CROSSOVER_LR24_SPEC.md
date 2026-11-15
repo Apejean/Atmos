@@ -1,7 +1,7 @@
 # Linkwitz-Riley 24dB/oct (LR4) Crossover Architecture
 
 ## 1. Overview
-To support Bass Management and Subwoofer (LFE) integration in the 3D Atmos Mixer, we need to implement Linkwitz-Riley 24dB/octave (LR4) crossover filters in the Rust DSP backend.
+To support Bass Management and Subwoofer (LFE) integration in the 3D Atmos Mixer, the Rust DSP backend implements Linkwitz-Riley 24dB/octave (LR4) crossover filters (`rust/src/audio/crossover.rs`, routing in `bass_route.rs`).
 
 ## 2. DSP Implementation (Rust)
 The LR4 filter is formed by cascading two 2nd-order Butterworth filters.
@@ -29,5 +29,6 @@ When these two outputs are summed acoustically, the magnitude response is comple
   제 크기로 합쳐진다(`binaural.rs` Propagation).
 
 ## 4. UI Integration
-- Add a "Bass Management" toggle in the Tuning Modal.
-- Add a Crossover Frequency slider (60Hz ~ 120Hz).
+- 스피커 배치 화면의 스피커 인스펙터(`lib/features/exhibition/widgets/hud/speaker_inspector_panel.dart`)에 있다(튜닝 창이 아니다).
+- 서브 지정은 스피커마다 켠다(3절). Crossover Freq 슬라이더는 40~200Hz, 16칸(10Hz 단위), 기본 80Hz(`bass_management_provider.dart`).
+- 확정된 결정: 크로스오버 80Hz·LR24 유지(`HANDOFF.md`).
