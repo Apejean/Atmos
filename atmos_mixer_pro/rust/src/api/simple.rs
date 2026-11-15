@@ -2597,6 +2597,7 @@ pub struct SpatialConfigPayload {
     pub channel_positions: Vec<Option<crate::common::config::Point3D>>,
     pub room_zones: Vec<crate::common::config::RoomZone>,
     pub trajectory: Option<crate::common::config::Trajectory>,
+    /// 옛 3D Object 경로가 쓰던 칸. 엔진은 읽지 않는다. FRB가 만든 Dart 클래스에 실려 있어(API 계약) 칸은 남긴다.
     pub track_positions: std::collections::HashMap<String, crate::common::config::Point3D>,
 }
 
@@ -2747,7 +2748,6 @@ pub fn api_update_spatial_config_json(json_payload: String) -> Result<(), AtmosE
             active_room_id,
             room_zones: payload.room_zones,
             trajectory: payload.trajectory,
-            track_positions: payload.track_positions,
             early_reflection_taps,
             channel_is_sub,
             bass_route,

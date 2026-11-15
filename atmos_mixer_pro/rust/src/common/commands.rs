@@ -118,7 +118,6 @@ pub enum AudioCommand {
         active_room_id: Option<u32>,
         room_zones: Vec<crate::common::config::RoomZone>,
         trajectory: Option<crate::common::config::Trajectory>,
-        track_positions: std::collections::HashMap<String, crate::common::config::Point3D>,
         // 채널별 초기반사음(1차 반사) 탭 6슬롯. len == channel_positions.len().
         // api_update_spatial_config_json()(비-오디오 스레드)에서 미리 계산되어 실려온다.
         early_reflection_taps: Vec<[crate::audio::acoustic::EarlyReflectionTap; 6]>,
