@@ -3299,8 +3299,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   AppConfig dco_decode_app_config(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 18)
-      throw Exception('unexpected arr length: expect 18 but see ${arr.length}');
+    if (arr.length != 20)
+      throw Exception('unexpected arr length: expect 20 but see ${arr.length}');
     return AppConfig(
       oscPort: dco_decode_u_16(arr[0]),
       deviceName: dco_decode_opt_String(arr[1]),
@@ -3320,6 +3320,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       globalReverbMix: dco_decode_f_32(arr[15]),
       globalReverbDecay: dco_decode_f_32(arr[16]),
       oscReplyTargets: dco_decode_list_String(arr[17]),
+      duckingEnabled: dco_decode_bool(arr[18]),
+      duckingReductionDb: dco_decode_f_32(arr[19]),
     );
   }
 
@@ -3884,6 +3886,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_globalReverbMix = sse_decode_f_32(deserializer);
     var var_globalReverbDecay = sse_decode_f_32(deserializer);
     var var_oscReplyTargets = sse_decode_list_String(deserializer);
+    var var_duckingEnabled = sse_decode_bool(deserializer);
+    var var_duckingReductionDb = sse_decode_f_32(deserializer);
     return AppConfig(
       oscPort: var_oscPort,
       deviceName: var_deviceName,
@@ -3903,6 +3907,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       globalReverbMix: var_globalReverbMix,
       globalReverbDecay: var_globalReverbDecay,
       oscReplyTargets: var_oscReplyTargets,
+      duckingEnabled: var_duckingEnabled,
+      duckingReductionDb: var_duckingReductionDb,
     );
   }
 
@@ -4636,6 +4642,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_f_32(self.globalReverbMix, serializer);
     sse_encode_f_32(self.globalReverbDecay, serializer);
     sse_encode_list_String(self.oscReplyTargets, serializer);
+    sse_encode_bool(self.duckingEnabled, serializer);
+    sse_encode_f_32(self.duckingReductionDb, serializer);
   }
 
   @protected

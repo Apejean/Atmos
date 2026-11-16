@@ -25,6 +25,8 @@ extension AppConfigCopy on AppConfig {
     double? globalReverbMix,
     double? globalReverbDecay,
     List<String>? oscReplyTargets,
+    bool? duckingEnabled,
+    double? duckingReductionDb,
   }) =>
       AppConfig(
         oscPort: oscPort ?? this.oscPort,
@@ -47,6 +49,8 @@ extension AppConfigCopy on AppConfig {
         globalReverbMix: globalReverbMix ?? this.globalReverbMix,
         globalReverbDecay: globalReverbDecay ?? this.globalReverbDecay,
         oscReplyTargets: oscReplyTargets ?? this.oscReplyTargets,
+        duckingEnabled: duckingEnabled ?? this.duckingEnabled,
+        duckingReductionDb: duckingReductionDb ?? this.duckingReductionDb,
       );
 }
 

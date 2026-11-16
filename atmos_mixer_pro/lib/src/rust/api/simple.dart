@@ -575,6 +575,8 @@ class SpatialConfigPayload {
   final List<Point3D?> channelPositions;
   final List<RoomZone> roomZones;
   final Trajectory? trajectory;
+
+  /// 옛 3D Object 경로가 쓰던 칸. 엔진은 읽지 않는다. FRB가 만든 Dart 클래스에 실려 있어(API 계약) 칸은 남긴다.
   final Map<String, Point3D> trackPositions;
 
   const SpatialConfigPayload({

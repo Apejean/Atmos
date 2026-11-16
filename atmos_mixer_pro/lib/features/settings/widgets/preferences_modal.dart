@@ -1006,6 +1006,67 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
           ],
         ),
         const SizedBox(height: 16),
+        // 루프 더킹(rust core::ducking): 전시 모드가 아닐 때 비루프 트랙이 나는 동안 모든 루프를 줄인다.
+        Row(
+          children: [
+            const SizedBox(
+              width: 120,
+              child: Text(
+                'Loop Ducking',
+                style: TextStyle(
+                  color: Colors.white70,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
+              ),
+            ),
+            Switch(
+              key: const Key('ducking_enabled_switch'),
+              value: _tempConfig.duckingEnabled,
+              activeTrackColor: AppColors.primaryNeon.withValues(alpha: 0.5),
+              activeThumbColor: AppColors.primaryNeon,
+              onChanged: (val) {
+                setState(() {
+                  _tempConfig = _tempConfig.copyWith(duckingEnabled: val);
+                });
+              },
+            ),
+            Expanded(
+              child: Slider(
+                key: const Key('ducking_reduction_slider'),
+                value: _tempConfig.duckingReductionDb.clamp(-40.0, 0.0),
+                min: -40.0,
+                max: 0.0,
+                divisions: 80,
+                onChanged: _tempConfig.duckingEnabled
+                    ? (val) {
+                        setState(() {
+                          _tempConfig = _tempConfig.copyWith(duckingReductionDb: val);
+                        });
+                      }
+                    : null,
+              ),
+            ),
+            SizedBox(
+              width: 64,
+              child: Text(
+                '${_tempConfig.duckingReductionDb.toStringAsFixed(1)} dB',
+                style: TextStyle(
+                  color: _tempConfig.duckingEnabled ? AppColors.primaryNeon : Colors.white54,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const Padding(
+          padding: EdgeInsets.only(left: 120, top: 2),
+          child: Text(
+            '효과음(루프가 아닌 트랙)이 나는 동안 모든 루프를 줄입니다. 전시 모드에서는 항상 꺼집니다.',
+            style: TextStyle(color: Colors.white38, fontSize: 11),
+          ),
+        ),
+        const SizedBox(height: 16),
         Row(
           children: [
             const SizedBox(
