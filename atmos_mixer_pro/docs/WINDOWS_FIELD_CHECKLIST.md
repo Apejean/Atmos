@@ -1,9 +1,9 @@
 # Windows 현장 점검표
 
-- 날짜: 2026-10-05 (2026-10-06 갱신)
+- 날짜: 2026-10-05 처음 작성. 그 뒤 갱신은 항목별 날짜와 git 기록을 본다(12절은 2026-11-10 추가).
 - 대상: Windows PC(현장 PC 또는 같은 구성의 시험 PC)
 - 기준(사용자 결정, 2026-10-05): **현장 PC는 Windows이고, 지금 되는 기능은 Windows에서도 동일하게 동작해야 한다. 3D 방 뷰어는 반드시 들어간다.** 메뉴 형태, 종료 경로, 절전 방지·로그 경로 구현 방식 같은 OS 고유 차이는 허용한다.
-- 이 점검표의 내용은 코드를 읽어 만든 것이다. **Windows에서 실행해 본 적이 없다.** "예상"으로 적은 것도 설계상 기대일 뿐 확인된 사실이 아니다. 결과가 다르면 HANDOFF "Windows 미검증"에 적는다.
+- 이 점검표는 처음에 코드를 읽어 만들었다(2026-10-05). 2026-10-07부터 Windows 개발 PC에서 여러 절을 실행했고 그 결과는 각 항목과 맨 아래 "결과 기록"에 적혀 있다. **결과가 적히지 않은 항목은 아직 확인하지 않은 것이다.** "예상"으로 적은 것은 설계상 기대일 뿐 확인된 사실이 아니다. 결과가 다르면 HANDOFF "Windows 미검증"에 적는다.
 - 근거 문서: `docs/superpowers/specs/2026-10-05-crash-relaunch-supervisor-design.md`(7절), `docs/HANDOFF.md`("⚠️ Windows 미검증", "남은 일").
 
 ## 사용법
@@ -57,7 +57,7 @@
 - [ ] **공연 중 새 버전 설치(업그레이드).** 공연이 재생 중인 상태(감시와 앱이 떠 있음)에서 새 `The_Awesome_Setup.exe`를 실행한다.
   - installer(`PrepareToInstall`)가 **감시를 먼저, 앱을 그다음에** 끝낸다. 감시가 먼저 꺼지지 않으면 앱을 끝낼 때 감시가 앱을 다시 띄워 파일이 잠긴다.
   - 설치가 파일 잠금 오류 없이 끝나고, 설치 도중과 끝난 직후에 앱이 저절로 다시 뜨지 않는다. 설치 마지막 화면에 실행 체크 항목은 없다(2026-10-24) — 바탕 화면·시작 메뉴 바로가기로 시작한다.
-  - 업그레이드 뒤 설치 폴더의 `data\flutter_assets\assets\models`에 `listener_bust_white.obj`·`room_frame.glb`·`speaker_cube.glb`만 있다(설치 파일이 예전 파일을 이름으로 지운다, 2026-10-24). 예전 흉상 파일(`listener_bust.obj`, `listener_head.obj` 등)이 남아 있으면 안 된다.
+  - 업그레이드 뒤 설치 폴더의 `data\flutter_assets\assets\models`에 `listener_bust_white.obj`만 있고, `data\flutter_assets\assets\js`에 `three.min.js`·`OrbitControls.js`·`OBJLoader.js`만 있다(설치 파일이 예전 파일을 이름으로 지운다, 2026-10-24·2026-11-16). 예전 흉상 파일(`listener_bust.obj`, `listener_head.obj` 등)과 `room_frame.glb`·`speaker_cube.glb`·`GLTFLoader.js`가 남아 있으면 안 된다.
   - 설치 후 바로가기·로그인 자동 실행(작업 스케줄러 작업 "The Awesome Autostart", 2026-10-23부터 Run 키 대신)이 새 감시 exe를 가리키고, 새 버전이 뜬다. 작업은 로그인한 사용자 계정·로그온 10초 뒤·시간 제한 없음이고, 옛 Run 값(AtmosMixerPro)은 업그레이드 때 지워진다.
   - 작업 대상은 UAC를 승인한 계정이 아니라 지금 Windows 세션에 로그인한 사용자다(2026-10-24). 설치 로그(`%TEMP%\Setup Log *.txt`)의 `registered: session user … (SID), setup account …; task … (SID), trigger …, Limited, Interactive` 줄에서 세션 사용자·작업 계정의 SID가 같고 Limited·Interactive인지 본다. 다른 관리자 계정으로 승인했다면 setup account만 그 계정이고 작업은 로그인한 사용자여야 한다. 로그인 뒤 작업 관리자 세부 정보에서 `atmos_supervisor.exe`·`atmos_mixer_pro.exe`의 "관리자 권한 상승"이 "아니요"인지 본다.
   - 앱이 뜬 뒤 작업 표시줄 버튼을 오른쪽 클릭하면 이름이 The Awesome이고(옛 `atmos_mixer_pro`가 아니다), 작업 관리자에도 The Awesome으로 보인다. 작업 표시줄에 고정하면 시작 메뉴의 The Awesome 바로가기(감시)가 고정된다.

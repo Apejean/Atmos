@@ -942,7 +942,6 @@ impl AudioEngine {
                     active_room_id,
                     room_zones,
                     trajectory,
-                    track_positions,
                     early_reflection_taps,
                     channel_is_sub,
                     bass_route,
@@ -1005,15 +1004,7 @@ impl AudioEngine {
                         mixer.apply_early_reflection_taps(ch, &taps);
                     }
 
-                    for inst in mixer.instances.iter_mut().flatten() {
-                        if let Some(pos) = track_positions.get(&inst.track_id_str) {
-                            inst.current_position = Some(pos.clone());
-                        }
-                    }
                     mixer.recalculate_spatial_dsp();
-                    let _ = mixer.spatial_gc_tx.try_send(
-                        crate::audio::mixer::SpatialGarbage::TrackPositions(track_positions),
-                    );
                 }
                 AudioCommand::SetChannelPanDeg { channel, pan_deg } => {
                     if channel < mixer.channel_pan_deg.len() {

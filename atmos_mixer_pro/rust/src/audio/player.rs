@@ -259,9 +259,6 @@ pub struct SoundInstance {
     pub volume_smoother: crate::audio::dsp::dsp_utils::GainSmoother,
     pub last_samples: Vec<f32>,
     pub anti_click_multiplier: f32,
-    pub current_position: Option<crate::common::config::Point3D>,
-    pub spatial_gains: Vec<f32>,
-    pub spatial_gains_target: Vec<f32>,
     /// 스트리밍: 지금 `stream_buffer` 앞까지 지나간 프레임 수(시작 위치 포함). 미리 로드한 데이터는 0.
     pub position_base_frames: f64,
     /// 루프 한 바퀴 길이(프레임). 모르면 None이라 위치를 바퀴 안으로 접지 못한다.
@@ -291,12 +288,10 @@ impl SoundInstance {
         volume: f32,
         output_channel: usize,
         output_stereo: bool,
-        current_position: Option<crate::common::config::Point3D>,
-        // spatial_channel_capacity: 오브젝트 모드 DBAP 게인 배열 길이.
-        // 믹서가 경계 검사에 쓰는 GLOBAL_STATE.enabled_channels와 같은 크기를
-        // 넘겨 인덱스 불일치를 없앤다. 예전에는 128로 하드코딩되어 그 이상
-        // 채널에서 오브젝트 모드가 동작하지 않았다.
-        spatial_channel_capacity: usize,
+        // 아래 두 인자는 옛 3D Object 경로(트랙을 좌표로 패닝)가 쓰던 것이다. 그 경로는 지웠고 값은 쓰지 않는다.
+        // 시험 20여 개 파일이 위치 인자로 부르고 있어 자리는 남긴다(매트릭스 라우팅 구현 때 함께 정리).
+        _current_position: Option<crate::common::config::Point3D>,
+        _spatial_channel_capacity: usize,
     ) -> Self {
         let loop_len_frames = if is_loop {
             streamer.as_ref().and_then(|s| s.loop_len_frames).or_else(|| {
@@ -335,9 +330,6 @@ impl SoundInstance {
             volume_smoother: smoother,
             last_samples: vec![0.0; stream_channels as usize],
             anti_click_multiplier: 1.0,
-            current_position,
-            spatial_gains: vec![0.0; spatial_channel_capacity],
-            spatial_gains_target: vec![0.0; spatial_channel_capacity],
             position_base_frames: 0.0,
             loop_len_frames,
             group_id: 0,

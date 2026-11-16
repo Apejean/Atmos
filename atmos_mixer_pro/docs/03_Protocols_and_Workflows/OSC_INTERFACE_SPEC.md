@@ -1,6 +1,16 @@
-# OSC 인터페이스 규격 (초안)
+# OSC 인터페이스 규격
 
-> 상태: **규격 확정, 구현 전**. 2026-11-12 작성·5절 사용자 확정. 이 문서는 문서만 바꾸며 코드는 그대로다.
+> 상태: **규격 확정(2026-11-12 사용자 확정), 일부 구현**. 구현 현황(2026-11-15, origin/main e3d1a25 코드 대조):
+>
+> | 항목 | 현황 |
+> |---|---|
+> | 3.1 응답 목적지(`osc_reply_targets`) | 구현 |
+> | 3.2 시작 신호 `/awesome/status/boot` | 구현(`rust/src/api/osc.rs`, `osc/reply.rs` `announce_boot`) |
+> | 3.4 명령 응답 `/awesome/reply` | 구현. 단 `engine_waiting`은 안정성 3단계(엔진 유지 스레드) 전이라 보내지 않는다(3.4 "구현 현황" 참고) |
+> | 3.6 상태 조회 `/awesome/query/status` → `/awesome/status/snapshot` | 구현(`osc/listener.rs`, `osc/reply.rs` `send_status_snapshot`) |
+> | 3.3 엔진 상태 변화 `/awesome/status/engine` | 미구현(안정성 3단계 뒤) |
+> | 3.5 재생 끝 신호 `/awesome/finished` | 미구현 |
+> | TCP 수신·TCP 회신 | 미구현 |
 > 근거: 안정성 검증 프로젝트 결정(`HANDOFF.md` 확정된 결정·남은 일 16), 사건 로그·`EngineDown` 상태 값(PR Apejean/Atmos#86).
 
 ## 1. 목적과 원칙
@@ -17,12 +27,21 @@ The Awesome은 미리 만든 PCM을 안정적으로 분배·운영하는 프로�
 
 | 항목 | 현재 동작 |
 |---|---|
+| 받는 포트 | UDP `0.0.0.0`. 설정의 `osc_port`(기본 8000)와, 그것이 53000이 아니면 53000(QLab 기본)도 함께 연다(`osc/listener.rs`) |
 | 주소 | 설정의 `play_osc_address`·`stop_osc_address`(트랙), `clear_osc_address`(방), `theme_start_osc_address`, `system_reset_osc_address`. 글자 그대로 일치 |
 | 트리거 조건 | 인자가 없으면 트리거(주소만 보내는 QLab·Companion 형식, 작업 A로 코드를 맞춤). Float > 0, Int > 0(64비트 Double·Long 포함, 0보다 클 때), Bool true, 문자열 등 그 밖의 형식도 트리거. 숫자 0(32·64비트 모두)과 Bool false는 무시(버튼을 뗄 때 보내는 값). 여러 인자는 하나라도 조건을 만족하면 트리거 |
 | 디바운스 | 같은 주소는 250 ms 안에 다시 오면 무시(`osc/debouncer.rs`) |
 | 겹친 주소 | 마지막에 등록된 하나만 반응, 로그에 남김 |
 | 미등록 주소 | 무시하고 로그 `사건: osc_unregistered addr=…` (PR #86) |
-| 포트 열기 실패 | 로그 `사건: osc_bind_failed port=… error=…` (PR #86) |
+| 포트 열기 실패 | 로그 `사건: osc_bind_failed port=… error=…` (PR #86). 1·2·5초 뒤, 그다음은 10초마다 계속 다시 연다. 열리면 `사건: osc_bind_recovered`. 설정한 포트가 막힌 동안 대시보드에 배너를 띄운다(53000은 로그만) (PR #105) |
+
+설정과 상관없이 늘 받는 고정 주소(코드에 박혀 있음, `osc/listener.rs`):
+
+| 주소 | 인자 | 동작 |
+|---|---|---|
+| `/awesome/query/status` | 없음 | 3.6의 상태 조회 |
+| `/hrtf/tracking` | yaw pitch roll (Float·Double·Int, 라디안) | 헤드폰 바이노럴 미리듣기의 머리 방향을 바꾼다 |
+| `/audience/pos` | x y z (Float) | 전역 궤적 위치를 바꾼다. **지금은 소리에 영향이 없다** — 궤적 화면은 2026-11-10 결정으로 없앴고 그 계산값은 출력에 쓰이지 않는다(검토 A9). 정리 대상 |
 
 방 볼륨 OSC는 쓰지 않는다(2026-10-10 사용자 결정).
 
@@ -149,8 +168,8 @@ The Awesome은 미리 만든 PCM을 안정적으로 분배·운영하는 프로�
 
 ## 6. 구현 순서(제안)
 
-1. PR #86(사건 로그·`EngineDown` 계약)을 병합한다.
-2. 이 규격을 사용자가 확인한다(5절 확정).
-3. 응답·시작 신호·조회를 구현한다(송신 스레드와 기존 수신 처리에서의 호출만 더함, 엔진 구조 변경 없음).
+1. PR #86(사건 로그·`EngineDown` 계약)을 병합한다. — 완료
+2. 이 규격을 사용자가 확인한다(5절 확정). — 완료
+3. 응답·시작 신호·조회를 구현한다(송신 스레드와 기존 수신 처리에서의 호출만 더함, 엔진 구조 변경 없음). — 완료
 4. `status/engine`은 안정성 3단계(유지 스레드·하트비트 상태값) 뒤에 구현한다.
 5. 실기: 외부 송신기로 각 응답을 확인하고, 목적지가 닫혀 있어도 수신이 끊기지 않는지(`WSAECONNRESET`)와 응답 지연이 재생에 영향이 없는지 확인한다.

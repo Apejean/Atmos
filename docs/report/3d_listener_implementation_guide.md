@@ -1,5 +1,7 @@
 # 3D 청취자(Listener) 모델 적용 가이드 (@Front 에이전트 및 사용자 참고용)
 
+> 현황(2026-11-15): **옛 안내다(기록용).** 실제 청취자 모델은 `atmos_mixer_pro/assets/models/listener_bust_white.obj`이고 three.js OBJLoader로 읽는다(만드는 법 `atmos_mixer_pro/tool/listener_bust/`). 아래의 GLB 형식·외부 사이트에서 모델을 받는 안내는 따르지 않는다 — 출처와 사용 조건이 확인되지 않은 모델은 제품에 넣지 않는다.
+
 ## 목표
 단순한 2D 이미지가 아닌, 고해상도의 3D 마네킹 헤드 모델(GLB/GLTF 형식)을 Flutter 앱에 띄워 360도로 자유롭게 회전시키는 3D 시각화 환경을 구축합니다.
 
