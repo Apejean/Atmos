@@ -81,6 +81,8 @@ pub struct GlobalEngineState {
     pub is_exhibition_mode: AtomicBool,
     pub device_needs_reset: AtomicBool,
     pub watchdog_last_callback: std::sync::atomic::AtomicU64,
+    /// 단조 시계 기준점(GLOBAL_STATE를 처음 만든 순간). 워치독처럼 시계 조정(NTP·시간대)에 흔들리면 안 되는 간격을 잰다.
+    pub clock_anchor: std::time::Instant,
     pub engine_error: RwLock<Option<String>>,
     pub rta_magnitudes_ref: RwLock<Option<Arc<parking_lot::RwLock<Vec<f32>>>>>,
     pub is_failover_mode: AtomicBool,
@@ -161,6 +163,7 @@ impl GlobalEngineState {
             is_exhibition_mode: AtomicBool::new(false),
             device_needs_reset: AtomicBool::new(false),
             watchdog_last_callback: std::sync::atomic::AtomicU64::new(0),
+            clock_anchor: std::time::Instant::now(),
             engine_error: RwLock::new(None),
             rta_magnitudes_ref: RwLock::new(None),
             is_failover_mode: AtomicBool::new(false),
@@ -264,6 +267,12 @@ impl GlobalEngineState {
         let _lock = self.broadcast_lock.lock().unwrap_or_else(|e| e.into_inner());
         self.is_ducking.store(ducking, Ordering::Relaxed);
         self.broadcast_state();
+    }
+
+    /// 단조 밀리초(앱 시작 기준, 1부터). 0은 "아직 콜백 없음"으로 쓰므로 1을 더한다. 벽시계가 아니라 시계 조정에
+    /// 흔들리지 않는다. 오디오 콜백에서 불러도 된다(할당·잠금 없음).
+    pub fn monotonic_ms(&self) -> u64 {
+        self.clock_anchor.elapsed().as_millis() as u64 + 1
     }
 
     pub fn log(&self, msg: String) {
