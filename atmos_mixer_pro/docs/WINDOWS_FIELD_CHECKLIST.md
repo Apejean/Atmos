@@ -57,7 +57,7 @@
 - [ ] **공연 중 새 버전 설치(업그레이드).** 공연이 재생 중인 상태(감시와 앱이 떠 있음)에서 새 `The_Awesome_Setup.exe`를 실행한다.
   - installer(`PrepareToInstall`)가 **감시를 먼저, 앱을 그다음에** 끝낸다. 감시가 먼저 꺼지지 않으면 앱을 끝낼 때 감시가 앱을 다시 띄워 파일이 잠긴다.
   - 설치가 파일 잠금 오류 없이 끝나고, 설치 도중과 끝난 직후에 앱이 저절로 다시 뜨지 않는다. 설치 마지막 화면에 실행 체크 항목은 없다(2026-10-24) — 바탕 화면·시작 메뉴 바로가기로 시작한다.
-  - 업그레이드 뒤 설치 폴더의 `data\flutter_assets\assets\models`에 `listener_bust_white.obj`·`room_frame.glb`·`speaker_cube.glb`만 있다(설치 파일이 예전 파일을 이름으로 지운다, 2026-10-24). 예전 흉상 파일(`listener_bust.obj`, `listener_head.obj` 등)이 남아 있으면 안 된다.
+  - 업그레이드 뒤 설치 폴더의 `data\flutter_assets\assets\models`에 `listener_bust_white.obj`만 있고, `data\flutter_assets\assets\js`에 `three.min.js`·`OrbitControls.js`·`OBJLoader.js`만 있다(설치 파일이 예전 파일을 이름으로 지운다, 2026-10-24·2026-11-16). 예전 흉상 파일(`listener_bust.obj`, `listener_head.obj` 등)과 `room_frame.glb`·`speaker_cube.glb`·`GLTFLoader.js`가 남아 있으면 안 된다.
   - 설치 후 바로가기·로그인 자동 실행(작업 스케줄러 작업 "The Awesome Autostart", 2026-10-23부터 Run 키 대신)이 새 감시 exe를 가리키고, 새 버전이 뜬다. 작업은 로그인한 사용자 계정·로그온 10초 뒤·시간 제한 없음이고, 옛 Run 값(AtmosMixerPro)은 업그레이드 때 지워진다.
   - 작업 대상은 UAC를 승인한 계정이 아니라 지금 Windows 세션에 로그인한 사용자다(2026-10-24). 설치 로그(`%TEMP%\Setup Log *.txt`)의 `registered: session user … (SID), setup account …; task … (SID), trigger …, Limited, Interactive` 줄에서 세션 사용자·작업 계정의 SID가 같고 Limited·Interactive인지 본다. 다른 관리자 계정으로 승인했다면 setup account만 그 계정이고 작업은 로그인한 사용자여야 한다. 로그인 뒤 작업 관리자 세부 정보에서 `atmos_supervisor.exe`·`atmos_mixer_pro.exe`의 "관리자 권한 상승"이 "아니요"인지 본다.
   - 앱이 뜬 뒤 작업 표시줄 버튼을 오른쪽 클릭하면 이름이 The Awesome이고(옛 `atmos_mixer_pro`가 아니다), 작업 관리자에도 The Awesome으로 보인다. 작업 표시줄에 고정하면 시작 메뉴의 The Awesome 바로가기(감시)가 고정된다.
