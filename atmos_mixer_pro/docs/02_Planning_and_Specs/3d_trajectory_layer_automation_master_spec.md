@@ -1,5 +1,7 @@
 # 🎨 Atmos Mixer Pro [오브젝트 3D 소리 궤도 & 레이어 관리] 초정밀 마스터 설계 명세서 및 학술/업계 검증 보고서
 
+> 현황(2026-11-15): **구현 대상이 아닌 옛 설계다(기록용).** The Awesome은 오브젝트를 실시간으로 배치하는 렌더러가 아니다(2026-11-10 사용자 결정, `HANDOFF.md` 확정된 결정). 트랙 카드의 3D Object·Trajectory 화면은 없앴고 트랙별 오브젝트 경로는 PR #106으로 지웠다. 이 문서를 근거로 새 작업을 시작하지 않는다.
+
 ## 📌 1. 개요 및 학술/업계 벤치마킹 검증 (Industry & Academic Audit)
 
 본 명세서는 글로벌 상용 공간 음향 DAW 표준(**Dolby Atmos Renderer**, **L-Acoustics L-ISA**, **QLab 5**) 및 룸 음향 학술 검증 데이터(**IRCAM Spat**, **ICST Ambisonics**, **AES Preprint Standards**)를 정밀 벤치마킹하여, 단 1px의 디자인 오차나 제어 모호성 없이 완벽한 사용자 경험(UX)과 60fps/120Hz 무렉(Zero-Lag) 성능을 보장하도록 통합 설계된 최종 정밀 마스터 규격서입니다.

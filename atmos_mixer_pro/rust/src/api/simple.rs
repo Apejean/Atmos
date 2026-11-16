@@ -557,11 +557,16 @@ pub(crate) fn play_track_from_in(
                         return Ok(());
                     }
 
-                    let cache_guard = GLOBAL_STATE
-                        .sound_cache
-                        .read()
-                        .unwrap_or_else(|e| e.into_inner());
-                    if let Some(data) = cache_guard.get(&track.file_path) {
+                    // 읽기 잠금은 찾아본 뒤 바로 놓는다. 예전에는 아래 else 가지(캐시에 없어 파일을 읽는 경로)까지
+                    // 쥐고 있다가 같은 잠금의 쓰기를 잡아 이 스레드가 영원히 멈췄다(tests/test_play_cache_miss.rs).
+                    let cached_data = {
+                        let cache_guard = GLOBAL_STATE
+                            .sound_cache
+                            .read()
+                            .unwrap_or_else(|e| e.into_inner());
+                        cache_guard.get(&track.file_path).cloned()
+                    };
+                    if let Some(data) = cached_data {
                         GLOBAL_STATE.note_track_source_rate(&track_id, &track.file_path, None);
                         GLOBAL_STATE.add_playing_track(instance_id, track_id.clone());
                         GLOBAL_STATE
@@ -1028,6 +1033,10 @@ pub fn api_create_stream_status_stream(sink: StreamSink<String>) {
         }
     } else {
         let _ = sink.add("Stopped".to_string());
+    }
+    // 구독 전에 설정한 OSC 수신 포트가 막혔으면 처음 값으로 알린다(osc::listener, 엔진 상태가 아님).
+    if let Some(status) = crate::osc::listener::current_port_status() {
+        let _ = sink.add(status);
     }
 }
 
@@ -2595,6 +2604,7 @@ pub struct SpatialConfigPayload {
     pub channel_positions: Vec<Option<crate::common::config::Point3D>>,
     pub room_zones: Vec<crate::common::config::RoomZone>,
     pub trajectory: Option<crate::common::config::Trajectory>,
+    /// 옛 3D Object 경로가 쓰던 칸. 엔진은 읽지 않는다. FRB가 만든 Dart 클래스에 실려 있어(API 계약) 칸은 남긴다.
     pub track_positions: std::collections::HashMap<String, crate::common::config::Point3D>,
 }
 
@@ -2745,7 +2755,6 @@ pub fn api_update_spatial_config_json(json_payload: String) -> Result<(), AtmosE
             active_room_id,
             room_zones: payload.room_zones,
             trajectory: payload.trajectory,
-            track_positions: payload.track_positions,
             early_reflection_taps,
             channel_is_sub,
             bass_route,

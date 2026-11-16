@@ -130,6 +130,10 @@ Type: files; Name: "{app}\data\flutter_assets\assets\models\listener_mannequin.g
 Type: files; Name: "{app}\data\flutter_assets\assets\models\room_with_listener.glb"
 Type: files; Name: "{app}\data\flutter_assets\assets\models\room_temp.glb"
 Type: files; Name: "{app}\data\flutter_assets\assets\models\scale_room.py"
+; Unused 3D assets dropped on 2026-11-16 (nothing loaded them; the viewer loads three.min.js, OrbitControls.js and OBJLoader.js only).
+Type: files; Name: "{app}\data\flutter_assets\assets\models\room_frame.glb"
+Type: files; Name: "{app}\data\flutter_assets\assets\models\speaker_cube.glb"
+Type: files; Name: "{app}\data\flutter_assets\assets\js\GLTFLoader.js"
 ; v1.3.4 dropped the model_viewer_plus package (the 3D viewer is three.js in WebView2) and with it the url_launcher
 ; plugin it pulled in; v1.3.3 installed both (2026-10-30).
 Type: files; Name: "{app}\url_launcher_windows_plugin.dll"

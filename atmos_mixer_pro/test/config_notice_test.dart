@@ -42,4 +42,20 @@ void main() {
     await tester.pump();
     expect(find.textContaining('직전 정상본'), findsNothing);
   });
+
+  test('show는 안내를 덧붙인다(설정 파일과 설계 데이터 파일 안내가 함께 보이게)', () {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    final n = container.read(configNoticeProvider.notifier);
+    n.show('설정 파일 안내');
+    n.show(null);
+    n.show('설계 데이터 안내');
+    expect(container.read(configNoticeProvider), '설정 파일 안내\n설계 데이터 안내');
+  });
+
+  test('takePendingPrefsNotice는 한 번만 꺼낸다', () {
+    pendingPrefsNotice = '되살렸습니다';
+    expect(takePendingPrefsNotice(), '되살렸습니다');
+    expect(takePendingPrefsNotice(), isNull);
+  });
 }

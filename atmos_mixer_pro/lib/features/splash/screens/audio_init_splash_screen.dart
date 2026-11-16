@@ -112,10 +112,14 @@ class _AudioInitSplashScreenState extends ConsumerState<AudioInitSplashScreen> {
     }
   }
 
-  Future<void> _loadConfigNotice() => loadConfigNotice(
-        fetch: config_file_api.apiTakeConfigNotice,
-        show: ref.read(configNoticeProvider.notifier).show,
-      );
+  Future<void> _loadConfigNotice() async {
+    await loadConfigNotice(
+      fetch: config_file_api.apiTakeConfigNotice,
+      show: ref.read(configNoticeProvider.notifier).show,
+    );
+    // 설계 데이터 파일 안내(main.dart가 runApp 전에 받아 둠)도 같은 배너로 보인다.
+    ref.read(configNoticeProvider.notifier).show(takePendingPrefsNotice());
+  }
 
   /// OSC 시작 신호를 보낸다(rust osc::reply, 규격 §3.2). 이어 가기·테마 시작이 정해진 뒤 한 번이다.
   /// Rust 쪽이 같은 실행에서 두 번째 호출을 무시한다. 목적지가 비어 있으면 아무것도 보내지 않는다.
