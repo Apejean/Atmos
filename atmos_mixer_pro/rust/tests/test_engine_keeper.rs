@@ -9,7 +9,7 @@ use rust_lib_atmos_mixer_pro::core::app_signals::current_heartbeat;
 use rust_lib_atmos_mixer_pro::core::engine_keeper::{
     self, retry_delay_units, status_string, EngineState, FailCause, KeeperCore, OpenRequest, StartFailure,
 };
-use rust_lib_atmos_mixer_pro::core::restart_resume::{skip_outage, ResumeEntry};
+use rust_lib_atmos_mixer_pro::core::restart_resume::{skip_outage, snapshot_time, ResumeEntry};
 use rust_lib_atmos_mixer_pro::core::state::GLOBAL_STATE;
 use rust_lib_atmos_mixer_pro::osc::reply::{reason, reason_for_play_error};
 use std::collections::VecDeque;
@@ -207,6 +207,30 @@ fn 상태_방송_문자열은_대기와_실패를_구분한다() {
     assert_eq!(status_string(&core, None).as_deref(), Some("EngineDown:start_hung"));
     core.on_started();
     assert_eq!(status_string(&core, None), None);
+}
+
+#[test]
+fn 다음_시도까지_남은_초는_올림한다() {
+    // 2026-11-16 ④ 실기 F5: 첫 간격(1초)이 내림 때문에 "다음 시도 0초 뒤"로 보였다.
+    let mut core = KeeperCore::default();
+    core.on_failed(&StartFailure::NotFound(String::new()));
+    assert_eq!(
+        status_string(&core, Some(Duration::from_millis(900))).as_deref(),
+        Some("WaitingForDevice:1:1")
+    );
+    assert_eq!(
+        status_string(&core, Some(Duration::from_millis(29_001))).as_deref(),
+        Some("WaitingForDevice:1:30")
+    );
+    assert_eq!(status_string(&core, Some(Duration::ZERO)).as_deref(), Some("WaitingForDevice:1:0"));
+}
+
+#[test]
+fn 끊긴_시간은_마지막_콜백부터_잰다() {
+    // 2026-11-16 ④ 실기 F4: 감시가 알아챈 때(마지막 콜백 + 약 1초)부터 재서 끊길 때마다 약 1.1초씩 늦어졌다.
+    assert_eq!(snapshot_time(10_000, 11_090), 10_000, "마지막 콜백 시각을 쓴다");
+    assert_eq!(snapshot_time(0, 11_090), 11_090, "콜백이 없었으면 지금");
+    assert_eq!(snapshot_time(12_000, 11_090), 11_090, "지금보다 뒤인 값은 믿지 않는다");
 }
 
 #[test]

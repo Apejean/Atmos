@@ -99,7 +99,12 @@ pub fn take_snapshot(generation: u64) {
         })
         .collect();
     entries.sort_by(|a, b| a.track_id.cmp(&b.track_id).then(a.seconds.total_cmp(&b.seconds)));
-    let taken_ms = GLOBAL_STATE.monotonic_ms();
+    // 위치는 마지막 콜백이 남긴 커서다. 끊긴 시간도 그 콜백 때부터 잰다(이 함수는 감시 루프가 마지막 콜백 시각을
+    // 지우기 전에 불린다).
+    let taken_ms = snapshot_time(
+        GLOBAL_STATE.watchdog_last_callback.load(Ordering::Relaxed),
+        GLOBAL_STATE.monotonic_ms(),
+    );
     queue.extend(entries.into_iter().map(|entry| Pending { entry, taken_ms }));
     drop(queue);
 
@@ -137,6 +142,17 @@ pub fn cancel_room(room_id: &str) -> u64 {
 /// 지금 재개를 기다리는 항목(테스트·진단용).
 pub fn pending_entries() -> Vec<ResumeEntry> {
     pending().iter().map(|p| p.entry.clone()).collect()
+}
+
+/// 재개 항목을 뜬 시각(단조 밀리초). 마지막 콜백 시각이 있으면 그것, 없거나(0) 지금보다 뒤면 지금.
+/// 예전에는 감시가 재시작을 정한 때(지금)를 써서, 워치독이 알아채기까지의 공백(약 1초)만큼 덜 건너뛰었다 — 끊길
+/// 때마다 실제 시간보다 약 1.1초씩 늦어졌다(2026-11-16 ④ 실기: 두 번 끊겨 2.18초).
+pub fn snapshot_time(last_callback_ms: u64, now_ms: u64) -> u64 {
+    if last_callback_ms > 0 && last_callback_ms <= now_ms {
+        last_callback_ms
+    } else {
+        now_ms
+    }
 }
 
 /// 끊긴 시간만큼 건너뛴 재개 항목(순수 함수, 유지 스레드 설계 6절). `info`는 트랙 id로 (반복인가, 파일 길이 초)를

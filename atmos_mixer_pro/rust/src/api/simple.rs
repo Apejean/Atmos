@@ -1199,14 +1199,18 @@ pub(crate) fn keeper_open(
         Err(failure) if device.is_some() => {
             // Emergency Failover
             println!("🚨 [Failover] 장치 재연결 실패. WASAPI 기본 장치로 강제 비상 전환!");
-            crate::core::state::GLOBAL_STATE.log(
-                "비상 전환: 장치를 다시 열지 못해 기본 장치로 임시 전환한다(출력 −40dB)".to_string(),
-            );
             crate::core::state::GLOBAL_STATE
                 .is_failover_mode
                 .store(true, std::sync::atomic::Ordering::Relaxed);
             match init_audio_system_with(None, search) {
-                Ok(()) => Ok(()),
+                // 실제로 전환했을 때만 남긴다. 예전에는 열기 전에 남겨, 기본 장치도 없는 대기 중 재시도마다
+                // "전환한다"가 찍혔다(2026-11-16 ④ 실기).
+                Ok(()) => {
+                    crate::core::state::GLOBAL_STATE.log(
+                        "비상 전환: 장치를 다시 열지 못해 기본 장치로 임시 전환했다(출력 −40dB)".to_string(),
+                    );
+                    Ok(())
+                }
                 Err(StartFailure::Hung) => Err(StartFailure::Hung),
                 Err(_) => {
                     // 기본 장치도 못 열면 비상 표시를 되돌린다(예전에는 켜진 채 남아 상태가 "Failover"로 보였다).

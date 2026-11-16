@@ -70,10 +70,12 @@ class ConfigNotifier extends Notifier<AppConfig?> {
         // 새 믹서는 config.json에 없는 설정(청취 지점, 리버브, 채널별 팬·센드 등)을
         // 모르므로 현재 상태를 다시 밀어 넣는다(engine_resync.dart 참고).
         resyncEngineStateFromRef(ref);
-      } catch (e) {
+      } catch (_) {
         // 설정의 장치를 열지 못해도(꺼져 있거나 다른 PC의 장치) OSC와 장치 목록은 준비한다. 예전에는 여기서
         // 멈춰, Settings에서 장치를 고쳐도 앱을 다시 켤 때까지 OSC를 받지 않았다.
-        ref.read(globalErrorProvider.notifier).showError('오디오 엔진 시작 실패: ${errorText(e)}');
+        // 오류 창은 띄우지 않는다. 엔진 유지자(rust core::engine_keeper)가 모든 시작 실패를 받아 장치를 계속 찾거나
+        // 실패 원인을 상태 배너(engine_down_banner)로 알린다. 예전에는 "치명적 시스템 오류" 창이 대기 중에도 떠서
+        // 무인 운영에서 누를 사람이 없는 복구 버튼을 보였다(2026-11-16 ④ 실기 F3).
       }
       await rust_api.apiStartOscListener(port: config.oscPort);
 
@@ -162,11 +164,19 @@ class ConfigNotifier extends Notifier<AppConfig?> {
           }
         }
 
+        var engineOpened = false;
         if (engineNeedsRestart) {
-          await rust_api.apiInitAudioSystem(
-            deviceName: configToSave.deviceName,
-          );
-
+          try {
+            await rust_api.apiInitAudioSystem(
+              deviceName: configToSave.deviceName,
+            );
+            engineOpened = true;
+          } catch (_) {
+            // 장치를 열지 못하면 엔진 유지자가 계속 찾고 상태 배너가 알린다. 오류 창을 띄우지 않고(④ 실기 F3), 아래
+            // 준비 대기·재동기화도 건너뛴다 — 열리면 유지자가 EngineRestarted로 재동기화를 부른다(main.dart).
+          }
+        }
+        if (engineOpened) {
           // 재동기화는 **엔진이 준비된 뒤에** 해야 한다.
           //
           // 예전에는 apiInitAudioSystem 직후, 준비 대기보다 먼저 재동기화를
@@ -592,7 +602,16 @@ class GlobalErrorNotifier extends Notifier<GlobalError?> {
   void clearError() {
     state = null;
   }
+
+  /// 엔진·장치 오류 창만 닫는다(작업 실패 창은 그대로). 엔진이 다시 열렸을 때 대시보드가 부른다.
+  void clearEngineError() {
+    if (state?.engine ?? false) state = null;
+  }
 }
+
+/// 엔진 상태값이 "엔진이 (다시) 열렸다"인가. 그러면 엔진 오류 창을 닫는다. 2026-11-16 ④ 실기 F3: 엔진 유지자가
+/// 장치를 다시 열어도 "치명적 시스템 오류" 창이 닫히지 않았다.
+bool engineRecoveredStatus(String status) => status == 'Running' || status == 'Failover';
 
 final globalErrorProvider = NotifierProvider<GlobalErrorNotifier, GlobalError?>(
   GlobalErrorNotifier.new,

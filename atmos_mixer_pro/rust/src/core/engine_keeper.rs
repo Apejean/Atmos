@@ -275,13 +275,18 @@ pub fn open_lock() -> MutexGuard<'static, ()> {
     OPEN_LOCK.lock().unwrap_or_else(|e| e.into_inner())
 }
 
-/// 상태 방송 문자열. 대기는 `WaitingForDevice:<시도 수>:<다음 시도까지 초>`, 실패는 `EngineDown:<원인>`(지속 배너).
+/// 남은 시간을 초로 올림한다. 내림하면 첫 간격(1초)이 "다음 시도 0초 뒤"로 보였다(2026-11-16 ④ 실기).
+fn ceil_secs(d: Duration) -> u64 {
+    d.as_millis().div_ceil(1000) as u64
+}
+
+/// 상태 방송 문자열. 대기는 `WaitingForDevice:<시도 수>:<다음 시도까지 초(올림)>`, 실패는 `EngineDown:<원인>`(지속 배너).
 pub fn status_string(core: &KeeperCore, next_in: Option<Duration>) -> Option<String> {
     match core.state {
         EngineState::WaitingForDevice => Some(format!(
             "WaitingForDevice:{}:{}",
             core.attempts,
-            next_in.map(|d| d.as_secs()).unwrap_or(0)
+            next_in.map(ceil_secs).unwrap_or(0)
         )),
         EngineState::Failed(cause) => Some(crate::core::event_log::engine_down_status(cause.as_str())),
         _ => None,
@@ -321,7 +326,7 @@ fn publish(rt: &mut Runtime, before: EngineState, failure: Option<&StartFailure>
             GLOBAL_STATE.log(format!(
                 "엔진 유지: 오디오 장치를 기다리는 중 — {}번 시도, 다음 시도 {}초 뒤({})",
                 rt.core.attempts,
-                next_in.map(|d| d.as_secs()).unwrap_or(0),
+                next_in.map(ceil_secs).unwrap_or(0),
                 failure.map(StartFailure::message).unwrap_or_default()
             ));
         }
@@ -465,6 +470,7 @@ fn keeper_loop() {
                 };
                 if started {
                     resumer()();
+                    crate::core::show_state::resume_deferred();
                 }
             }
             Job::Retry(device) => {
@@ -482,6 +488,9 @@ fn keeper_loop() {
                 };
                 if started {
                     resumer()();
+                    // 장치를 기다리는 동안 미뤄 둔 공연 이어 가기(로그인 자동 실행 등)를 지금 한다. 재개(재동기화 대기)
+                    // 뒤라 Dart가 새 믹서에 설정을 다시 넣은 다음에 튼다.
+                    crate::core::show_state::resume_deferred();
                 }
             }
         }
