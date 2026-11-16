@@ -622,10 +622,8 @@ impl AudioEngine {
         if !ENGINE_INIT_SIGNAL.load(Ordering::Acquire) {
             ENGINE_INIT_SIGNAL.store(true, Ordering::Release);
         }
-        let now_ms = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or(std::time::Duration::from_secs(0))
-            .as_millis() as u64;
+        // 워치독 시각은 단조 시계로 남긴다. 벽시계는 시간 동기화로 앞으로 뛰면 공백으로 오판한다(검토 A2).
+        let now_ms = crate::core::state::GLOBAL_STATE.monotonic_ms();
         crate::core::state::GLOBAL_STATE
             .watchdog_last_callback
             .store(now_ms, Ordering::Relaxed);
