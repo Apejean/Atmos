@@ -7,3 +7,5 @@ pub mod lifecycle;
 pub mod project;
 pub mod show;
 pub mod config_file;
+pub mod ui_log;
+pub mod prefs_file;

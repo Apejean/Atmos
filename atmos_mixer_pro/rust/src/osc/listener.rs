@@ -7,10 +7,58 @@ use std::sync::Arc;
 use std::thread;
 
 use lazy_static::lazy_static;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 
 lazy_static! {
     pub static ref OSC_RUNNING_FLAG: Arc<AtomicBool> = Arc::new(AtomicBool::new(false));
+}
+
+/// 리스너를 (다시) 시작할 때마다 올린다. 포트를 다시 열려고 기다리던 옛 스레드는 자기 세대가 아니면 끝난다
+/// (재시작 신호는 600ms 동안만 꺼져 있어, 길게 기다리던 스레드는 그 틈을 놓칠 수 있다).
+static OSC_GENERATION: AtomicU64 = AtomicU64::new(0);
+/// 설정한 수신 포트와, 그 포트가 지금 열리지 않아 다시 시도 중인지(화면 배너, 구독할 때 처음 값).
+static CONFIGURED_PORT: AtomicU32 = AtomicU32::new(0);
+static CONFIGURED_PORT_BLOCKED: AtomicBool = AtomicBool::new(false);
+
+/// 상태 스트림 값(Rust → Dart). **엔진 상태가 아니라** OSC 수신 포트 표시다. OSC status/engine·하트비트에 넣지 않고,
+/// 마지막 상태 문자열을 엔진 상태로 쓰지 않는다.
+pub const OSC_PORT_BLOCKED_PREFIX: &str = "OscPortBlocked:";
+pub const OSC_PORT_OK_PREFIX: &str = "OscPortOk:";
+
+/// 설정한 수신 포트가 지금 막혀 있으면 `OscPortBlocked:<port>`(상태 스트림을 구독할 때 처음 값으로 보낸다).
+pub fn current_port_status() -> Option<String> {
+    if CONFIGURED_PORT_BLOCKED.load(Ordering::SeqCst) {
+        Some(format!(
+            "{OSC_PORT_BLOCKED_PREFIX}{}",
+            CONFIGURED_PORT.load(Ordering::SeqCst)
+        ))
+    } else {
+        None
+    }
+}
+
+/// 포트 열기를 다시 시도하기까지 기다릴 시간(1·2·5초, 그 뒤로는 10초마다, 횟수 제한 없음).
+pub fn bind_retry_delay(failed_attempts: u32) -> std::time::Duration {
+    std::time::Duration::from_secs(match failed_attempts {
+        0 | 1 => 1,
+        2 => 2,
+        3 => 5,
+        _ => 10,
+    })
+}
+
+/// 세대가 바뀌거나 리스너가 멈추면 false. 기다리는 동안 200ms마다 확인한다.
+fn wait_while_current(gen: u64, running: &AtomicBool, total: std::time::Duration) -> bool {
+    let step = std::time::Duration::from_millis(200);
+    let mut waited = std::time::Duration::ZERO;
+    while waited < total {
+        if OSC_GENERATION.load(Ordering::SeqCst) != gen || !running.load(Ordering::Relaxed) {
+            return false;
+        }
+        std::thread::sleep(step);
+        waited += step;
+    }
+    OSC_GENERATION.load(Ordering::SeqCst) == gen && running.load(Ordering::Relaxed)
 }
 
 pub struct OscListener {
@@ -31,6 +79,13 @@ impl OscListener {
     }
 
     pub fn start(&self, port: u16) {
+        let gen = OSC_GENERATION.fetch_add(1, Ordering::SeqCst) + 1;
+        let was_blocked = CONFIGURED_PORT_BLOCKED.swap(false, Ordering::SeqCst);
+        let old_port = CONFIGURED_PORT.swap(u32::from(port), Ordering::SeqCst);
+        if was_blocked {
+            // 막혀 있던 옛 포트 배너를 내린다(새 포트가 막히면 다시 올린다).
+            crate::api::simple::broadcast_stream_status(format!("{OSC_PORT_OK_PREFIX}{old_port}"));
+        }
         OSC_RUNNING_FLAG.store(false, Ordering::Relaxed);
         std::thread::sleep(std::time::Duration::from_millis(600)); // wait for old to die
         OSC_RUNNING_FLAG.store(true, Ordering::Relaxed);
@@ -47,19 +102,67 @@ impl OscListener {
             }
             let debouncer = self.debouncer.clone();
             let running_flag = OSC_RUNNING_FLAG.clone();
+            // 배너는 설정한 포트만 띄운다. 53000(QLab 기본)은 같은 PC의 QLab이 쓰면 계속 실패하므로 로그만 남긴다.
+            let is_configured = p == port;
             thread::spawn(move || {
                 let addr = format!("0.0.0.0:{}", p);
-                let socket = match UdpSocket::bind(&addr) {
-                    Ok(s) => s,
-                    Err(e) => {
-                        let err_msg = format!("Failed to bind OSC port {}: {}", p, e);
-                        println!("{}", err_msg);
-                        crate::core::state::GLOBAL_STATE.log(err_msg);
-                        crate::core::event_log::log_event(
-                            "osc_bind_failed",
-                            &[("port", &p.to_string()), ("error", &e.to_string())],
-                        );
+                // 열리지 않으면 1·2·5초, 그 뒤 10초마다 다시 시도한다(무인 운영: 다른 프로그램이 포트를 놓으면
+                // 사람 없이 붙는다). 로그는 처음과 그 뒤 1분에 한 번만 남긴다.
+                let mut failed: u32 = 0;
+                let mut last_log: Option<std::time::Instant> = None;
+                let socket = loop {
+                    if OSC_GENERATION.load(Ordering::SeqCst) != gen {
                         return;
+                    }
+                    match UdpSocket::bind(&addr) {
+                        Ok(s) => {
+                            if failed > 0 {
+                                crate::core::event_log::log_event(
+                                    "osc_bind_recovered",
+                                    &[("port", &p.to_string()), ("attempts", &(failed + 1).to_string())],
+                                );
+                                if is_configured
+                                    && OSC_GENERATION.load(Ordering::SeqCst) == gen
+                                    && CONFIGURED_PORT_BLOCKED.swap(false, Ordering::SeqCst)
+                                {
+                                    crate::api::simple::broadcast_stream_status(format!(
+                                        "{OSC_PORT_OK_PREFIX}{p}"
+                                    ));
+                                }
+                            }
+                            break s;
+                        }
+                        Err(e) => {
+                            failed += 1;
+                            if last_log.is_none_or(|t| t.elapsed() >= std::time::Duration::from_secs(60)) {
+                                let err_msg = format!(
+                                    "Failed to bind OSC port {}: {} (시도 {}회, 계속 다시 시도한다)",
+                                    p, e, failed
+                                );
+                                println!("{}", err_msg);
+                                crate::core::state::GLOBAL_STATE.log(err_msg);
+                                crate::core::event_log::log_event(
+                                    "osc_bind_failed",
+                                    &[
+                                        ("port", &p.to_string()),
+                                        ("error", &e.to_string()),
+                                        ("attempts", &failed.to_string()),
+                                    ],
+                                );
+                                last_log = Some(std::time::Instant::now());
+                            }
+                            if is_configured
+                                && OSC_GENERATION.load(Ordering::SeqCst) == gen
+                                && !CONFIGURED_PORT_BLOCKED.swap(true, Ordering::SeqCst)
+                            {
+                                crate::api::simple::broadcast_stream_status(format!(
+                                    "{OSC_PORT_BLOCKED_PREFIX}{p}"
+                                ));
+                            }
+                            if !wait_while_current(gen, &running_flag, bind_retry_delay(failed)) {
+                                return;
+                            }
+                        }
                     }
                 };
                 if let Err(e) = socket.set_read_timeout(Some(std::time::Duration::from_millis(500)))
@@ -70,7 +173,9 @@ impl OscListener {
 
                 let mut buf = [0u8; rosc::decoder::MTU];
                 loop {
-                    if !running_flag.load(Ordering::Relaxed) {
+                    if !running_flag.load(Ordering::Relaxed)
+                        || OSC_GENERATION.load(Ordering::SeqCst) != gen
+                    {
                         crate::core::state::GLOBAL_STATE
                             .log("OSC Listener stopping...".to_string());
                         break;

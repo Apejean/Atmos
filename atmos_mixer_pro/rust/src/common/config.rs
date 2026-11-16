@@ -401,7 +401,7 @@ impl ConfigRecovery {
 }
 
 /// NotFound가 아닌 읽기 오류(권한·공유 위반·백신이 잠깐 잡고 있음)는 짧게 다시 시도한다(200ms 간격 3회).
-fn read_with_retry(path: &Path) -> std::io::Result<String> {
+pub(crate) fn read_with_retry(path: &Path) -> std::io::Result<String> {
     let mut last = fs::read_to_string(path);
     for _ in 0..3 {
         match &last {
@@ -423,7 +423,7 @@ pub fn config_backup_path(path: &Path) -> std::path::PathBuf {
 }
 
 /// 손상본을 `<이름>.corrupted-<시각>.json`으로 복사한다(이전 손상본을 덮어쓰지 않는다).
-fn preserve_corrupted(path: &Path) -> Option<String> {
+pub(crate) fn preserve_corrupted(path: &Path) -> Option<String> {
     let stamp = chrono::Local::now().format("%Y%m%d-%H%M%S").to_string();
     let stem = path.file_stem()?.to_string_lossy().into_owned();
     let prefix = format!("{stem}.corrupted-");
@@ -494,7 +494,7 @@ fn corrupted_copy_order(p: &Path, prefix: &str) -> (String, u32) {
 
 /// 임시 파일(`<이름>.tmp`)에 쓰고 디스크에 내린 뒤 이름을 바꾼다. 원본을 먼저 지우지 않는다(지우고 바꾸는 사이에
 /// 꺼지면 파일이 없어져 다음 실행이 기본값으로 덮었다). Windows의 rename도 기존 파일을 바꿔친다.
-fn write_file_atomically(path: &Path, content: &str) -> std::io::Result<()> {
+pub(crate) fn write_file_atomically(path: &Path, content: &str) -> std::io::Result<()> {
     use std::io::Write;
     if let Some(parent) = path.parent() {
         if !parent.as_os_str().is_empty() {
