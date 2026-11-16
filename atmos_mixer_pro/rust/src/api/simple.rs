@@ -557,11 +557,16 @@ pub(crate) fn play_track_from_in(
                         return Ok(());
                     }
 
-                    let cache_guard = GLOBAL_STATE
-                        .sound_cache
-                        .read()
-                        .unwrap_or_else(|e| e.into_inner());
-                    if let Some(data) = cache_guard.get(&track.file_path) {
+                    // 읽기 잠금은 찾아본 뒤 바로 놓는다. 예전에는 아래 else 가지(캐시에 없어 파일을 읽는 경로)까지
+                    // 쥐고 있다가 같은 잠금의 쓰기를 잡아 이 스레드가 영원히 멈췄다(tests/test_play_cache_miss.rs).
+                    let cached_data = {
+                        let cache_guard = GLOBAL_STATE
+                            .sound_cache
+                            .read()
+                            .unwrap_or_else(|e| e.into_inner());
+                        cache_guard.get(&track.file_path).cloned()
+                    };
+                    if let Some(data) = cached_data {
                         GLOBAL_STATE.note_track_source_rate(&track_id, &track.file_path, None);
                         GLOBAL_STATE.add_playing_track(instance_id, track_id.clone());
                         GLOBAL_STATE
