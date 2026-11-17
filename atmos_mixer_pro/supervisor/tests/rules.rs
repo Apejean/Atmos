@@ -1,6 +1,6 @@
 //! 감시 판단 규칙: 하트비트 형식, 기록 회전, 재실행 대기, 멈춤 판단. 프로세스를 띄우지 않는다.
 use atmos_supervisor::backoff::Backoff;
-use atmos_supervisor::heartbeat::{atomic_write, read_heartbeat, read_pid, Heartbeat, HEARTBEAT};
+use atmos_supervisor::heartbeat::{atomic_write, read_heartbeat, read_pid, EngineReport, Heartbeat, HEARTBEAT};
 use atmos_supervisor::logfile::{append_line, SUPERVISOR_LOG};
 use atmos_supervisor::run::Config;
 use atmos_supervisor::watch::{Verdict, Watch};
@@ -29,11 +29,12 @@ fn 하트비트는_다섯_키가_모두_있어야_읽는다() {
         audio_cb_ms: 1_700_000_000_100,
         engine_active: true,
         silent_warnings: 2,
+        engine: None,
     };
     assert_eq!(Heartbeat::parse(&hb.render()), Some(hb.clone()));
     assert_eq!(
         Heartbeat::parse("silent_warnings=0\nextra=x\nengine_active=0\naudio_cb_ms=0\nui_ms=5\npid=7\n"),
-        Some(Heartbeat { pid: 7, ui_ms: 5, audio_cb_ms: 0, engine_active: false, silent_warnings: 0 }),
+        Some(Heartbeat { pid: 7, ui_ms: 5, audio_cb_ms: 0, engine_active: false, silent_warnings: 0, engine: None }),
         "순서가 달라도, 모르는 키가 섞여도 읽는다"
     );
     assert_eq!(Heartbeat::parse("pid=7\nui_ms=5\naudio_cb_ms=0\nengine_active=1\n"), None, "키가 빠짐");
@@ -66,19 +67,118 @@ fn 하트비트는_다섯_키가_모두_있어야_읽는다() {
 }
 
 #[test]
-fn 앱의_엔진_상태값_두_줄이_더해져도_하트비트를_읽는다() {
-    // 앱(rust/src/core/app_signals.rs)은 2026-11-14(안정성 ③)부터 engine_state·engine_progress를 뒤에 더 싣는다.
-    // 감시 정책(⑥) 전까지 감시는 모르는 키를 건너뛰고 지금 다섯 값으로 판단해야 한다.
-    let text = "pid=7
-ui_ms=5
-audio_cb_ms=9
-engine_active=0
-silent_warnings=0
-engine_state=WaitingForDevice
-engine_progress=12
-";
-    let hb = Heartbeat::parse(text).expect("새 하트비트를 읽지 못했다");
+fn 앱의_엔진_상태값을_읽고_없으면_옛_앱으로_본다() {
+    // 앱(rust/src/core/app_signals.rs)은 2026-11-14(안정성 ③)부터 engine_state·engine_progress를, 안정성 ⑥부터
+    // engine_cause를 뒤에 더 싣는다. 셋은 선택 값이다 — 없으면(옛 앱) 지금 규칙으로 판단한다.
+    let base = "pid=7\nui_ms=5\naudio_cb_ms=9\nengine_active=0\nsilent_warnings=0\n";
+    let hb = Heartbeat::parse(&format!("{base}engine_state=Failed\nengine_progress=12\nengine_cause=start_hung\n"))
+        .expect("새 하트비트를 읽지 못했다");
     assert_eq!((hb.pid, hb.ui_ms, hb.audio_cb_ms, hb.engine_active, hb.silent_warnings), (7, 5, 9, false, 0));
+    assert_eq!(
+        hb.engine,
+        Some(EngineReport { state: "Failed".into(), progress: 12, cause: "start_hung".into() })
+    );
+    assert_eq!(Heartbeat::parse(&hb.render()), Some(hb.clone()), "새 키도 렌더하고 다시 읽는다");
+
+    // ③만 있는 앱(원인 줄 없음): 원인은 빈 값
+    let hb = Heartbeat::parse(&format!("{base}engine_state=WaitingForDevice\nengine_progress=3\n")).unwrap();
+    assert_eq!(hb.engine, Some(EngineReport { state: "WaitingForDevice".into(), progress: 3, cause: String::new() }));
+    // 옛 앱(상태 줄 없음) 또는 진행 카운터가 깨짐: 엔진 정보 없음
+    assert_eq!(Heartbeat::parse(base).unwrap().engine, None);
+    assert_eq!(Heartbeat::parse(&format!("{base}engine_state=Running\nengine_progress=x\n")).unwrap().engine, None);
+}
+
+fn eng(state: &str, progress: u64, cause: &str) -> Heartbeat {
+    Heartbeat {
+        pid: 1,
+        ui_ms: progress + 1_000,
+        audio_cb_ms: 7,
+        engine_active: state == "Running",
+        silent_warnings: 0,
+        engine: Some(EngineReport { state: state.into(), progress, cause: cause.into() }),
+    }
+}
+
+#[test]
+fn 장치_대기는_카운터가_늘면_오래_가도_정상이고_90초_그대로면_유지자_멈춤이다() {
+    let t0 = Instant::now();
+    let mut w = Watch::new(t0, S(90), S(30), S(120));
+    // 1초마다 보고, UI는 매초 바뀐다. 카운터는 5초마다 는다(유지자가 살아 있다).
+    for sec in 1..=600u64 {
+        let seen = w.observe(t0 + S(sec), Some(&eng("WaitingForDevice", sec / 5, "").with_ui(sec)));
+        assert_eq!(seen.verdict, Verdict::Ok, "{sec}초");
+        assert!(!seen.engine_running);
+    }
+    // 카운터가 멈춤(유지 스레드 멈춤). 600초에 본 값(120)이 그대로.
+    for sec in 601..=690u64 {
+        assert_eq!(w.observe(t0 + S(sec), Some(&eng("WaitingForDevice", 120, "").with_ui(sec))).verdict, Verdict::Ok, "{sec}초");
+    }
+    assert_eq!(w.observe(t0 + S(691), Some(&eng("WaitingForDevice", 120, "").with_ui(691))).verdict, Verdict::KeeperStalled);
+}
+
+#[test]
+fn 시작_멈춤은_바로_열기_실패는_2분_뒤_다시_띄울_판단이다() {
+    let t0 = Instant::now();
+    let mut w = Watch::new(t0, S(90), S(30), S(120));
+    assert_eq!(w.observe(t0 + S(1), Some(&eng("Failed", 1, "start_hung").with_ui(1))).verdict, Verdict::EngineStartHung);
+
+    let mut w = Watch::new(t0, S(90), S(30), S(120));
+    for sec in 1..=121u64 {
+        assert_eq!(w.observe(t0 + S(sec), Some(&eng("Failed", sec / 5, "open_failed").with_ui(sec))).verdict, Verdict::Ok, "{sec}초");
+    }
+    assert_eq!(w.observe(t0 + S(122), Some(&eng("Failed", 24, "open_failed").with_ui(122))).verdict, Verdict::EngineOpenFailed);
+    // 열기 실패가 대기로 바뀌면(장치가 사라짐) 2분을 처음부터 다시 잰다
+    let mut w = Watch::new(t0, S(90), S(30), S(120));
+    for sec in 1..=100u64 {
+        w.observe(t0 + S(sec), Some(&eng("Failed", sec / 5, "open_failed").with_ui(sec)));
+    }
+    assert_eq!(w.observe(t0 + S(101), Some(&eng("WaitingForDevice", 21, "").with_ui(101))).verdict, Verdict::Ok);
+    for sec in 102..=221u64 {
+        assert_eq!(w.observe(t0 + S(sec), Some(&eng("Failed", sec / 5, "open_failed").with_ui(sec))).verdict, Verdict::Ok, "{sec}초");
+    }
+}
+
+#[test]
+fn 이_pc에_없는_장치와_사용자_정지는_다시_띄우지_않는다() {
+    let t0 = Instant::now();
+    let mut w = Watch::new(t0, S(90), S(30), S(120));
+    for sec in 1..=600u64 {
+        assert_eq!(w.observe(t0 + S(sec), Some(&eng("Failed", sec / 5, "unavailable").with_ui(sec))).verdict, Verdict::Ok, "{sec}초");
+    }
+    // 사용자 정지: 유지자가 시도하지 않아 카운터가 그대로여도 정상
+    let mut w = Watch::new(t0, S(90), S(30), S(120));
+    for sec in 1..=600u64 {
+        assert_eq!(w.observe(t0 + S(sec), Some(&eng("StoppedByUser", 4, "").with_ui(sec))).verdict, Verdict::Ok, "{sec}초");
+    }
+}
+
+#[test]
+fn 엔진_상태가_바뀌면_알리고_running이면_알린다() {
+    let t0 = Instant::now();
+    let mut w = Watch::new(t0, S(90), S(30), S(120));
+    let seen = w.observe(t0 + S(1), Some(&eng("Running", 1, "").with_ui(1)));
+    assert_eq!(seen.engine_change, Some((None, ("Running".to_string(), String::new()))));
+    assert!(seen.engine_running);
+    assert_eq!(w.observe(t0 + S(2), Some(&eng("Running", 1, "").with_ui(2))).engine_change, None, "같으면 알리지 않는다");
+    let seen = w.observe(t0 + S(3), Some(&eng("Failed", 2, "open_failed").with_ui(3)));
+    assert_eq!(
+        seen.engine_change,
+        Some((Some(("Running".to_string(), String::new())), ("Failed".to_string(), "open_failed".to_string())))
+    );
+    assert!(!seen.engine_running);
+    assert!(Verdict::EngineStartHung.is_engine() && Verdict::KeeperStalled.is_engine() && Verdict::EngineOpenFailed.is_engine());
+    assert!(!Verdict::AudioStall.is_engine() && !Verdict::UiHang.is_engine());
+}
+
+#[test]
+fn 엔진_정보가_있어도_멈춤_판단_시간은_절전에서_깨어나면_다시_잰다() {
+    let t0 = Instant::now();
+    let mut w = Watch::new(t0, S(90), S(30), S(120));
+    assert_eq!(w.observe(t0 + S(1), Some(&eng("WaitingForDevice", 5, "").with_ui(1))).verdict, Verdict::Ok);
+    // 10분 동안 확인이 없었다. 카운터가 그대로여도 깨어난 직후에는 유지자 멈춤으로 보지 않는다.
+    let seen = w.observe(t0 + S(601), Some(&eng("WaitingForDevice", 5, "").with_ui(601)));
+    assert!(seen.gap);
+    assert_eq!(seen.verdict, Verdict::Ok);
 }
 
 #[test]
@@ -131,7 +231,18 @@ fn 대기_시간은_두_배씩_늘고_최대에서_멈추며_오래_잘_돌면_�
 }
 
 fn hb(ui: u64, audio: u64, engine: bool) -> Heartbeat {
-    Heartbeat { pid: 1, ui_ms: ui, audio_cb_ms: audio, engine_active: engine, silent_warnings: 0 }
+    Heartbeat { pid: 1, ui_ms: ui, audio_cb_ms: audio, engine_active: engine, silent_warnings: 0, engine: None }
+}
+
+trait WithUi {
+    fn with_ui(self, ui: u64) -> Self;
+}
+
+impl WithUi for Heartbeat {
+    fn with_ui(mut self, ui: u64) -> Self {
+        self.ui_ms = ui;
+        self
+    }
 }
 
 const S: fn(u64) -> Duration = Duration::from_secs;
@@ -217,13 +328,15 @@ fn 인자가_없으면_스펙_기본값이고_판단_시간과_폴더를_바꿀_
     assert_eq!((cfg.hang, cfg.first_heartbeat, cfg.audio_stall), (S(30), S(90), S(120)));
     assert_eq!(cfg.tick, S(1));
     assert_eq!((cfg.backoff_min, cfg.backoff_max, cfg.stable), (S(2), S(60), S(300)));
+    assert_eq!((cfg.keeper_stall, cfg.open_failed_after), (S(90), S(120)), "엔진 상태 판단(안정성 ⑥)");
     assert!(!cfg.logon);
     assert_eq!(cfg.app.parent(), Some(exe_dir), "기본 앱은 감시 프로그램 옆에 있다");
     assert_eq!(cfg.dir, std::env::temp_dir().join("atmos_mixer_pro_logs"), "앱 로그 폴더와 같아야 한다");
 
     let args: Vec<String> = [
         "--logon", "--app", "/x/app", "--dir", "/tmp/d", "--hang-secs", "2.5", "--first-heartbeat-secs", "3",
-        "--audio-stall-secs", "4", "--tick-ms", "100", "--backoff-min-ms", "200",
+        "--audio-stall-secs", "4", "--tick-ms", "100", "--backoff-min-ms", "200", "--keeper-stall-secs", "5",
+        "--open-failed-secs", "6",
     ]
     .iter()
     .map(|s| s.to_string())
@@ -235,6 +348,7 @@ fn 인자가_없으면_스펙_기본값이고_판단_시간과_폴더를_바꿀_
     assert_eq!(cfg.hang, Duration::from_millis(2500));
     assert_eq!((cfg.first_heartbeat, cfg.audio_stall), (S(3), S(4)));
     assert_eq!((cfg.tick, cfg.backoff_min), (Duration::from_millis(100), Duration::from_millis(200)));
+    assert_eq!((cfg.keeper_stall, cfg.open_failed_after), (S(5), S(6)));
 
     let bad = |list: &[&str]| {
         Config::parse(&list.iter().map(|s| s.to_string()).collect::<Vec<_>>(), exe_dir).is_err()

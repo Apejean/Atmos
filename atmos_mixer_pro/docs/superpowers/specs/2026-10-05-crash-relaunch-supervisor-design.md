@@ -162,7 +162,7 @@ Dart `main`은 화면을 띄우기 전에 Rust API `api_startup_gate(args)`를 �
 - 장치를 뽑아 둔 상황이면 다시 띄워도 소용없이 반복만 된다. 그래서 오디오 멈춤으로 **연속 3번** 다시 띄웠는데도 살아나지 않으면, 그 뒤로는 오디오 멈춤으로는 다시 띄우지 않고 기록만 한다. 콜백이 다시 돌면(장치 복구) 횟수를 초기화한다.
 - UI 멈춤과 충돌에 대한 재실행은 이와 상관없이 계속한다.
 
-### 5.3.1 엔진 상태값에 따른 재실행(안정성 ⑥, 2026-11-16 Windows Main 작성, 수치는 사용자 확인 "이대로", 구현은 PR #103 병합 뒤)
+### 5.3.1 엔진 상태값에 따른 재실행(안정성 ⑥, 2026-11-16 Windows Main 작성, 수치는 사용자 확인 "이대로", 2026-11-17 구현 — `supervisor/src/watch.rs`·`run.rs`·`heartbeat.rs`, 앱 `core/app_signals.rs`)
 
 **배경.** 엔진 유지 스레드(안정성 ③, PR #103, 설계 `2026-11-14-engine-keeper-design.md`)부터 앱은 하트비트에 `engine_state`(`Running`·`WaitingForDevice`·`Failed`·`StoppedByUser`)와 `engine_progress`(대기·실패 중 5초마다 늘어나는 카운터)를 쓴다. 감시는 아직 이 두 줄을 읽지 않고 `engine_active`만 본다.
 - 장치 대기와 사용자 정지(`engine_active=0`)는 그래서 이미 재실행하지 않는다. 이것은 맞다.

@@ -130,8 +130,9 @@ fn 하트비트에는_일곱_값이_들어가고_부를_때마다_ui_ms가_커�
     write_heartbeat(&dir, &b).unwrap();
     let text = std::fs::read_to_string(dir.join(HEARTBEAT)).unwrap();
     let kv: HashMap<&str, &str> = text.lines().filter_map(|l| l.split_once('=')).collect();
-    // 감시가 읽는 키 다섯 개 + 엔진 상태값·진행 카운터(안정성 ③, 감시 정책은 ⑥). 감시 파서는 모르는 키를 건너뛴다.
-    assert_eq!(kv.len(), 7, "하트비트 키는 일곱 개다: {text}");
+    // 감시가 읽는 키 다섯 개 + 엔진 상태값·진행 카운터(안정성 ③) + 실패 원인(안정성 ⑥ — 감시가 재실행을 정한다).
+    // 옛 감시 파서는 모르는 키를 건너뛴다.
+    assert_eq!(kv.len(), 8, "하트비트 키는 여덟 개다: {text}");
     assert_eq!(kv["pid"], b.pid.to_string());
     assert_eq!(kv["ui_ms"], b.ui_ms.to_string());
     assert_eq!(kv["audio_cb_ms"], "777");
@@ -139,6 +140,7 @@ fn 하트비트에는_일곱_값이_들어가고_부를_때마다_ui_ms가_커�
     assert_eq!(kv["silent_warnings"], "2");
     assert_eq!(kv["engine_state"], "StoppedByUser", "테스트에는 엔진을 시작한 적이 없다");
     assert!(kv["engine_progress"].parse::<u64>().is_ok());
+    assert_eq!(kv["engine_cause"], "", "실패가 아니면 원인은 빈 값");
     assert!(!dir.join(format!("{HEARTBEAT}.tmp")).exists(), "임시 파일이 남았다");
     let _ = std::fs::remove_dir_all(dir);
 }

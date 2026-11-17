@@ -259,6 +259,57 @@ fn 오디오_멈춤은_연속_3번까지만_다시_띄우고_콜백이_돌면_�
 }
 
 #[test]
+fn 드라이버_시작_멈춤이면_다시_띄우고_연속_3번_뒤에는_멈추며_엔진이_돌면_횟수를_초기화한다() {
+    // 안정성 ⑥(감시 설계 5.3.1): 앱 안에서 회복할 수 없는 엔진 상태면 다시 띄운다. 한도는 오디오 멈춤과 따로 센다.
+    let dir = fresh_dir("engine_hung");
+    let mut sup = supervisor(&dir, &[], &[("FAKE_FIRST", "engine-hung"), ("FAKE_NEXT", "engine-hung")]);
+    wait_until("엔진 상태 재실행 한도에 걸리지 않았다", 40, || {
+        log_text(&dir).contains("더는 엔진 상태로 다시 띄우지 않는다")
+    });
+    assert_eq!(launches(&dir).len(), 4, "첫 실행 + 다시 띄우기 3번: {}", log_text(&dir));
+    assert!(
+        launch_args(&dir)[1..].iter().all(|args| args.contains("--auto-relaunched")),
+        "다시 띄울 때 공연을 이어 가게 --auto-relaunched를 붙인다: {:?}",
+        launch_args(&dir)
+    );
+    assert!(log_text(&dir).contains("시작 멈춤"), "{}", log_text(&dir));
+    assert!(log_text(&dir).contains("엔진 상태: Failed(start_hung)"), "상태 변화를 기록한다: {}", log_text(&dir));
+    std::thread::sleep(Duration::from_secs(2));
+    assert_eq!(launches(&dir).len(), 4, "한도 뒤에도 엔진 상태로 다시 띄웠다");
+    assert!(sup.running(), "감시가 끝났다");
+
+    // 엔진이 다시 돈다(장치 복귀 등)
+    std::fs::write(dir.join("engine-ok"), "").unwrap();
+    wait_until("엔진이 도는데 횟수를 초기화하지 않았다", 10, || {
+        log_text(&dir).contains("엔진 상태 재실행 횟수를 초기화")
+    });
+    request(&dir, "close", app_pid(&dir).unwrap());
+    sup.wait_exit(10, "앱을 닫았는데 감시가 끝나지 않았다");
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+fn 장치_대기는_다시_띄우지_않고_유지자_카운터가_멈추면_다시_띄운다() {
+    let dir = fresh_dir("keeper_stall");
+    let mut sup = supervisor(
+        &dir,
+        &["--keeper-stall-secs", "2"],
+        &[("FAKE_FIRST", "engine-waiting"), ("FAKE_NEXT", "clean")],
+    );
+    wait_until("앱이 뜨지 않았다", 10, || app_pid(&dir).is_some());
+    // 대기 중이고 카운터가 는다: 유지자 멈춤 판단(2초)의 두 배가 지나도 다시 띄우지 않는다
+    std::thread::sleep(Duration::from_secs(4));
+    assert_eq!(launches(&dir).len(), 1, "장치 대기인데 다시 띄웠다: {}", log_text(&dir));
+    // 유지 스레드가 멈춘다(카운터 그대로)
+    std::fs::write(dir.join("keeper-stop"), "").unwrap();
+    sup.wait_exit(20, "유지자 멈춤으로 다시 띄운 뒤 닫힌 앱에서 감시가 끝나지 않았다");
+    assert_eq!(launches(&dir).len(), 2, "{}", log_text(&dir));
+    assert!(launch_args(&dir)[1].contains("--auto-relaunched"));
+    assert!(log_text(&dir).contains("유지 스레드 멈춤"), "{}", log_text(&dir));
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
 fn 감시보다_먼저_떠_있던_앱을_넘겨받고_그_앱이_죽으면_다시_띄운다() {
     let dir = fresh_dir("adopt");
     let (pid, _exited) = spawn_fake(&dir, "ok", &[("FAKE_SILENT_WARNINGS", "2")]);
