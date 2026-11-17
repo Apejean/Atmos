@@ -572,12 +572,18 @@ pub(crate) fn play_track_from_in(
 
                     // 읽기 잠금은 찾아본 뒤 바로 놓는다. 예전에는 아래 else 가지(캐시에 없어 파일을 읽는 경로)까지
                     // 쥐고 있다가 같은 잠금의 쓰기를 잡아 이 스레드가 영원히 멈췄다(tests/test_play_cache_miss.rs).
+                    // 빈 항목은 미리 읽기가 실패했다는 표시다(api_preload_all_sounds가 디스크를 반복해 읽지 않으려 넣음).
+                    // 예전에는 그것을 그대로 틀어 Ok·무음이 되었다(검토 A5). 없는 것으로 보고 아래에서 다시 읽어 보며,
+                    // 그래도 못 읽으면 Err를 돌려준다(OSC는 rejected play_failed, tests/test_preload_failure.rs).
                     let cached_data = {
                         let cache_guard = GLOBAL_STATE
                             .sound_cache
                             .read()
                             .unwrap_or_else(|e| e.into_inner());
-                        cache_guard.get(&track.file_path).cloned()
+                        cache_guard
+                            .get(&track.file_path)
+                            .filter(|d| !d.samples.is_empty())
+                            .cloned()
                     };
                     if let Some(data) = cached_data {
                         GLOBAL_STATE.note_track_source_rate(&track_id, &track.file_path, None);

@@ -301,12 +301,11 @@ class _RoomCardState extends ConsumerState<RoomCard> {
         setState(() {
           _isDragging = false;
         });
+        // AAC·M4A는 뺐다(2026-11-16 사용자 결정, rust/Cargo.toml symphonia 기능 목록과 같이 고친다).
         final allowedExtensions = [
           '.mp3',
           '.wav',
-          '.aac',
           '.flac',
-          '.m4a',
           '.ogg',
           '.aiff',
         ];
@@ -524,9 +523,7 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                                       allowedExtensions: [
                                         'mp3',
                                         'wav',
-                                        'aac',
                                         'flac',
-                                        'm4a',
                                         'ogg',
                                         'aiff',
                                       ],
