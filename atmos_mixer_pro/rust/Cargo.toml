@@ -25,7 +25,9 @@ rustfft = "6.4.1"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.150"
 socket2 = "0.6.5"
-symphonia = { version = "0.5.3", features = ["all"] }
+# AAC 디코더(aac)와 MP4/M4A 컨테이너(isomp4)는 2026-11-16 사용자 결정으로 뺐다(특허 로열티). 계약에 로열티를
+# 반영한 뒤 다시 넣으려면 아래 목록에 "aac", "isomp4"를 더하면 된다(= 예전 "all"). 나머지는 예전과 같다.
+symphonia = { version = "0.5.3", default-features = false, features = ["adpcm", "alac", "flac", "mp1", "mp2", "mp3", "pcm", "vorbis", "caf", "mkv", "ogg", "aiff", "wav"] }
 tokio = { version = "1.40.0", features = ["rt-multi-thread", "net", "macros", "time"] }
 tracing = "0.1.44"
 tracing-appender = "0.2.5"
