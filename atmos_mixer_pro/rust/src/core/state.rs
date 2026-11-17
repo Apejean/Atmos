@@ -32,6 +32,12 @@ pub struct GlobalEngineState {
     pub theme_started: AtomicBool,
     pub cleared_room_ids: RwLock<Vec<String>>,
     pub is_ducking: AtomicBool,
+    /// 루프 더킹 설정(core::ducking). 설정을 읽거나 저장할 때 오디오 스레드 밖에서 넣고, 믹서는 읽기만 한다.
+    pub ducking_enabled: AtomicBool,
+    /// 더킹 때 루프 무게(선형, f32 비트). 기본 0.3.
+    pub ducking_floor: AtomicU32,
+    /// 믹서가 정한 더킹 상태. 바뀔 때만 믹서가 저장하고, 감시 스레드가 `is_ducking`(화면 표시)으로 옮긴다.
+    pub ducking_engaged: AtomicBool,
     pub enabled_channels: Vec<AtomicBool>,
     // VU levels for up to 4096 output channels, stored as f32 bits
     pub vu_levels: Vec<AtomicU32>,
@@ -128,6 +134,9 @@ impl GlobalEngineState {
             theme_started: AtomicBool::new(false),
             cleared_room_ids: RwLock::new(Vec::new()),
             is_ducking: AtomicBool::new(false),
+            ducking_enabled: AtomicBool::new(true),
+            ducking_floor: AtomicU32::new(crate::core::ducking::DEFAULT_FLOOR.to_bits()),
+            ducking_engaged: AtomicBool::new(false),
             enabled_channels: enabled,
             vu_levels: vu,
             spatial_gains: sg,

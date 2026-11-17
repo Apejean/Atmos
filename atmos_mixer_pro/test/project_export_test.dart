@@ -45,6 +45,8 @@ void main() {
         peakLimiterEnabled: true,
         globalReverbMix: 0.0,
         globalReverbDecay: 1.0,
+        duckingEnabled: false,
+        duckingReductionDb: -6.0,
       );
 
   group('복사 계획', () {
@@ -134,6 +136,8 @@ void main() {
       ]);
       expect(saved!.rooms.single.tracks.first.volume, 0.5, reason: '경로 말고는 그대로다');
       expect(saved!.deviceName, '[ASIO] ASIO MADIface USB');
+      expect(saved!.duckingEnabled, isFalse, reason: '더킹 설정도 그대로다');
+      expect(saved!.duckingReductionDb, -6.0);
 
       final design = readExhibitionSection(await File(result.projectPath).readAsString())!;
       expect(design['blueprint_image_path'], '$folder${sep}drawing${sep}plan.png');

@@ -49,7 +49,7 @@ fn bass_management_ramp_at(start: f32, target: f32, step: f32, frame: usize) -> 
 
 pub struct DuckingState {
     pub is_ducking: bool,
-    pub ducking_weight: f32, // 1.0 down to 0.3
+    pub ducking_weight: f32, // 1.0에서 설정한 무게(기본 0.3)까지
 }
 
 /// 부팅 뮤트 램프 길이(초): 앱을 켤 때와 사람이 장치를 바꾸거나 다시 스캔할 때.
@@ -437,15 +437,23 @@ impl AudioMixer {
             }
         });
 
+        // 루프 더킹: 설정(core::ducking)은 원자값으로만 읽는다. 전시 모드이거나 설정에서 끄면 더킹하지 않는다.
         let is_exhib = GLOBAL_STATE.is_exhibition_mode.load(Ordering::Relaxed);
-        if is_exhib {
+        let duck_allowed = !is_exhib && GLOBAL_STATE.ducking_enabled.load(Ordering::Relaxed);
+        let duck_floor = f32::from_bits(GLOBAL_STATE.ducking_floor.load(Ordering::Relaxed));
+        let was_ducking = self.ducking.is_ducking;
+        if !duck_allowed {
             self.ducking.is_ducking = false;
         } else {
             if has_sfx && !self.ducking.is_ducking {
                 self.ducking.is_ducking = true;
-            } else if !has_sfx && self.ducking.is_ducking && self.ducking.ducking_weight <= 0.3 {
+            } else if !has_sfx && self.ducking.is_ducking && self.ducking.ducking_weight <= duck_floor {
                 self.ducking.is_ducking = false; // Start unducking
             }
+        }
+        if self.ducking.is_ducking != was_ducking {
+            // 화면 표시는 감시 스레드가 이 값을 보고 갱신한다(잠금·방송은 오디오 스레드 밖에서).
+            GLOBAL_STATE.ducking_engaged.store(self.ducking.is_ducking, Ordering::Relaxed);
         }
 
         self.temp_room_vols_target.fill(1.0);
@@ -609,22 +617,14 @@ impl AudioMixer {
                 }
             }
 
-            // Update ducking weight per frame
-            if self.ducking.is_ducking {
-                if self.ducking.ducking_weight > 0.3 {
-                    self.ducking.ducking_weight -= 0.7 / duck_down_frames as f32;
-                }
-                if self.ducking.ducking_weight < 0.3 {
-                    self.ducking.ducking_weight = 0.3;
-                }
-            } else {
-                if self.ducking.ducking_weight < 1.0 {
-                    self.ducking.ducking_weight += 0.7 / duck_up_frames as f32;
-                }
-                if self.ducking.ducking_weight > 1.0 {
-                    self.ducking.ducking_weight = 1.0;
-                }
-            }
+            // 더킹 무게를 프레임마다 움직인다(내림 150ms·올림 300ms 기울기, 기본 설정에서는 예전과 비트 단위로 같다).
+            self.ducking.ducking_weight = crate::core::ducking::step_weight(
+                self.ducking.ducking_weight,
+                self.ducking.is_ducking,
+                duck_floor,
+                duck_down_frames,
+                duck_up_frames,
+            );
 
             let output_fade_step = 1.0 / (OUTPUT_RAMP_S * self.sample_rate as f32);
             let rejoin_step = 1.0 / (REJOIN_RAMP_S * self.sample_rate as f32);

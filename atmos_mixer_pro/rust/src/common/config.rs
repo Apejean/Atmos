@@ -146,10 +146,23 @@ pub struct AppConfig {
     #[serde(default)]
     #[frb(default = "const []")]
     pub osc_reply_targets: Vec<String>,
+    /// 루프 더킹(전시 모드가 아닐 때 비루프 트랙이 나는 동안 모든 루프를 줄임, core::ducking). 기본 켜짐 =
+    /// 예전 동작(사용자 결정 2026-11-16 "더킹은 의도된 동작"). 칸이 없는 옛 설정도 켜짐으로 읽는다.
+    #[serde(default = "default_true")]
+    #[frb(default = "true")]
+    pub ducking_enabled: bool,
+    /// 더킹 때 루프를 줄이는 양(dB, −40~0). 기본은 예전 고정값 0.3배와 같은 20·log10(0.3).
+    #[serde(default = "default_ducking_reduction_db")]
+    #[frb(default = "-10.457575")]
+    pub ducking_reduction_db: f32,
 }
 
 fn default_master_headroom() -> f32 {
     0.0
+}
+
+fn default_ducking_reduction_db() -> f32 {
+    crate::core::ducking::DEFAULT_REDUCTION_DB
 }
 
 impl Default for AppConfig {
@@ -173,6 +186,8 @@ impl Default for AppConfig {
             master_headroom_db: 0.0,
             peak_limiter_enabled: true,
             osc_reply_targets: Vec::new(),
+            ducking_enabled: true,
+            ducking_reduction_db: crate::core::ducking::DEFAULT_REDUCTION_DB,
         }
     }
 }

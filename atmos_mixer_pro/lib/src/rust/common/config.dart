@@ -29,6 +29,13 @@ class AppConfig {
   /// 건너뛰고 로그에 남기며, 저장할 때는 사용자가 적은 문자열을 그대로 둔다(osc::reply).
   final List<String> oscReplyTargets;
 
+  /// 루프 더킹(전시 모드가 아닐 때 비루프 트랙이 나는 동안 모든 루프를 줄임, core::ducking). 기본 켜짐 =
+  /// 예전 동작(사용자 결정 2026-11-16 "더킹은 의도된 동작"). 칸이 없는 옛 설정도 켜짐으로 읽는다.
+  final bool duckingEnabled;
+
+  /// 더킹 때 루프를 줄이는 양(dB, −40~0). 기본은 예전 고정값 0.3배와 같은 20·log10(0.3).
+  final double duckingReductionDb;
+
   const AppConfig({
     required this.oscPort,
     this.deviceName,
@@ -48,6 +55,8 @@ class AppConfig {
     required this.globalReverbMix,
     required this.globalReverbDecay,
     this.oscReplyTargets = const [],
+    this.duckingEnabled = true,
+    this.duckingReductionDb = -10.457575,
   });
 
   @override
@@ -69,7 +78,9 @@ class AppConfig {
       peakLimiterEnabled.hashCode ^
       globalReverbMix.hashCode ^
       globalReverbDecay.hashCode ^
-      oscReplyTargets.hashCode;
+      oscReplyTargets.hashCode ^
+      duckingEnabled.hashCode ^
+      duckingReductionDb.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -93,7 +104,9 @@ class AppConfig {
           peakLimiterEnabled == other.peakLimiterEnabled &&
           globalReverbMix == other.globalReverbMix &&
           globalReverbDecay == other.globalReverbDecay &&
-          oscReplyTargets == other.oscReplyTargets;
+          oscReplyTargets == other.oscReplyTargets &&
+          duckingEnabled == other.duckingEnabled &&
+          duckingReductionDb == other.duckingReductionDb;
 }
 
 class ChannelSetting {

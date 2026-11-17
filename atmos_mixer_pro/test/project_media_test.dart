@@ -1,3 +1,4 @@
+import 'package:atmos_mixer_pro/core/state/config_copy.dart';
 import 'package:atmos_mixer_pro/core/state/project_media.dart';
 import 'package:atmos_mixer_pro/src/rust/api/project.dart';
 import 'package:atmos_mixer_pro/src/rust/common/config.dart';
@@ -279,6 +280,15 @@ void main() {
       expect(choice.config.deviceName, '[ASIO] ASIO MADIface USB');
       expect(choice.config.bufferSize, 1024);
       expect(choice.config.themeStartOscAddress, 'project', reason: '장치 말고는 프로젝트 설정을 그대로 쓴다');
+    });
+
+    test('지금 장치로 바꿔도 프로젝트의 더킹 설정은 그대로다', () {
+      final mac = cfg(device: '[CoreAudio] Scarlett 6i6 USB', buffer: 256, tag: 'project')
+          .copyWith(duckingEnabled: false, duckingReductionDb: -6.0);
+      final choice = deviceForImportedProject(imported: mac, current: current, available: windowsDevices);
+      expect(choice.keptCurrent, isTrue);
+      expect(choice.config.duckingEnabled, isFalse);
+      expect(choice.config.duckingReductionDb, -6.0);
     });
 
     test('이 PC에 있는 장치면 프로젝트의 장치와 버퍼를 쓴다', () {

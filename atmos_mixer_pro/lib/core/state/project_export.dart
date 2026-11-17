@@ -208,4 +208,6 @@ AppConfig _withTrackPaths(AppConfig c, Map<String, String> newPaths) => AppConfi
       globalReverbMix: c.globalReverbMix,
       globalReverbDecay: c.globalReverbDecay,
       oscReplyTargets: c.oscReplyTargets,
+      duckingEnabled: c.duckingEnabled,
+      duckingReductionDb: c.duckingReductionDb,
     );

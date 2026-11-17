@@ -78,6 +78,8 @@ ProjectDeviceChoice deviceForImportedProject({
       globalReverbMix: c.globalReverbMix,
       globalReverbDecay: c.globalReverbDecay,
       oscReplyTargets: c.oscReplyTargets,
+      duckingEnabled: c.duckingEnabled,
+      duckingReductionDb: c.duckingReductionDb,
     ),
     keptCurrent: true,
     projectDevice: wanted,
