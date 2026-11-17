@@ -3214,6 +3214,8 @@ impl SseDecode for crate::common::config::AppConfig {
         let mut var_globalReverbMix = <f32>::sse_decode(deserializer);
         let mut var_globalReverbDecay = <f32>::sse_decode(deserializer);
         let mut var_oscReplyTargets = <Vec<String>>::sse_decode(deserializer);
+        let mut var_duckingEnabled = <bool>::sse_decode(deserializer);
+        let mut var_duckingReductionDb = <f32>::sse_decode(deserializer);
         return crate::common::config::AppConfig {
             osc_port: var_oscPort,
             device_name: var_deviceName,
@@ -3233,6 +3235,8 @@ impl SseDecode for crate::common::config::AppConfig {
             global_reverb_mix: var_globalReverbMix,
             global_reverb_decay: var_globalReverbDecay,
             osc_reply_targets: var_oscReplyTargets,
+            ducking_enabled: var_duckingEnabled,
+            ducking_reduction_db: var_duckingReductionDb,
         };
     }
 }
@@ -4239,6 +4243,8 @@ impl flutter_rust_bridge::IntoDart for crate::common::config::AppConfig {
             self.global_reverb_mix.into_into_dart().into_dart(),
             self.global_reverb_decay.into_into_dart().into_dart(),
             self.osc_reply_targets.into_into_dart().into_dart(),
+            self.ducking_enabled.into_into_dart().into_dart(),
+            self.ducking_reduction_db.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
@@ -4769,6 +4775,8 @@ impl SseEncode for crate::common::config::AppConfig {
         <f32>::sse_encode(self.global_reverb_mix, serializer);
         <f32>::sse_encode(self.global_reverb_decay, serializer);
         <Vec<String>>::sse_encode(self.osc_reply_targets, serializer);
+        <bool>::sse_encode(self.ducking_enabled, serializer);
+        <f32>::sse_encode(self.ducking_reduction_db, serializer);
     }
 }
 

@@ -37,6 +37,8 @@ void main() {
         globalReverbMix: 0.4,
         globalReverbDecay: 2.5,
         oscReplyTargets: const ['192.168.0.20:9000'],
+        duckingEnabled: false,
+        duckingReductionDb: -6.0,
       );
 
   test('아무것도 넘기지 않으면 모든 칸이 그대로다', () {
@@ -52,6 +54,8 @@ void main() {
     expect(changed.globalReverbMix, 0.4);
     expect(changed.globalReverbDecay, 2.5);
     expect(changed.oscReplyTargets, ['192.168.0.20:9000']);
+    expect(changed.duckingEnabled, isFalse);
+    expect(changed.duckingReductionDb, -6.0);
     expect(changed.trackingOscAddress, '/hrtf/custom');
     expect(changed.copyWith(rooms: config.rooms, oscPort: config.oscPort), config);
   });

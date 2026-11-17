@@ -155,8 +155,23 @@ pub fn snapshot_time(last_callback_ms: u64, now_ms: u64) -> u64 {
     }
 }
 
-/// 끊긴 시간만큼 건너뛴 재개 항목(순수 함수, 유지 스레드 설계 6절). `info`는 트랙 id로 (반복인가, 파일 길이 초)를
-/// 돌려준다. 길이를 모르면 그 항목은 건너뛰지 않는다. 반복은 길이의 나머지로, 반복이 아닌 트랙은 끝을 넘으면 뺀다.
+/// 이어 갈 때 이보다 짧게(같아도) 남은 비반복 트랙은 이어 가지 않는다(초, 안정성 ⑦).
+pub const RESUME_MIN_REMAINING_S: f64 = 10.0;
+
+/// 이어 갈 트랙인가(순수 함수, 안정성 ⑦ — 사용자 결정 2026-11-10). 무한루프가 아닌 트랙 중 남은 길이(파일 길이 −
+/// 이어 갈 위치)가 10초 이하인 것만 버린다. 반복은 언제나, 길이를 모르면(파일을 못 읽음) 이어 간다. `is_loop`로만
+/// 가르지 않는다 — 비반복에도 약 10분짜리 긴 소스가 있다. 엔진 재시작 복원과 앱 재실행·로그인 이어 가기가 같이 쓴다.
+pub fn keep_for_resume(is_loop: bool, length_s: Option<f64>, position_s: f64) -> bool {
+    match length_s {
+        _ if is_loop => true,
+        Some(length) if length > 0.0 => length - position_s > RESUME_MIN_REMAINING_S,
+        _ => true,
+    }
+}
+
+/// 끊긴 시간만큼 건너뛴 재개 항목(유지 스레드 설계 6절). `info`는 트랙 id로 (반복인가, 파일 길이 초)를 돌려준다.
+/// 길이를 모르면 그 항목은 건너뛰지 않는다. 반복은 길이의 나머지로 옮긴다. 반복이 아닌 트랙은 옮긴 뒤 남은 길이가
+/// 10초 이하이면(끝을 넘은 것 포함) 빼고 앱 로그에 남긴다([keep_for_resume], 안정성 ⑦).
 pub fn skip_outage(
     entries: Vec<(ResumeEntry, f64)>,
     info: impl Fn(&str) -> Option<(bool, f64)>,
@@ -171,7 +186,12 @@ pub fn skip_outage(
             if is_loop {
                 entry.seconds = moved % length_s;
                 Some(entry)
-            } else if moved >= length_s {
+            } else if !keep_for_resume(false, Some(length_s), moved) {
+                GLOBAL_STATE.log(format!(
+                    "재시작 복원: {} 남은 길이 {:.1}초라 이어 가지 않는다(10초 이하 비반복)",
+                    entry.track_id,
+                    (length_s - moved).max(0.0)
+                ));
                 None
             } else {
                 entry.seconds = moved;
@@ -182,7 +202,7 @@ pub fn skip_outage(
 }
 
 /// 설정에서 트랙이 반복인지와 파일 길이(초, 파일 머리에서 읽음)를 찾는다. 오디오 스레드 밖에서만 부른다.
-fn track_length_info(track_id: &str) -> Option<(bool, f64)> {
+pub(crate) fn track_length_info(track_id: &str) -> Option<(bool, f64)> {
     let (is_loop, path) = {
         let config = GLOBAL_STATE.config.read().unwrap_or_else(|e| e.into_inner());
         let track = config.as_ref()?.rooms.iter().flat_map(|r| r.tracks.iter()).find(|t| t.id == track_id)?;
