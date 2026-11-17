@@ -262,6 +262,8 @@ pub fn resume(now_ms: u64) -> Result<(), AtmosError> {
         let config = GLOBAL_STATE.config.read().unwrap_or_else(|e| e.into_inner());
         decide_resume(previous.as_ref(), now_ms, config.as_ref())
     };
+    // 설정 잠금을 놓은 뒤 거른다(파일 길이를 읽으며 설정을 다시 본다).
+    let plan = drop_short_tails(plan);
     if !crate::core::engine_keeper::accepts_play() {
         let what = match &plan {
             ResumePlan::Resume { tracks, .. } => format!("트랙 {}개를 멈춘 위치부터", tracks.len()),
@@ -276,6 +278,33 @@ pub fn resume(now_ms: u64) -> Result<(), AtmosError> {
         return Ok(());
     }
     run_plan(plan, stop_epoch)
+}
+
+/// 이어 갈 계획에서 남은 길이(파일 길이 − 저장된 위치)가 10초 이하인 비반복 트랙을 빼고 앱 로그에 남긴다(안정성 ⑦,
+/// `restart_resume::keep_for_resume`). 이 길은 꺼져 있던 시간을 건너뛰지 않으므로 저장된 위치로 잰다.
+/// 모두 빠지면 트랙이 빈 계획이다 — 아무것도 틀지 않고 첫 방 테마로도 시작하지 않는다(사용자 결정 2026-11-16).
+fn drop_short_tails(plan: ResumePlan) -> ResumePlan {
+    let ResumePlan::Resume { active_room_id, tracks } = plan else {
+        return plan;
+    };
+    let tracks = tracks
+        .into_iter()
+        .filter(|t| {
+            let info = crate::core::restart_resume::track_length_info(&t.track_id);
+            let is_loop = info.is_some_and(|(is_loop, _)| is_loop);
+            let length = info.map(|(_, length)| length);
+            let keep = crate::core::restart_resume::keep_for_resume(is_loop, length, t.seconds);
+            if !keep {
+                GLOBAL_STATE.log(format!(
+                    "공연 이어 가기: {} 남은 길이 {:.1}초라 이어 가지 않는다(10초 이하 비반복)",
+                    t.track_id,
+                    length.map(|l| (l - t.seconds).max(0.0)).unwrap_or(0.0)
+                ));
+            }
+            keep
+        })
+        .collect();
+    ResumePlan::Resume { active_room_id, tracks }
 }
 
 /// 엔진이 (다시) 열린 뒤 엔진 유지자가 부른다. 장치를 기다리는 동안 미뤄 둔 이어 가기가 있으면 지금 한다.
@@ -300,6 +329,15 @@ pub fn resume_deferred() {
 
 fn run_plan(plan: ResumePlan, stop_epoch: u64) -> Result<(), AtmosError> {
     match plan {
+        ResumePlan::Resume { active_room_id, tracks } if tracks.is_empty() => {
+            // 이어 갈 트랙이 모두 곧 끝날 것이었다(안정성 ⑦). 활성 방은 되살려 다음 OSC 큐가 그 방으로 가게 한다.
+            GLOBAL_STATE.log(format!(
+                "공연 이어 가기: 활성 방 {active_room_id:?}, 이어 갈 트랙이 모두 10초 이하로 남은 비반복이라 아무것도 틀지 않는다"
+            ));
+            GLOBAL_STATE.set_active_room(active_room_id);
+            crate::osc::reply::RESUMED_TRACKS.store(0, Ordering::Relaxed);
+            Ok(())
+        }
         ResumePlan::Resume { active_room_id, tracks } => {
             GLOBAL_STATE.log(format!(
                 "공연 이어 가기: 활성 방 {active_room_id:?}, 트랙 {}개를 멈춘 위치부터 다시 튼다",
