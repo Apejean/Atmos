@@ -177,6 +177,7 @@ pub fn api_get_config(path: String) -> AppConfig {
         config.is_exhibition_mode,
         std::sync::atomic::Ordering::Relaxed,
     );
+    crate::core::ducking::apply_settings(&config);
 
     // Apply tunings on boot immediately
     let mut tunings = Vec::new();
@@ -238,6 +239,7 @@ pub fn api_save_config(path: String, config: AppConfig) -> Result<(), AtmosError
         config.is_exhibition_mode,
         std::sync::atomic::Ordering::Relaxed,
     );
+    crate::core::ducking::apply_settings(&config);
     Ok(())
 }
 
@@ -2554,6 +2556,7 @@ pub fn api_load_preset(config: AppConfig) -> Result<(), AtmosError> {
         config.is_exhibition_mode,
         std::sync::atomic::Ordering::Relaxed,
     );
+    crate::core::ducking::apply_settings(&config);
 
     // This will sync GLOBAL_STATE config, enabled_channels, and manage the cache
     api_preload_all_sounds(config)?;
