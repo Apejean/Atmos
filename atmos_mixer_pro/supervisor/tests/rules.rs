@@ -66,6 +66,22 @@ fn 하트비트는_다섯_키가_모두_있어야_읽는다() {
 }
 
 #[test]
+fn 앱의_엔진_상태값_두_줄이_더해져도_하트비트를_읽는다() {
+    // 앱(rust/src/core/app_signals.rs)은 2026-11-14(안정성 ③)부터 engine_state·engine_progress를 뒤에 더 싣는다.
+    // 감시 정책(⑥) 전까지 감시는 모르는 키를 건너뛰고 지금 다섯 값으로 판단해야 한다.
+    let text = "pid=7
+ui_ms=5
+audio_cb_ms=9
+engine_active=0
+silent_warnings=0
+engine_state=WaitingForDevice
+engine_progress=12
+";
+    let hb = Heartbeat::parse(text).expect("새 하트비트를 읽지 못했다");
+    assert_eq!((hb.pid, hb.ui_ms, hb.audio_cb_ms, hb.engine_active, hb.silent_warnings), (7, 5, 9, false, 0));
+}
+
+#[test]
 fn 감시_기록은_크기를_넘으면_밀고_정한_개수만_남긴다() {
     let dir = fresh_dir("log");
     // 한 줄 10바이트("line-0000" + 줄바꿈), 파일당 30바이트를 넘으면 민다, 밀린 파일은 2개까지

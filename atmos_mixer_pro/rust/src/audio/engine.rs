@@ -11,6 +11,11 @@ lazy_static::lazy_static! {
 
 /// 엔진 세대. `api_init_audio_system`·`api_stop_audio_engine`이 올리고, 스트림 콜백은 자기가
 /// 만들어진 세대일 때만 일한다([`AudioEngine::begin_callback`]).
+/// 설정의 장치가 없을 때 엔진이 찾는 기본 시간(부팅 직후 USB 인터페이스가 늦게 올라오는 경우, HANDOFF 남은 일 14).
+pub const DEVICE_SEARCH_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30);
+/// 장치를 찾지 못한 오류 문구에 들어가는 표식. 엔진 유지자가 "장치 없음"과 "열기 실패"를 가를 때 쓴다.
+pub const DEVICE_NOT_FOUND_MARK: &str = "not found after";
+
 pub static ENGINE_GENERATION: AtomicU64 = AtomicU64::new(0);
 
 pub struct AudioEngine {
@@ -73,15 +78,20 @@ pub fn get_hosts(_target_prefix: Option<&str>) -> Result<Vec<cpal::Host>, String
     Ok(vec![cpal::default_host()])
 }
 
-/// ASIO 드라이버 하나만 불러 초기화해 보고 바로 내린다(인터페이스가 꺼져 있으면 초기화가 실패한다).
-/// cpal의 장치 목록과 달리 다른 드라이버는 건드리지 않는다.
+/// ASIO 드라이버 하나만 불러 장치가 실제로 있는지 보고 바로 내린다. cpal의 장치 목록과 달리 다른 드라이버는
+/// 건드리지 않는다. 불러오기(ASIOInit)만으로는 모른다 — RME MADIface USB 드라이버는 인터페이스가 꺼져 있어도 불러오기에
+/// 성공하고, 채널 수를 물을 때 "장치 없음"(ASE_NotPresent)으로 실패한다(2026-11-16 ④ 실기, 시험 도구로 확인).
+/// cpal의 장치 목록도 채널 수로 출력 장치를 만든다.
 #[cfg(target_os = "windows")]
-fn asio_driver_opens(driver: &str) -> bool {
-    asio_sys::Asio::new().load_driver(driver).is_ok()
+fn asio_device_present(driver: &str) -> bool {
+    match asio_sys::Asio::new().load_driver(driver) {
+        Ok(loaded) => loaded.channels().is_ok_and(|c| c.outs > 0),
+        Err(_) => false,
+    }
 }
 
 #[cfg(not(target_os = "windows"))]
-fn asio_driver_opens(_driver: &str) -> bool {
+fn asio_device_present(_driver: &str) -> bool {
     true
 }
 
@@ -125,6 +135,18 @@ impl AudioEngine {
         device_name: Option<String>,
         cmd_receiver: crossbeam_channel::Receiver<AudioCommand>,
         generation: u64,
+    ) -> Result<(), String> {
+        self.start_with_search(device_name, cmd_receiver, generation, DEVICE_SEARCH_TIMEOUT)
+    }
+
+    /// [`Self::start`]와 같고, 설정의 장치가 없을 때 찾는 시간을 정한다. 엔진 유지자(core::engine_keeper)가 장치를
+    /// 기다리며 다시 시도할 때는 짧게 찾는다 — 재시도 간격이 찾기를 대신한다(유지 스레드 설계 D4).
+    pub fn start_with_search(
+        &mut self,
+        device_name: Option<String>,
+        cmd_receiver: crossbeam_channel::Receiver<AudioCommand>,
+        generation: u64,
+        search_timeout: std::time::Duration,
     ) -> Result<(), String> {
         #[cfg(target_os = "windows")]
         {
@@ -178,14 +200,12 @@ impl AudioEngine {
             });
 
             let start_time = std::time::Instant::now();
-            let timeout_secs = 30;
-            let mut first_try = true;
             loop {
-                // 처음 한 번은 목록을 그대로 훑는다(장치가 있으면 바로 열린다). 못 찾아 다시 볼 때 ASIO는 찾는
-                // 드라이버 하나만 먼저 불러 보고, 열릴 때만 목록을 훑는다 — 목록은 설치된 드라이버를 모두 불러와
-                // Generic Low Latency 같은 드라이버가 0.5초마다 창을 띄웠다.
-                let scan = first_try || asio_driver.as_deref().is_none_or(asio_driver_opens);
-                first_try = false;
+                // ASIO는 찾는 드라이버 하나로 장치가 있는지 먼저 보고, 있을 때만 목록을 훑는다. 목록은 설치된 드라이버를
+                // 모두 불러오는데, Generic Low Latency 같은 드라이버는 0.5초마다 창을 띄웠고 FL Studio ASIO는 불러올
+                // 때마다 메모리를 약 8.7MB 샜다. 예전에는 찾는 드라이버가 꺼진 장치에도 "열림"으로 답해(위 함수 참고)
+                // 0.5초마다 목록을 훑어, 장치를 기다리는 동안 재시도마다 약 40MB씩 쌓였다(2026-11-16 ④ 실기 F1).
+                let scan = asio_driver.as_deref().is_none_or(asio_device_present);
                 for host in hosts.iter().filter(|_| scan) {
                     if let Ok(devices) = host.output_devices() {
                         for d in devices {
@@ -218,12 +238,13 @@ impl AudioEngine {
                     break;
                 }
 
-                if start_time.elapsed().as_secs() >= timeout_secs {
+                if start_time.elapsed() >= search_timeout {
                     break;
                 }
                 println!(
-                    "⚠️ 장치를 찾는 중... ({} / 30초)",
-                    start_time.elapsed().as_secs()
+                    "⚠️ 장치를 찾는 중... ({} / {}초)",
+                    start_time.elapsed().as_secs(),
+                    search_timeout.as_secs()
                 );
                 std::thread::sleep(std::time::Duration::from_millis(500));
             }
@@ -231,9 +252,15 @@ impl AudioEngine {
             if let Some(d) = found_device {
                 d
             } else {
-                let error_msg = format!("Requested device '{}' not found after 30s. Available devices were not matched.", name);
+                let error_msg = format!(
+                    "Requested device '{}' {} {}s. Available devices were not matched.",
+                    name,
+                    DEVICE_NOT_FOUND_MARK,
+                    search_timeout.as_secs()
+                );
                 eprintln!("{}", error_msg);
-                crate::core::state::GLOBAL_STATE.log(format!("장치를 30초 동안 찾지 못했다: {name}"));
+                crate::core::state::GLOBAL_STATE
+                    .log(format!("장치를 {}초 동안 찾지 못했다: {name}", search_timeout.as_secs()));
                 return Err(error_msg);
             }
         } else {

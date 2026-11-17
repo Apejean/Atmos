@@ -23,6 +23,16 @@ pub fn api_resume_show() -> Result<(), AtmosError> {
 /// 루프들은 한 그룹으로 같은 샘플에 함께 시작한다(core::group_start, 그룹 시작 설계). 예전에는 하나씩 틀어, 보내는
 /// 도중 콜백 경계가 지나가면 뒤 트랙들이 한 블록(1024프레임에서 21.3ms) 늦게 시작한 채로 남았다(진단 T252).
 pub fn api_theme_start() -> Result<(), AtmosError> {
+    // 장치를 기다리거나 실패한 동안에는 시작하지 않는다(유지 스레드 설계 D11). 전체 정지도 하지 않아 지금 상태를 바꾸지 않는다.
+    if !crate::core::engine_keeper::accepts_play() {
+        return Err(AtmosError {
+            message: format!(
+                "{} ({})",
+                crate::osc::reply::ENGINE_WAITING_PREFIX,
+                crate::core::engine_keeper::state().name()
+            ),
+        });
+    }
     // 이 정지가 올린 순번이 기준이다. 그 뒤 루프를 준비하는 사이 다른 정지(Emergency 등)가 들어오면 시작하지 않는다.
     let epoch = stop_all()?;
     let plan = GLOBAL_STATE.config.read().unwrap_or_else(|e| e.into_inner()).as_ref().map(|config| {

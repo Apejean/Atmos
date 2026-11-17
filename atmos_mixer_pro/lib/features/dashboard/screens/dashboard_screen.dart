@@ -107,6 +107,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     _statusSub = rust_api.apiCreateStreamStatusStream().listen((status) {
       if (!mounted) return;
       _statusRelay.add(status);
+      // 엔진이 다시 열리면 남아 있는 엔진 오류 창을 닫는다(④ 실기 F3). 상태 배너와 같은 신호를 따른다.
+      if (engineRecoveredStatus(status)) {
+        ref.read(globalErrorProvider.notifier).clearEngineError();
+      }
       if (status == 'Failover') {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(

@@ -106,6 +106,13 @@ pub fn capture(now_ms: u64) -> ShowState {
         track_id: e.track_id,
         seconds: e.seconds,
     }));
+    // 장치를 기다리며 미뤄 둔 이어 가기도 넣는다. 그동안 파일을 빈 목록으로 덮으면 그 사이 앱이 다시 켜졌을 때
+    // 이어 갈 것이 없다(④ 실기 F2). 그 계획의 활성 방이 이어 간 뒤의 활성 방이다.
+    let mut active_room_id = active_room_id;
+    if let Some((room, held)) = deferred_tracks() {
+        active_room_id = room;
+        tracks.extend(held);
+    }
     tracks.sort_by(|a, b| a.track_id.cmp(&b.track_id).then(a.seconds.total_cmp(&b.seconds)));
     ShowState { saved_at_ms: now_ms, active_room_id, tracks }
 }
@@ -227,7 +234,26 @@ fn silent_now() -> bool {
     )
 }
 
+/// 장치를 기다리는 동안 미뤄 둔 이어 가기 계획과 그때의 정지 순번. 엔진이 열리면 [resume_deferred]가 꺼내 쓴다.
+static DEFERRED: Mutex<Option<(ResumePlan, u64)>> = Mutex::new(None);
+
+fn deferred() -> std::sync::MutexGuard<'static, Option<(ResumePlan, u64)>> {
+    DEFERRED.lock().unwrap_or_else(|e| e.into_inner())
+}
+
+/// 미뤄 둔 이어 가기의 (활성 방, 트랙). 첫 방 테마로 시작하는 계획이거나 없으면 None. 저장 스레드가 쓴다.
+fn deferred_tracks() -> Option<(Option<String>, Vec<SavedTrack>)> {
+    match deferred().as_ref() {
+        Some((ResumePlan::Resume { active_room_id, tracks }, _)) => Some((active_room_id.clone(), tracks.clone())),
+        _ => None,
+    }
+}
+
 /// 시작할 때 읽어 둔 지난 상태로 이어 간다. 이어 갈 수 없으면 첫 방 테마로 시작한다. 읽어 둔 상태는 한 번만 쓴다.
+/// 오디오 장치를 기다리거나 실패한 동안이면 지금 틀지 않고 계획을 들고 있다가 엔진이 열리면 튼다([resume_deferred]).
+/// 예전에는 재생이 거절돼 이어 가기가 사라지고 공연 상태 파일도 빈 목록으로 덮여, 장치가 돌아와도 아무것도 나지 않았다
+/// (2026-11-16 ④ 실기 F2: 인터페이스를 끈 채 로그인 자동 실행). 사용자 결정(2026-11-16): 장치가 오면 저장된 위치부터 —
+/// 기다린 시간은 건너뛰지 않는다(로그인 이어 가기와 같다).
 pub fn resume(now_ms: u64) -> Result<(), AtmosError> {
     // 이어 갈 계획을 정하는 순간의 정지 순번. 그 뒤 준비하는 사이 정지가 들어오면 그룹을 시작하지 않는다.
     let stop_epoch = crate::core::group_start::current_epoch();
@@ -236,6 +262,43 @@ pub fn resume(now_ms: u64) -> Result<(), AtmosError> {
         let config = GLOBAL_STATE.config.read().unwrap_or_else(|e| e.into_inner());
         decide_resume(previous.as_ref(), now_ms, config.as_ref())
     };
+    if !crate::core::engine_keeper::accepts_play() {
+        let what = match &plan {
+            ResumePlan::Resume { tracks, .. } => format!("트랙 {}개를 멈춘 위치부터", tracks.len()),
+            ResumePlan::ThemeStart(reason) => format!("첫 방 테마로 시작 — {reason}"),
+        };
+        GLOBAL_STATE.log(format!("공연 이어 가기: 오디오 장치를 기다리는 중이라 장치가 열리면 시작한다({what})"));
+        *deferred() = Some((plan, stop_epoch));
+        // 들고 있는 사이 유지자가 이미 엔진을 열고 resume_deferred를 지나갔으면 여기서 한다(먼저 꺼낸 쪽만 튼다).
+        if crate::core::engine_keeper::accepts_play() {
+            resume_deferred();
+        }
+        return Ok(());
+    }
+    run_plan(plan, stop_epoch)
+}
+
+/// 엔진이 (다시) 열린 뒤 엔진 유지자가 부른다. 장치를 기다리는 동안 미뤄 둔 이어 가기가 있으면 지금 한다.
+/// 미룬 뒤 사용자 정지(전체·트랙·방 정지, 엔진을 직접 정지·시작)가 있었으면 버린다(정지 순번).
+pub fn resume_deferred() {
+    let Some((plan, epoch)) = deferred().take() else {
+        return;
+    };
+    if crate::core::group_start::current_epoch() != epoch {
+        GLOBAL_STATE.log("공연 이어 가기: 장치를 기다리는 사이 정지가 들어와 미뤄 둔 이어 가기를 버린다".to_string());
+        return;
+    }
+    if !crate::core::engine_keeper::accepts_play() {
+        *deferred() = Some((plan, epoch));
+        return;
+    }
+    GLOBAL_STATE.log("공연 이어 가기: 오디오 장치가 열려 미뤄 둔 이어 가기를 시작한다".to_string());
+    if let Err(e) = run_plan(plan, epoch) {
+        GLOBAL_STATE.log(format!("공연 이어 가기 실패: {}", e.message));
+    }
+}
+
+fn run_plan(plan: ResumePlan, stop_epoch: u64) -> Result<(), AtmosError> {
     match plan {
         ResumePlan::Resume { active_room_id, tracks } => {
             GLOBAL_STATE.log(format!(
