@@ -62,10 +62,15 @@ pub mod reason {
 /// 재생 함수(api::simple::play_track_from)가 파일을 못 찾았을 때 돌려주는 오류 문구의 앞부분.
 pub const FILE_MISSING_PREFIX: &str = "파일을 찾을 수 없습니다";
 
+/// 엔진이 장치를 기다리거나 실패 상태라 재생 명령을 버릴 때의 오류 문구 앞부분(core::engine_keeper::accepts_play).
+pub const ENGINE_WAITING_PREFIX: &str = "엔진이 오디오 장치를 기다리는 중이라 재생하지 않습니다";
+
 /// 재생 실패 오류를 거절 이유 코드로 바꾼다.
 pub fn reason_for_play_error(message: &str) -> &'static str {
     if message.starts_with(FILE_MISSING_PREFIX) {
         reason::FILE_MISSING
+    } else if message.starts_with(ENGINE_WAITING_PREFIX) {
+        reason::ENGINE_WAITING
     } else {
         reason::PLAY_FAILED
     }
@@ -359,23 +364,23 @@ pub fn announce_boot(start_kind: &str, app_version: &str) -> bool {
     true
 }
 
-/// 엔진 상태(규격의 값)와 장치 이름. 대기 상태값이 생기기 전(안정성 3단계)에는
-/// 엔진이 돌면 `Running`, 아니면 `WaitingForDevice`로 근사한다. 장치 이름은 실제로 연 장치를 담은 상태값이
-/// 아직 없어 설정값(대시보드 머리말과 같음)이다. 비상 전환 중이면 실제 장치와 다를 수 있다(3단계 때 바꾼다).
+/// 엔진 상태(규격의 값, 엔진 유지자 core::engine_keeper)와 장치 이름. 장치 이름은 엔진이 돌 때만 설정값(대시보드
+/// 머리말과 같음)을 싣는다. 비상 전환(기본 장치) 중이면 설정 장치가 아니므로 빈 문자열이다.
 pub fn engine_state_and_device() -> (&'static str, String) {
-    let active = crate::api::simple::ENGINE_ACTIVE.load(Ordering::SeqCst);
-    let device = crate::core::state::GLOBAL_STATE
-        .config
-        .read()
-        .unwrap_or_else(|e| e.into_inner())
-        .as_ref()
-        .and_then(|c| c.device_name.clone())
-        .unwrap_or_default();
-    if active {
-        ("Running", device)
+    let state = crate::core::engine_keeper::state();
+    let failover = crate::core::state::GLOBAL_STATE.is_failover_mode.load(Ordering::Relaxed);
+    let device = if state == crate::core::engine_keeper::EngineState::Running && !failover {
+        crate::core::state::GLOBAL_STATE
+            .config
+            .read()
+            .unwrap_or_else(|e| e.into_inner())
+            .as_ref()
+            .and_then(|c| c.device_name.clone())
+            .unwrap_or_default()
     } else {
-        ("WaitingForDevice", String::new())
-    }
+        String::new()
+    };
+    (state.name(), device)
 }
 
 // ---- 상태 조회 ----
