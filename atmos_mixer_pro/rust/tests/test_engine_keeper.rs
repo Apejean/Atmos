@@ -9,7 +9,7 @@ use rust_lib_atmos_mixer_pro::core::app_signals::current_heartbeat;
 use rust_lib_atmos_mixer_pro::core::engine_keeper::{
     self, retry_delay_units, status_string, EngineState, FailCause, KeeperCore, OpenRequest, StartFailure,
 };
-use rust_lib_atmos_mixer_pro::core::restart_resume::{skip_outage, snapshot_time, ResumeEntry};
+use rust_lib_atmos_mixer_pro::core::restart_resume::{keep_for_resume, skip_outage, snapshot_time, ResumeEntry};
 use rust_lib_atmos_mixer_pro::core::state::GLOBAL_STATE;
 use rust_lib_atmos_mixer_pro::osc::reply::{reason, reason_for_play_error};
 use std::collections::VecDeque;
@@ -238,18 +238,40 @@ fn 끊긴_시간만큼_건너뛴다() {
     let e = |id: &str, s: f64| ResumeEntry { room_id: "r".into(), track_id: id.into(), seconds: s };
     let info = |id: &str| match id {
         "loop10" => Some((true, 10.0)),
-        "sfx10" => Some((false, 10.0)),
+        "sfx60" => Some((false, 60.0)),
         _ => None,
     };
     let out = skip_outage(
-        vec![(e("loop10", 8.0), 5.0), (e("sfx10", 3.0), 2.5), (e("sfx10", 9.0), 2.0), (e("unknown", 4.0), 3.0)],
+        vec![
+            (e("loop10", 8.0), 5.0),
+            (e("sfx60", 3.0), 2.5),
+            (e("sfx60", 45.0), 4.0),
+            (e("sfx60", 48.0), 4.0),
+            (e("sfx60", 59.0), 2.0),
+            (e("unknown", 4.0), 3.0),
+        ],
         info,
     );
-    assert_eq!(out.len(), 3, "끝을 넘은 비반복은 빠진다: {out:?}");
+    // 건너뛴 뒤 남은 길이가 10초 이하인 비반복은 안정성 ⑦ 규칙으로 뺀다(남은 11초 → 이어 감, 남은 8초 → 뺌,
+    // 끝을 넘음 → 뺌).
+    assert_eq!(out.len(), 4, "남은 10초 이하·끝을 넘은 비반복은 빠진다: {out:?}");
     assert!((out[0].seconds - 3.0).abs() < 1e-9, "반복은 길이의 나머지: {out:?}");
     assert!((out[1].seconds - 5.5).abs() < 1e-9, "비반복은 그대로 더한다: {out:?}");
-    assert!((out[2].seconds - 4.0).abs() < 1e-9, "길이를 모르면 건너뛰지 않는다: {out:?}");
+    assert!((out[2].seconds - 49.0).abs() < 1e-9, "남은 11초 비반복은 이어 간다: {out:?}");
+    assert!((out[3].seconds - 4.0).abs() < 1e-9, "길이를 모르면 건너뛰지 않는다: {out:?}");
     // 같은 끊김을 겪은 같은 길이의 두 트랙은 상대 위치가 그대로다(그룹 동기).
     let pair = skip_outage(vec![(e("loop10", 2.0), 9.0), (e("loop10", 2.0), 9.0)], info);
     assert_eq!(pair[0].seconds, pair[1].seconds);
+}
+
+#[test]
+fn 남은_길이_10초_이하인_비반복만_이어_가지_않는다() {
+    // 안정성 ⑦(사용자 결정 2026-11-10): 무한루프가 아닌 트랙 중 남은 길이가 10초 이하인 것만 버린다.
+    assert!(keep_for_resume(true, Some(10.0), 9.9), "반복은 언제나 이어 간다");
+    assert!(keep_for_resume(false, None, 500.0), "길이를 모르면 이어 간다");
+    assert!(!keep_for_resume(false, Some(60.0), 50.0), "남은 10초 정확히는 버린다");
+    assert!(keep_for_resume(false, Some(60.0), 49.9), "남은 10.1초는 이어 간다");
+    assert!(!keep_for_resume(false, Some(5.0), 0.0), "10초보다 짧은 비반복은 처음부터라도 버린다");
+    assert!(!keep_for_resume(false, Some(60.0), 61.0), "끝을 넘은 것은 버린다");
+    assert!(keep_for_resume(false, Some(600.0), 30.0), "긴 비반복(약 10분 소스)은 이어 간다");
 }
