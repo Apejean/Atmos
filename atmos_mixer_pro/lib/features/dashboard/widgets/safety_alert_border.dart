@@ -34,11 +34,29 @@ class _SafetyAlertBorderWidgetState extends State<SafetyAlertBorderWidget>
     _blinkController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 600),
-    )..repeat(reverse: true);
+    );
 
     _opacityAnim = Tween<double>(begin: 0.3, end: 1.0).animate(
       CurvedAnimation(parent: _blinkController, curve: Curves.easeInOut),
     );
+    _syncBlink();
+  }
+
+  @override
+  void didUpdateWidget(covariant SafetyAlertBorderWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _syncBlink();
+  }
+
+  /// 경고가 있을 때만 깜빡인다. 경고 없이 돌면 앱이 떠 있는 내내 화면을 매 프레임 다시 그린다
+  /// (2026-11-17 장치 대기 중 CPU 조사).
+  void _syncBlink() {
+    final bool hasAlert = widget.isWatchdogActive || widget.isAutoGuardActive;
+    if (hasAlert && !_blinkController.isAnimating) {
+      _blinkController.repeat(reverse: true);
+    } else if (!hasAlert && _blinkController.isAnimating) {
+      _blinkController.stop();
+    }
   }
 
   @override
