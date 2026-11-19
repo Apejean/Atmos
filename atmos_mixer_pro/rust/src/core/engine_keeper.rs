@@ -4,7 +4,8 @@
 //! (비상 전환)가 모두 실패하면 아무도 다시 시도하지 않아, 사람이 알아차리기 전까지 무음이었다. 이제 이 모듈의 스레드
 //! 하나가 다시 열기를 맡고, 장치가 없으면 1·2·4·8·16·30초, 그 뒤 30초마다 계속 찾는다(사용자 결정 U1).
 //!
-//! 상태값은 `Running / WaitingForDevice / Failed / StoppedByUser`(OSC 규격 §3.2와 같은 이름)이다. 하트비트·상태 방송·
+//! 상태값은 `Starting / Running / WaitingForDevice / Failed / StoppedByUser`(OSC 규격 §3.2와 같은 이름, `Starting`은 앱을
+//! 켠 뒤 첫 열기 결과 전에만)이다. 하트비트·상태 방송·
 //! OSC가 이 값을 쓴다. 오디오 콜백은 이 모듈을 보지 않는다(3법칙과 무관).
 use std::sync::atomic::{AtomicU64, AtomicU8, Ordering};
 use std::sync::{Condvar, Mutex, MutexGuard, RwLock};
@@ -37,6 +38,9 @@ impl FailCause {
 /// 엔진 상태값(OSC 규격 §3.2·§3.6).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum EngineState {
+    /// 앱을 켠 뒤 처음 엔진을 열어 결과가 나오기 전(처음값, 2026-11-19 사용자 결정). 다시 열 때는 쓰지 않고 직전
+    /// 상태를 유지한다(설계 D7).
+    Starting,
     Running,
     WaitingForDevice,
     Failed(FailCause),
@@ -46,6 +50,7 @@ pub enum EngineState {
 impl EngineState {
     pub fn name(self) -> &'static str {
         match self {
+            EngineState::Starting => "Starting",
             EngineState::Running => "Running",
             EngineState::WaitingForDevice => "WaitingForDevice",
             EngineState::Failed(_) => "Failed",
@@ -69,6 +74,7 @@ impl EngineState {
             EngineState::Failed(FailCause::OpenFailed) => 3,
             EngineState::Failed(FailCause::Unavailable) => 4,
             EngineState::StoppedByUser => 5,
+            EngineState::Starting => 6,
         }
     }
 
@@ -79,6 +85,7 @@ impl EngineState {
             2 => EngineState::Failed(FailCause::StartHung),
             3 => EngineState::Failed(FailCause::OpenFailed),
             4 => EngineState::Failed(FailCause::Unavailable),
+            6 => EngineState::Starting,
             _ => EngineState::StoppedByUser,
         }
     }
@@ -133,7 +140,7 @@ pub struct KeeperCore {
 
 impl Default for KeeperCore {
     fn default() -> Self {
-        Self { state: EngineState::StoppedByUser, attempts: 0, open_failures: 0 }
+        Self { state: EngineState::Starting, attempts: 0, open_failures: 0 }
     }
 }
 
@@ -174,7 +181,8 @@ impl KeeperCore {
     }
 
     pub fn on_user_stop(&mut self) {
-        *self = KeeperCore::default();
+        // 처음값(Starting)으로 되돌리지 않는다 — 사용자가 정지한 상태다.
+        *self = KeeperCore { state: EngineState::StoppedByUser, ..KeeperCore::default() };
     }
 }
 
@@ -211,7 +219,7 @@ struct Runtime {
 
 static RUNTIME: Mutex<Runtime> = Mutex::new(Runtime {
     desired: Desired::Stop,
-    core: KeeperCore { state: EngineState::StoppedByUser, attempts: 0, open_failures: 0 },
+    core: KeeperCore { state: EngineState::Starting, attempts: 0, open_failures: 0 },
     next_try: None,
     self_restart: None,
     thread_started: false,
@@ -223,7 +231,7 @@ static OPEN_LOCK: Mutex<()> = Mutex::new(());
 /// 진행 카운터(하트비트 `engine_progress`).
 static PROGRESS: AtomicU64 = AtomicU64::new(0);
 /// 상태 사본(잠금 없이 읽는다).
-static STATE_CODE: AtomicU8 = AtomicU8::new(5);
+static STATE_CODE: AtomicU8 = AtomicU8::new(6); // Starting
 /// 간격 단위(밀리초). 실제 1000, 시험은 줄인다.
 static UNIT_MS: AtomicU64 = AtomicU64::new(1000);
 static HOOKS: RwLock<(Option<OpenFn>, Option<ResumeFn>)> = RwLock::new((None, None));

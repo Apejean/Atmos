@@ -21,7 +21,7 @@ The Awesome은 미리 만든 PCM을 안정적으로 분배·운영하는 프로�
 2. **새로 더하는 것은 앱이 보내는 신호(응답·상태)와 조회뿐이다.** 새 주소는 `/awesome/...` 아래에 둔다.
 3. **응답은 재생을 방해하지 않는다.** 보내기가 막히거나 실패해도 오디오 경로·명령 처리에 영향이 없다. 송신은 엔진·오디오 스레드가 아닌 별도 스레드에서 한다(오디오 스레드 3법칙).
 4. **UDP 최선 전달이다.** 재전송·순서 보장·인증·암호화는 하지 않는다(현장 내부망). 빠진 응답은 상태 조회로 보완한다.
-5. **복구 구조와 맞춘다.** 엔진 상태는 `Running / WaitingForDevice / Failed / StoppedByUser`(`HANDOFF.md` 확정된 결정). 장치가 없을 때 들어온 재생 명령은 쌓지 않고 버린다.
+5. **복구 구조와 맞춘다.** 엔진 상태는 `Starting / Running / WaitingForDevice / Failed / StoppedByUser`(`HANDOFF.md` 확정된 결정, `Starting`은 2026-11-19 추가). 장치가 없을 때 들어온 재생 명령은 쌓지 않고 버린다.
 
 ## 2. 받는 쪽 (현행, 변경 없음)
 
@@ -67,7 +67,7 @@ The Awesome은 미리 만든 PCM을 안정적으로 분배·운영하는 프로�
 | 인자 | 형식 | 설명 |
 |---|---|---|
 | 1 | string | 앱 버전 |
-| 2 | string | 엔진 상태(`Running` / `WaitingForDevice` / `Failed` / `StoppedByUser`) |
+| 2 | string | 엔진 상태(`Starting` / `Running` / `WaitingForDevice` / `Failed` / `StoppedByUser`) |
 | 3 | string | 열린 오디오 장치 이름(없으면 빈 문자열) |
 | 4 | string | 시작 종류: `manual`(사람이 켬) / `logon`(로그인 자동 실행) / `relaunch`(감시 프로그램이 다시 띄움) |
 | 5 | int | 이어 재생한 트랙 수(0이면 이어 간 것 없음) |
@@ -83,12 +83,12 @@ The Awesome은 미리 만든 PCM을 안정적으로 분배·운영하는 프로�
 
 | 인자 | 형식 | 설명 |
 |---|---|---|
-| 1 | string | `Running` / `WaitingForDevice` / `Failed` / `StoppedByUser` |
+| 1 | string | `Starting` / `Running` / `WaitingForDevice` / `Failed` / `StoppedByUser` |
 | 2 | string | 짧은 원인(없으면 빈 문자열). 사건 로그·배너의 `EngineDown:<원인>`과 같은 문자열 |
 
 현재 코드의 상태 문자열(`Running`·`Stopped`·`HotReloading`·`EngineDown:<원인>`)과의 대응은 유지 스레드와 하트비트 상태값을 구현할 때(안정성 3단계) 확정한다. 그 전에는 이 신호를 구현하지 않는다.
 
-**3단계 반영(2026-11-14, `core/engine_keeper.rs`):** 시작 신호 인자 2와 상태 조회의 엔진 상태는 엔진 유지자의 값(`Running / WaitingForDevice / Failed / StoppedByUser`)이다. (비상 전환 중 `Running`·빈 장치 이름 규칙은 안정성 ⑤에서 비상 전환과 함께 없앴다, 2026-11-19.) 실패 원인 문자열은 `start_hung`·`open_failed`·`unavailable`(배너 `EngineDown:<원인>`과 같음).
+**3단계 반영(2026-11-14, `core/engine_keeper.rs`):** 시작 신호 인자 2와 상태 조회의 엔진 상태는 엔진 유지자의 값(`Running / WaitingForDevice / Failed / StoppedByUser`)이다. **`Starting`(2026-11-19 사용자 결정):** 앱을 켠 뒤 처음 엔진을 열어 결과가 나오기 전까지의 값이다(장치를 처음 찾는 최대 30초 포함). 예전에는 이 동안 `StoppedByUser`로 보여 "운영자가 끔"으로 읽힐 수 있었다. 그 뒤 다시 열 때는 지금처럼 직전 상태를 유지한다(D7). 받는 쪽은 모르는 상태값을 "정상, 아직 판단하지 않음"으로 다뤄야 한다. (비상 전환 중 `Running`·빈 장치 이름 규칙은 안정성 ⑤에서 비상 전환과 함께 없앴다, 2026-11-19.) 실패 원인 문자열은 `start_hung`·`open_failed`·`unavailable`(배너 `EngineDown:<원인>`과 같음).
 
 ### 3.4 명령 응답
 

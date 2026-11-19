@@ -153,6 +153,16 @@ fn 이_pc에_없는_장치와_사용자_정지는_다시_띄우지_않는다() {
 }
 
 #[test]
+fn 앱을_켠_뒤_처음_열기_전_starting은_카운터가_그대로여도_다시_띄우지_않는다() {
+    // 2026-11-19 사용자 결정: 첫 열기 결과 전 상태값 Starting(처음 장치 찾기 최대 30초). 멈추면 앱이 Failed(start_hung)로 바꾼다.
+    let t0 = Instant::now();
+    let mut w = Watch::new(t0, S(90), S(30), S(120));
+    for sec in 1..=300u64 {
+        assert_eq!(w.observe(t0 + S(sec), Some(&eng("Starting", 0, "").with_ui(sec))).verdict, Verdict::Ok, "{sec}초");
+    }
+}
+
+#[test]
 fn 엔진_상태가_바뀌면_알리고_running이면_알린다() {
     let t0 = Instant::now();
     let mut w = Watch::new(t0, S(90), S(30), S(120));

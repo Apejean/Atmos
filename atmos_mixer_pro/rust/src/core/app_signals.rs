@@ -51,7 +51,7 @@ pub struct HeartbeatValues {
     pub audio_cb_ms: u64,
     pub engine_active: bool,
     pub silent_warnings: u32,
-    /// 엔진 상태값(core::engine_keeper: Running / WaitingForDevice / Failed / StoppedByUser). 감시 정책은 안정성 ⑥.
+    /// 엔진 상태값(core::engine_keeper: Starting / Running / WaitingForDevice / Failed / StoppedByUser). 감시 정책은 안정성 ⑥.
     pub engine_state: &'static str,
     /// 엔진 유지자의 진행 카운터. 대기·실패 중에도 5초마다 는다(유지자가 살아 있다).
     pub engine_progress: u64,

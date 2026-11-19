@@ -176,7 +176,8 @@ fn 재시도_간격은_1_2_4_8_16_30초이고_그_뒤_30초다() {
 #[test]
 fn 상태_기계는_실패_종류에_따라_대기와_실패를_가른다() {
     let mut core = KeeperCore::default();
-    assert_eq!(core.state, EngineState::StoppedByUser);
+    assert_eq!(core.state, EngineState::Starting, "앱을 켠 뒤 처음 열기 전");
+    assert_eq!(core.state.name(), "Starting");
     assert_eq!(core.on_failed(&StartFailure::NotFound(String::new())), Some(1));
     assert_eq!(core.state, EngineState::WaitingForDevice);
     assert_eq!(core.on_failed(&StartFailure::OpenFailed(String::new())), Some(2));

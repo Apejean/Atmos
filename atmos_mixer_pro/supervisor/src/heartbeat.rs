@@ -10,7 +10,7 @@ pub const SUPERVISOR_LOCK: &str = "supervisor.lock";
 /// 앱의 엔진 유지자 상태(안정성 ③부터 하트비트에 실림). 감시는 이것으로 다시 띄울지 정한다(안정성 ⑥, 설계 5.3.1).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EngineReport {
-    /// `Running`·`WaitingForDevice`·`Failed`·`StoppedByUser`
+    /// `Starting`·`Running`·`WaitingForDevice`·`Failed`·`StoppedByUser`
     pub state: String,
     /// 진행 카운터. 대기·실패 중에도 5초마다 는다(유지자가 살아 있다).
     pub progress: u64,
