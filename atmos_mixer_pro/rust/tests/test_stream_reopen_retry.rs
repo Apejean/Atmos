@@ -246,13 +246,19 @@ fn 끊겼다_돌아온_그룹_루프는_끊기지_않은_루프와_프레임_차
         assert!(t0.elapsed() < Duration::from_secs(10), "B가 밀리지 않는다(다시 열기가 실패하지 않았다)");
     }
     assert_eq!(read_failures::failing_count(), 1);
-    // 1.3초 동안 끊긴 채 돈다(실시간 속도로, 디코더의 다시 열기는 벽시계를 따른다).
+    // 루프 길이(0.5초)의 2.5배 넘게 밀릴 때까지 끊긴 채 돈다. 벽시계가 아니라 밀린 프레임으로 기다린다 — CI 러너
+    // (macOS)에서는 sleep이 길어져 "1.3초 동안"으로는 블록 수가 모자랐다(PR #124 첫 CI). 여러 바퀴 밀린 뒤 회복하므로
+    // 믹서의 "루프는 길이의 나머지만 건너뛴다"도 함께 지난다.
     let outage = Instant::now();
-    while outage.elapsed() < Duration::from_millis(1300) {
+    while rig.instance(2).lag_frames <= 2.5 * frames as f64 {
         rig.block();
-        std::thread::sleep(Duration::from_millis(10));
+        std::thread::sleep(Duration::from_millis(5));
+        assert!(
+            outage.elapsed() < Duration::from_secs(30),
+            "끊긴 동안 밀린 프레임을 세지 않았다: {}",
+            rig.instance(2).lag_frames
+        );
     }
-    assert!(rig.instance(2).lag_frames > 0.5 * FS as f64, "끊긴 동안 밀린 프레임을 세지 않았다");
     std::fs::rename(&b_moved, &b_path).unwrap();
 
     // 다시 열려 따라잡을 때까지 돌린다.
