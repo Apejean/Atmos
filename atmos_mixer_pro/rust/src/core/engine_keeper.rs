@@ -347,6 +347,12 @@ fn apply_failure(rt: &mut Runtime, failure: &StartFailure) {
     rt.next_try = rt.core.on_failed(failure).map(|units| Instant::now() + unit(units));
     PROGRESS.fetch_add(1, Ordering::AcqRel);
     publish(rt, before, Some(failure));
+    // 대기·실패로 처음 들어가는 순간, 그 전(Running·StoppedByUser 등)에 받아 큐에 쌓인 재생을 재개 항목으로 옮긴다.
+    // 상태를 먼저 알린 뒤에 해야 그 뒤 재생은 거절되고(D11) 앞의 것은 남김없이 옮겨진다.
+    let down = |s: EngineState| matches!(s, EngineState::WaitingForDevice | EngineState::Failed(_));
+    if !down(before) && down(rt.core.state) {
+        crate::core::restart_resume::absorb_queued_plays();
+    }
 }
 
 fn apply_success(rt: &mut Runtime) {
