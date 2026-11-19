@@ -421,6 +421,8 @@ pub(crate) fn play_track_from_in(
     // 장치를 기다리거나 실패한 동안의 재생 명령은 쌓지 않고 버린다(유지 스레드 설계 D11, OSC 규격 §4). 큐에 남았다가
     // 장치가 돌아올 때 한꺼번에 나면 안 된다. 짧은 자기 재시작 중(상태 Running 유지)에는 지금처럼 받는다.
     reject_if_engine_down()?;
+    // 재개를 기다리는 트랙인가(루프 중복 막기에 쓴다, restart_resume::is_pending — 맨 안쪽 잠금만 쥔다).
+    let resume_waiting = crate::core::restart_resume::is_pending(&track_id);
     let config_guard = GLOBAL_STATE
         .config
         .read()
@@ -461,7 +463,7 @@ pub(crate) fn play_track_from_in(
                                 .read()
                                 .unwrap_or_else(|e| e.into_inner());
                             guard.values().any(|id| id == &track_id)
-                        };
+                        } || resume_waiting; // 자기 재시작 중 재개 대기(스냅샷이 재생 목록을 비운다)
                         if is_playing {
                             if crate::core::state::debug_flags::trace_cmd() {
                                 eprintln!("[CMD] 재생 건너뜀(이미 재생 중인 루프) track={track_id}");
@@ -549,7 +551,7 @@ pub(crate) fn play_track_from_in(
                                     .read()
                                     .unwrap_or_else(|e| e.into_inner());
                                 guard.values().any(|id| id == &track_id)
-                            };
+                            } || resume_waiting; // 자기 재시작 중 재개 대기(스냅샷이 재생 목록을 비운다)
                             if is_playing {
                                 return Ok(());
                             }
