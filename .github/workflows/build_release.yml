@@ -24,6 +24,8 @@ concurrency:
 jobs:
   build:
     strategy:
+      # 한쪽 OS가 실패해도 다른 쪽을 끝까지 돌려 두 결과를 다 본다(PR #125에서 macOS 실패로 Windows 시험이 취소됐다).
+      fail-fast: false
       matrix:
         os: [windows-latest, macos-latest]
         include:
@@ -103,6 +105,25 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
         working-directory: atmos_mixer_pro
+
+      # PR마다 시험을 돌려 병합 전에 막는다(2026-11-19 사용자 결정 "Rust cargo test까지 모두"). 빌드보다 먼저 돌려 빨리
+      # 실패하게 한다. 정적 분석은 0건을 유지한다.
+      - name: Flutter analyze
+        run: flutter analyze
+        working-directory: atmos_mixer_pro
+
+      - name: Flutter tests
+        run: flutter test
+        working-directory: atmos_mixer_pro
+
+      # 하드웨어 의존 시험은 뺀다(CI 러너의 오디오 장치는 가상 장치뿐이다):
+      # - test_cpal_hosts(ASIO 드라이버를 불러온다), 엔진을_drop하면(기본 출력 장치를 연다) — 개발 PC에서도 뺀다.
+      # - tests/test_macos_output_only_device.rs 4개(직접_조회…, 출력_전용_장치…) — 머리 주석대로 실제 Mac 장치용이다.
+      #   러너의 'Apple Virtual Sound Device'에서 coreaudio_fallback::output_config가 None이라 실패했다(PR #125).
+      #   가상·집계 장치에서 실제로 문제인지는 Mac 세션이 확인한다.
+      - name: Rust engine tests
+        run: cargo test -- --skip test_cpal_hosts --skip 엔진을_drop하면 --skip 직접_조회 --skip 출력_전용_장치
+        working-directory: atmos_mixer_pro/rust
 
       - name: Cargo Check to reveal Windows Rust errors
         if: matrix.os == 'windows-latest'
