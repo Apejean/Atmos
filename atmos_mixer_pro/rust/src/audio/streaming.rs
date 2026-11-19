@@ -608,6 +608,22 @@ pub fn file_frames(path: &str) -> Option<(u64, u32)> {
     Some((track.codec_params.n_frames?, track.codec_params.sample_rate?))
 }
 
+/// 파일의 채널 수(머리말만 읽는다). 모르면 None. 출력 설정이 비었을 때 믹서 처리 폭을 정하는 데 쓴다
+/// (core::processing_channels::current_processing_channels). 오디오 스레드에서 부르지 않는다(파일 I/O).
+pub fn file_channels(path: &str) -> Option<usize> {
+    let file = std::fs::File::open(path).ok()?;
+    let mss = symphonia::core::io::MediaSourceStream::new(Box::new(file), Default::default());
+    let mut hint = symphonia::core::probe::Hint::new();
+    if let Some(ext) = std::path::Path::new(path).extension().and_then(|s| s.to_str()) {
+        hint.with_extension(&ext.to_lowercase());
+    }
+    let probed = symphonia::default::get_probe()
+        .format(&hint, mss, &Default::default(), &Default::default())
+        .ok()?;
+    let track = probed.format.default_track()?;
+    Some(track.codec_params.channels?.count())
+}
+
 /// 시작 위치까지의 샘플은 버리고 나머지를 링버퍼로 보낸다. 링이 차 있으면 자리가 날 때까지 기다린다(디코더 스레드).
 /// 링에 넣으면 `ready`를 켠다(첫 묶음 준비, 그룹 시작이 기다린다).
 fn send_chunk(

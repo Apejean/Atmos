@@ -144,7 +144,7 @@ fn request_restart_if_processing_width_changed(config: &AppConfig) {
         return;
     }
     let wanted = crate::core::processing_channels::mixer_width(
-        crate::core::processing_channels::processing_channel_count(config, hw_channels),
+        crate::core::processing_channels::current_processing_channels(config, hw_channels),
     );
     if wanted != current {
         GLOBAL_STATE.log(format!(
@@ -2696,6 +2696,15 @@ pub fn api_update_spatial_config_json(json_payload: String) -> Result<(), AtmosE
                     .unwrap_or(false)
         })
         .collect();
+    // 출력 설정이 비었을 때 처리 폭에 서브우퍼 채널을 넣는다 — 베이스 매니지먼트가 트랙이 없는 서브 채널로도 저역을
+    // 보낸다(core::processing_channels, 2026-11-20). 서브 채널이 바뀌면 처리 폭을 다시 정한다(출력 설정 변경과 같은 길).
+    let highest_sub = channel_is_sub.iter().rposition(|&s| s).map_or(0, |i| i as u32 + 1);
+    if GLOBAL_STATE.highest_sub_channel.swap(highest_sub, std::sync::atomic::Ordering::Relaxed) != highest_sub {
+        let config = GLOBAL_STATE.config.read().unwrap_or_else(|e| e.into_inner()).clone();
+        if let Some(config) = config.as_ref() {
+            request_restart_if_processing_width_changed(config);
+        }
+    }
     let bass_route =
         crate::audio::bass_route::compute_bass_route(&channel_is_sub, &channel_room_ids, &has_speaker);
     if crate::core::state::debug_flags::trace_cmd() {
