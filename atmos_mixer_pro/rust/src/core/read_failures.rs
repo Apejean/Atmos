@@ -36,12 +36,10 @@ pub struct FailureToken {
 
 impl Drop for FailureToken {
     fn drop(&mut self) {
-        let status = {
-            let mut list = FAILING.lock().unwrap_or_else(|e| e.into_inner());
-            list.retain(|f| f.id != self.id);
-            status_of(&list)
-        };
-        crate::api::simple::broadcast_stream_status(status);
+        // 잠금을 쥔 채 알린다: 밖에서 알리면 동시에 들어온 begin·drop의 옛 값이 마지막에 나갈 수 있다(검토 R4).
+        let mut list = FAILING.lock().unwrap_or_else(|e| e.into_inner());
+        list.retain(|f| f.id != self.id);
+        crate::api::simple::broadcast_stream_status(status_of(&list));
     }
 }
 
@@ -61,12 +59,11 @@ fn status_of(list: &[Failing]) -> String {
 /// `path`를 다시 열지 못해 기다리기 시작한다. 목록에 넣고 상태를 알린다.
 pub fn begin(path: &Path) -> FailureToken {
     let id = NEXT_ID.fetch_add(1, Ordering::Relaxed);
-    let status = {
-        let mut list = FAILING.lock().unwrap_or_else(|e| e.into_inner());
-        list.push(Failing { id, file_name: file_name_of(path) });
-        status_of(&list)
-    };
-    crate::api::simple::broadcast_stream_status(status);
+    // 잠금을 쥔 채 알린다(Drop과 같은 이유, 검토 R4).
+    let mut list = FAILING.lock().unwrap_or_else(|e| e.into_inner());
+    list.push(Failing { id, file_name: file_name_of(path) });
+    crate::api::simple::broadcast_stream_status(status_of(&list));
+    drop(list);
     FailureToken { id }
 }
 
