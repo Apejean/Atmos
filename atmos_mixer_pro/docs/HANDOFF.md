@@ -149,7 +149,7 @@ Windows 실기에서 먼저 빌드·실행해 확인해야 하는 항목:
 17. **2026-11-13·15 검토에서 나온 열린 항목**(보고서: 개발 PC `D:\dev\harness\REPORT_v1.3.12_review.md`, `REPORT_2026-11-15_docs_review.md`). 수정 중: A1 재생 교착(PR #99), A2 워치독 벽시계(PR #101). 끝남: A3 설계 데이터 보호(#107), A7 OSC 포트 재시도(#105), A8 화면 예외 로그(#104), 옛 3D Object 경로 삭제(#106). **열림(사용자 결정 또는 배분 필요):**
    - A4 더킹 → 의도된 동작으로 확인(2026-11-16, 확정된 결정 "루프 더킹"). 열린 항목 아님.
    - A5 → 고침(브랜치 `win/preload-fail-aac`): 미리 읽기에 실패한 빈 캐시 항목은 재생할 때 없는 것으로 보고 다시 읽어 보며, 그래도 못 읽으면 Err(OSC `rejected play_failed`)를 돌려준다. 파일을 고치면 다음 재생은 된다(`rust/tests/test_preload_failure.rs`).
-   - A6 → 고침(브랜치 `win/loop-reopen-retry`, 2026-11-19 Main 결정·사용자 "배너띄워"): 디스크 스트리밍이 파일을 다시 열지 못하거나(루프 한 바퀴 끝) 파일 끝이 아닌 읽기 오류·연속 오류 100번이 나도 멈추지 않고 1·2·5초 뒤, 그다음 10초마다 계속 다시 연다. 그동안 그 트랙만 무음이고 스레드가 살아 있어 믹서가 끝내지 않는다. 정지에는 50ms 단위로 반응한다. 다시 열리면 끊긴 자리(마지막으로 보낸 다음 프레임)부터 잇고, 그룹 루프는 믹서가 밀린 만큼 건너뛰어 끊기지 않은 루프와 위상이 같다(시험에서 차이 0프레임). 사건 로그 `loop_reopen_failed`(같은 파일 1분에 한 번)·`loop_reopen_recovered`·`stream_read_error`·`stream_seek_unavailable`·`stream_open_failed`, 대시보드 주황 지속 배너(상태 `ReadFailing:<수>:<첫 파일>`·`ReadFailing:0`, `core/read_failures.rs`, `read_failing_banner.dart`). 시험 `rust/tests/test_stream_reopen_retry.rs`. 그룹 아닌 트랙은 멈춘 자리에서 잇는다(믹서 규칙 그대로).
+   - A6 → 고침(브랜치 `win/loop-reopen-retry`, 2026-11-19 Main 결정·사용자 "배너띄워"): 디스크 스트리밍이 파일을 다시 열지 못하거나(루프 한 바퀴 끝) 파일 끝이 아닌 읽기 오류·연속 오류 100번이 나도 멈추지 않고 1·2·5초 뒤, 그다음 10초마다 계속 다시 연다. 그동안 그 트랙만 무음이고 스레드가 살아 있어 믹서가 끝내지 않는다. 정지에는 50ms 단위로 반응한다. 다시 열리면 끊긴 자리(마지막으로 보낸 다음 프레임)부터 잇고, 그룹 루프는 믹서가 밀린 만큼 건너뛰어 끊기지 않은 루프와 위상이 같다(시험에서 차이 0프레임). 사건 로그 `loop_reopen_failed`(같은 파일 1분에 한 번)·`loop_reopen_recovered`·`stream_read_error`·`stream_seek_unavailable`·`stream_open_failed`, 대시보드 주황 지속 배너(상태 `ReadFailing:<수>:<첫 파일>`·`ReadFailing:0`, `core/read_failures.rs`, `read_failing_banner.dart`). 시험 `rust/tests/test_stream_reopen_retry.rs`. 그룹 아닌 트랙은 멈춘 자리에서 잇는다(믹서 규칙 그대로). 단발(효과음)은 기다린 시간이 남은 길이를 넘으면 포기하고 정상 종료한다(`stream_reopen_gave_up`, 길이를 모르면 60초 뒤 포기, `remaining_s=unknown`) — 계속 기다리면 재생 중으로 남아 루프를 더킹시키므로(2026-11-19 검토 R1, 브랜치 `win/stream-reopen-giveup`). 남은 일: 그룹 루프 회복은 밀린 만큼(한 바퀴 이하)을 실제로 해독해 버리므로 긴 다채널 루프는 회복 무음·디스크 부하를 1.3.13 확인 7번에서 잰다(크면 디코더가 그 자리로 바로 찾기, 검토 R3).
    - A9 콜백이 채널별 공간 게인(방 볼륨·전역 궤적)을 계산하지만 출력에 쓰지 않는다. 고정 OSC 주소 `/audience/pos`도 같은 값만 바꾼다. 매트릭스 라우팅 구현 때 함께 정리.
    - CI(`build_release.yml`)가 엔진 `cargo test`·`flutter test`·`flutter analyze`를 돌리지 않는다. 리미터 미터 시험 버튼 "Simulate GR Test"는 지웠다(2026-11-19 사용자 결정, 브랜치 `win/remove-gr-test-button` — 운영 화면에서는 이미 꺼져 보이지 않았고, 다시 켤 수 없게 코드를 없앴다).
    - 오디오 형식 → AAC·M4A를 빼기로 결정(2026-11-16, 확정된 결정 "오디오 형식"). 구현함 — A5와 한 묶음(브랜치 `win/preload-fail-aac`): `rust/Cargo.toml` symphonia를 `default-features = false` + 명시 목록으로(`aac`·`isomp4`만 뺌, 다시 넣는 법은 그 줄 주석), `room_card.dart` 두 목록에서 aac·m4a 제거.
@@ -159,6 +159,8 @@ Windows 실기에서 먼저 빌드·실행해 확인해야 하는 항목:
    - EULA는 아직 검토용 초안이다(15번). 확정 일정은 아직 없다(2026-11-16 사용자). 상업 납품 전 확정본 필요.
 
 ## 운용 메모
+
+- 음원 파일을 다시 열지 못해 기다리는 루프(주황 배너 "음원 파일을 읽지 못해…")는 같은 트랙을 다시 재생해도 겹쳐 틀지 않아 그대로 기다린다. 파일·디스크를 고친 뒤 기다리지 않고 바로 다시 틀려면 그 트랙을 정지한 뒤 다시 재생한다(2026-11-19 검토 R2).
 
 - 스테레오·멀티 트랙은 서브우퍼가 아닌 채널부터 라우팅한다. 서브로 간 채널은 크로스오버 아래만 남는다.
 - 추적 로그: `ATMOS_TRACE_CMD=1`로 앱을 실행하면 재생/정지 요청, 인스턴스 정리, 엔진 시작/종료(세대), 베이스 라우팅이 stderr에 찍힌다.

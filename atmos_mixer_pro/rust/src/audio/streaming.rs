@@ -105,7 +105,16 @@ impl DiskStreamer {
         let first_chunk_ready = Arc::new(AtomicBool::new(false));
         let ready_flag = first_chunk_ready.clone();
 
-        let ctx = OpenCtx { path, hint, format_opts, metadata_opts, decoder_opts };
+        let ctx = OpenCtx {
+            path,
+            hint,
+            format_opts,
+            metadata_opts,
+            decoder_opts,
+            total_frames,
+            src_rate: src_sample_rate,
+            unknown_length_give_up: UNKNOWN_LENGTH_GIVE_UP,
+        };
         let handle = std::thread::spawn(move || {
             // 처음 열기. 실패하면 사건 로그만 남기고 끝낸다(검토 A6 (c) — new_at이 바로 앞에서 한 번 열어 봤으므로 드물다).
             let mut src = match open_source(&ctx) {
@@ -330,6 +339,9 @@ impl DiskStreamer {
 
 /// 다시 열기를 기다리는 동안 정지(실행 깃발)를 보는 간격. 정지에 100ms 안에 반응한다.
 const WAIT_SLICE: std::time::Duration = std::time::Duration::from_millis(50);
+/// 길이를 모르는 단발(예: Xing/Info 머리말 없는 MP3)은 다시 열기를 이만큼 기다린 뒤 포기한다. 끝없이 기다리면
+/// 재생 중으로 남아 모든 루프를 더킹시킨다(검토 R1 보완).
+pub const UNKNOWN_LENGTH_GIVE_UP: std::time::Duration = std::time::Duration::from_secs(60);
 /// 읽기·해독 오류가 연속으로 이만큼 나면 읽기 오류처럼 다시 연다(같은 오류의 바쁜 반복 막기, 검토 A6 (b)).
 pub const MAX_CONSECUTIVE_ERRORS: u32 = 100;
 
@@ -340,6 +352,12 @@ struct OpenCtx {
     format_opts: symphonia::core::formats::FormatOptions,
     metadata_opts: symphonia::core::meta::MetadataOptions,
     decoder_opts: symphonia::core::codecs::DecoderOptions,
+    /// 파일 길이(소스 프레임). 모르면 None. 단발이 언제 포기할지 정한다.
+    total_frames: Option<u64>,
+    /// 소스 샘플레이트.
+    src_rate: u32,
+    /// 길이를 모르는 단발이 포기하기까지 기다리는 시간(운영은 [`UNKNOWN_LENGTH_GIVE_UP`], 시험은 줄인다).
+    unknown_length_give_up: std::time::Duration,
 }
 
 /// 열린 파일: 읽개·디코더·트랙 번호.
@@ -407,16 +425,22 @@ struct Recovery {
     since: Option<std::time::Instant>,
     /// 오류로 다시 연 자리. 소리가 나기 전에 같은 자리에서 또 오류로 다시 열면 실패로 센다.
     error_at: Option<u64>,
+    /// 단발이 남은 길이만큼 기다려 포기했다(검토 R1).
+    gave_up: bool,
 }
 
 impl Recovery {
     /// 실패 한 번: 실패 목록에 넣고(처음이면) 사건 로그를 남긴 뒤(같은 파일 1분에 한 번) 다음 시도까지 기다린다.
-    /// 기다리는 중에 정지되면 false.
+    /// 기다리는 중에 정지되면 false. 단발은 처음 실패부터 기다린 시간이 `at_ts` 뒤 남은 길이를 넘으면 포기하고
+    /// false(`gave_up`) — 그때면 원래 끝났을 시간이다(공연 시간 기준, 재시작의 restart_resume::skip_outage와 같은
+    /// 방향, 검토 R1). 계속 기다리면 재생 중으로 남아 루프를 더킹시키고 몇 시간 뒤 남은 부분이 난다. 길이를 모르는
+    /// 단발은 [`UNKNOWN_LENGTH_GIVE_UP`] 뒤 포기한다. 루프는 포기하지 않는다.
     fn failed(
         &mut self,
         ctx: &OpenCtx,
         cause: ReopenCause,
         error: &str,
+        at_ts: u64,
         is_loop: bool,
         run_flag: &CachePadded<AtomicBool>,
     ) -> bool {
@@ -438,7 +462,36 @@ impl Recovery {
                 ],
             );
         }
-        wait_while_running(reopen_delay(self.attempt), run_flag)
+        let mut wait = reopen_delay(self.attempt);
+        if !is_loop {
+            // 단발이 기다릴 수 있는 시간: 남은 길이(원래 끝났을 때). 길이를 모르면 고정 상한.
+            let (limit, remaining_s) = match ctx.total_frames {
+                Some(total) => {
+                    let remaining = std::time::Duration::from_secs_f64(
+                        total.saturating_sub(at_ts) as f64 / ctx.src_rate.max(1) as f64,
+                    );
+                    (remaining, format!("{:.1}", remaining.as_secs_f64()))
+                }
+                None => (ctx.unknown_length_give_up, "unknown".to_string()),
+            };
+            let waited = self.since.map(|s| s.elapsed()).unwrap_or_default();
+            if waited >= limit {
+                let waited_s = format!("{:.1}", waited.as_secs_f64());
+                crate::core::event_log::log_event(
+                    "stream_reopen_gave_up",
+                    &[
+                        ("path", &ctx.path.to_string_lossy()),
+                        ("waited_s", &waited_s),
+                        ("remaining_s", &remaining_s),
+                    ],
+                );
+                self.gave_up = true;
+                return false;
+            }
+            // 기다릴 수 있는 때를 넘겨 기다리지 않는다: 그때 한 번 더 열어 보고 안 되면 포기한다.
+            wait = wait.min(limit - waited);
+        }
+        wait_while_running(wait, run_flag)
     }
 
     /// 소리가 다시 나간다. 기다리던 중이었으면 회복을 남기고 실패 목록에서 뺀다.
@@ -477,8 +530,8 @@ fn wait_while_running(d: std::time::Duration, run_flag: &CachePadded<AtomicBool>
     }
 }
 
-/// 파일을 `at_ts`(소스 프레임) 자리로 다시 연다. 못 열면 포기하지 않고 [`reopen_delay`] 간격으로 계속 시도한다
-/// (검토 A6). 정지되면 None. 오류로 다시 연 자리에서 소리가 나기 전에 또 오류가 나면(열리기는 하는데 같은 자리를
+/// 파일을 `at_ts`(소스 프레임) 자리로 다시 연다. 못 열면 [`reopen_delay`] 간격으로 계속 시도한다(검토 A6). 정지되거나
+/// 단발이 남은 길이만큼 기다려 포기하면 None(스레드가 끝나 믹서가 트랙을 정상 종료한다). 오류로 다시 연 자리에서 소리가 나기 전에 또 오류가 나면(열리기는 하는데 같은 자리를
 /// 못 읽는 경우) 그것도 실패로 세어 기다린다 — 바쁜 반복을 막는다.
 fn reopen(
     ctx: &OpenCtx,
@@ -491,7 +544,7 @@ fn reopen(
 ) -> Option<Source> {
     if cause != ReopenCause::LoopEnd {
         if rec.error_at == Some(at_ts) {
-            if !rec.failed(ctx, cause, error.unwrap_or(""), is_loop, run_flag) {
+            if !rec.failed(ctx, cause, error.unwrap_or(""), at_ts, is_loop, run_flag) {
                 return None;
             }
         } else if rec.since.is_none() {
@@ -524,7 +577,7 @@ fn reopen(
                 return Some(src);
             }
             Err(e) => {
-                if !rec.failed(ctx, cause, &e.to_string(), is_loop, run_flag) {
+                if !rec.failed(ctx, cause, &e.to_string(), at_ts, is_loop, run_flag) {
                     return None;
                 }
             }
@@ -593,6 +646,86 @@ fn send_chunk(
 #[cfg(test)]
 mod tests {
     use super::resume_point;
+
+    use super::{reopen, CachePadded, OpenCtx, Recovery, ReopenCause};
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::sync::{Arc, Mutex};
+    use std::time::{Duration, Instant};
+
+    /// 실패 목록(전역)을 쓰는 시험은 하나씩 돈다.
+    static SERIAL: Mutex<()> = Mutex::new(());
+
+    fn missing_ctx(tag: &str, total_frames: Option<u64>) -> OpenCtx {
+        OpenCtx {
+            path: std::env::temp_dir().join(format!("atmos_missing_{tag}_{}.wav", std::process::id())),
+            hint: Default::default(),
+            format_opts: Default::default(),
+            metadata_opts: Default::default(),
+            decoder_opts: Default::default(),
+            total_frames,
+            src_rate: 48_000,
+            unknown_length_give_up: Duration::from_millis(300),
+        }
+    }
+
+    #[test]
+    fn 단발은_남은_길이만큼_기다린_뒤_포기하고_실패_목록에서_빠진다() {
+        let _g = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
+        // 1초짜리 파일의 0.8초 자리에서 끊겼다: 남은 0.2초가 지나면 원래 끝났을 시간이라 포기한다(검토 R1).
+        let ctx = missing_ctx("oneshot", Some(48_000));
+        let run = CachePadded { value: AtomicBool::new(true) };
+        let mut rec = Recovery::default();
+        let t0 = Instant::now();
+        let got = reopen(&ctx, 38_400, ReopenCause::ReadError, Some("test"), false, &mut rec, &run);
+        let took = t0.elapsed();
+        assert!(got.is_none());
+        assert!(rec.gave_up, "정지가 아니라 포기로 끝나야 한다");
+        assert!(took >= Duration::from_millis(150), "남은 길이보다 일찍 포기했다: {took:?}");
+        assert!(took < Duration::from_millis(900), "남은 길이(0.2초)를 넘겨 기다렸다: {took:?}");
+        assert_eq!(crate::core::read_failures::failing_count(), 1, "기다리는 동안은 배너에 있어야 한다");
+        drop(rec); // 스레드가 끝나면 함께 버려진다
+        assert_eq!(crate::core::read_failures::failing_count(), 0);
+    }
+
+    fn keeps_waiting(ctx: OpenCtx, is_loop: bool, cause: ReopenCause) {
+        let run = Arc::new(CachePadded { value: AtomicBool::new(true) });
+        let run2 = run.clone();
+        let h = std::thread::spawn(move || {
+            let mut rec = Recovery::default();
+            let got = reopen(&ctx, 0, cause, None, is_loop, &mut rec, &run2);
+            (got.is_none(), rec.gave_up)
+        });
+        std::thread::sleep(Duration::from_millis(1_500));
+        assert!(!h.is_finished(), "포기하면 안 되는데 끝났다");
+        run.value.store(false, Ordering::Relaxed);
+        let t0 = Instant::now();
+        let (none, gave_up) = h.join().unwrap_or((false, true));
+        assert!(t0.elapsed() < Duration::from_millis(200), "정지에 늦게 반응했다");
+        assert!(none && !gave_up, "정지로 끝나야 한다(포기 아님)");
+    }
+
+    #[test]
+    fn 루프는_포기하지_않는다() {
+        let _g = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
+        keeps_waiting(missing_ctx("loop", Some(4_800)), true, ReopenCause::LoopEnd);
+    }
+
+    #[test]
+    fn 길이를_모르는_단발은_정한_시간만큼_기다린_뒤_포기한다() {
+        let _g = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
+        // 운영 상한은 60초, 시험은 0.3초로 줄였다(검토 R1 보완).
+        assert_eq!(super::UNKNOWN_LENGTH_GIVE_UP, Duration::from_secs(60));
+        let ctx = missing_ctx("unknown", None);
+        let run = CachePadded { value: AtomicBool::new(true) };
+        let mut rec = Recovery::default();
+        let t0 = Instant::now();
+        let got = reopen(&ctx, 0, ReopenCause::ReadError, Some("test"), false, &mut rec, &run);
+        let took = t0.elapsed();
+        assert!(got.is_none() && rec.gave_up, "길이를 모르는 단발도 포기해야 한다");
+        assert!(took >= Duration::from_millis(250) && took < Duration::from_millis(1_000), "{took:?}");
+        drop(rec);
+        assert_eq!(crate::core::read_failures::failing_count(), 0);
+    }
 
     #[test]
     fn 버리는_중에_또_오류가_나도_이어_보낼_자리는_뒤로_가지_않는다() {
