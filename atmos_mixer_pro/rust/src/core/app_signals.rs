@@ -55,19 +55,23 @@ pub struct HeartbeatValues {
     pub engine_state: &'static str,
     /// 엔진 유지자의 진행 카운터. 대기·실패 중에도 5초마다 는다(유지자가 살아 있다).
     pub engine_progress: u64,
+    /// 실패 원인(`start_hung`·`open_failed`·`unavailable`, 실패가 아니면 빈 값). 감시가 다시 띄울지 정한다(안정성 ⑥,
+    /// 감시 설계 5.3.1).
+    pub engine_cause: &'static str,
 }
 
 impl HeartbeatValues {
     pub fn render(&self) -> String {
         format!(
-            "pid={}\nui_ms={}\naudio_cb_ms={}\nengine_active={}\nsilent_warnings={}\nengine_state={}\nengine_progress={}\n",
+            "pid={}\nui_ms={}\naudio_cb_ms={}\nengine_active={}\nsilent_warnings={}\nengine_state={}\nengine_progress={}\nengine_cause={}\n",
             self.pid,
             self.ui_ms,
             self.audio_cb_ms,
             u8::from(self.engine_active),
             self.silent_warnings,
             self.engine_state,
-            self.engine_progress
+            self.engine_progress,
+            self.engine_cause
         )
     }
 }
@@ -87,6 +91,7 @@ pub fn current_heartbeat() -> HeartbeatValues {
         silent_warnings: SILENT_WARNINGS.load(Ordering::Relaxed),
         engine_state: crate::core::engine_keeper::state().name(),
         engine_progress: crate::core::engine_keeper::progress(),
+        engine_cause: crate::core::engine_keeper::state().cause(),
     }
 }
 

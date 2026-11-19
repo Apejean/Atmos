@@ -11,6 +11,8 @@ use std::time::{Duration, Instant};
 
 /// 오디오 멈춤으로는 연속 이 횟수까지만 다시 띄운다(스펙 5.3).
 pub const AUDIO_STALL_LIMIT: u32 = 3;
+/// 엔진 상태(시작 멈춤·유지자 멈춤·열기 실패)로는 연속 이 횟수까지만 다시 띄운다(스펙 5.3.1, 오디오 멈춤과 따로 센다).
+pub const ENGINE_RELAUNCH_LIMIT: u32 = 3;
 /// 앱이 중복 실행이라 끝날 때의 종료 코드(다른 앱이 이미 떠 있다).
 pub const DUPLICATE_EXIT_CODE: i32 = 3;
 /// 중복 종료가 이만큼 이어지면(넘겨받을 앱을 못 찾음, 권한 등) 바로 다시 보지 않고 재실행 대기를 둔다.
@@ -42,6 +44,10 @@ pub struct Config {
     pub backoff_max: Duration,
     /// 앱이 이만큼 잘 돌았으면 대기 시간을 처음 값으로 돌린다.
     pub stable: Duration,
+    /// 장치 대기·실패인데 엔진 유지자 진행 카운터가 이만큼 그대로면 유지 스레드 멈춤(스펙 5.3.1).
+    pub keeper_stall: Duration,
+    /// 장치는 보이는데 열기 실패가 이만큼 이어지면 다시 띄운다(스펙 5.3.1).
+    pub open_failed_after: Duration,
 }
 
 /// 앱 로그 폴더. 앱의 `core::log_file::log_dir()`(rust/src/core/log_file.rs)와 같아야 한다 —
@@ -76,6 +82,8 @@ impl Config {
             backoff_min: Duration::from_secs(2),
             backoff_max: Duration::from_secs(60),
             stable: Duration::from_secs(300),
+            keeper_stall: crate::watch::KEEPER_STALL,
+            open_failed_after: crate::watch::OPEN_FAILED_AFTER,
         };
         let mut it = args.iter();
         while let Some(arg) = it.next() {
@@ -88,6 +96,8 @@ impl Config {
                 "--audio-stall-secs" => cfg.audio_stall = secs(arg, value(&mut it, arg)?)?,
                 "--tick-ms" => cfg.tick = millis(arg, value(&mut it, arg)?)?,
                 "--backoff-min-ms" => cfg.backoff_min = millis(arg, value(&mut it, arg)?)?,
+                "--keeper-stall-secs" => cfg.keeper_stall = secs(arg, value(&mut it, arg)?)?,
+                "--open-failed-secs" => cfg.open_failed_after = secs(arg, value(&mut it, arg)?)?,
                 other => return Err(format!("모르는 인자: {other}")),
             }
         }
@@ -132,6 +142,10 @@ struct Supervisor<'a> {
     audio_relaunches: u32,
     /// 한도에 걸린 뒤 "더는 다시 띄우지 않는다"를 한 번만 남긴다.
     audio_gave_up_logged: bool,
+    /// 엔진 상태로 연속 다시 띄운 횟수. 엔진이 Running이 되면 0으로 돌아간다(스펙 5.3.1).
+    engine_relaunches: u32,
+    /// 엔진 상태 한도에 걸린 뒤 "더는 다시 띄우지 않는다"를 한 번만 남긴다.
+    engine_gave_up_logged: bool,
     /// 마지막으로 본 무음 경고 누적 횟수.
     silent_warnings: u32,
     /// 중복 실행(종료 코드 3)으로 연달아 끝난 횟수.
@@ -167,6 +181,8 @@ pub fn run(cfg: &Config) {
         first_launch: true,
         audio_relaunches: 0,
         audio_gave_up_logged: false,
+        engine_relaunches: 0,
+        engine_gave_up_logged: false,
         silent_warnings: 0,
         duplicates: 0,
     }
@@ -252,6 +268,9 @@ impl Supervisor<'_> {
                     if verdict == Verdict::AudioStall {
                         self.audio_relaunches += 1;
                     }
+                    if verdict.is_engine() {
+                        self.engine_relaunches += 1;
+                    }
                     self.log(&format!("{} — 앱을 강제 종료했다(pid {})", self.describe(verdict), target.pid()));
                 }
             }
@@ -299,7 +318,8 @@ impl Supervisor<'_> {
     fn watch(&mut self, target: &mut Target, adopted: bool) -> Ending {
         // 넘겨받은 앱은 하트비트가 이미 있어야 하므로 첫 하트비트 기한을 멈춤 판단과 같게 둔다.
         let first = if adopted { self.cfg.hang } else { self.cfg.first_heartbeat };
-        let mut watch = Watch::new(Instant::now(), first, self.cfg.hang, self.cfg.audio_stall);
+        let mut watch = Watch::new(Instant::now(), first, self.cfg.hang, self.cfg.audio_stall)
+            .with_engine_limits(self.cfg.keeper_stall, self.cfg.open_failed_after);
         loop {
             std::thread::sleep(self.cfg.tick);
             if let Some(code) = target.try_exit() {
@@ -318,8 +338,32 @@ impl Supervisor<'_> {
                 self.audio_relaunches = 0;
                 self.audio_gave_up_logged = false;
             }
+            if let Some((before, now)) = &seen.engine_change {
+                let show = |(state, cause): &(String, String)| {
+                    if cause.is_empty() { state.clone() } else { format!("{state}({cause})") }
+                };
+                match before {
+                    Some(before) => self.log(&format!("엔진 상태: {} → {}", show(before), show(now))),
+                    None => self.log(&format!("엔진 상태: {}", show(now))),
+                }
+            }
+            if seen.engine_running && self.engine_relaunches > 0 {
+                self.log("엔진이 다시 돈다(Running) — 엔진 상태 재실행 횟수를 초기화한다");
+                self.engine_relaunches = 0;
+                self.engine_gave_up_logged = false;
+            }
             match seen.verdict {
                 Verdict::Ok => {}
+                verdict if verdict.is_engine() && self.engine_relaunches >= ENGINE_RELAUNCH_LIMIT => {
+                    if !self.engine_gave_up_logged {
+                        self.log(&format!(
+                            "{} — 그러나 연속 {ENGINE_RELAUNCH_LIMIT}번 다시 띄워도 그대로라 더는 엔진 상태로 다시 띄우지 \
+                             않는다(앱 화면 배너가 원인을 보인다, 장치·드라이버를 확인하세요)",
+                            self.describe(verdict)
+                        ));
+                        self.engine_gave_up_logged = true;
+                    }
+                }
                 Verdict::AudioStall if self.audio_relaunches >= AUDIO_STALL_LIMIT => {
                     if !self.audio_gave_up_logged {
                         self.log(&format!(
@@ -355,6 +399,20 @@ impl Supervisor<'_> {
                 "오디오 멈춤: 엔진이 켜져 있는데 오디오 콜백이 {:.0}초 넘게 돌지 않았다(연속 {}번째)",
                 self.cfg.audio_stall.as_secs_f64(),
                 self.audio_relaunches
+            ),
+            Verdict::EngineStartHung => format!(
+                "엔진 시작 멈춤: 오디오 드라이버 호출이 돌아오지 않아 앱 안에서 회복할 수 없다(Failed(start_hung), 연속 {}번째)",
+                self.engine_relaunches
+            ),
+            Verdict::KeeperStalled => format!(
+                "엔진 유지 스레드 멈춤: 장치 대기·실패인데 진행 카운터가 {:.0}초 넘게 그대로다(연속 {}번째)",
+                self.cfg.keeper_stall.as_secs_f64(),
+                self.engine_relaunches
+            ),
+            Verdict::EngineOpenFailed => format!(
+                "장치 열기 연속 실패: 장치는 보이는데 {:.0}초 넘게 열지 못했다(Failed(open_failed), 연속 {}번째)",
+                self.cfg.open_failed_after.as_secs_f64(),
+                self.engine_relaunches
             ),
             Verdict::Ok => "정상".into(),
         }

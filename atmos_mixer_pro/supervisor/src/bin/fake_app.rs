@@ -5,7 +5,12 @@
 //! (앱 시작 관문의 중복 실행 흉내), --auto-relaunched면 FAKE_NEXT, 아니면 FAKE_FIRST다(기본 "ok").
 //! 실행할 때마다 FAKE_DIR/launches에 "PID 인자…"를 남긴다. FAKE_DIR/crash-<PID>가 생기면 표시 없이 1로,
 //! close-<PID>가 생기면 clean_exit을 남기고 0으로 끝난다. 테스트가 실패해 남더라도 2분 뒤에는 스스로 끝난다.
-use atmos_supervisor::heartbeat::{atomic_write, read_pid, Heartbeat, APP_LOCK, APP_PID, CLEAN_EXIT, HEARTBEAT};
+//! 엔진 상태 모드(안정성 ⑥): "engine-hung"은 Failed(start_hung), "engine-waiting"은 WaitingForDevice를 하트비트에 싣는다.
+//! 진행 카운터는 하트비트마다 늘고, FAKE_DIR/keeper-stop이 생기면 멈춘다(유지 스레드 멈춤). FAKE_DIR/engine-ok가
+//! 생기면 Running(엔진 켜짐, 콜백이 돎)으로 바뀐다.
+use atmos_supervisor::heartbeat::{
+    atomic_write, read_pid, EngineReport, Heartbeat, APP_LOCK, APP_PID, CLEAN_EXIT, HEARTBEAT,
+};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{exit, Command, Stdio};
@@ -98,6 +103,7 @@ fn main() {
     let silent_warnings = std::env::var("FAKE_SILENT_WARNINGS").ok().and_then(|v| v.parse().ok()).unwrap_or(0);
 
     let (mut ui, mut audio) = (0u64, 1000u64);
+    let mut progress = 0u64;
     let mut marked = false;
     loop {
         if dir.join(format!("crash-{pid}")).exists() {
@@ -131,10 +137,28 @@ fn main() {
         };
         if beating {
             ui += 1;
-            if mode != "audio-stall" || dir.join("audio-ok").exists() {
+            // 엔진 상태 모드: 엔진이 꺼진 채(대기·실패) 진행 카운터만 늘거나, engine-ok가 생기면 Running.
+            let engine = match mode.as_str() {
+                "engine-hung" | "engine-waiting" => {
+                    let (state, cause) = if dir.join("engine-ok").exists() {
+                        ("Running", "")
+                    } else if mode == "engine-hung" {
+                        ("Failed", "start_hung")
+                    } else {
+                        ("WaitingForDevice", "")
+                    };
+                    if state != "Running" && !dir.join("keeper-stop").exists() {
+                        progress += 1;
+                    }
+                    Some(EngineReport { state: state.into(), progress, cause: cause.into() })
+                }
+                _ => None,
+            };
+            let engine_active = engine.as_ref().is_none_or(|e| e.state == "Running");
+            if engine_active && (mode != "audio-stall" || dir.join("audio-ok").exists()) {
                 audio += 1;
             }
-            let beat = Heartbeat { pid, ui_ms: ui, audio_cb_ms: audio, engine_active: true, silent_warnings };
+            let beat = Heartbeat { pid, ui_ms: ui, audio_cb_ms: audio, engine_active, silent_warnings, engine };
             let _ = atomic_write(&dir.join(HEARTBEAT), &beat.render());
         }
         std::thread::sleep(BEAT);
