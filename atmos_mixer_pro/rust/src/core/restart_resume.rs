@@ -119,26 +119,35 @@ pub fn take_snapshot(generation: u64) {
 /// 다시 보낸다, take_snapshot과 같음). 오디오 콜백 밖(유지자)에서만 부른다.
 pub fn absorb_queued_plays() {
     let mut queue = pending();
-    let mut plays: Vec<(String, f64)> = Vec::new();
-    while let Ok(cmd) = GLOBAL_STATE.command_receiver.try_recv() {
-        if let AudioCommand::PlayTrack { instance, .. } = &cmd {
-            plays.push((instance.track_id_str.clone(), instance.position_seconds()));
+    let drained: Vec<AudioCommand> = std::iter::from_fn(|| GLOBAL_STATE.command_receiver.try_recv().ok()).collect();
+    // 재생 목록에 남은 인스턴스만 옮긴다(take_snapshot과 같은 기준). 받았다가 곧 멈춘 재생("재생 X → 정지 X")은 정지가
+    // 이미 목록에서 뺐으므로 걸러진다 — 큐의 재생만 보고 옮기면 사용자가 멈춘 트랙이 장치 복귀 때 살아난다.
+    let playing = GLOBAL_STATE.playing_track_ids.read().unwrap_or_else(|e| e.into_inner()).clone();
+    let config = GLOBAL_STATE.config.read().unwrap_or_else(|e| e.into_inner()).clone();
+    let taken_ms = GLOBAL_STATE.monotonic_ms();
+    for cmd in &drained {
+        let AudioCommand::PlayTrack { instance, .. } = cmd else { continue };
+        let Some(track_id) = playing.get(&instance.instance_id) else { continue };
+        let found = config.as_ref().and_then(|c| {
+            c.rooms.iter().find_map(|r| r.tracks.iter().find(|t| &t.id == track_id).map(|t| (r, t)))
+        });
+        let Some((room, track)) = found else { continue };
+        // 이미 재개 대기에 있는 루프를 다시 누른 것이면 옮기지 않는다(루프 중복 막기와 같음). 스냅샷이 재생 목록을
+        // 비워 재생 쪽 중복 막기가 못 보고 받아 준 것이라, 옮기면 같은 루프 두 벌이 서로 다른 위상으로 난다.
+        if track.is_loop && queue.iter().any(|p| &p.entry.track_id == track_id) {
+            continue;
         }
-    }
-    if !plays.is_empty() {
-        let config = GLOBAL_STATE.config.read().unwrap_or_else(|e| e.into_inner()).clone();
-        let taken_ms = GLOBAL_STATE.monotonic_ms();
-        for (track_id, seconds) in plays {
-            let room = config
-                .as_ref()
-                .and_then(|c| c.rooms.iter().find(|r| r.tracks.iter().any(|t| t.id == track_id)));
-            if let Some(room) = room {
-                queue.push(Pending { entry: ResumeEntry { room_id: room.id.clone(), track_id, seconds }, taken_ms });
-            }
-        }
+        let entry =
+            ResumeEntry { room_id: room.id.clone(), track_id: track_id.clone(), seconds: instance.position_seconds() };
+        queue.push(Pending { entry, taken_ms });
     }
     drop(queue);
     GLOBAL_STATE.clear_playing_tracks();
+    // 꺼낸 명령의 인스턴스(디스크 스트리머 포함)를 버리면 디코더 스레드를 join한다. 유지자 잠금을 쥔 채 하지 않도록
+    // 따로 버린다(사용자 정지·다음 일 처리가 늦어지지 않게).
+    if !drained.is_empty() {
+        let _ = std::thread::Builder::new().name("absorb-drop".into()).spawn(move || drop(drained));
+    }
 }
 
 // 아래 cancel_*는 대기열 잠금 안에서 정지 순번을 올린다. 재개 쪽(resume_pending)도 같은 잠금 안에서 순번을 읽고

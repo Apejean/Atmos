@@ -390,6 +390,22 @@ pub(crate) fn play_track_from(
     play_track_from_in(room_id, track_id, start_seconds, None)
 }
 
+/// 장치를 기다리거나 실패한 상태면 재생을 버리는 오류(유지 스레드 설계 D11, OSC 규격 §4). 재생 진입점에서 한 번,
+/// 큐에 보내기 바로 앞에서 한 번 더 본다 — 파일을 통째로 읽거나 스트리머를 만드는 동안 대기로 바뀌면 유지자가 큐를
+/// 이미 재개 항목으로 옮긴 뒤라 그 명령이 큐에 남아 장치 복귀 때 날 수 있었다(2026-11-19 검토 세션). 남는 틈은 마이크로초.
+fn reject_if_engine_down() -> Result<(), AtmosError> {
+    if crate::core::engine_keeper::accepts_play() {
+        return Ok(());
+    }
+    Err(AtmosError {
+        message: format!(
+            "{} ({})",
+            crate::osc::reply::ENGINE_WAITING_PREFIX,
+            crate::core::engine_keeper::state().name()
+        ),
+    })
+}
+
 /// [`play_track_from`]과 같고, `group`이 있으면 인스턴스를 그 그룹의 대기로 보내고 디스크 트랙의 첫 묶음 표시를
 /// 모은다(core::group_start::play_group이 모아 함께 시작한다).
 pub(crate) fn play_track_from_in(
@@ -404,15 +420,7 @@ pub(crate) fn play_track_from_in(
     }
     // 장치를 기다리거나 실패한 동안의 재생 명령은 쌓지 않고 버린다(유지 스레드 설계 D11, OSC 규격 §4). 큐에 남았다가
     // 장치가 돌아올 때 한꺼번에 나면 안 된다. 짧은 자기 재시작 중(상태 Running 유지)에는 지금처럼 받는다.
-    if !crate::core::engine_keeper::accepts_play() {
-        return Err(AtmosError {
-            message: format!(
-                "{} ({})",
-                crate::osc::reply::ENGINE_WAITING_PREFIX,
-                crate::core::engine_keeper::state().name()
-            ),
-        });
-    }
+    reject_if_engine_down()?;
     let config_guard = GLOBAL_STATE
         .config
         .read()
@@ -478,6 +486,9 @@ pub(crate) fn play_track_from_in(
                         Ok(streamer) => {
                             let sample_rate = streamer.sample_rate;
                             let channels = streamer.channels;
+                            // 스트리머를 만드는 동안 대기로 바뀌었으면 보내지 않는다. 그룹 준비 표시를 넣기 전에 봐야, 거절된
+                            // 트랙 때문에 같은 그룹이 첫 묶음 대기 시간(1초)을 다 채우지 않는다.
+                            reject_if_engine_down()?;
                             if let Some(g) = group.as_mut() {
                                 // 그룹 시작은 이 표시가 켜질 때까지(첫 묶음 준비) 기다린 뒤 함께 시작한다.
                                 g.ready.push(streamer.first_chunk_ready.clone());
@@ -545,6 +556,7 @@ pub(crate) fn play_track_from_in(
                         }
 
                         GLOBAL_STATE.note_track_source_rate(&track_id, &track.file_path, None);
+                        reject_if_engine_down()?; // 파일을 읽는 동안 대기로 바뀌었으면 보내지 않는다
                         GLOBAL_STATE.add_playing_track(instance_id, track_id.clone());
                         GLOBAL_STATE
                             .command_sender
@@ -587,6 +599,7 @@ pub(crate) fn play_track_from_in(
                     };
                     if let Some(data) = cached_data {
                         GLOBAL_STATE.note_track_source_rate(&track_id, &track.file_path, None);
+                        reject_if_engine_down()?; // 파일을 읽는 동안 대기로 바뀌었으면 보내지 않는다
                         GLOBAL_STATE.add_playing_track(instance_id, track_id.clone());
                         GLOBAL_STATE
                             .command_sender
@@ -638,6 +651,7 @@ pub(crate) fn play_track_from_in(
                                 }
                                 GLOBAL_STATE.note_file_source_rate(&track.file_path, source_rate);
                                 GLOBAL_STATE.note_track_source_rate(&track_id, &track.file_path, Some(source_rate));
+                                reject_if_engine_down()?; // 파일을 읽는 동안 대기로 바뀌었으면 보내지 않는다
                                 GLOBAL_STATE.add_playing_track(instance_id, track_id.clone());
                                 GLOBAL_STATE
                                     .command_sender
