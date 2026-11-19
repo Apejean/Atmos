@@ -830,11 +830,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               const SizedBox(width: 8),
               // 미터는 16ms 주기 VU 스트림을 직접 읽으므로 이 영역만 다시 그린다.
               const RepaintBoundary(
-                child: MasterLimiterMeterWidget(
-                  // 상용 전시 현장에서 시뮬레이션이 켜진 채 남으면 미터를
-                  // 오독하게 되므로 기본적으로 끈다.
-                  enableSimulationToggle: false,
-                ),
+                child: MasterLimiterMeterWidget(),
               ),
               const SizedBox(width: 8),
               const BinauralToggleBadge(),

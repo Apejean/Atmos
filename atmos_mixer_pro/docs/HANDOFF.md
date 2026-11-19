@@ -149,7 +149,7 @@ Windows 실기에서 먼저 빌드·실행해 확인해야 하는 항목:
    - A4 더킹 → 의도된 동작으로 확인(2026-11-16, 확정된 결정 "루프 더킹"). 열린 항목 아님.
    - A5 → 고침(브랜치 `win/preload-fail-aac`): 미리 읽기에 실패한 빈 캐시 항목은 재생할 때 없는 것으로 보고 다시 읽어 보며, 그래도 못 읽으면 Err(OSC `rejected play_failed`)를 돌려준다. 파일을 고치면 다음 재생은 된다(`rust/tests/test_preload_failure.rs`). A6 루프가 바퀴마다 파일을 다시 열고 실패하면 재시도·로그 없이 멈춘다.
    - A9 콜백이 채널별 공간 게인(방 볼륨·전역 궤적)을 계산하지만 출력에 쓰지 않는다. 고정 OSC 주소 `/audience/pos`도 같은 값만 바꾼다. 매트릭스 라우팅 구현 때 함께 정리.
-   - CI(`build_release.yml`)가 엔진 `cargo test`·`flutter test`·`flutter analyze`를 돌리지 않는다. 운영 화면에 리미터 미터 시험 버튼 "Simulate GR Test"가 남아 있다.
+   - CI(`build_release.yml`)가 엔진 `cargo test`·`flutter test`·`flutter analyze`를 돌리지 않는다. 리미터 미터 시험 버튼 "Simulate GR Test"는 지웠다(2026-11-19 사용자 결정, 브랜치 `win/remove-gr-test-button` — 운영 화면에서는 이미 꺼져 보이지 않았고, 다시 켤 수 없게 코드를 없앴다).
    - 오디오 형식 → AAC·M4A를 빼기로 결정(2026-11-16, 확정된 결정 "오디오 형식"). 구현함 — A5와 한 묶음(브랜치 `win/preload-fail-aac`): `rust/Cargo.toml` symphonia를 `default-features = false` + 명시 목록으로(`aac`·`isomp4`만 뺌, 다시 넣는 법은 그 줄 주석), `room_card.dart` 두 목록에서 aac·m4a 제거.
    - 쓰이지 않는 자산(`assets/models/room_frame.glb`, `speaker_cube.glb`, `assets/js/GLTFLoader.js`) → 삭제 결정(2026-11-16, 사용자). 영향 확인: 부르는 코드 0건(3D 화면 HTML은 `three.min.js`·`OrbitControls.js`·`OBJLoader.js`만 싣는다), 고지 생성 도구는 `assets/js` 폴더를 읽어 목록을 만들어 따로 고칠 것이 없다. 설치 파일 `[InstallDelete]`에 세 파일을 더하고 점검표 문장을 고친다. 브랜치 `win/remove-unused-3d-assets`.
    - HANDOFF 나누기 → 1·2단계 끝남(2026-11-16): 끝난 일·측정 기록과 확정된 결정 긴 항목 17개의 배경·구현 기록을 `docs/HISTORY.md`로 옮겼다(약 143KB → 약 86KB). 아직 한 번에 읽히는 크기는 아니다. 더 줄이려면 안정성 검증 프로젝트 묶음(#101·#102·#103 병합 뒤)과 "남은 일" 3·8·9·15·16, "⚠️ Windows 미검증"을 정리해야 한다(사용자 승인 뒤).

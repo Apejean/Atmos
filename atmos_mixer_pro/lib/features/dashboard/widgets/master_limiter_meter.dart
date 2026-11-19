@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:atmos_mixer_pro/core/theme/colors.dart';
@@ -7,12 +6,12 @@ import 'package:atmos_mixer_pro/core/state/global_state.dart';
 /// Master Limiter Gain Reduction (GR) & LED Status Meter Widget
 class MasterLimiterMeterWidget extends ConsumerStatefulWidget {
   final double initialGainReductionDb; // 0.0 to -12.0 dB
-  final bool enableSimulationToggle;
 
+  // 예전의 "Simulate GR Test" 버튼(가짜 리덕션을 띄우는 시험용)은 지웠다(2026-11-19 사용자 결정, 검토 항목).
+  // 현장에서 켜진 채 남으면 미터를 오독하게 된다. 미터는 엔진이 보낸 실측값만 보인다.
   const MasterLimiterMeterWidget({
     super.key,
     this.initialGainReductionDb = 0.0,
-    this.enableSimulationToggle = true,
   });
 
   @override
@@ -23,42 +22,11 @@ class MasterLimiterMeterWidget extends ConsumerStatefulWidget {
 class _MasterLimiterMeterWidgetState
     extends ConsumerState<MasterLimiterMeterWidget> {
   double _currentGrDb = 0.0;
-  bool _isSimulating = false;
-  Timer? _simTimer;
 
   @override
   void initState() {
     super.initState();
     _currentGrDb = widget.initialGainReductionDb;
-  }
-
-  @override
-  void dispose() {
-    _simTimer?.cancel();
-    super.dispose();
-  }
-
-  void _toggleSimulation() {
-    setState(() {
-      _isSimulating = !_isSimulating;
-      if (_isSimulating) {
-        _simTimer = Timer.periodic(const Duration(milliseconds: 150), (t) {
-          if (!mounted) return;
-          setState(() {
-            // Random GR burst between 0.0 and -8.5 dB
-            _currentGrDb =
-                (t.tick % 5 == 0)
-                    ? -((t.tick * 1.7) % 8.5)
-                    : (_currentGrDb * 0.7);
-            if (_currentGrDb.abs() < 0.1) _currentGrDb = 0.0;
-          });
-        });
-      } else {
-        _simTimer?.cancel();
-        _simTimer = null;
-        _currentGrDb = 0.0;
-      }
-    });
   }
 
   @override
@@ -85,9 +53,7 @@ class _MasterLimiterMeterWidgetState
       }),
     );
 
-    if (!_isSimulating) {
-      _currentGrDb = -engineGrDb.abs();
-    }
+    _currentGrDb = -engineGrDb.abs();
 
     final bool isCompressing = _currentGrDb.abs() > 0.1;
     final double grRatio = (_currentGrDb.abs() / 12.0).clamp(0.0, 1.0);
@@ -186,25 +152,6 @@ class _MasterLimiterMeterWidgetState
               ),
             ],
           ),
-          if (widget.enableSimulationToggle) ...[
-            const SizedBox(width: 6),
-            Tooltip(
-              message: _isSimulating ? 'Stop Test' : 'Simulate GR Test',
-              child: InkWell(
-                onTap: _toggleSimulation,
-                borderRadius: BorderRadius.circular(4),
-                child: Padding(
-                  padding: const EdgeInsets.all(2.0),
-                  child: Icon(
-                    _isSimulating ? Icons.science : Icons.science_outlined,
-                    size: 14,
-                    color:
-                        _isSimulating ? AppColors.primaryNeon : Colors.white38,
-                  ),
-                ),
-              ),
-            ),
-          ],
         ],
       ),
     );
