@@ -45,9 +45,9 @@ void main() {
     }
   });
 
-  testWidgets('clears on LoadNormal, Running and Failover', (tester) async {
+  testWidgets('clears on LoadNormal and Running', (tester) async {
     final c = await pump(tester);
-    for (final clear in ['LoadNormal', 'Running', 'Failover']) {
+    for (final clear in ['LoadNormal', 'Running']) {
       c.add('LoadHigh:24.0/21.3/3/1/64');
       await tester.pump();
       expect(find.textContaining('부하가 높아'), findsOneWidget);

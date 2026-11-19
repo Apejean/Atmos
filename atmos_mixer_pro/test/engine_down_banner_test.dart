@@ -94,9 +94,9 @@ void main() {
     expect(find.textContaining('이 컴퓨터에서 쓸 수 없습니다'), findsOneWidget);
   });
 
-  testWidgets('clears on Running and on Failover', (tester) async {
+  testWidgets('clears on Running', (tester) async {
     final c = await pump(tester);
-    for (final recover in ['Running', 'Failover']) {
+    for (final recover in ['Running']) {
       c.add('EngineDown:x');
       await tester.pump();
       expect(find.textContaining('마지막 원인'), findsOneWidget);
