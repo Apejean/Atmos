@@ -1053,6 +1053,10 @@ pub fn api_create_stream_status_stream(sink: StreamSink<String>) {
     if let Some(status) = crate::osc::listener::current_port_status() {
         let _ = sink.add(status);
     }
+    // 구독 전부터 음원 파일을 다시 열지 못해 무음인 트랙이 있으면 처음 값으로 알린다(core::read_failures, 검토 A6).
+    if let Some(status) = crate::core::read_failures::current_status() {
+        let _ = sink.add(status);
+    }
 }
 
 pub fn api_init_audio_system(device_name: Option<String>) -> Result<(), AtmosError> {

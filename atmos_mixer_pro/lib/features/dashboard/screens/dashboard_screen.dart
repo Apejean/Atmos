@@ -30,6 +30,7 @@ import 'package:atmos_mixer_pro/features/dashboard/widgets/safety_alert_border.d
 import 'package:atmos_mixer_pro/features/dashboard/widgets/engine_down_banner.dart';
 import 'package:atmos_mixer_pro/features/dashboard/widgets/load_warning_banner.dart';
 import 'package:atmos_mixer_pro/features/dashboard/widgets/osc_port_banner.dart';
+import 'package:atmos_mixer_pro/features/dashboard/widgets/read_failing_banner.dart';
 import 'package:atmos_mixer_pro/features/dashboard/widgets/config_notice_banner.dart';
 import 'package:atmos_mixer_pro/src/rust/api/show.dart' as show_api;
 import 'package:atmos_mixer_pro/src/rust/api/simple.dart' as rust_api;
@@ -168,6 +169,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               EngineDownBanner(statusStream: _statusRelay.stream),
               LoadWarningBanner(statusStream: _statusRelay.stream),
               OscPortBanner(statusStream: _statusRelay.stream),
+              ReadFailingBanner(statusStream: _statusRelay.stream),
               const ConfigNoticeBanner(),
               _buildHeader(context),
               Expanded(child: _buildRoomPanels(context)),
