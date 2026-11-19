@@ -202,7 +202,7 @@ impl DiskStreamer {
                         match reopen(&ctx, next_ts, ReopenCause::ReadError, Some(&detail), is_loop, &mut recovery, &run_flag) {
                             Some(s) => {
                                 src = s;
-                                resume_from = Some(next_ts);
+                                resume_from = resume_point(resume_from, next_ts);
                                 consecutive_errors = 0;
                                 continue;
                             }
@@ -217,7 +217,7 @@ impl DiskStreamer {
                             match reopen(&ctx, next_ts, ReopenCause::RepeatedErrors, Some(&detail), is_loop, &mut recovery, &run_flag) {
                                 Some(s) => {
                                     src = s;
-                                    resume_from = Some(next_ts);
+                                    resume_from = resume_point(resume_from, next_ts);
                                     consecutive_errors = 0;
                                 }
                                 None => break,
@@ -304,7 +304,7 @@ impl DiskStreamer {
                             match reopen(&ctx, next_ts, ReopenCause::RepeatedErrors, Some(&detail), is_loop, &mut recovery, &run_flag) {
                                 Some(s) => {
                                     src = s;
-                                    resume_from = Some(next_ts);
+                                    resume_from = resume_point(resume_from, next_ts);
                                     consecutive_errors = 0;
                                 }
                                 None => break,
@@ -532,6 +532,13 @@ fn reopen(
     }
 }
 
+/// 오류로 다시 연 뒤 이어 보낼 소스 프레임. 찾기를 못 해 처음부터 해독해 버리는 중(`pending`)에 또 오류가 나면
+/// `next_ts`는 버리던 묶음의 끝이라 원래 자리보다 앞이다. 그 앞 값으로 덮으면 이미 보낸 구간을 다시 보내 위상이
+/// 밀리므로 더 뒤인 쪽을 지킨다.
+fn resume_point(pending: Option<u64>, next_ts: u64) -> Option<u64> {
+    Some(pending.map_or(next_ts, |from| from.max(next_ts)))
+}
+
 /// 파일의 프레임 수와 샘플레이트(머리말만 읽는다). 모르면 None. 그룹 이어 가기가 길이가 같은 트랙을 가리는 데
 /// 쓴다(core::group_start::align_plan). 오디오 스레드에서 부르지 않는다(파일 I/O).
 pub fn file_frames(path: &str) -> Option<(u64, u32)> {
@@ -580,5 +587,17 @@ fn send_chunk(
                 item = returned;
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::resume_point;
+
+    #[test]
+    fn 버리는_중에_또_오류가_나도_이어_보낼_자리는_뒤로_가지_않는다() {
+        assert_eq!(resume_point(None, 1_000), Some(1_000), "평소에는 끊긴 자리");
+        assert_eq!(resume_point(Some(50_000), 1_152), Some(50_000), "버리던 중이면 원래 자리를 지킨다");
+        assert_eq!(resume_point(Some(50_000), 60_000), Some(60_000), "이미 지났으면 끊긴 자리");
     }
 }
