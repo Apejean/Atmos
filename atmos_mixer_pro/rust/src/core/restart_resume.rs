@@ -55,8 +55,36 @@ pub const RESYNC_TIMEOUT: Duration = Duration::from_secs(2);
 /// 실행되므로, 신호가 마지막 상태 명령보다 먼저 닿을 수 있다. 재개는 300ms 페이드 인으로 시작한다.
 const SETTLE_AFTER_ACK: Duration = Duration::from_millis(100);
 
-fn pending() -> MutexGuard<'static, Vec<Pending>> {
-    PENDING.lock().unwrap_or_else(|e| e.into_inner())
+/// 재개를 기다리는 트랙 이름(재생 쪽 루프 중복 막기가 묻는다, [`is_pending`]). 대기열 잠금을 놓을 때마다 맞춘다.
+/// 이 잠금은 쥔 채 다른 잠금을 잡지 않는 맨 안쪽 잠금이다 — 재생 경로는 그룹 준비 잠금(group_start PREP)·설정 잠금을
+/// 쥔 채 묻고, 정지(cancel_*)는 대기열 잠금을 쥔 채 PREP을 잡으므로, 대기열 잠금으로 직접 물으면 순서가 엇갈린다.
+static PENDING_IDS: Mutex<Vec<String>> = Mutex::new(Vec::new());
+
+/// 대기열 잠금. 놓을 때 [`PENDING_IDS`]를 대기열과 같게 맞춘다(바꾼 곳마다 따로 맞추지 않아도 되게).
+struct PendingGuard(MutexGuard<'static, Vec<Pending>>);
+
+impl std::ops::Deref for PendingGuard {
+    type Target = Vec<Pending>;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl std::ops::DerefMut for PendingGuard {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl Drop for PendingGuard {
+    fn drop(&mut self) {
+        let ids: Vec<String> = self.0.iter().map(|p| p.entry.track_id.clone()).collect();
+        *PENDING_IDS.lock().unwrap_or_else(|e| e.into_inner()) = ids;
+    }
+}
+
+fn pending() -> PendingGuard {
+    PendingGuard(PENDING.lock().unwrap_or_else(|e| e.into_inner()))
 }
 
 /// 감시 루프가 자기 재시작을 결정한 직후, 옛 엔진을 drop하기 전에 부른다(`generation`은 그 엔진의 세대).
@@ -176,6 +204,13 @@ pub fn cancel_room(room_id: &str) -> u64 {
     let epoch = crate::core::group_start::note_stop();
     queue.retain(|p| p.entry.room_id != room_id);
     epoch
+}
+
+/// `track_id`가 재개를 기다리는가. 재생 쪽 루프 중복 막기가 묻는다 — 자기 재시작 스냅샷이 재생 목록을 비우므로 재생
+/// 목록만 보면 재개를 기다리는 루프를 다시 받아 재개 때 두 벌(서로 다른 위상)로 난다(2026-11-19 Main 배분).
+/// 맨 안쪽 잠금([`PENDING_IDS`])만 쥐므로 어떤 잠금을 쥔 채 불러도 된다.
+pub fn is_pending(track_id: &str) -> bool {
+    PENDING_IDS.lock().unwrap_or_else(|e| e.into_inner()).iter().any(|id| id == track_id)
 }
 
 /// 지금 재개를 기다리는 항목(테스트·진단용).
