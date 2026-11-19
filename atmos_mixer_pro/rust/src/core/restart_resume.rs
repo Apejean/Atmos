@@ -111,6 +111,36 @@ pub fn take_snapshot(generation: u64) {
     GLOBAL_STATE.clear_playing_tracks();
 }
 
+/// 엔진 없이 장치 대기·실패로 들어갈 때 유지자가 부른다(2026-11-19 검토 세션 발견). 자기 재시작이 장치를 다시 찾는
+/// 동안(최대 30초 + 15초)이나 사용자 재시작·재스캔 동안은 상태가 Running·StoppedByUser라 재생 명령이 받아져 큐에
+/// 쌓인다. 그대로 두면 몇 시간 뒤 장치가 돌아와 새 엔진이 열릴 때 한꺼번에 난다(OSC 규격 "복귀 때 한꺼번에 재생되는
+/// 일이 없게"). 그래서 큐의 재생 명령을 받은 시작 위치의 재개 항목으로 옮기고(지금부터 시간을 센다 — 장치가 오면
+/// 끊긴 시간만큼 건너뛰고 ⑦ 10초 규칙을 탄다) 큐와 재생 목록을 비운다. 상태 명령은 버린다(엔진이 열리면 Dart 재동기화가
+/// 다시 보낸다, take_snapshot과 같음). 오디오 콜백 밖(유지자)에서만 부른다.
+pub fn absorb_queued_plays() {
+    let mut queue = pending();
+    let mut plays: Vec<(String, f64)> = Vec::new();
+    while let Ok(cmd) = GLOBAL_STATE.command_receiver.try_recv() {
+        if let AudioCommand::PlayTrack { instance, .. } = &cmd {
+            plays.push((instance.track_id_str.clone(), instance.position_seconds()));
+        }
+    }
+    if !plays.is_empty() {
+        let config = GLOBAL_STATE.config.read().unwrap_or_else(|e| e.into_inner()).clone();
+        let taken_ms = GLOBAL_STATE.monotonic_ms();
+        for (track_id, seconds) in plays {
+            let room = config
+                .as_ref()
+                .and_then(|c| c.rooms.iter().find(|r| r.tracks.iter().any(|t| t.id == track_id)));
+            if let Some(room) = room {
+                queue.push(Pending { entry: ResumeEntry { room_id: room.id.clone(), track_id, seconds }, taken_ms });
+            }
+        }
+    }
+    drop(queue);
+    GLOBAL_STATE.clear_playing_tracks();
+}
+
 // 아래 cancel_*는 대기열 잠금 안에서 정지 순번을 올린다. 재개 쪽(resume_pending)도 같은 잠금 안에서 순번을 읽고
 // 대기열을 꺼내므로, 정지는 "꺼내기 전(대기열이 비어 아무것도 안 틂)"이나 "꺼낸 뒤(순번이 바뀌어 그룹을 시작하지
 // 않음)" 둘 중 하나로만 보인다. 새 순번을 돌려준다(그 뒤 바로 그룹을 트는 쪽이 기준으로 쓴다).
