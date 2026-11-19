@@ -133,11 +133,10 @@ pub struct AudioMixer {
     pub listener_position: Option<crate::common::config::Point3D>,
     pub trajectory: Option<crate::common::config::Trajectory>,
     pub master_headroom_db: f32,
-    /// 출력 단계에서 지금 걸고 있는 헤드룸·음소거·페일오버 감쇠 배율. 목표(`master_headroom_db`, `master_mute`,
-    /// 전역 페일오버 상태)로 [OUTPUT_RAMP_S]의 속도로 따라간다.
+    /// 출력 단계에서 지금 걸고 있는 헤드룸·음소거 배율. 목표(`master_headroom_db`, `master_mute`)로
+    /// [OUTPUT_RAMP_S]의 속도로 따라간다.
     pub headroom_gain: f32,
     pub mute_gain: f32,
-    pub failover_gain: f32,
     pub peak_limiter_enabled: bool,
     pub limiters: Vec<crate::audio::limiter::PeakLimiter>,
     pub temp_room_vols: Vec<f32>,
@@ -341,7 +340,6 @@ impl AudioMixer {
             master_headroom_db,
             headroom_gain: 10.0f32.powf(master_headroom_db / 20.0),
             mute_gain: 1.0,
-            failover_gain: if GLOBAL_STATE.is_failover_mode.load(Ordering::Relaxed) { 0.01 } else { 1.0 },
             peak_limiter_enabled,
             limiters,
             temp_room_vols: vec![1.0; 4096],
@@ -1074,20 +1072,14 @@ impl AudioMixer {
 
         // Compute VU levels (Peak per channel) and apply soft clipping
         //
-        // 헤드룸·음소거·페일오버 감쇠는 목표로 OUTPUT_RAMP_S의 속도로 옮겨 간다(3법칙 3). 블록 안 프레임 위치로
+        // 헤드룸·음소거는 목표로 OUTPUT_RAMP_S의 속도로 옮겨 간다(3법칙 3). 블록 안 프레임 위치로
         // 값을 구해 모든 채널에 같은 게인을 걸고, 블록이 끝나면 한 번 전진한다(startup_ramp와 같은 방식).
         let gain_step = 1.0 / (OUTPUT_RAMP_S * self.sample_rate as f32);
         let headroom_start = self.headroom_gain;
         let headroom_target = 10.0f32.powf(self.master_headroom_db / 20.0);
         let mute_start = self.mute_gain;
         let mute_target = if self.master_mute { 0.0 } else { 1.0 };
-        let failover_start = self.failover_gain;
-        let failover_target = if GLOBAL_STATE.is_failover_mode.load(Ordering::Relaxed) {
-            0.01 // -40dB safety pad
-        } else {
-            1.0
-        };
-        
+
         for ch in 0..out_channels {
             let mut peak: f32 = 0.0;
             for frame in 0..frames {
@@ -1111,7 +1103,6 @@ impl AudioMixer {
                     }
                     val *= self.startup_ramp.block_gain(frame);
                     val *= bass_management_ramp_at(mute_start, mute_target, gain_step, frame);
-                    val *= bass_management_ramp_at(failover_start, failover_target, gain_step, frame);
                     output[sample_idx] = val;
 
                     let abs_val = val.abs();
@@ -1130,7 +1121,6 @@ impl AudioMixer {
         if frames > 0 {
             self.headroom_gain = bass_management_ramp_at(headroom_start, headroom_target, gain_step, frames - 1);
             self.mute_gain = bass_management_ramp_at(mute_start, mute_target, gain_step, frames - 1);
-            self.failover_gain = bass_management_ramp_at(failover_start, failover_target, gain_step, frames - 1);
         }
 
         // Store first two channels LUFS to global state (assume stereo master)

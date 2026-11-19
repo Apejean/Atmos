@@ -91,7 +91,6 @@ pub struct GlobalEngineState {
     pub clock_anchor: std::time::Instant,
     pub engine_error: RwLock<Option<String>>,
     pub rta_magnitudes_ref: RwLock<Option<Arc<parking_lot::RwLock<Vec<f32>>>>>,
-    pub is_failover_mode: AtomicBool,
     /// 사용자가 켠 바이노럴 상태. 믹서는 장치 선택/재스캔 때마다 새로
     /// 만들어지는데, 예전에는 켜짐 여부가 믹서 필드에만 있어서 재시작하면
     /// 조용히 꺼졌다. UI 배지는 켜짐으로 남고 실제로는 바이노럴 없이 ch0 원본이
@@ -175,7 +174,6 @@ impl GlobalEngineState {
             clock_anchor: std::time::Instant::now(),
             engine_error: RwLock::new(None),
             rta_magnitudes_ref: RwLock::new(None),
-            is_failover_mode: AtomicBool::new(false),
             binaural_enabled: AtomicBool::new(false),
             master_mute: AtomicBool::new(false),
         }

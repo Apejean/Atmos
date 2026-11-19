@@ -365,11 +365,10 @@ pub fn announce_boot(start_kind: &str, app_version: &str) -> bool {
 }
 
 /// 엔진 상태(규격의 값, 엔진 유지자 core::engine_keeper)와 장치 이름. 장치 이름은 엔진이 돌 때만 설정값(대시보드
-/// 머리말과 같음)을 싣는다. 비상 전환(기본 장치) 중이면 설정 장치가 아니므로 빈 문자열이다.
+/// 머리말과 같음)을 싣는다.
 pub fn engine_state_and_device() -> (&'static str, String) {
     let state = crate::core::engine_keeper::state();
-    let failover = crate::core::state::GLOBAL_STATE.is_failover_mode.load(Ordering::Relaxed);
-    let device = if state == crate::core::engine_keeper::EngineState::Running && !failover {
+    let device = if state == crate::core::engine_keeper::EngineState::Running {
         crate::core::state::GLOBAL_STATE
             .config
             .read()
