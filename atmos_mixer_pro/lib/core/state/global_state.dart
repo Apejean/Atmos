@@ -611,7 +611,7 @@ class GlobalErrorNotifier extends Notifier<GlobalError?> {
 
 /// 엔진 상태값이 "엔진이 (다시) 열렸다"인가. 그러면 엔진 오류 창을 닫는다. 2026-11-16 ④ 실기 F3: 엔진 유지자가
 /// 장치를 다시 열어도 "치명적 시스템 오류" 창이 닫히지 않았다.
-bool engineRecoveredStatus(String status) => status == 'Running' || status == 'Failover';
+bool engineRecoveredStatus(String status) => status == 'Running';
 
 final globalErrorProvider = NotifierProvider<GlobalErrorNotifier, GlobalError?>(
   GlobalErrorNotifier.new,

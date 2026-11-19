@@ -111,23 +111,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       if (engineRecoveredStatus(status)) {
         ref.read(globalErrorProvider.notifier).clearEngineError();
       }
-      if (status == 'Failover') {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              // ASIO/WASAPI는 Windows 전용 개념이라 macOS에서는 맞지 않는
-              // 문구였다(실기 보고: "나는 맥인데 왜 저런 게 뜨냐").
-              // 폴백 동작 자체는 플랫폼 공통이므로 문구도 중립으로 쓴다.
-              // 재생 중 장치가 끊긴 경우와 앱을 켤 때 장치를 열지 못한 경우(rust api_init_audio_system) 모두 이
-              // 알림이다. 설정의 장치가 나타나면 엔진이 스스로 돌아간다(rust core::device_return).
-              '⚠️ 설정한 오디오 장치를 열 수 없어 시스템 기본 출력 장치로 임시 전환했습니다(출력 −40dB). 장치가 연결되면 자동으로 돌아갑니다. 돌아오지 않으면 환경설정에서 오디오 장치를 확인해 주세요.',
-              style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
-            ),
-            backgroundColor: Colors.redAccent,
-            duration: Duration(seconds: 10),
-          ),
-        );
-      } else if (status == 'WatchdogActive') {
+      if (status == 'WatchdogActive') {
         setState(() => _isWatchdogActive = true);
         Future.delayed(const Duration(seconds: 4), () {
           if (mounted) setState(() => _isWatchdogActive = false);

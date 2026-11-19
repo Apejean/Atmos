@@ -2,7 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 /// 엔진 상태 문자열이 "복구 실패로 엔진이 내려갔다"를 뜻하는 접두사(Rust `core::event_log::ENGINE_DOWN_PREFIX`).
-/// 값 계약: Running · Failover · Stopped · StoppedByUser · HotReloading · WatchdogActive · AutoGuardActive
+/// 값 계약: Running · Stopped · StoppedByUser · HotReloading · WatchdogActive · AutoGuardActive
 /// · EngineDown:<원인> · WaitingForDevice:<시도 수>:<다음 시도까지 초>(Rust `core::engine_keeper::status_string`)
 /// · LoadHigh:<최대ms>/<예산ms>/<초과회>/<늦은회>/<처리채널> · LoadNormal(load_warning_banner.dart).
 const String engineDownPrefix = 'EngineDown:';
@@ -40,7 +40,7 @@ String? engineDownAdvice(String cause) {
 
 /// 엔진이 멈춘 동안 사라지지 않는 배너. 상태 스트림은 주입받는다(시험용으로 가짜 스트림을 쓴다).
 /// `WaitingForDevice:…`이면 장치를 기다리는 주황 배너를, `EngineDown:<원인>`이면 빨간 배너를 보인다.
-/// `Running`·`Failover`(다시 열림)와 `StoppedByUser`(사용자가 엔진을 정지)를 받으면 사라진다.
+/// `Running`(다시 열림)과 `StoppedByUser`(사용자가 엔진을 정지)를 받으면 사라진다.
 class EngineDownBanner extends StatefulWidget {
   const EngineDownBanner({super.key, required this.statusStream, this.now = DateTime.now});
 
@@ -82,7 +82,7 @@ class _EngineDownBannerState extends State<EngineDownBanner> {
         _cause = null;
         _waiting = waiting;
       });
-    } else if ((status == 'Running' || status == 'Failover' || status == 'StoppedByUser') &&
+    } else if ((status == 'Running' || status == 'StoppedByUser') &&
         (_cause != null || _waiting != null)) {
       setState(() {
         _cause = null;

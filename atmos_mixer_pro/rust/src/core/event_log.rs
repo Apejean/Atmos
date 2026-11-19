@@ -5,7 +5,7 @@
 //! - 동작은 바꾸지 않는다. 실시간 오디오 콜백에서는 부르지 않는다(Mutex·할당 사용).
 //!
 //! 상태 스트림 값 계약(Rust → Dart, `api_create_stream_status_stream`):
-//! `Running` · `Failover` · `Stopped` · `HotReloading` · `WatchdogActive` · `AutoGuardActive`
+//! `Running` · `Stopped` · `HotReloading` · `WatchdogActive` · `AutoGuardActive`
 //! · `EngineDown:<짧은 원인>` (복구 실패로 엔진이 내려간 상태, 배너를 계속 보인다)
 //! · `LoadHigh:<최대ms>/<예산ms>/<초과회>/<늦은회>/<처리채널>` · `LoadNormal` (부하 배너, `core::load_warning`).
 //!   Load*는 엔진 상태가 아니다. 마지막으로 받은 문자열을 엔진 상태로 쓰지 말 것.

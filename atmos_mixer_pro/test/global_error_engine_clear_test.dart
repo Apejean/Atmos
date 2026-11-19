@@ -3,11 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 // 2026-11-16 ④ 실기 F3: 인터페이스를 끈 채 켜면 "치명적 시스템 오류" 창이 떴고, 엔진 유지자가 장치를 다시 열어도
-// 닫히지 않았다. 엔진이 다시 열렸다는 상태(Running·Failover)가 오면 엔진 오류 창만 닫는다.
+// 닫히지 않았다. 엔진이 다시 열렸다는 상태(Running)가 오면 엔진 오류 창만 닫는다.
 void main() {
   test('엔진이 다시 열린 상태값만 엔진 오류 창을 닫는다', () {
     expect(engineRecoveredStatus('Running'), isTrue);
-    expect(engineRecoveredStatus('Failover'), isTrue);
     expect(engineRecoveredStatus('WaitingForDevice:3:30'), isFalse);
     expect(engineRecoveredStatus('EngineDown:start_hung'), isFalse);
     expect(engineRecoveredStatus('StoppedByUser'), isFalse);

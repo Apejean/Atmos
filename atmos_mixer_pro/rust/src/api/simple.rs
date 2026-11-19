@@ -1042,14 +1042,7 @@ pub fn api_create_stream_status_stream(sink: StreamSink<String>) {
 
     // Initial status
     if ENGINE_ACTIVE.load(std::sync::atomic::Ordering::SeqCst) {
-        if crate::core::state::GLOBAL_STATE
-            .is_failover_mode
-            .load(std::sync::atomic::Ordering::Relaxed)
-        {
-            let _ = sink.add("Failover".to_string());
-        } else {
-            let _ = sink.add("Running".to_string());
-        }
+        let _ = sink.add("Running".to_string());
     } else if let Some(status) = crate::core::engine_keeper::current_status_string() {
         // 장치를 기다리거나 실패한 상태면 그 배너를 바로 보이게 한다(엔진 유지자).
         let _ = sink.add(status);
@@ -1076,49 +1069,14 @@ pub fn api_init_audio_system(device_name: Option<String>) -> Result<(), AtmosErr
 }
 
 /// 사용자 시작·장치 변경의 본체(예전 `api_init_audio_system`).
+///
+/// 설정의 장치를 열지 못해도 기본 장치로 바꿔 열지 않는다(안정성 ⑤, 엔진 유지자 설계 15절). 실패는 그대로 돌려주고,
+/// `api_init_audio_system`이 유지자에 알려 장치가 나타날 수 있으면 유지자가 무음으로 기다리며 다시 찾는다.
 fn init_audio_system_for_user(device_name: Option<String>) -> Result<(), AtmosError> {
     // 사용자가 엔진을 직접 다시 띄우면 재시작 복원 대기는 버린다(core::restart_resume).
     // 세대를 먼저 올려야 감시 루프의 스냅샷이 버린 뒤에 끼어들지 못한다.
     stop_audio_engine();
     crate::core::restart_resume::cancel_all();
-    // 비상 전환 뒤 이 장치가 돌아오면 이름을 지정해 다시 연다(core::device_return).
-    crate::core::device_return::remember_requested_device(device_name.clone());
-    let first_start = crate::core::device_return::take_first_start();
-    match start_audio_system(device_name.clone()) {
-        // 앱을 켤 때 설정의 장치를 열지 못하면(인터페이스가 아직 안 켜졌거나 연결되지 않음) 기본 장치로 비상 전환해
-        // 공연 시간을 이어 간다. 그 장치가 장치 목록에 나타나면 자기 재시작이 이름을 지정해 다시 열어 비상이 풀린다
-        // (core::device_return, 3-4와 같은 길). 예전에는 오류 창을 띄운 채 무음으로 멈춰 사람이 엔진 리셋을 눌러야
-        // 했다(2026-10-22 사용자 결정: IoT로 PC를 켜면 인터페이스가 늦게 준비될 수 있다). 기다려도 나타날 수 없는
-        // 이름(다른 OS의 장치, 설치되지 않은 ASIO 드라이버)과 사람이 장치를 고른 경우(환경설정·재스캔)는 오류로 알린다.
-        Err(err)
-            if first_start
-                && device_name
-                    .as_deref()
-                    .is_some_and(crate::core::device_search::may_appear_later) =>
-        {
-            crate::core::state::GLOBAL_STATE.log(format!(
-                "비상 전환: 앱을 켤 때 설정의 장치를 열지 못해 기본 장치로 임시 전환한다(출력 −40dB, 장치가 나타나면 돌아간다): {}",
-                err.message
-            ));
-            crate::core::state::GLOBAL_STATE
-                .is_failover_mode
-                .store(true, std::sync::atomic::Ordering::Relaxed);
-            init_audio_system(None).map_err(|fallback| {
-                crate::core::state::GLOBAL_STATE
-                    .is_failover_mode
-                    .store(false, std::sync::atomic::Ordering::Relaxed);
-                crate::core::state::GLOBAL_STATE
-                    .log(format!("비상 전환 실패: 기본 장치도 열지 못했다: {}", fallback.message));
-                err
-            })
-        }
-        result => result,
-    }
-}
-
-/// 자동 재연결(재기동 스레드)용 기동. 재시작 복원 대기를 지킨다.
-fn init_audio_system(device_name: Option<String>) -> Result<(), AtmosError> {
-    stop_audio_engine();
     start_audio_system(device_name)
 }
 
@@ -1152,84 +1110,27 @@ fn classify_start_error(device_name: Option<&str>, message: &str) -> crate::core
 
 /// 엔진 유지자가 엔진을 여는 함수(core::engine_keeper의 기본 열기 함수, 열기 잠금 안에서 불린다).
 ///
-/// 자기 재시작이면 예전 일회성 재연결 스레드와 같은 순서다: 비상 엔진이면 설정의 장치가 돌아왔는지 보고 장치를 정한 뒤
-/// "HotReloading"을 알리고 짧은 부팅 램프로 연다(장치 찾기 30초 그대로). 장치를 기다리는 재시도면 원하는 장치를 짧게
-/// (`engine_keeper::RETRY_SEARCH`) 찾는다. 이름 있는 장치를 못 열면 기본 장치로 비상 전환한다(안정성 ⑤까지 유지).
-/// 그것도 못 열면 비상 표시를 되돌리고 원래 장치의 실패를 돌려준다.
+/// 자기 재시작이면 예전 일회성 재연결 스레드와 같은 순서다: "HotReloading"을 알리고 짧은 부팅 램프로 같은 장치를
+/// 연다(장치 찾기 30초 그대로). 장치를 기다리는 재시도면 원하는 장치를 짧게(`engine_keeper::RETRY_SEARCH`) 찾는다.
+/// 못 열면 기본 장치로 바꾸지 않고 실패를 그대로 돌려준다 — 유지자가 무음으로 기다리며 다시 찾는다(안정성 ⑤).
 pub(crate) fn keeper_open(
     req: &crate::core::engine_keeper::OpenRequest,
 ) -> Result<(), crate::core::engine_keeper::StartFailure> {
     use crate::core::engine_keeper::StartFailure;
-    let (device, search) = if req.self_restart {
-        // 비상 엔진(기본 장치)이면 설정의 장치가 돌아왔는지 보고, 돌아왔으면 이름을 지정해 연다.
-        // 그래야 비상 감쇠가 풀린다(core::device_return).
-        let failover = crate::core::state::GLOBAL_STATE
-            .is_failover_mode
-            .load(std::sync::atomic::Ordering::Relaxed);
-        let requested = crate::core::device_return::requested_device();
-        let available: Vec<String> = if failover && requested.is_some() {
-            api_get_output_devices()
-                .map(|devices| devices.into_iter().map(|d| d.name).collect())
-                .unwrap_or_default()
-        } else {
-            Vec::new()
-        };
-        let restart_device = crate::core::device_return::device_for_self_restart(
-            req.device.as_deref(),
-            failover,
-            requested.as_deref(),
-            &available,
-        );
-        if restart_device != req.device {
-            if let Some(ref name) = restart_device {
-                crate::core::state::GLOBAL_STATE.log(format!(
-                    "비상 전환 해제 시도: 설정의 장치 '{name}'가 돌아와 이름을 지정해 다시 연다"
-                ));
-            }
-        }
+    let search = if req.self_restart {
         println!("🔄 [디버깅] 자동 재연결(Hot-Reload) 수행!");
         broadcast_stream_status("HotReloading".to_string());
         // 이 재시작이 만드는 믹서는 부팅 뮤트 램프를 짧게 쓴다(core::restart_resume).
         crate::core::restart_resume::set_short_startup_ramp(true);
-        (restart_device, crate::audio::engine::DEVICE_SEARCH_TIMEOUT)
+        crate::audio::engine::DEVICE_SEARCH_TIMEOUT
     } else {
-        (req.device.clone(), crate::core::engine_keeper::RETRY_SEARCH)
+        crate::core::engine_keeper::RETRY_SEARCH
     };
-    let first = match device.as_deref() {
+    let result = match req.device.as_deref() {
         Some(name) if !crate::core::device_search::may_appear_later(name) => {
             Err(StartFailure::Unavailable(format!("'{name}'는 이 컴퓨터에서 열 수 없는 장치입니다")))
         }
-        _ => init_audio_system_with(device.clone(), search),
-    };
-    let result = match first {
-        Ok(()) => Ok(()),
-        Err(StartFailure::Hung) => Err(StartFailure::Hung),
-        Err(failure) if device.is_some() => {
-            // Emergency Failover
-            println!("🚨 [Failover] 장치 재연결 실패. WASAPI 기본 장치로 강제 비상 전환!");
-            crate::core::state::GLOBAL_STATE
-                .is_failover_mode
-                .store(true, std::sync::atomic::Ordering::Relaxed);
-            match init_audio_system_with(None, search) {
-                // 실제로 전환했을 때만 남긴다. 예전에는 열기 전에 남겨, 기본 장치도 없는 대기 중 재시도마다
-                // "전환한다"가 찍혔다(2026-11-16 ④ 실기).
-                Ok(()) => {
-                    crate::core::state::GLOBAL_STATE.log(
-                        "비상 전환: 장치를 다시 열지 못해 기본 장치로 임시 전환했다(출력 −40dB)".to_string(),
-                    );
-                    Ok(())
-                }
-                Err(StartFailure::Hung) => Err(StartFailure::Hung),
-                Err(_) => {
-                    // 기본 장치도 못 열면 비상 표시를 되돌린다(예전에는 켜진 채 남아 상태가 "Failover"로 보였다).
-                    crate::core::state::GLOBAL_STATE
-                        .is_failover_mode
-                        .store(false, std::sync::atomic::Ordering::Relaxed);
-                    Err(failure)
-                }
-            }
-        }
-        Err(failure) => Err(failure),
+        _ => init_audio_system_with(req.device.clone(), search),
     };
     if req.self_restart {
         crate::core::restart_resume::set_short_startup_ramp(false);
@@ -1291,13 +1192,8 @@ fn start_audio_system_with(
         let mut engine = crate::audio::engine::AudioEngine::new();
         crate::audio::engine::ENGINE_INIT_SIGNAL.store(false, std::sync::atomic::Ordering::SeqCst);
         let device_name_clone = device_name.clone();
-        // 아래 Ok 분기에서 페일오버 해제 여부를 판단할 때 쓴다. device_name_clone은
-        // engine.start()로 이동되므로 미리 값만 뽑아 둔다.
-        let requested_explicit_device = device_name_clone.is_some();
 
-        // 이름 없이 여는 엔진(기본 장치, 비상 전환)은 ASIO가 아니다. 예전에는 이때 설정의 장치를 보고 ASIO로 쳐서, 비상
-        // 엔진에서 장치 감시가 돌지 않았다. 그래서 ASIO 장치를 다시 꽂아도 돌아오지 않고 −40dB에 남았다(2026-10-21
-        // Windows 실기, 점검표 3-4).
+        // 이름 없이 여는 엔진(설정에 장치가 없을 때의 기본 장치)은 ASIO가 아니다 — WASAPI 장치 목록 감시가 돈다.
         let is_asio = device_name_clone.as_deref().is_some_and(|name| name.starts_with("[ASIO]"));
 
         match engine.start_with_search(device_name_clone, rx, gen, search) {
@@ -1322,35 +1218,7 @@ fn start_audio_system_with(
 
                 let _ = tx.send(Ok(()));
 
-                // 사용자가 지정한 장치로 정상 기동했으면 페일오버를 해제한다.
-                //
-                // is_failover_mode는 긴급 폴백 경로에서 true로만 저장되고 **어디에서도
-                // false로 되돌리지 않았다**. 그런데 믹서 출력단이 이 플래그를 보고
-                // -40dB(×0.01)를 걸기 때문에, 한 번 페일오버가 걸리면 이후 장치를 다시
-                // 잡아도 앱을 재시작할 때까지 사실상 무음이 됐다(실기 증상: "인터페이스를
-                // 켜고 리스캔해서 다시 잡고 재생해도 소리가 안 남"). 상태 배너도 같은
-                // 이유로 계속 떴다.
-                //
-                // 폴백 경로는 장치 이름 없이(None) 열리므로 여기서 해제되지 않는다. 즉 "기본 장치로
-                // 임시 전환된 상태"는 그대로 유지된다. 설정의 장치가 돌아오면 자기 재시작이 그 이름을
-                // 지정해 열어 여기서 풀린다(core::device_return).
-                if requested_explicit_device
-                    && crate::core::state::GLOBAL_STATE
-                        .is_failover_mode
-                        .swap(false, std::sync::atomic::Ordering::Relaxed)
-                {
-                    crate::core::state::GLOBAL_STATE
-                        .log("비상 전환 해제: 지정한 장치로 다시 열었다(출력 감쇠 해제)".to_string());
-                }
-
-                if crate::core::state::GLOBAL_STATE
-                    .is_failover_mode
-                    .load(std::sync::atomic::Ordering::Relaxed)
-                {
-                    broadcast_stream_status("Failover".to_string());
-                } else {
-                    broadcast_stream_status("Running".to_string());
-                }
+                broadcast_stream_status("Running".to_string());
 
                 // 앞 엔진들이 남긴 부하 집계를 버린다. 10초를 못 채우고 끝난 엔진(장치 전환·재시도 중)은 집계를
                 // 비우지 않아, 새 엔진의 첫 보고에 몇 분치가 섞여 "부하 높음"으로 잘못 남았다(2026-10-21 18:34:

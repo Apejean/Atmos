@@ -57,7 +57,7 @@ $runner = [Security.Principal.WindowsIdentity]::GetCurrent().Name
 
 $action = New-ScheduledTaskAction -Execute $Exe -Argument '--logon' -WorkingDirectory (Split-Path -Parent $Exe)
 # A short delay lets the desktop and the USB audio driver settle. The app itself waits for the
-# interface (30 s, then failover until it appears).
+# interface (30 s, then keeps retrying silently until it appears).
 $trigger = New-ScheduledTaskTrigger -AtLogOn -User $user
 $trigger.Delay = 'PT10S'
 # No time limit: the default (3 days) would end the supervisor during a long exhibition.

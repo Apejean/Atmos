@@ -1,6 +1,7 @@
-//! 음소거·페일오버 감쇠·헤드룸·트랙 출력 채널을 바꿀 때 파형이 계단처럼 튀지 않는다(3법칙 3, 2026-10-30).
+//! 음소거·헤드룸·트랙 출력 채널을 바꿀 때 파형이 계단처럼 튀지 않는다(3법칙 3, 2026-10-30).
+//! (페일오버 감쇠는 안정성 ⑤에서 비상 전환과 함께 지웠다.)
 //!
-//! 예전에는 모두 한 샘플 만에 바뀌었다: 음소거는 값을 0으로, 페일오버는 0.01배로, 헤드룸은 블록마다 새 배율로
+//! 예전에는 모두 한 샘플 만에 바뀌었다: 음소거는 값을 0으로, 헤드룸은 블록마다 새 배율로
 //! 곱했고, 출력 채널을 바꾸면 소리가 옛 채널에서 끊기고 새 채널에서 바로 시작했다. 모두 "딱" 소리가 난다.
 //!
 //! 재는 법은 `test_phase_invert_no_click.rs`와 같다. 1kHz 사인을 흘리며 인접 샘플 간 최대 변화량을 재고, 전환 뒤의
@@ -111,29 +112,6 @@ fn 마스터_음소거는_딸깍_없이_줄었다가_딸깍_없이_돌아온다(
     rig.command(AudioCommand::SetMasterMute { muted: false });
     assert_no_step("음소거 해제", baseline, rig.worst_after(8)[0]);
     assert!((rig.peak(0) - level).abs() < level * 0.02, "음소거 해제 뒤 원래 크기로 돌아오지 않았다: {}", rig.peak(0));
-}
-
-#[test]
-fn 페일오버_감쇠는_딸깍_없이_걸리고_풀린다() {
-    let _serial = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
-    struct Reset;
-    impl Drop for Reset {
-        fn drop(&mut self) {
-            GLOBAL_STATE.is_failover_mode.store(false, Ordering::SeqCst);
-        }
-    }
-    let _reset = Reset;
-    let mut rig = Rig::new(2);
-    let baseline = rig.block()[0];
-    let level = rig.peak(0); // 믹서 기본 게인이 걸린 정상 상태 크기
-
-    GLOBAL_STATE.is_failover_mode.store(true, Ordering::SeqCst);
-    assert_no_step("페일오버 감쇠", baseline, rig.worst_after(8)[0]);
-    assert!((rig.peak(0) - level * 0.01).abs() < level * 0.002, "-40dB까지 내려가지 않았다: {}", rig.peak(0));
-
-    GLOBAL_STATE.is_failover_mode.store(false, Ordering::SeqCst);
-    assert_no_step("페일오버 해제", baseline, rig.worst_after(8)[0]);
-    assert!((rig.peak(0) - level).abs() < level * 0.02, "페일오버 해제 뒤 원래 크기로 돌아오지 않았다: {}", rig.peak(0));
 }
 
 #[test]
