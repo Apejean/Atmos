@@ -703,6 +703,15 @@ impl AudioMixer {
                     // (그룹 시계, 설계 3.3, 사용자 결정 2026-11-10 "밀린 만큼 건너뛰어 다시 맞춘다"). 건너뛰기는
                     // 커서만 옮기고, 넘어간 묶음은 아래에서 이어서 꺼내 버린다. 다시 들어오는 소리는 짧게 키운다.
                     if instance.lag_frames > 0.0 && !stream_rx.is_empty() {
+                        // 루프는 길이의 나머지만 건너뛴다(위상이 같다). 오래 끊긴 뒤(검토 A6, 파일 다시 열기 실패)
+                        // 밀린 만큼을 모두 해독해 버리느라 무음이 길어지지 않게 한다. 엔진 재시작의
+                        // restart_resume::skip_outage(루프는 길이의 나머지)와 같은 규칙이다. lag_frames·cursor·
+                        // loop_len_frames는 모두 스트림(리샘플링 뒤) 프레임 단위다. 산술뿐이다(3법칙).
+                        if let Some(len) = instance.loop_len_frames.filter(|l| *l > 0.0) {
+                            if instance.is_loop {
+                                instance.lag_frames %= len;
+                            }
+                        }
                         instance.cursor += instance.lag_frames;
                         instance.lag_frames = 0.0;
                         instance.rejoin_gain = 0.0;

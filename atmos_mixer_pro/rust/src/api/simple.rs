@@ -994,6 +994,9 @@ pub fn api_create_vu_stream(sink: StreamSink<Vec<f32>>) {
         .as_millis() as u64;
     VU_THREAD_RUNNING.store(session_id, std::sync::atomic::Ordering::Relaxed);
 
+    // 마지막으로 보낸 값. 값이 그대로면(엔진이 꺼졌거나 재생이 없음) 보내지 않는다 — 예전에는 장치가 없어도 16ms마다
+    // 같은 값을 보내 Dart가 매번 받아 풀었다(2026-11-19 대기 중 CPU 조사). 새 구독은 새 스레드라 첫 값은 늘 간다.
+    let mut last_sent: Option<Vec<f32>> = None;
     std::thread::spawn(move || loop {
         if VU_THREAD_RUNNING.load(std::sync::atomic::Ordering::Relaxed) != session_id {
             break;
@@ -1021,8 +1024,11 @@ pub fn api_create_vu_stream(sink: StreamSink<Vec<f32>>) {
                 .current_gain_reduction_db
                 .load(std::sync::atomic::Ordering::Relaxed),
         ));
-        if sink.add(levels).is_err() {
-            break; // Stop thread if port is closed
+        if last_sent.as_ref() != Some(&levels) {
+            last_sent = Some(levels.clone());
+            if sink.add(levels).is_err() {
+                break; // Stop thread if port is closed
+            }
         }
         std::thread::sleep(std::time::Duration::from_millis(16));
     });
@@ -1065,6 +1071,10 @@ pub fn api_create_stream_status_stream(sink: StreamSink<String>) {
     }
     // 구독 전에 설정한 OSC 수신 포트가 막혔으면 처음 값으로 알린다(osc::listener, 엔진 상태가 아님).
     if let Some(status) = crate::osc::listener::current_port_status() {
+        let _ = sink.add(status);
+    }
+    // 구독 전부터 음원 파일을 다시 열지 못해 무음인 트랙이 있으면 처음 값으로 알린다(core::read_failures, 검토 A6).
+    if let Some(status) = crate::core::read_failures::current_status() {
         let _ = sink.add(status);
     }
 }

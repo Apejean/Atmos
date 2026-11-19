@@ -30,6 +30,7 @@ import 'package:atmos_mixer_pro/features/dashboard/widgets/safety_alert_border.d
 import 'package:atmos_mixer_pro/features/dashboard/widgets/engine_down_banner.dart';
 import 'package:atmos_mixer_pro/features/dashboard/widgets/load_warning_banner.dart';
 import 'package:atmos_mixer_pro/features/dashboard/widgets/osc_port_banner.dart';
+import 'package:atmos_mixer_pro/features/dashboard/widgets/read_failing_banner.dart';
 import 'package:atmos_mixer_pro/features/dashboard/widgets/config_notice_banner.dart';
 import 'package:atmos_mixer_pro/src/rust/api/show.dart' as show_api;
 import 'package:atmos_mixer_pro/src/rust/api/simple.dart' as rust_api;
@@ -168,6 +169,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               EngineDownBanner(statusStream: _statusRelay.stream),
               LoadWarningBanner(statusStream: _statusRelay.stream),
               OscPortBanner(statusStream: _statusRelay.stream),
+              ReadFailingBanner(statusStream: _statusRelay.stream),
               const ConfigNoticeBanner(),
               _buildHeader(context),
               Expanded(child: _buildRoomPanels(context)),
@@ -830,11 +832,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               const SizedBox(width: 8),
               // 미터는 16ms 주기 VU 스트림을 직접 읽으므로 이 영역만 다시 그린다.
               const RepaintBoundary(
-                child: MasterLimiterMeterWidget(
-                  // 상용 전시 현장에서 시뮬레이션이 켜진 채 남으면 미터를
-                  // 오독하게 되므로 기본적으로 끈다.
-                  enableSimulationToggle: false,
-                ),
+                child: MasterLimiterMeterWidget(),
               ),
               const SizedBox(width: 8),
               const BinauralToggleBadge(),

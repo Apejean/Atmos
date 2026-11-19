@@ -80,9 +80,13 @@ impl HeartbeatValues {
 pub fn current_heartbeat() -> HeartbeatValues {
     static LAST_UI_MS: AtomicU64 = AtomicU64::new(0);
     let now = now_ms();
-    let prev = LAST_UI_MS
-        .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |prev| Some(now.max(prev + 1)))
-        .unwrap_or_else(|prev| prev);
+    // compare_exchange 반복(예전 fetch_update는 최신 Rust에서 지원 중단 경고 — 이름이 바뀐 try_update는 옛 툴체인에 없다).
+    let mut prev = LAST_UI_MS.load(Ordering::Relaxed);
+    while let Err(actual) =
+        LAST_UI_MS.compare_exchange_weak(prev, now.max(prev + 1), Ordering::Relaxed, Ordering::Relaxed)
+    {
+        prev = actual;
+    }
     HeartbeatValues {
         pid: std::process::id(),
         ui_ms: now.max(prev + 1),

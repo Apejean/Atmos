@@ -184,6 +184,38 @@ fn 재생_중_묶음이_비면_밀린_만큼_건너뛰어_다시_맞춘다() {
 }
 
 #[test]
+fn 루프가_여러_바퀴_밀렸으면_한_바퀴_안의_나머지만_건너뛴다() {
+    // 검토 A6: 파일을 오래 다시 열지 못한 루프는 밀린 프레임이 길이의 여러 배가 된다. 위상은 길이의 나머지로 같으므로
+    // 나머지만 건너뛴다(엔진 재시작의 restart_resume::skip_outage와 같은 규칙). 그러지 않으면 밀린 만큼을 모두
+    // 해독해 버려야 해서 그동안 계속 무음이다.
+    let len = BLOCK * 4;
+    let mut rig = Rig::new();
+    let (mut a, mut ta) = armed_stream(1, 0);
+    let (mut b, mut tb) = armed_stream(2, 1);
+    a.loop_len_frames = Some(len as f64);
+    b.loop_len_frames = Some(len as f64);
+    feed(&mut ta, 0, BLOCK * 40);
+    feed(&mut tb, 0, BLOCK * 2);
+    rig.send(play(a));
+    rig.send(play(b));
+    rig.send(AudioCommand::StartGroup { group_id: GROUP });
+    for _ in 0..31 {
+        rig.block(); // B는 2블록 뒤 바닥나 29블록(7.25바퀴) 밀린다
+    }
+    // 디코더가 돌아와 끊긴 자리부터 두 바퀴 분량만 보낸다(밀린 7.25바퀴를 다 건너뛰기엔 모자란다).
+    feed(&mut tb, BLOCK * 2, len * 2);
+    for _ in 0..2 {
+        rig.block();
+    }
+    let b_inst = rig.mixer.instances.iter().flatten().find(|i| i.instance_id == 2).expect("B가 풀에 없다");
+    assert_eq!(b_inst.lag_frames, 0.0, "B가 아직 밀려 있다(밀린 만큼을 모두 건너뛰려 했다)");
+    let last_block = &rig.rendered[1][rig.rendered[1].len() - BLOCK..];
+    assert!(last_block.iter().any(|v| v.abs() > 1e-6), "B가 돌아왔는데 소리가 없다");
+    let (pa, pb) = (rig.position(1), rig.position(2));
+    assert!((pa - pb).abs() < HALF_SAMPLE, "B의 바퀴 안 위치가 A와 다르다: A {pa} B {pb}");
+}
+
+#[test]
 fn 대기_중에_전체_정지가_오면_들리지_않고_정리된다() {
     let mut rig = Rig::new();
     let (a, mut ta) = armed_stream(1, 0);

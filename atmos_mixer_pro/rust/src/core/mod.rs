@@ -11,6 +11,7 @@ pub mod log_file;
 pub mod media_relink;
 pub mod prefs_guard;
 pub mod processing_channels;
+pub mod read_failures;
 pub mod resample_status;
 pub mod restart_resume;
 pub mod show_state;

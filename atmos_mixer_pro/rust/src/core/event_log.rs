@@ -9,6 +9,8 @@
 //! · `EngineDown:<짧은 원인>` (복구 실패로 엔진이 내려간 상태, 배너를 계속 보인다)
 //! · `LoadHigh:<최대ms>/<예산ms>/<초과회>/<늦은회>/<처리채널>` · `LoadNormal` (부하 배너, `core::load_warning`).
 //!   Load*는 엔진 상태가 아니다. 마지막으로 받은 문자열을 엔진 상태로 쓰지 말 것.
+//! · `ReadFailing:<트랙 수>:<첫 파일 이름>` · `ReadFailing:0` (음원 파일을 다시 열지 못해 무음인 트랙, 배너,
+//!   `core::read_failures`). 엔진 상태가 아니다.
 
 use std::collections::VecDeque;
 use std::sync::Mutex;
