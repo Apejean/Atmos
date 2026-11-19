@@ -980,6 +980,9 @@ pub fn api_create_vu_stream(sink: StreamSink<Vec<f32>>) {
         .as_millis() as u64;
     VU_THREAD_RUNNING.store(session_id, std::sync::atomic::Ordering::Relaxed);
 
+    // 마지막으로 보낸 값. 값이 그대로면(엔진이 꺼졌거나 재생이 없음) 보내지 않는다 — 예전에는 장치가 없어도 16ms마다
+    // 같은 값을 보내 Dart가 매번 받아 풀었다(2026-11-19 대기 중 CPU 조사). 새 구독은 새 스레드라 첫 값은 늘 간다.
+    let mut last_sent: Option<Vec<f32>> = None;
     std::thread::spawn(move || loop {
         if VU_THREAD_RUNNING.load(std::sync::atomic::Ordering::Relaxed) != session_id {
             break;
@@ -1007,8 +1010,11 @@ pub fn api_create_vu_stream(sink: StreamSink<Vec<f32>>) {
                 .current_gain_reduction_db
                 .load(std::sync::atomic::Ordering::Relaxed),
         ));
-        if sink.add(levels).is_err() {
-            break; // Stop thread if port is closed
+        if last_sent.as_ref() != Some(&levels) {
+            last_sent = Some(levels.clone());
+            if sink.add(levels).is_err() {
+                break; // Stop thread if port is closed
+            }
         }
         std::thread::sleep(std::time::Duration::from_millis(16));
     });
