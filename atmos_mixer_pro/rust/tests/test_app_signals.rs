@@ -138,7 +138,8 @@ fn 하트비트에는_일곱_값이_들어가고_부를_때마다_ui_ms가_커�
     assert_eq!(kv["audio_cb_ms"], "777");
     assert_eq!(kv["engine_active"], "0");
     assert_eq!(kv["silent_warnings"], "2");
-    assert_eq!(kv["engine_state"], "StoppedByUser", "테스트에는 엔진을 시작한 적이 없다");
+    // 엔진을 처음 열기 전에는 Starting이다(2026-11-19 사용자 결정 — 예전에는 StoppedByUser로 보여 "사용자가 끔"으로 읽혔다).
+    assert_eq!(kv["engine_state"], "Starting", "테스트에는 엔진을 시작한 적이 없다");
     assert!(kv["engine_progress"].parse::<u64>().is_ok());
     assert_eq!(kv["engine_cause"], "", "실패가 아니면 원인은 빈 값");
     assert!(!dir.join(format!("{HEARTBEAT}.tmp")).exists(), "임시 파일이 남았다");

@@ -196,6 +196,7 @@ Dart `main`은 화면을 띄우기 전에 Rust API `api_startup_gate(args)`를 �
 | `Failed`, 원인 `open_failed`가 **2분** 이어짐 | 열기 연속 실패 | 띄움 |
 | `Failed`, 원인 `unavailable` | 정상 — 설정 장치가 이 PC에 나타날 수 없다. 다시 띄워도 같다 | 안 띄움(앱 배너가 원인을 보임) |
 | `StoppedByUser` | 정상 — 사람이 일부러 정지했다 | 안 띄움 |
+| `Starting` | 정상 — 앱을 켠 뒤 처음 열기 결과 전(2026-11-19 추가, 감시 코드는 모르는 값을 정상으로 본다). 첫 시작이 멈추면 앱이 `Failed(start_hung)`로 바꾼다 | 안 띄움 |
 | 키 없음(③ 전 앱) | 지금 규칙 | 지금대로 |
 
 - **원인 한 줄.** 하트비트에 `engine_cause=<start_hung|open_failed|unavailable>`을 더한다(실패가 아니면 빈 값). 앱 쪽은 `core::app_signals`, 감시 쪽은 `heartbeat.rs`가 맡는다.
