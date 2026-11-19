@@ -86,9 +86,9 @@ The Awesome은 미리 만든 PCM을 안정적으로 분배·운영하는 프로�
 | 1 | string | `Running` / `WaitingForDevice` / `Failed` / `StoppedByUser` |
 | 2 | string | 짧은 원인(없으면 빈 문자열). 사건 로그·배너의 `EngineDown:<원인>`과 같은 문자열 |
 
-현재 코드의 상태 문자열(`Running`·`Failover`·`Stopped`·`HotReloading`·`EngineDown:<원인>`)과의 대응은 유지 스레드와 하트비트 상태값을 구현할 때(안정성 3단계) 확정한다. 그 전에는 이 신호를 구현하지 않는다.
+현재 코드의 상태 문자열(`Running`·`Stopped`·`HotReloading`·`EngineDown:<원인>`)과의 대응은 유지 스레드와 하트비트 상태값을 구현할 때(안정성 3단계) 확정한다. 그 전에는 이 신호를 구현하지 않는다.
 
-**3단계 반영(2026-11-14, `core/engine_keeper.rs`):** 시작 신호 인자 2와 상태 조회의 엔진 상태는 엔진 유지자의 값(`Running / WaitingForDevice / Failed / StoppedByUser`)이다. 비상 전환(기본 장치) 중은 `Running`이고 장치 이름은 빈 문자열이다. 실패 원인 문자열은 `start_hung`·`open_failed`·`unavailable`(배너 `EngineDown:<원인>`과 같음).
+**3단계 반영(2026-11-14, `core/engine_keeper.rs`):** 시작 신호 인자 2와 상태 조회의 엔진 상태는 엔진 유지자의 값(`Running / WaitingForDevice / Failed / StoppedByUser`)이다. (비상 전환 중 `Running`·빈 장치 이름 규칙은 안정성 ⑤에서 비상 전환과 함께 없앴다, 2026-11-19.) 실패 원인 문자열은 `start_hung`·`open_failed`·`unavailable`(배너 `EngineDown:<원인>`과 같음).
 
 ### 3.4 명령 응답
 

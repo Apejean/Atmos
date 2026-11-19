@@ -284,7 +284,7 @@ Dart `main`은 화면을 띄우기 전에 Rust API `api_startup_gate(args)`를 �
   - 창 정상 닫기 → 다시 뜨지 않음
   - 앱 exe 직접 실행 → 감시로 넘어감
   - 바로가기 두 번 실행 → 하나만 뜨고 기존 창이 앞으로 옴
-  - ASIO 장치 뽑기 → 오디오 멈춤 재실행이 3번 뒤 멈춤
+  - ASIO 장치 뽑기 → 장치 대기(`WaitingForDevice`), 다시 띄우지 않음(5.3.1, 2026-11-19 현장 시험 S2 — 예전 "오디오 멈춤 재실행 3번 뒤 멈춤"을 대체)
   - `powercfg /requests`(절전 방지), 로그 내보내기(OneDrive 바탕화면), installer 버전
   - HANDOFF "Windows 미검증" 항목들
 
