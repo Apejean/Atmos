@@ -104,6 +104,22 @@ jobs:
         run: flutter pub get
         working-directory: atmos_mixer_pro
 
+      # PR마다 시험을 돌려 병합 전에 막는다(2026-11-19 사용자 결정 "Rust cargo test까지 모두"). 빌드보다 먼저 돌려 빨리
+      # 실패하게 한다. 정적 분석은 0건을 유지한다.
+      - name: Flutter analyze
+        run: flutter analyze
+        working-directory: atmos_mixer_pro
+
+      - name: Flutter tests
+        run: flutter test
+        working-directory: atmos_mixer_pro
+
+      # 장치를 여는 시험 두 개는 뺀다: test_cpal_hosts(ASIO 드라이버를 불러온다), 엔진을_drop하면(기본 출력 장치를 연다).
+      # CI 러너에는 오디오 장치가 없고, 개발 PC에서도 같은 두 개를 빼고 돌린다.
+      - name: Rust engine tests
+        run: cargo test -- --skip test_cpal_hosts --skip 엔진을_drop하면
+        working-directory: atmos_mixer_pro/rust
+
       - name: Cargo Check to reveal Windows Rust errors
         if: matrix.os == 'windows-latest'
         run: cargo check
