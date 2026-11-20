@@ -271,6 +271,19 @@ fn 끊겼다_돌아온_그룹_루프는_끊기지_않은_루프와_프레임_차
     for _ in 0..20 {
         rig.block();
     }
+    // 블록이 묶음 끝에서 딱 끝나면 커서가 묶음 길이와 같다(다음 샘플에서 새 묶음을 꺼내는 정상 상태). 그 자리는
+    // 지금 묶음으로 읽을 수 없으므로 두 커서가 묶음 안에 들어올 때까지 블록을 더 돌린다. 블록 480·묶음 1152면
+    // 12블록마다 이렇게 되어, 앞의 대기 블록 수에 따라 가끔 걸렸다(macOS CI, PR #131).
+    let inside = |rig: &Rig| [1, 2].iter().all(|&id| {
+        let inst = rig.instance(id);
+        (inst.cursor as usize) < inst.stream_buffer.len()
+    });
+    let mut extra = 0;
+    while !inside(&rig) {
+        rig.block();
+        extra += 1;
+        assert!(extra < 64, "커서가 묶음 안으로 들어오지 않는다");
+    }
     let (pa, pb) = (rig.instance(1).position_seconds(), rig.instance(2).position_seconds());
     let diff_frames = ((pa - pb) * FS as f64).abs();
     // 위치 숫자만이 아니라 지금 내는 소리(커서가 가리키는 파일 프레임)도 같아야 한다. 출력 버스는 채널 DSP를
