@@ -57,3 +57,102 @@ pub fn processing_channel_count(config: &AppConfig, hw_channels: usize) -> usize
 pub fn mixer_width(processing_channels: usize) -> usize {
     16.max(processing_channels)
 }
+
+/// 출력 설정에서 켠 그룹(모노·스테레오·멀티)이 하나도 없는가 — "전체 개방"(`compute_enabled_channels`와 같은 기준).
+fn no_group_enabled(config: &AppConfig) -> bool {
+    !config.mono_configs.values().any(|s| s.enabled)
+        && !config.stereo_configs.values().any(|s| s.enabled)
+        && !config.multi_configs.values().any(|s| s.enabled)
+}
+
+/// 트랙과 서브우퍼가 쓰는 가장 높은 채널(1부터 센 번호, 장치 채널 수로 자르고 최소 2). 출력 설정이 비었을 때 처리 폭
+/// (설계 docs/superpowers/specs/2026-11-20-processing-width-fallback-design.md). 믹서의 라우팅 규칙(audio/mixer.rs)과
+/// 같다: 스테레오 출력을 끄면 다채널도 모노로 합쳐 `output_channel` 하나, 켜면 파일 채널 수만큼(모노 파일은 2 — 모노→스테레오
+/// 올림). `file_channels`가 None이면(읽지 못하는 파일) 재생되지 않으므로 뺀다. `highest_sub`은 서브우퍼로 지정한 가장
+/// 높은 채널(0이면 없음) — 베이스 매니지먼트가 트랙이 없는 서브 채널로도 저역을 보낸다.
+pub fn used_channel_ceiling(
+    config: &AppConfig,
+    hw_channels: usize,
+    file_channels: &dyn Fn(&str) -> Option<usize>,
+    highest_sub: usize,
+) -> usize {
+    let mut top = highest_sub;
+    for track in config.rooms.iter().flat_map(|r| r.tracks.iter()) {
+        let start = track.output_channel.max(1) as usize;
+        let span = if track.output_stereo {
+            match file_channels(&track.file_path) {
+                Some(1) => 2,
+                Some(n) => n,
+                None => continue,
+            }
+        } else {
+            1
+        };
+        top = top.max(start + span - 1);
+    }
+    top.max(2).min(hw_channels)
+}
+
+/// 실제로 쓸 처리 폭. 켠 그룹이 없으면 `used_ceiling`(트랙·서브 기준, [`used_channel_ceiling`]), 있으면
+/// [`processing_channel_count`] 그대로. 예전에는 켠 그룹이 없으면 장치 전체(94채널)를 처리해 예산을 넘었다(2026-11-20).
+pub fn effective_processing_channels(config: &AppConfig, hw_channels: usize, used_ceiling: usize) -> usize {
+    if hw_channels == 0 {
+        return 0;
+    }
+    if no_group_enabled(config) {
+        return used_ceiling.clamp(1, hw_channels);
+    }
+    processing_channel_count(config, hw_channels)
+}
+
+/// 지금 설정·음원·스피커 배치로 정한 처리 폭(엔진 시작, 설정 변경, 스피커 배치 변경에서 부른다 — 오디오 스레드 밖).
+/// 켠 그룹이 있으면 파일을 읽지 않고 [`processing_channel_count`] 그대로다.
+pub fn current_processing_channels(config: &AppConfig, hw_channels: usize) -> usize {
+    if !no_group_enabled(config) {
+        return processing_channel_count(config, hw_channels);
+    }
+    let sub = crate::core::state::GLOBAL_STATE
+        .highest_sub_channel
+        .load(std::sync::atomic::Ordering::Relaxed) as usize;
+    let ceiling = used_channel_ceiling(config, hw_channels, &cached_file_channels, sub);
+    effective_processing_channels(config, hw_channels, ceiling)
+}
+
+/// 파일 채널 수. 미리 읽은 음원이면 그 값, 아니면 머리말을 읽고 경로·크기·수정 시각으로 기억한다(설정이 바뀔 때마다
+/// 다시 읽지 않게). 읽지 못하면 None — 그 트랙은 재생되지 않으므로 처리 폭 계산에서 빠진다(앱 로그에 경로마다 한 번).
+fn cached_file_channels(path: &str) -> Option<usize> {
+    use std::collections::HashMap;
+    use std::sync::Mutex;
+    type Key = (u64, Option<std::time::SystemTime>);
+    type Cache = Option<HashMap<String, (Key, Option<usize>)>>;
+    static CACHE: Mutex<Cache> = Mutex::new(None);
+
+    let preloaded = crate::core::state::GLOBAL_STATE
+        .preloaded_sounds
+        .read()
+        .unwrap_or_else(|e| e.into_inner())
+        .get(path)
+        .map(|d| d.channels as usize)
+        .filter(|&n| n > 0);
+    if preloaded.is_some() {
+        return preloaded;
+    }
+    let key: Key = match std::fs::metadata(path) {
+        Ok(m) => (m.len(), m.modified().ok()),
+        Err(_) => (0, None),
+    };
+    let mut guard = CACHE.lock().unwrap_or_else(|e| e.into_inner());
+    let cache = guard.get_or_insert_with(HashMap::new);
+    if let Some((k, n)) = cache.get(path) {
+        if *k == key {
+            return *n;
+        }
+    }
+    let n = crate::audio::streaming::file_channels(path);
+    if n.is_none() {
+        crate::core::state::GLOBAL_STATE
+            .log(format!("처리 폭 계산: 파일 채널 수를 읽지 못해 이 트랙은 뺀다 — {path}"));
+    }
+    cache.insert(path.to_string(), (key, n));
+    n
+}
