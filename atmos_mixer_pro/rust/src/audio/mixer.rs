@@ -160,6 +160,8 @@ pub struct AudioMixer {
     /// 6.35ms를 썼다(실시간 예산 21.3ms의 30%). 이제 블록 시작에 한 번만
     /// 목록을 만들고 프레임 루프는 이 목록만 돈다.
     pub temp_active_instances: Vec<usize>,
+    /// 이번 블록에서 인스턴스 슬롯마다 트랙 출력이 켠 그룹과 맞는가(core::output_groups). 블록 시작에 한 번 정한다.
+    pub temp_route_open: Vec<bool>,
     
     // Pre-allocated buffers for spatial dsp recalculation
     pub temp_base_delays: Vec<f32>,
@@ -357,6 +359,7 @@ impl AudioMixer {
             analysis_tx,
             temp_vals: vec![0.0; channels],
             temp_active_instances: Vec::with_capacity(4096),
+            temp_route_open: vec![false; 4096],
             temp_base_delays: vec![0.0; channels],
             temp_base_eqs: (0..channels).map(|_| Vec::with_capacity(32)).collect(),
             temp_channel_dists: vec![0.0; channels],
@@ -586,10 +589,24 @@ impl AudioMixer {
         // 재생 중인 슬롯만 한 번 추려 둔다(위 temp_active_instances 주석 참고).
         let mut active_instances = std::mem::take(&mut self.temp_active_instances);
         active_instances.clear();
-        for (i, inst_opt) in self.instances.iter().enumerate() {
+        for (i, inst_opt) in self.instances.iter_mut().enumerate() {
             if let Some(inst) = inst_opt {
                 if inst.is_playing {
                     active_instances.push(i);
+                    // 트랙 출력이 켠 그룹과 맞는가(화면과 같은 규칙, 2026-11-21 사용자 결정 A). 블록 동안은 그대로 쓴다.
+                    let open = crate::core::output_groups::route_open(
+                        inst.stream_channels as usize,
+                        inst.output_channel,
+                        inst.output_stereo,
+                        out_channels,
+                    );
+                    if let Some(slot) = self.temp_route_open.get_mut(i) {
+                        *slot = open;
+                    }
+                    if inst.route_gain < 0.0 {
+                        // 처음 보는 인스턴스는 바로 정한다(맞지 않는 트랙이 시작하자마자 새어 나오지 않게).
+                        inst.route_gain = if open { 1.0 } else { 0.0 };
+                    }
                 }
             }
         }
@@ -833,6 +850,16 @@ impl AudioMixer {
                     current_vol *= instance.rejoin_gain;
                     instance.rejoin_gain = (instance.rejoin_gain + rejoin_step).min(1.0);
                 }
+
+                // 트랙 출력이 켠 그룹과 맞지 않으면 무음(core::output_groups). 그룹을 켜고 끌 때 딸깍 없이 옮기고(3법칙 3),
+                // 무음인 동안에도 아래에서 위치는 그대로 흐른다.
+                let route_target = if self.temp_route_open.get(i).copied().unwrap_or(false) { 1.0 } else { 0.0 };
+                if instance.route_gain < route_target {
+                    instance.route_gain = (instance.route_gain + output_fade_step).min(route_target);
+                } else if instance.route_gain > route_target {
+                    instance.route_gain = (instance.route_gain - output_fade_step).max(route_target);
+                }
+                current_vol *= instance.route_gain;
 
                 if has_sample {
                     // 출력 경로를 바꾼 직후에는 옛 경로를 줄이고 새 경로를 키운다(SetTrackOutput, 3법칙 3).

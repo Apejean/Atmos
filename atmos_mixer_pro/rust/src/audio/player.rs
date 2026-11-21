@@ -271,6 +271,10 @@ pub struct SoundInstance {
     pub lag_frames: f64,
     /// 건너뛴 직후 다시 들어오는 페이드(0 -> 1, 딸깍 방지, 3법칙 3). 평소에는 1.
     pub rejoin_gain: f32,
+    /// 트랙 출력이 켠 그룹과 맞는 정도(0 -> 1, core::output_groups). 맞지 않게 되면 0으로, 다시 맞으면 1로
+    /// `OUTPUT_RAMP_S`에 걸쳐 옮긴다(3법칙 3). 음수면 아직 정하지 않음 — 믹서가 첫 블록에 바로 0이나 1로 정한다
+    /// (시작하자마자 맞지 않는 트랙이 새어 나오지 않게).
+    pub route_gain: f32,
 }
 
 impl SoundInstance {
@@ -336,6 +340,7 @@ impl SoundInstance {
             armed: false,
             lag_frames: 0.0,
             rejoin_gain: 1.0,
+            route_gain: -1.0,
         }
     }
 
