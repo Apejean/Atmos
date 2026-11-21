@@ -368,15 +368,14 @@ impl AudioEngine {
         crate::core::state::GLOBAL_STATE.broadcast_state();
 
         // 믹서 처리 폭: 장치는 전체 채널로 열고, 믹서는 출력 설정에서 켠 가장 높은 채널까지만
-        // 처리한다(core::processing_channels). 출력 설정이 비었으면 트랙·서브우퍼가 쓰는 가장 높은 채널까지
-        // (2026-11-20). 나머지 출력에는 무음을 넣는다. 설정을 복제해 잠금을 놓은 뒤 계산한다(파일 머리말 읽기).
-        let app_config = crate::core::state::GLOBAL_STATE
+        // 처리한다(core::processing_channels). 나머지 출력에는 무음을 넣는다.
+        let processing = match crate::core::state::GLOBAL_STATE
             .config
             .read()
             .unwrap_or_else(|e| e.into_inner())
-            .clone();
-        let processing = match app_config.as_ref() {
-            Some(app_config) => crate::core::processing_channels::current_processing_channels(
+            .as_ref()
+        {
+            Some(app_config) => crate::core::processing_channels::processing_channel_count(
                 app_config,
                 config.channels as usize,
             ),

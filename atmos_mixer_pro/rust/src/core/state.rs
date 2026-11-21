@@ -67,9 +67,10 @@ pub struct GlobalEngineState {
     pub processing_channels: AtomicU32,
     /// 출력 설정에서 켠 가장 높은 채널까지의 수(엔진 시작 로그의 "M채널 처리", 믹서 폭과 달리 16 하한 없음). 부하 배너가 쓴다.
     pub output_processing_channels: AtomicU32,
-    /// 스피커 배치에서 서브우퍼로 지정한 가장 높은 채널(1부터, 0이면 없음). 출력 설정이 비었을 때 처리 폭에 넣는다
-    /// (core::processing_channels::current_processing_channels, 2026-11-20).
-    pub highest_sub_channel: AtomicU32,
+    /// 처리 폭이 바뀌어 엔진을 다시 열어 달라는 요청(출력 설정·스피커 배치 변경). 장치 유실 신호(`device_needs_reset`)와
+    /// 따로 둔다 — 엔진 관리 스레드가 꺼낼 때 폭을 다시 비교해 이미 맞으면 건너뛴다
+    /// (core::processing_channels::take_width_restart_request, 2026-11-21).
+    pub processing_width_restart: AtomicBool,
     /// 오디오 콜백 처리 시간(µs). 콜백은 최댓값·예산 초과 횟수만 원자형으로 남기고,
     /// 엔진 스레드의 점검 루프가 읽어서 비우며 부하가 높으면 앱 로그에 남긴다.
     pub callback_max_us: AtomicU32,
@@ -160,7 +161,7 @@ impl GlobalEngineState {
             active_device_channels: AtomicU32::new(0),
             processing_channels: AtomicU32::new(0),
             output_processing_channels: AtomicU32::new(0),
-            highest_sub_channel: AtomicU32::new(0),
+            processing_width_restart: AtomicBool::new(false),
             callback_max_us: AtomicU32::new(0),
             callback_budget_us: AtomicU32::new(0),
             callback_overruns: AtomicU32::new(0),
