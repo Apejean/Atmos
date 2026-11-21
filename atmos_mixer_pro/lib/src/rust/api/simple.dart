@@ -9,7 +9,7 @@ import '../osc/metrics.dart';
 import 'error.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These functions are ignored because they are not marked as `pub`: `apply_enabled_channels`, `clear_room_and_advance`, `init_audio_system`, `monitored_output_device_names`, `play_track_from_in`, `play_track_from`, `request_restart_if_processing_width_changed`, `room_after`, `sim_band_from_json`, `start_audio_system`, `stop_all`, `stop_audio_engine`, `with_start`
+// These functions are ignored because they are not marked as `pub`: `apply_enabled_channels`, `classify_start_error`, `clear_room_and_advance`, `init_audio_system_for_user`, `init_audio_system_with`, `keeper_open`, `keeper_stop_engine`, `monitored_output_device_names`, `play_track_from_in`, `play_track_from`, `reject_if_engine_down`, `request_restart_if_processing_width_changed`, `room_after`, `sim_band_from_json`, `start_audio_system_with`, `start_audio_system`, `stop_all`, `stop_audio_engine`, `with_start`
 // These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `ENGINE_ACTIVE`, `ENGINE_THREAD`, `STREAM_STATUS_SINK`, `VU_THREAD_RUNNING`
 // These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `clone`, `deref`, `deref`, `deref`, `deref`, `fmt`, `fmt`, `fmt`, `fmt`, `initialize`, `initialize`, `initialize`, `initialize`
 // These functions have error during generation (see debug logs or enable `stop_on_error: true` for more details): `build_play_track_command`
@@ -58,8 +58,8 @@ Future<void> apiUpdateSoundSourcePosition({
 ///   재생되는 파일의 채널 수에 따라 트랙별 라우팅(믹서 쓰기 단계)에서 결정되므로, 이 게이트는
 ///   "시작 채널 이후로는 무엇이 와도 막지 않는다"는 상한만 담당한다(SPEC 3.1절).
 ///
-/// 세 맵이 모두 비어 있으면(사용자가 Output Config를 아직 건드리지 않음) 하위호환을 위해
-/// 전 채널을 개방한다.
+/// 켠 그룹이 하나도 없으면(세 맵이 비었거나 전부 꺼짐) 어느 채널도 열지 않는다 — 소리 없음
+/// (사용자 결정 2026-11-21, 설계 docs/superpowers/specs/2026-11-21-empty-output-config-silent-design.md).
 Future<List<bool>> computeEnabledChannels({
   required AppConfig config,
   required BigInt hwLen,

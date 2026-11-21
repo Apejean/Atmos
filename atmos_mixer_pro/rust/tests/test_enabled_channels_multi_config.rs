@@ -22,12 +22,14 @@ fn setting(enabled: bool) -> ChannelSetting {
     }
 }
 
-/// 세 맵이 모두 비어있으면 하위호환을 위해 전 채널이 열려야 한다.
+/// 세 맵이 모두 비어있으면 어느 채널도 열지 않는다(사용자 결정 2026-11-21 "아무것도 안 켜면 소리 없음",
+/// 설계 docs/superpowers/specs/2026-11-21-empty-output-config-silent-design.md). 2026-09-13부터 이 경우를
+/// "전체 개방"으로 봤다.
 #[test]
-fn all_configs_empty_opens_all_channels() {
+fn all_configs_empty_opens_no_channel() {
     let config = AppConfig::default();
     let enabled = compute_enabled_channels(&config, 8);
-    assert_eq!(enabled, vec![true; 8]);
+    assert_eq!(enabled, vec![false; 8]);
 }
 
 /// mono_configs만 설정된 경우: key(1-based)마다 real_ch, real_ch+1 (0-based) 두 채널이 열린다.
@@ -96,23 +98,17 @@ fn mono_and_multi_mixed_opens_both_ranges() {
 
 /// enabled=false인 그룹은 열리지 않는다 (mono/stereo와 동일하게 multi도 enabled 플래그를 존중해야 함).
 #[test]
-fn all_groups_disabled_opens_all_channels() {
+fn all_groups_disabled_opens_no_channel() {
     let mut config = AppConfig::default();
     config.multi_configs.insert(1, setting(false));
     let enabled = compute_enabled_channels(&config, 8);
-    // 항목은 있지만 전부 enabled=false다. 예전에는 맵이 비어있지 않다는 이유로
-    // "전체 개방" 분기를 건너뛰어 모든 채널이 닫혔고, 결과는 완전 무음이었다.
-    // 더 나쁜 건 Dart의 buildChannelRoutingItems()는 "활성 항목이 있는가"를
-    // 기준으로 써서 이 설정에서도 모든 채널을 선택지로 제시했다는 점이다.
-    // UI가 제시한 채널을 엔진이 음소거하는 상태였다.
-    //
-    // 현재 데이터 모델은 "미설정"과 "전부 비활성"을 구분하지 못하므로 Dart와
-    // 같은 규칙으로 통일했다: 활성 그룹이 하나도 없으면 전체 개방.
-    assert_eq!(enabled, vec![true; 8]);
+    // 항목은 있지만 전부 enabled=false다 — 켠 그룹이 없으니 비어 있는 것과 같다. 화면
+    // (buildChannelRoutingItems)도 같은 기준으로 고를 채널을 내놓지 않는다(2026-09-13의
+    // "화면은 채널을 내놓는데 엔진은 막는" 어긋남은 생기지 않는다).
+    assert_eq!(enabled, vec![false; 8]);
 }
 
-/// 활성 그룹이 하나라도 있으면 그때부터는 그 그룹만 열린다. 즉 "전체 개방"은
-/// 어디까지나 미설정 하위호환이고, 한 번 열면 나머지는 상대적으로 닫힌다.
+/// 활성 그룹이 하나라도 있으면 그 그룹만 열린다.
 #[test]
 fn one_enabled_group_closes_the_rest() {
     let mut config = AppConfig::default();

@@ -164,8 +164,11 @@ String channelOutOfRangeName(int index0) =>
 /// - `monoConfigs`/`stereoConfigs`/`multiConfigs` 중 하나라도 `enabled` 항목이
 ///   있으면(=사용자가 Output Config에서 명시적으로 그룹을 열었으면), 이후로는
 ///   그 그룹만 후보가 된다(Output Config가 지배).
-/// - 셋 다 `enabled` 항목이 하나도 없으면(신규 설치 등) 하위호환을 위해 모든
-///   하드웨어 채널에 대해 자동으로 Mono/Stereo/Multi 항목을 생성한다.
+/// - 셋 다 `enabled` 항목이 하나도 없으면(신규 설치 등) 항목을 만들지 않는다 —
+///   엔진(`compute_enabled_channels`)도 어느 채널로도 내보내지 않는다(사용자 결정
+///   2026-11-21 "아무것도 안 켜면 소리 없음", 설계
+///   `docs/superpowers/specs/2026-11-21-empty-output-config-silent-design.md`).
+///   2026-09-13부터 이 경우 모든 하드웨어 채널로 자동 생성했다.
 ///
 /// ## 부분 재생 규칙
 /// Multi 항목은 파일 채널 수가 하드웨어 채널 수를 넘어서면 실제로 열리는
@@ -195,54 +198,38 @@ List<ChannelRoutingItem> buildChannelRoutingItems({
       config.monoConfigs.values.any((s) => s.enabled) ||
       config.stereoConfigs.values.any((s) => s.enabled) ||
       config.multiConfigs.values.any((s) => s.enabled);
+  if (!hasConfiguredGroups) return const [];
 
   final items = <ChannelRoutingItem>[];
 
-  // 멀티채널 파일이 아니면(모노/스테레오 파일) 각 하드웨어 채널을 모노
-  // 목적지로 제공한다.
+  // 멀티채널 파일이 아니면(모노/스테레오 파일) 켠 Mono 그룹을 모노 목적지로
+  // 제공한다.
   if (!isMulti) {
-    if (hasConfiguredGroups) {
-      final sortedMono = config.monoConfigs.entries
-          .where((e) => e.value.enabled)
-          .toList()
-        ..sort((a, b) => a.key.compareTo(b.key));
-      // Mono 그룹 하나는 **채널 하나**를 연다. 예전에는 한 슬롯이 L/R 페어를
-      // 연다고 보고 key-1과 key 두 채널을 모두 항목으로 만들었다. 그러면 연속한
-      // 키를 열었을 때(예: Mono 1, Mono 2) Ch-2가 두 번 나온다. 게다가 두 항목의
-      // 드롭다운 값이 'mono_1'로 완전히 같아서, 그 채널을 선택하면
-      // DropdownButton이 "값에 해당하는 항목은 정확히 하나여야 한다"는 assert로
-      // 죽는다(잠복 크래시). Ableton식 Output Config에서 Mono는 모노 채널 하나를
-      // 여닫는 것이므로 1:1이 맞다. 페어가 필요하면 Stereo 그룹을 쓴다.
-      for (final e in sortedMono) {
-        final key = e.key; // 1-based (레거시)
-        final setting = e.value;
+    final sortedMono = config.monoConfigs.entries
+        .where((e) => e.value.enabled)
+        .toList()
+      ..sort((a, b) => a.key.compareTo(b.key));
+    // Mono 그룹 하나는 **채널 하나**를 연다. 예전에는 한 슬롯이 L/R 페어를
+    // 연다고 보고 key-1과 key 두 채널을 모두 항목으로 만들었다. 그러면 연속한
+    // 키를 열었을 때(예: Mono 1, Mono 2) Ch-2가 두 번 나온다. 게다가 두 항목의
+    // 드롭다운 값이 'mono_1'로 완전히 같아서, 그 채널을 선택하면
+    // DropdownButton이 "값에 해당하는 항목은 정확히 하나여야 한다"는 assert로
+    // 죽는다(잠복 크래시). Ableton식 Output Config에서 Mono는 모노 채널 하나를
+    // 여닫는 것이므로 1:1이 맞다. 페어가 필요하면 Stereo 그룹을 쓴다.
+    for (final e in sortedMono) {
+      final key = e.key; // 1-based (레거시)
+      final setting = e.value;
 
-        final realCh = key - 1; // 0-based 변환
-        if (realCh < hwCount && physical.contains(realCh)) {
-          items.add(
-            ChannelRoutingItem(
-              value: ChannelDropdownValueHelper.getMonoValue(realCh),
-              label: withHardwareName(
-                _withCustomSuffix('Mono (Ch-${realCh + 1})', setting.customName),
-                hardwareChannelName(channelNames, realCh),
-              ),
-              realChannel0: realCh,
-              isPartialOutput: false,
-            ),
-          );
-        }
-      }
-    } else {
-      for (int i = 0; i < hwCount; i++) {
-        if (!physical.contains(i)) continue;
+      final realCh = key - 1; // 0-based 변환
+      if (realCh < hwCount && physical.contains(realCh)) {
         items.add(
           ChannelRoutingItem(
-            value: ChannelDropdownValueHelper.getMonoValue(i),
+            value: ChannelDropdownValueHelper.getMonoValue(realCh),
             label: withHardwareName(
-              'Mono (Ch-${i + 1})',
-              hardwareChannelName(channelNames, i),
+              _withCustomSuffix('Mono (Ch-${realCh + 1})', setting.customName),
+              hardwareChannelName(channelNames, realCh),
             ),
-            realChannel0: i,
+            realChannel0: realCh,
             isPartialOutput: false,
           ),
         );
@@ -250,50 +237,33 @@ List<ChannelRoutingItem> buildChannelRoutingItems({
     }
   }
 
-  // 스테레오 파일은 위 모노 선택지에 더해 인접 채널 쌍의 스테레오 선택지도
+  // 스테레오 파일은 위 모노 선택지에 더해 켠 Stereo 그룹(인접 채널 쌍)도
   // 제공한다.
   if (!isMono && !isMulti) {
-    if (hasConfiguredGroups) {
-      final sortedStereo = config.stereoConfigs.entries
-          .where((e) => e.value.enabled)
-          .toList()
-        ..sort((a, b) => a.key.compareTo(b.key));
-      for (final e in sortedStereo) {
-        final key = e.key; // 1-based
-        final setting = e.value;
-        final realCh = key - 1; // 0-based
-        // 짝 채널(realCh+1, 0-based)이 하드웨어에 없거나 가상 채널이면
-        // 만들지 않는다. 스테레오 쌍은 두 채널 모두 물리여야 한다.
-        if (realCh + 1 < hwCount &&
-            physical.contains(realCh) &&
-            physical.contains(realCh + 1)) {
-          items.add(
-            ChannelRoutingItem(
-              value: ChannelDropdownValueHelper.getStereoValue(realCh),
-              label: withHardwareName(
-                _withCustomSuffix(
-                  'Stereo (Ch-$key/Ch-${key + 1})',
-                  setting.customName,
-                ),
-                hardwareRangeName(channelNames, realCh, realCh + 1),
-              ),
-              realChannel0: realCh,
-              isPartialOutput: false,
-            ),
-          );
-        }
-      }
-    } else {
-      for (int i = 0; i + 1 < hwCount; i++) {
-        if (!physical.contains(i) || !physical.contains(i + 1)) continue;
+    final sortedStereo = config.stereoConfigs.entries
+        .where((e) => e.value.enabled)
+        .toList()
+      ..sort((a, b) => a.key.compareTo(b.key));
+    for (final e in sortedStereo) {
+      final key = e.key; // 1-based
+      final setting = e.value;
+      final realCh = key - 1; // 0-based
+      // 짝 채널(realCh+1, 0-based)이 하드웨어에 없거나 가상 채널이면
+      // 만들지 않는다. 스테레오 쌍은 두 채널 모두 물리여야 한다.
+      if (realCh + 1 < hwCount &&
+          physical.contains(realCh) &&
+          physical.contains(realCh + 1)) {
         items.add(
           ChannelRoutingItem(
-            value: ChannelDropdownValueHelper.getStereoValue(i),
+            value: ChannelDropdownValueHelper.getStereoValue(realCh),
             label: withHardwareName(
-              'Stereo (Ch-${i + 1}/Ch-${i + 2})',
-              hardwareRangeName(channelNames, i, i + 1),
+              _withCustomSuffix(
+                'Stereo (Ch-$key/Ch-${key + 1})',
+                setting.customName,
+              ),
+              hardwareRangeName(channelNames, realCh, realCh + 1),
             ),
-            realChannel0: i,
+            realChannel0: realCh,
             isPartialOutput: false,
           ),
         );
@@ -307,47 +277,26 @@ List<ChannelRoutingItem> buildChannelRoutingItems({
   if (isMulti) {
     final fileCh = fileChannels; // isMulti == true 이므로 항상 non-null
 
-    if (hasConfiguredGroups) {
-      final sortedMulti = config.multiConfigs.entries
-          .where((e) => e.value.enabled)
-          .toList()
-        ..sort((a, b) => a.key.compareTo(b.key));
-      for (final e in sortedMulti) {
-        final key = e.key; // 1-based
-        final setting = e.value;
-        final startCh = key - 1; // 0-based
-        // 시작 채널이 하드웨어 상한을 넘거나 가상 채널이면 만들지 않는다.
-        if (startCh < hwCount && physical.contains(startCh)) {
-          items.add(
-            _buildMultiItem(
-              startCh: startCh,
-              fileCh: fileCh,
-              hwCount: hwCount,
-              physical: physical,
-              channelNames: channelNames,
-              customName: setting.customName,
-            ),
-          );
-        }
-      }
-    } else {
-      final lastStart = hwCount - fileCh;
-      if (lastStart >= 0) {
-        for (int i = 0; i <= lastStart; i++) {
-          if (!physical.contains(i)) continue;
-          items.add(_buildMultiItem(
-            startCh: i, fileCh: fileCh, hwCount: hwCount, physical: physical,
-            channelNames: channelNames));
-        }
-      }
-      if (items.isEmpty) {
-        // 파일 채널 수가 물리 채널 수보다 많아 완전히 들어갈 자리가 없어도,
-        // 트랙이 선택 불가가 되지 않도록 첫 물리 채널에서 시작하는 항목
-        // 하나는 남긴다(부분 출력으로 표시).
-        final first = physical.reduce((a, b) => a < b ? a : b);
-        items.add(_buildMultiItem(
-          startCh: first, fileCh: fileCh, hwCount: hwCount, physical: physical,
-          channelNames: channelNames));
+    final sortedMulti = config.multiConfigs.entries
+        .where((e) => e.value.enabled)
+        .toList()
+      ..sort((a, b) => a.key.compareTo(b.key));
+    for (final e in sortedMulti) {
+      final key = e.key; // 1-based
+      final setting = e.value;
+      final startCh = key - 1; // 0-based
+      // 시작 채널이 하드웨어 상한을 넘거나 가상 채널이면 만들지 않는다.
+      if (startCh < hwCount && physical.contains(startCh)) {
+        items.add(
+          _buildMultiItem(
+            startCh: startCh,
+            fileCh: fileCh,
+            hwCount: hwCount,
+            physical: physical,
+            channelNames: channelNames,
+            customName: setting.customName,
+          ),
+        );
       }
     }
   }

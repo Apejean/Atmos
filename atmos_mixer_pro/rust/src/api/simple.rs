@@ -56,31 +56,16 @@ pub fn api_update_sound_source_position(sound_id: String, x: f32, y: f32, z: f32
 ///   재생되는 파일의 채널 수에 따라 트랙별 라우팅(믹서 쓰기 단계)에서 결정되므로, 이 게이트는
 ///   "시작 채널 이후로는 무엇이 와도 막지 않는다"는 상한만 담당한다(SPEC 3.1절).
 ///
-/// 세 맵이 모두 비어 있으면(사용자가 Output Config를 아직 건드리지 않음) 하위호환을 위해
-/// 전 채널을 개방한다.
+/// 켠 그룹이 하나도 없으면(세 맵이 비었거나 전부 꺼짐) 어느 채널도 열지 않는다 — 소리 없음
+/// (사용자 결정 2026-11-21, 설계 docs/superpowers/specs/2026-11-21-empty-output-config-silent-design.md).
 pub fn compute_enabled_channels(config: &AppConfig, hw_len: usize) -> Vec<bool> {
     let mut enabled = vec![false; hw_len];
 
-    // "한 번도 그룹을 열지 않은 설정"은 전체 개방으로 본다.
-    //
-    // 예전에는 맵이 `is_empty()`인지만 봤다. 그래서 항목은 존재하지만 전부
-    // `enabled: false`인 설정(신규 생성 직후 등)에서는 이 분기를 타지 않고
-    // 모든 채널이 닫힌 채로 남아 완전 무음이 됐다. 더 나쁜 건 Dart의
-    // `buildChannelRoutingItems()`(lib/core/utils/channel_routing.dart)가
-    // "enabled 항목이 하나라도 있는가"를 기준으로 쓴다는 점이었다. 두 규칙이
-    // 어긋나서 UI는 채널을 선택지로 제시하는데 엔진은 그 채널을 음소거했다.
-    // 사용자가 "선택은 되는데 소리가 안 난다"고 본 원인이다.
-    //
-    // 현재 데이터 모델에는 "설정된 적 있음"을 나타내는 별도 플래그가 없어
-    // "전부 비활성"과 "미설정"을 구분할 수 없다. 그래서 Dart와 같은 규칙
-    // (활성 항목이 하나도 없으면 전체 개방)으로 통일한다. 채널을 실제로 닫는
-    // 것은 다른 그룹을 열어 상대적으로 닫는 방식이다.
-    let has_enabled_group = config.mono_configs.values().any(|s| s.enabled)
-        || config.stereo_configs.values().any(|s| s.enabled)
-        || config.multi_configs.values().any(|s| s.enabled);
-    if !has_enabled_group {
-        return vec![true; hw_len];
-    }
+    // 켠 그룹이 없으면 아래 루프가 아무것도 열지 않아 전부 닫힌 채로 돌아간다(소리 없음, 2026-11-21 사용자 결정).
+    // 2026-09-13부터 이 경우를 "전체 개방"으로 봤다. 그 전에 맵이 `is_empty()`인지만 봐서 화면
+    // (`buildChannelRoutingItems`, lib/core/utils/channel_routing.dart)은 채널을 내놓는데 엔진은 막던
+    // 어긋남이 있었는데, 지금은 화면도 같은 기준("켠 그룹이 하나라도 있는가")으로 켠 그룹이 없으면 고를 채널을
+    // 내놓지 않으므로 어긋나지 않는다.
 
     // Mono 그룹 하나는 **채널 하나**를 연다. 예전에는 real_ch와 real_ch+1을
     // 모두 열어서, 사용자가 Mono 1만 열어도 채널 2까지 열렸다. Dart의
@@ -124,6 +109,15 @@ pub fn compute_enabled_channels(config: &AppConfig, hw_len: usize) -> Vec<bool> 
 /// `compute_enabled_channels()` 결과를 `GLOBAL_STATE.enabled_channels` 원자 배열에 반영한다.
 fn apply_enabled_channels(config: &AppConfig) {
     let enabled = compute_enabled_channels(config, GLOBAL_STATE.enabled_channels.len());
+    // 열린 채널이 없어지면 한 번 남긴다(켠 그룹이 없음 — 소리 없음, 2026-11-21).
+    static NO_OPEN_CHANNEL: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+    let none_open = !enabled.iter().any(|&open| open);
+    if NO_OPEN_CHANNEL.swap(none_open, std::sync::atomic::Ordering::Relaxed) != none_open && none_open {
+        GLOBAL_STATE.log(
+            "출력 설정에서 켠 채널 그룹이 없어 어느 채널로도 내보내지 않는다 — 출력 설정에서 그룹을 켜야 소리가 난다"
+                .to_string(),
+        );
+    }
     for (slot, &value) in GLOBAL_STATE.enabled_channels.iter().zip(enabled.iter()) {
         slot.store(value, std::sync::atomic::Ordering::Relaxed);
     }
@@ -2697,15 +2691,6 @@ pub fn api_update_spatial_config_json(json_payload: String) -> Result<(), AtmosE
                     .unwrap_or(false)
         })
         .collect();
-    // 출력 설정이 비었을 때 처리 폭에 서브우퍼 채널을 넣는다 — 베이스 매니지먼트가 트랙이 없는 서브 채널로도 저역을
-    // 보낸다(core::processing_channels, 2026-11-20). 서브 채널이 바뀌면 처리 폭을 다시 정한다(출력 설정 변경과 같은 길).
-    let highest_sub = channel_is_sub.iter().rposition(|&s| s).map_or(0, |i| i as u32 + 1);
-    if GLOBAL_STATE.highest_sub_channel.swap(highest_sub, std::sync::atomic::Ordering::Relaxed) != highest_sub {
-        let config = GLOBAL_STATE.config.read().unwrap_or_else(|e| e.into_inner()).clone();
-        if let Some(config) = config.as_ref() {
-            request_restart_if_processing_width_changed(config);
-        }
-    }
     let bass_route =
         crate::audio::bass_route::compute_bass_route(&channel_is_sub, &channel_room_ids, &has_speaker);
     if crate::core::state::debug_flags::trace_cmd() {

@@ -24,14 +24,16 @@ fn off() -> ChannelSetting {
     setting(false)
 }
 
+/// 켠 그룹이 없으면 어느 채널로도 내보내지 않으므로 처리할 채널도 없다(사용자 결정 2026-11-21 "아무것도 안 켜면 소리
+/// 없음", 설계 docs/superpowers/specs/2026-11-21-empty-output-config-silent-design.md). 예전에는 장치 전체였다.
 #[test]
-fn 출력_설정을_건드리지_않았으면_장치_전체를_처리한다() {
+fn 출력_설정에서_켠_그룹이_없으면_처리할_채널이_없다() {
     let config = AppConfig::default();
-    assert_eq!(processing_channel_count(&config, 94), 94);
+    assert_eq!(processing_channel_count(&config, 94), 0);
     let mut all_off = AppConfig::default();
     all_off.mono_configs.insert(1, off());
     all_off.multi_configs.insert(1, off());
-    assert_eq!(processing_channel_count(&all_off, 94), 94, "켠 그룹이 없으면 전체 개방과 같다");
+    assert_eq!(processing_channel_count(&all_off, 94), 0, "항목은 있어도 전부 꺼져 있으면 켠 그룹이 없다");
 }
 
 #[test]
@@ -81,7 +83,7 @@ fn 장치_채널_수를_넘는_번호는_세지_않는다() {
     assert_eq!(processing_channel_count(&config, 94), 2);
     let mut only_out_of_range = AppConfig::default();
     only_out_of_range.mono_configs.insert(255, on());
-    assert_eq!(processing_channel_count(&only_out_of_range, 94), 94, "범위 안에 켠 채널이 없으면 지금처럼 전체");
+    assert_eq!(processing_channel_count(&only_out_of_range, 94), 0, "범위 안에 켠 채널이 없으면 열린 채널이 없다");
 }
 
 #[test]

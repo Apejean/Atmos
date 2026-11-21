@@ -45,92 +45,28 @@ void main() {
   List<String> hw(int n) =>
       List.generate(n, (i) => 'Channel ${i + 1}');
 
-  group('Output Config가 비어있을 때(하위호환 자동 생성)', () {
-    test('모노 파일: 하드웨어 채널마다 Mono 항목 1개씩만 생성된다', () {
-      final items = buildChannelRoutingItems(
-        channelNames: hw(4),
-        config: config(),
-        fileChannels: 1,
-      );
+  // 출력 설정에서 모든 채널을 켠 설정(모노 1~n, 스테레오 1~n-1, 멀티 1~n). 켠 그룹이 없으면 항목이 없으므로
+  // (2026-11-21) 라벨·물리 채널 시험은 이 설정으로 돌린다.
+  AppConfig everyChannel(int n) => config(
+    mono: {for (var k = 1; k <= n; k++) k: setting()},
+    stereo: {for (var k = 1; k < n; k++) k: setting()},
+    multi: {for (var k = 1; k <= n; k++) k: setting()},
+  );
 
-      expect(items.map((e) => e.value).toList(), [
-        'mono_0',
-        'mono_1',
-        'mono_2',
-        'mono_3',
-      ]);
-      expect(items.every((e) => !e.isPartialOutput), isTrue);
-      expect(items.first.label, 'Mono (Ch-1)');
-    });
-
-    test('스테레오 파일: Mono + 인접 쌍 Stereo 항목이 함께 생성된다', () {
-      final items = buildChannelRoutingItems(
-        channelNames: hw(3),
-        config: config(),
-        fileChannels: 2,
-      );
-
-      final monoValues = items
-          .where((e) => ChannelDropdownValueHelper.isMono(e.value))
-          .map((e) => e.value)
-          .toList();
-      final stereoValues = items
-          .where((e) => ChannelDropdownValueHelper.isStereo(e.value))
-          .toList();
-
-      expect(monoValues, ['mono_0', 'mono_1', 'mono_2']);
-      // 인접 쌍만: (0,1),(1,2) => 2개
-      expect(stereoValues.map((e) => e.value).toList(), [
-        'stereo_0',
-        'stereo_1',
-      ]);
-      expect(stereoValues.first.label, 'Stereo (Ch-1/Ch-2)');
-    });
-
-    test('메타데이터 로딩 전(fileChannels=null)에는 스테레오 파일과 동일하게 취급된다', () {
-      final items = buildChannelRoutingItems(
-        channelNames: hw(2),
-        config: config(),
-        fileChannels: null,
-      );
-
-      expect(items.map((e) => e.value).toSet(), {
-        'mono_0',
-        'mono_1',
-        'stereo_0',
+  // 켠 그룹이 없으면 고를 채널이 없다 — 엔진도 어느 채널로도 내보내지 않는다(사용자 결정 2026-11-21
+  // "아무것도 안 켜면 소리 없음", 설계 docs/superpowers/specs/2026-11-21-empty-output-config-silent-design.md).
+  // 2026-09-13부터 이 경우 모든 하드웨어 채널로 자동 생성했다.
+  group('Output Config가 비어있을 때(켠 그룹 없음 → 빈 목록)', () {
+    for (final fileChannels in <int?>[1, 2, null, 4]) {
+      test('파일 채널 $fileChannels: 항목이 없다', () {
+        final items = buildChannelRoutingItems(
+          channelNames: hw(6),
+          config: config(),
+          fileChannels: fileChannels,
+        );
+        expect(items, isEmpty);
       });
-    });
-
-    test('멀티채널 파일이 하드웨어 안에 다 들어가면 모든 시작 위치에 항목이 생기고 부분 출력이 아니다', () {
-      final items = buildChannelRoutingItems(
-        channelNames: hw(6),
-        config: config(),
-        fileChannels: 4,
-      );
-
-      // lastStart = 6 - 4 = 2 => i = 0,1,2
-      expect(items.map((e) => e.value).toList(), [
-        'multi_0',
-        'multi_1',
-        'multi_2',
-      ]);
-      expect(items.every((e) => !e.isPartialOutput), isTrue);
-      expect(items[0].label, 'N-Ch (Ch-1~4)');
-    });
-
-    test('4채널 파일 + 2채널 장치(들어갈 자리 없음): Ch-1 시작 항목 1개가 부분 출력으로 표시된다', () {
-      final items = buildChannelRoutingItems(
-        channelNames: hw(2),
-        config: config(),
-        fileChannels: 4,
-      );
-
-      expect(items.length, 1);
-      expect(items.first.value, 'multi_0');
-      expect(items.first.realChannel0, 0);
-      expect(items.first.isPartialOutput, isTrue);
-      expect(items.first.label, 'N-Ch (Ch-1~2) · 부분 출력 2/4ch (나머지 무시됨)');
-    });
+    }
 
     test('하드웨어 채널이 하나도 없으면 항목이 생성되지 않는다', () {
       final items = buildChannelRoutingItems(
@@ -141,13 +77,49 @@ void main() {
       expect(items, isEmpty);
     });
 
-    test('모든 그룹이 비활성(enabled=false)이어도 비어있는 것과 동일하게 자동 생성으로 폴백한다', () {
+    test('모든 그룹이 비활성(enabled=false)이면 비어있는 것과 같다(항목 없음)', () {
       final items = buildChannelRoutingItems(
         channelNames: hw(2),
-        config: config(mono: {1: setting(enabled: false)}),
+        config: config(
+          mono: {1: setting(enabled: false)},
+          stereo: {1: setting(enabled: false)},
+          multi: {1: setting(enabled: false)},
+        ),
         fileChannels: 1,
       );
-      expect(items.map((e) => e.value).toList(), ['mono_0', 'mono_1']);
+      expect(items, isEmpty);
+    });
+  });
+
+  group('멀티채널 파일과 켠 Multi 그룹', () {
+    test('하드웨어 안에 다 들어가면 부분 출력이 아니다', () {
+      final items = buildChannelRoutingItems(
+        channelNames: hw(6),
+        config: config(multi: {1: setting(), 2: setting(), 3: setting()}),
+        fileChannels: 4,
+      );
+
+      expect(items.map((e) => e.value).toList(), [
+        'multi_0',
+        'multi_1',
+        'multi_2',
+      ]);
+      expect(items.every((e) => !e.isPartialOutput), isTrue);
+      expect(items[0].label, 'N-Ch (Ch-1~4)');
+    });
+
+    test('4채널 파일 + 2채널 장치: Ch-1 시작 항목이 부분 출력으로 표시된다', () {
+      final items = buildChannelRoutingItems(
+        channelNames: hw(2),
+        config: config(multi: {1: setting()}),
+        fileChannels: 4,
+      );
+
+      expect(items.length, 1);
+      expect(items.first.value, 'multi_0');
+      expect(items.first.realChannel0, 0);
+      expect(items.first.isPartialOutput, isTrue);
+      expect(items.first.label, 'N-Ch (Ch-1~2) · 부분 출력 2/4ch (나머지 무시됨)');
     });
   });
 
@@ -403,14 +375,14 @@ void main() {
     test('모노는 그 채널 이름, 스테레오는 두 이름을 숫자만 묶어서', () {
       final mono = buildChannelRoutingItems(
         channelNames: rme,
-        config: config(),
+        config: everyChannel(rme.length),
         fileChannels: 1,
       );
       expect(mono.first.label, 'Mono (Ch-1) · Analog 1');
 
       final stereo = buildChannelRoutingItems(
         channelNames: rme,
-        config: config(),
+        config: everyChannel(rme.length),
         fileChannels: 2,
       ).where((e) => ChannelDropdownValueHelper.isStereo(e.value)).toList();
       expect(stereo[0].label, 'Stereo (Ch-1/Ch-2) · Analog 1/2');
@@ -437,7 +409,7 @@ void main() {
     test('부분 출력 표시는 장치 이름 뒤에 남는다', () {
       final items = buildChannelRoutingItems(
         channelNames: ['Line 1', 'Line 2'],
-        config: config(),
+        config: config(multi: {1: setting()}),
         fileChannels: 4,
       );
       expect(items.single.label, 'N-Ch (Ch-1~2) · Line 1~2 · 부분 출력 2/4ch (나머지 무시됨)');
@@ -509,7 +481,7 @@ void main() {
     test('라우팅 목록에 가상 채널이 나오지 않는다', () {
       final items = buildChannelRoutingItems(
         channelNames: scarlett,
-        config: config(),
+        config: everyChannel(scarlett.length),
         fileChannels: 1,
       );
 
@@ -527,7 +499,7 @@ void main() {
     test('스테레오 쌍이 물리/가상 경계를 넘지 않는다', () {
       final items = buildChannelRoutingItems(
         channelNames: scarlett,
-        config: config(),
+        config: everyChannel(scarlett.length),
         fileChannels: 2,
       );
       final stereo = items.where((i) => i.value.startsWith('stereo_')).toList();
@@ -539,7 +511,7 @@ void main() {
     test('멀티 파일이 가상 채널로 넘어가면 부분 출력으로 표시된다', () {
       final items = buildChannelRoutingItems(
         channelNames: scarlett,
-        config: config(),
+        config: everyChannel(scarlett.length),
         fileChannels: 4,
       );
 
@@ -582,7 +554,7 @@ void main() {
       ];
       final items = buildChannelRoutingItems(
         channelNames: mixed,
-        config: config(),
+        config: everyChannel(mixed.length),
         fileChannels: 2,
       );
       final stereo = items
@@ -597,7 +569,7 @@ void main() {
     test('모든 채널이 가상이면 라우팅 항목이 비어 있다', () {
       final items = buildChannelRoutingItems(
         channelNames: const ['DAW 1', 'DAW 2'],
-        config: config(),
+        config: everyChannel(2),
         fileChannels: 2,
       );
       expect(items, isEmpty);
