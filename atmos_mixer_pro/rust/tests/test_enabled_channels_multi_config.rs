@@ -66,34 +66,28 @@ fn stereo_only_opens_pair() {
     assert_eq!(enabled, expected);
 }
 
-/// multi_configs만 설정된 경우 (회귀 대상): 시작 채널(0-based)부터 하드웨어 끝까지 전부 열려야 한다.
-/// 수정 전 코드는 이 케이스에서 mono/stereo가 비어있으므로 "전 채널 개방" 분기로 우연히 통과했었다.
-/// 이 테스트는 그 우연이 아니라 multi_configs가 실제로 인식되는지를 검증하기 위해,
-/// 아래 mono+multi 혼합 케이스와 짝을 이룬다.
+/// multi_configs만 설정된 경우: 시작 채널 하나만 열린다(사용자 결정 2026-11-21 "채널 하나로 묶기", 설계
+/// docs/superpowers/specs/2026-11-21-output-config-open-channels-design.md). 예전에는 시작 채널부터 하드웨어 끝까지
+/// 열었다. 다채널 파일의 나머지 채널은 열린 채널로만 나간다.
 #[test]
-fn multi_only_opens_from_start_to_hw_end() {
+fn multi_only_opens_its_start_channel() {
     let mut config = AppConfig::default();
-    config.multi_configs.insert(5, setting(true)); // 1-based key=5 -> 0-based ch 4부터 끝까지
+    config.multi_configs.insert(5, setting(true)); // 1-based key=5 -> 0-based ch 4 하나
     let enabled = compute_enabled_channels(&config, 8);
-    let expected = vec![false, false, false, false, true, true, true, true];
+    let expected = vec![false, false, false, false, true, false, false, false];
     assert_eq!(enabled, expected);
 }
 
-/// mono + multi 혼합 (기존 버그가 드러나는 케이스):
-/// 수정 전 코드는 mono_configs가 비어있지 않으므로 else 분기로 들어가지만 multi_configs를
-/// 순회하지 않아 채널 4~7이 계속 false로 남았다 (무음 버그). 수정 후에는 mono가 여는 0과
-/// multi가 여는 4..8이 모두 true여야 한다.
+/// mono + multi 혼합: mono가 여는 0과 multi가 여는 4가 모두 열린다(예전에 multi_configs를 빠뜨려 무음이던 결함의
+/// 회귀 시험 — multi 시작 채널이 열려야 한다).
 #[test]
-fn mono_and_multi_mixed_opens_both_ranges() {
+fn mono_and_multi_mixed_opens_both() {
     let mut config = AppConfig::default();
     config.mono_configs.insert(1, setting(true)); // 0-based ch 0 (Mono = 채널 하나)
-    config.multi_configs.insert(5, setting(true)); // 0-based ch 4..8
+    config.multi_configs.insert(5, setting(true)); // 0-based ch 4
     let enabled = compute_enabled_channels(&config, 8);
-    let expected = vec![true, false, false, false, true, true, true, true];
-    assert_eq!(
-        enabled, expected,
-        "multi_configs가 반영되지 않으면 채널 4~7이 열리지 않는다 (실제 버그 재현)"
-    );
+    let expected = vec![true, false, false, false, true, false, false, false];
+    assert_eq!(enabled, expected, "multi_configs가 반영되지 않으면 채널 4가 열리지 않는다");
 }
 
 /// enabled=false인 그룹은 열리지 않는다 (mono/stereo와 동일하게 multi도 enabled 플래그를 존중해야 함).

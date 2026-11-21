@@ -106,14 +106,14 @@ fn mono_to_stereo_upmix_respects_gate_and_stays_symmetric() {
         right
     );
 
-    // --- 시나리오 3: 왼쪽 닫힘 -> 오른쪽만 소리 ---
-    // 이 경우 오른쪽만 나는 것은 게이트를 따른 정상 동작이다. 사용자가 본
-    // "스테레오인데 오른쪽만 나온다"가 게이트 비대칭 결함인지 설정 때문인지
-    // 구분하기 위해 남긴다.
+    // --- 시나리오 3: 왼쪽(트랙 시작 채널) 닫힘 -> 무음 ---
+    // 트랙 출력 자리(모노 파일은 시작 채널 CH1)가 닫혀 있으면 화면에 "출력 설정에 없음"이 뜨고 엔진도 그 트랙을
+    // 무음으로 둔다(사용자 결정 2026-11-21 "A. 안내 뜨는 트랙은 무음"·"채널 하나로 묶기", core::output_groups).
+    // 예전에는 열린 오른쪽으로만 소리가 났다.
     let out = run_mono_to_stereo(2, false, true, 1.0);
     let left: f32 = out.iter().step_by(2).map(|s| s.abs()).sum();
     let right: f32 = out.iter().skip(1).step_by(2).map(|s| s.abs()).sum();
 
     assert_eq!(left, 0.0, "닫힌 왼쪽 채널로는 소리가 나가면 안 된다");
-    assert!(right > 0.0, "열린 오른쪽 채널에는 소리가 있어야 한다");
+    assert_eq!(right, 0.0, "시작 채널이 닫힌 트랙은 열린 오른쪽으로도 소리가 나면 안 된다");
 }

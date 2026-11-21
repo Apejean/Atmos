@@ -165,11 +165,16 @@ class _TrackCardState extends ConsumerState<TrackCard> {
     // 저장된 값을 드롭다운 값 형식으로 되돌린다. 멀티채널 파일은 Multi
     // 인코딩을, 그 밖에는 outputStereo 플래그에 따라 Stereo/Mono 인코딩을 쓴다.
     final bool isMulti = _fileChannels != null && _fileChannels! > 2;
+    // 모노 파일은 모노 자리만 고를 수 있다. 새 트랙의 기본값(스테레오 출력 켬)도 같은 채널의 모노로 본다 — 엔진도 같다
+    // (core::output_groups::required_group, 2026-11-21).
+    final bool isMonoFile = _fileChannels == 1;
 
     int currentKey = widget.track.outputChannel;
     String currentValue;
     if (isMulti) {
       currentValue = ChannelDropdownValueHelper.getMultiValue(currentKey);
+    } else if (isMonoFile) {
+      currentValue = ChannelDropdownValueHelper.getMonoValue(currentKey);
     } else {
       currentValue = widget.track.outputStereo
           ? ChannelDropdownValueHelper.getStereoValue(currentKey)
@@ -178,12 +183,24 @@ class _TrackCardState extends ConsumerState<TrackCard> {
 
     bool valueExists = outputItems.any((item) => item.value == currentValue);
 
-    // 예전에 3D OBJECT로 저장한 트랙(출력 4294967295)도 여기서 첫 출력으로 옮겨진다.
-    if (!valueExists) {
+    // 저장된 출력이 켠 그룹 목록에 없으면 바꾸지 않고 드롭다운을 비워 주황으로 알린다 — 엔진은 그 트랙을 무음으로
+    // 둔다(core::output_groups, 2026-11-21 사용자 결정). 예전에는 첫 항목으로 몰래 바꿔, 그룹을 켜고 끄기만 해도 트랙
+    // 출력이 바뀌었다. 예전에 3D OBJECT로 저장한 트랙(출력 4294967295)만 지금처럼 첫 출력으로 옮긴다.
+    const legacyObjectOutput = 4294967295;
+    String? dropdownValue = currentValue;
+    if (valueExists && isMonoFile && widget.track.outputStereo) {
+      // 같은 채널 그대로 스테레오 표시만 모노로 고친다(채널은 바꾸지 않는다). 그대로 두면 엔진이 옆 채널로도 올려 낸다.
+      final key = currentKey;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        widget.onOutputChanged?.call(key, false);
+      });
+    } else if (!valueExists && widget.track.outputChannel != legacyObjectOutput) {
+      dropdownValue = null;
+    } else if (!valueExists) {
       if (outputItems.isNotEmpty) {
         final firstVal = outputItems.first.value;
         if (firstVal != null) {
-          currentValue = firstVal;
+          dropdownValue = firstVal;
           final isStereo =
               ChannelDropdownValueHelper.isStereo(firstVal) ||
               ChannelDropdownValueHelper.isMulti(firstVal);
@@ -331,8 +348,13 @@ class _TrackCardState extends ConsumerState<TrackCard> {
                         child: DropdownButtonHideUnderline(
                         child: DropdownButton<String>(
                           isExpanded: true,
-                          value: currentValue,
+                          value: dropdownValue,
                           items: outputItems,
+                          hint: Text(
+                            'CH${currentKey + 1} (출력 설정에 없음)',
+                            style: const TextStyle(color: Colors.orangeAccent, fontSize: 12),
+                            overflow: TextOverflow.ellipsis,
+                          ),
                           dropdownColor: AppColors.cardSurfaceSolid,
                           style: const TextStyle(color: Colors.white, fontSize: 12),
                           onChanged: (val) {

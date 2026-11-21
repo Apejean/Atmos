@@ -91,11 +91,13 @@ void main() {
     });
   });
 
-  group('멀티채널 파일과 켠 Multi 그룹', () {
-    test('하드웨어 안에 다 들어가면 부분 출력이 아니다', () {
+  // 다채널 파일은 열린 채널마다 시작 자리가 생기고, 파일 채널은 열린 채널로만 나간다(2026-11-21 "채널 하나로
+  // 묶기" — 멀티 k는 시작 채널 하나만 연다). 시작부터 이어서 열린 범위가 파일보다 짧으면 부분 출력이다.
+  group('멀티채널 파일과 열린 채널', () {
+    test('열린 채널 안에 다 들어가면 부분 출력이 아니다', () {
       final items = buildChannelRoutingItems(
         channelNames: hw(6),
-        config: config(multi: {1: setting(), 2: setting(), 3: setting()}),
+        config: everyChannel(6),
         fileChannels: 4,
       );
 
@@ -103,19 +105,35 @@ void main() {
         'multi_0',
         'multi_1',
         'multi_2',
+        'multi_3',
+        'multi_4',
+        'multi_5',
       ]);
-      expect(items.every((e) => !e.isPartialOutput), isTrue);
+      expect(items.take(3).every((e) => !e.isPartialOutput), isTrue);
+      expect(items.skip(3).every((e) => e.isPartialOutput), isTrue);
       expect(items[0].label, 'N-Ch (Ch-1~4)');
     });
 
-    test('4채널 파일 + 2채널 장치: Ch-1 시작 항목이 부분 출력으로 표시된다', () {
+    test('멀티 CH1 시작만 켜면 CH1 하나만 열려 부분 출력이다', () {
       final items = buildChannelRoutingItems(
-        channelNames: hw(2),
+        channelNames: hw(6),
         config: config(multi: {1: setting()}),
         fileChannels: 4,
       );
 
       expect(items.length, 1);
+      expect(items.first.value, 'multi_0');
+      expect(items.first.isPartialOutput, isTrue);
+      expect(items.first.label, 'N-Ch (Ch-1~1) · 부분 출력 1/4ch (나머지 무시됨)');
+    });
+
+    test('4채널 파일 + 2채널 장치: Ch-1 시작 항목이 부분 출력으로 표시된다', () {
+      final items = buildChannelRoutingItems(
+        channelNames: hw(2),
+        config: everyChannel(2),
+        fileChannels: 4,
+      );
+
       expect(items.first.value, 'multi_0');
       expect(items.first.realChannel0, 0);
       expect(items.first.isPartialOutput, isTrue);
@@ -205,16 +223,15 @@ void main() {
       expect(items, isEmpty);
     });
 
-    test('한 그룹이라도 설정되면 다른 그룹은 자동 생성 없이 완전히 비활성화된다', () {
-      // stereoConfigs만 설정됨 -> 모노 파일이어도 monoConfigs가 비어있으므로
-      // Mono 항목은 생성되지 않는다(자동 생성 폴백은 3개 맵이 전부 비어있을
-      // 때만 적용됨).
+    // 2026-11-21 "채널 하나로 묶기": 세 맵은 열린 채널만 뜻한다. 스테레오 1/2를 켜면 CH1·CH2가 열려 모노 파일도
+    // 모노 CH1·CH2 자리를 고를 수 있다(예전에는 종류별로 따로 봐서 모노 항목이 없었다). 열리지 않은 채널은 없다.
+    test('스테레오 1/2만 켜도 모노 파일은 열린 CH1·CH2 모노 자리를 고를 수 있다', () {
       final items = buildChannelRoutingItems(
         channelNames: hw(4),
         config: config(stereo: {1: setting()}),
         fileChannels: 1,
       );
-      expect(items, isEmpty);
+      expect(items.map((e) => e.value).toList(), ['mono_0', 'mono_1']);
     });
   });
 
@@ -386,17 +403,22 @@ void main() {
         fileChannels: 2,
       ).where((e) => ChannelDropdownValueHelper.isStereo(e.value)).toList();
       expect(stereo[0].label, 'Stereo (Ch-1/Ch-2) · Analog 1/2');
-      // 묶을 수 없는 쌍(Analog 12 + AES 1)은 두 이름을 그대로 잇는다.
-      expect(stereo[11].label, 'Stereo (Ch-12/Ch-13) · Analog 12 / AES 1');
+      // 스테레오 자리는 Output Config 창과 같은 짝(1/2·3/4…)만 나온다(2026-11-21).
+      expect(stereo[6].label, 'Stereo (Ch-13/Ch-14) · AES 1/2');
+      expect(stereo.length, 9);
     });
 
     test('N-Ch는 처음~끝 이름, 사용자 이름은 장치 이름 앞에', () {
+      // 멀티 15는 CH15 하나만 열므로 CH16~18도 연다(모노).
       final multi = buildChannelRoutingItems(
         channelNames: rme,
-        config: config(multi: {15: setting(customName: 'Ceiling')}),
+        config: config(
+          multi: {15: setting(customName: 'Ceiling')},
+          mono: {16: setting(), 17: setting(), 18: setting()},
+        ),
         fileChannels: 4,
       );
-      expect(multi.single.label, 'N-Ch (Ch-15~18) (Ceiling) · ADAT 1~4');
+      expect(multi.first.label, 'N-Ch (Ch-15~18) (Ceiling) · ADAT 1~4');
 
       final stereo = buildChannelRoutingItems(
         channelNames: rme,
@@ -409,10 +431,10 @@ void main() {
     test('부분 출력 표시는 장치 이름 뒤에 남는다', () {
       final items = buildChannelRoutingItems(
         channelNames: ['Line 1', 'Line 2'],
-        config: config(multi: {1: setting()}),
+        config: config(stereo: {1: setting()}),
         fileChannels: 4,
       );
-      expect(items.single.label, 'N-Ch (Ch-1~2) · Line 1~2 · 부분 출력 2/4ch (나머지 무시됨)');
+      expect(items.first.label, 'N-Ch (Ch-1~2) · Line 1~2 · 부분 출력 2/4ch (나머지 무시됨)');
     });
 
     test('범위 이름 묶기: 같은 이름, 한쪽만 있음, 기본값', () {
@@ -504,8 +526,8 @@ void main() {
       );
       final stereo = items.where((i) => i.value.startsWith('stereo_')).toList();
 
-      // Ch-5/Ch-6까지만 가능하고, Ch-6/Ch-7(가상)은 나오면 안 된다.
-      expect(stereo.map((e) => e.realChannel0).toList(), [0, 1, 2, 3, 4]);
+      // 짝(1/2·3/4·5/6)만 나오고, Ch-7(가상)이 끼는 쌍은 나오면 안 된다.
+      expect(stereo.map((e) => e.realChannel0).toList(), [0, 2, 4]);
     });
 
     test('멀티 파일이 가상 채널로 넘어가면 부분 출력으로 표시된다', () {

@@ -172,4 +172,20 @@ void main() {
 
     expect(moved, [ChannelDropdownValueHelper.getChannel(first.value)]);
   });
+
+  // 2026-11-21 사용자 결정: 저장된 출력이 켠 그룹 목록에 없어도 다른 출력으로 몰래 바꾸지 않는다(그 트랙은 엔진이
+  // 무음으로 둔다). 예전에는 첫 항목으로 바꿔, 그룹을 켜고 끄기만 해도 트랙 출력이 바뀌었다.
+  testWidgets('저장된 출력이 켠 그룹에 없으면 바꾸지 않고 주황으로 알린다', (tester) async {
+    final moved = <int>[];
+
+    // 열린 채널은 CH1·CH2·CH3(모노 1·3, 스테레오 1/2)이다. 모노 CH4(3번)는 열려 있지 않다.
+    await _pump(
+      tester,
+      _track(outputChannel: 3),
+      onOutputChanged: (channel, _) => moved.add(channel),
+    );
+
+    expect(moved, isEmpty, reason: '저장된 출력을 첫 항목으로 바꿨다');
+    expect(find.text('CH4 (출력 설정에 없음)'), findsOneWidget);
+  });
 }

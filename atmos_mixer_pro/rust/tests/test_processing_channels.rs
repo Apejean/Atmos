@@ -63,8 +63,10 @@ fn 스테레오는_짝_채널까지_센다() {
     assert_eq!(processing_channel_count(&edge, 94), 94);
 }
 
+/// 멀티 k는 시작 채널 하나만 연다(2026-11-21 "채널 하나로 묶기"). 예전에는 멀티 시작이 맨 위면 파일 채널 수를 몰라
+/// 장치 끝까지 처리했다.
 #[test]
-fn 멀티가_가장_높은_채널이면_길이를_알_수_없어_장치_끝까지_처리한다() {
+fn 멀티는_시작_채널까지만_센다() {
     let mut config = AppConfig::default();
     for k in 1..=8 {
         config.mono_configs.insert(k, on());
@@ -72,7 +74,7 @@ fn 멀티가_가장_높은_채널이면_길이를_알_수_없어_장치_끝까�
     config.multi_configs.insert(1, on());
     assert_eq!(processing_channel_count(&config, 94), 8, "멀티 시작이 모노 범위 안이면 모노 끝까지");
     config.multi_configs.insert(9, on());
-    assert_eq!(processing_channel_count(&config, 94), 94, "멀티 시작이 맨 위면 파일 채널 수를 몰라 장치 끝까지");
+    assert_eq!(processing_channel_count(&config, 94), 9, "멀티 시작이 맨 위면 그 시작 채널까지");
 }
 
 #[test]

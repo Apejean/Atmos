@@ -50,15 +50,12 @@ Future<void> apiUpdateSoundSourcePosition({
 /// 반환하는 `Vec<bool>`과 `GLOBAL_STATE.enabled_channels`는 **0-based**(CPAL `hw_ch` 인덱스)이다.
 /// 이 변환(`ch as usize - 1`)은 이 함수 안에서만 일어난다 — 호출부에서 다시 변환하지 말 것.
 ///
-/// ## 그룹별 채널 개방 규칙
-/// - Mono: `ch-1`, `ch`(1-based 페어) 두 채널을 연다 — 기존 "모노 1개가 L/R 페어를 연다" 설계 유지.
-/// - Stereo: 위와 동일한 페어 개방(기존 동작 유지, 이번 수정 범위 아님).
-/// - Multi: 시작 채널(`ch-1`, 0-based)부터 하드웨어 마지막 채널까지 전체 구간을 연다.
-///   `ChannelSetting`에는 그룹이 몇 채널짜리인지(N) 저장되지 않고, 실제로 몇 채널을 쓸지는
-///   재생되는 파일의 채널 수에 따라 트랙별 라우팅(믹서 쓰기 단계)에서 결정되므로, 이 게이트는
-///   "시작 채널 이후로는 무엇이 와도 막지 않는다"는 상한만 담당한다(SPEC 3.1절).
+/// ## 채널 개방 규칙(열린 채널, `core::output_groups::open_channels`)
+/// 켠 Mono k → CHk, 켠 Stereo k → CHk·CHk+1, 켠 Multi k → CHk(시작 채널 하나). 2026-11-21 사용자 결정
+/// "채널 하나로 묶기"(설계 docs/superpowers/specs/2026-11-21-output-config-open-channels-design.md) — 예전에는
+/// Multi k가 k부터 하드웨어 끝까지 열었다. 다채널 파일의 각 채널은 열린 채널로만 나간다.
 ///
-/// 켠 그룹이 하나도 없으면(세 맵이 비었거나 전부 꺼짐) 어느 채널도 열지 않는다 — 소리 없음
+/// 켠 것이 하나도 없으면(세 맵이 비었거나 전부 꺼짐) 어느 채널도 열지 않는다 — 소리 없음
 /// (사용자 결정 2026-11-21, 설계 docs/superpowers/specs/2026-11-21-empty-output-config-silent-design.md).
 Future<List<bool>> computeEnabledChannels({
   required AppConfig config,

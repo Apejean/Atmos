@@ -160,15 +160,13 @@ String channelOutOfRangeName(int index0) =>
 /// `*Configs` 맵의 1-based 키를 읽어 0-based로 변환하는 것 외에는 Dart 코드
 /// 어디에서도 1-based 값을 만들거나 소비하지 않는다.
 ///
-/// ## Output Config 수렴 규칙
-/// - `monoConfigs`/`stereoConfigs`/`multiConfigs` 중 하나라도 `enabled` 항목이
-///   있으면(=사용자가 Output Config에서 명시적으로 그룹을 열었으면), 이후로는
-///   그 그룹만 후보가 된다(Output Config가 지배).
-/// - 셋 다 `enabled` 항목이 하나도 없으면(신규 설치 등) 항목을 만들지 않는다 —
-///   엔진(`compute_enabled_channels`)도 어느 채널로도 내보내지 않는다(사용자 결정
-///   2026-11-21 "아무것도 안 켜면 소리 없음", 설계
-///   `docs/superpowers/specs/2026-11-21-empty-output-config-silent-design.md`).
-///   2026-09-13부터 이 경우 모든 하드웨어 채널로 자동 생성했다.
+/// ## 열린 채널 규칙(사용자 결정 2026-11-21 "채널 하나로 묶기")
+/// 출력 설정 세 맵은 모두 "어느 채널을 여는가"만 뜻한다([openOutputChannels]: 켠 Mono k → CHk, 켠 Stereo k →
+/// CHk·CHk+1, 켠 Multi k → CHk). 항목은 열린 채널로 만든다: 모노 자리 = 열린 채널, 스테레오 자리 = 짝(1/2·3/4…)이
+/// 모두 열림, 멀티 자리 = 열린 시작 채널. 엔진(`core::output_groups`)도 같은 규칙으로 자리가 열려 있을 때만 소리를
+/// 낸다(설계 `docs/superpowers/specs/2026-11-21-output-config-open-channels-design.md`). 열린 채널이 없으면 항목이
+/// 없다 — 엔진도 어느 채널로도 내보내지 않는다(같은 날 "아무것도 안 켜면 소리 없음"). 2026-09-13부터 1.3.14까지는
+/// 켠 그룹이 없으면 모든 하드웨어 채널로 자동 생성했고, 켠 그룹은 종류별로 따로 봤다.
 ///
 /// ## 부분 재생 규칙
 /// Multi 항목은 파일 채널 수가 하드웨어 채널 수를 넘어서면 실제로 열리는
@@ -194,72 +192,43 @@ List<ChannelRoutingItem> buildChannelRoutingItems({
   final bool isMulti = fileChannels != null && fileChannels > 2;
   final bool isMono = fileChannels == 1;
 
-  final bool hasConfiguredGroups =
-      config.monoConfigs.values.any((s) => s.enabled) ||
-      config.stereoConfigs.values.any((s) => s.enabled) ||
-      config.multiConfigs.values.any((s) => s.enabled);
-  if (!hasConfiguredGroups) return const [];
+  final open = openOutputChannels(config);
+  final usable = open.where((c) => c < hwCount && physical.contains(c)).toList()..sort();
+  if (usable.isEmpty) return const [];
+  String nameOf(Map<int, ChannelSetting> map, int ch0) => map[ch0 + 1]?.customName ?? '';
 
   final items = <ChannelRoutingItem>[];
 
-  // 멀티채널 파일이 아니면(모노/스테레오 파일) 켠 Mono 그룹을 모노 목적지로
-  // 제공한다.
+  // 멀티채널 파일이 아니면(모노/스테레오 파일) 열린 채널마다 모노 자리를 낸다. Mono 하나는 **채널 하나**다(예전에
+  // 한 슬롯이 L/R 페어를 연다고 보고 같은 채널을 두 번 내 DropdownButton assert로 죽던 잠복 크래시가 있었다).
   if (!isMulti) {
-    final sortedMono = config.monoConfigs.entries
-        .where((e) => e.value.enabled)
-        .toList()
-      ..sort((a, b) => a.key.compareTo(b.key));
-    // Mono 그룹 하나는 **채널 하나**를 연다. 예전에는 한 슬롯이 L/R 페어를
-    // 연다고 보고 key-1과 key 두 채널을 모두 항목으로 만들었다. 그러면 연속한
-    // 키를 열었을 때(예: Mono 1, Mono 2) Ch-2가 두 번 나온다. 게다가 두 항목의
-    // 드롭다운 값이 'mono_1'로 완전히 같아서, 그 채널을 선택하면
-    // DropdownButton이 "값에 해당하는 항목은 정확히 하나여야 한다"는 assert로
-    // 죽는다(잠복 크래시). Ableton식 Output Config에서 Mono는 모노 채널 하나를
-    // 여닫는 것이므로 1:1이 맞다. 페어가 필요하면 Stereo 그룹을 쓴다.
-    for (final e in sortedMono) {
-      final key = e.key; // 1-based (레거시)
-      final setting = e.value;
-
-      final realCh = key - 1; // 0-based 변환
-      if (realCh < hwCount && physical.contains(realCh)) {
-        items.add(
-          ChannelRoutingItem(
-            value: ChannelDropdownValueHelper.getMonoValue(realCh),
-            label: withHardwareName(
-              _withCustomSuffix('Mono (Ch-${realCh + 1})', setting.customName),
-              hardwareChannelName(channelNames, realCh),
-            ),
-            realChannel0: realCh,
-            isPartialOutput: false,
+    for (final realCh in usable) {
+      items.add(
+        ChannelRoutingItem(
+          value: ChannelDropdownValueHelper.getMonoValue(realCh),
+          label: withHardwareName(
+            _withCustomSuffix('Mono (Ch-${realCh + 1})', nameOf(config.monoConfigs, realCh)),
+            hardwareChannelName(channelNames, realCh),
           ),
-        );
-      }
+          realChannel0: realCh,
+          isPartialOutput: false,
+        ),
+      );
     }
   }
 
-  // 스테레오 파일은 위 모노 선택지에 더해 켠 Stereo 그룹(인접 채널 쌍)도
-  // 제공한다.
+  // 스테레오 파일은 위 모노 자리에 더해, 두 채널이 모두 열린 짝(1/2·3/4…, Output Config 창과 같은 짝)을 낸다.
+  // 짝 채널이 하드웨어에 없거나 가상 채널이면 만들지 않는다.
   if (!isMono && !isMulti) {
-    final sortedStereo = config.stereoConfigs.entries
-        .where((e) => e.value.enabled)
-        .toList()
-      ..sort((a, b) => a.key.compareTo(b.key));
-    for (final e in sortedStereo) {
-      final key = e.key; // 1-based
-      final setting = e.value;
-      final realCh = key - 1; // 0-based
-      // 짝 채널(realCh+1, 0-based)이 하드웨어에 없거나 가상 채널이면
-      // 만들지 않는다. 스테레오 쌍은 두 채널 모두 물리여야 한다.
-      if (realCh + 1 < hwCount &&
-          physical.contains(realCh) &&
-          physical.contains(realCh + 1)) {
+    for (final realCh in usable) {
+      if (realCh.isEven && open.contains(realCh + 1) && realCh + 1 < hwCount && physical.contains(realCh + 1)) {
         items.add(
           ChannelRoutingItem(
             value: ChannelDropdownValueHelper.getStereoValue(realCh),
             label: withHardwareName(
               _withCustomSuffix(
-                'Stereo (Ch-$key/Ch-${key + 1})',
-                setting.customName,
+                'Stereo (Ch-${realCh + 1}/Ch-${realCh + 2})',
+                nameOf(config.stereoConfigs, realCh),
               ),
               hardwareRangeName(channelNames, realCh, realCh + 1),
             ),
@@ -271,33 +240,22 @@ List<ChannelRoutingItem> buildChannelRoutingItems({
     }
   }
 
-  // 멀티채널 파일은 파일 채널 수가 시작 위치부터 들어갈 수 있는 후보만
-  // 만든다. 하드웨어가 부족하면(부분 재생) 실제로 열리는 범위만 라벨에
-  // 표시하고 부분 출력임을 명시한다.
+  // 멀티채널 파일은 열린 채널마다 시작 자리를 낸다. 파일 채널은 열린 채널로만 나가므로, 시작 채널부터 이어서 열린
+  // 범위가 파일보다 짧으면 그 범위만 라벨에 담고 부분 출력으로 표시한다.
   if (isMulti) {
     final fileCh = fileChannels; // isMulti == true 이므로 항상 non-null
-
-    final sortedMulti = config.multiConfigs.entries
-        .where((e) => e.value.enabled)
-        .toList()
-      ..sort((a, b) => a.key.compareTo(b.key));
-    for (final e in sortedMulti) {
-      final key = e.key; // 1-based
-      final setting = e.value;
-      final startCh = key - 1; // 0-based
-      // 시작 채널이 하드웨어 상한을 넘거나 가상 채널이면 만들지 않는다.
-      if (startCh < hwCount && physical.contains(startCh)) {
-        items.add(
-          _buildMultiItem(
-            startCh: startCh,
-            fileCh: fileCh,
-            hwCount: hwCount,
-            physical: physical,
-            channelNames: channelNames,
-            customName: setting.customName,
-          ),
-        );
-      }
+    final openPhysical = usable.toSet();
+    for (final startCh in usable) {
+      items.add(
+        _buildMultiItem(
+          startCh: startCh,
+          fileCh: fileCh,
+          hwCount: hwCount,
+          physical: openPhysical,
+          channelNames: channelNames,
+          customName: nameOf(config.multiConfigs, startCh),
+        ),
+      );
     }
   }
 
@@ -357,4 +315,21 @@ String _withCustomSuffix(String base, String customName, {String? pairSuffix}) {
   if (customName.isEmpty) return base;
   if (pairSuffix != null) return '$base ($customName $pairSuffix)';
   return '$base ($customName)';
+}
+
+/// 출력 설정의 열린 채널(0부터). 켠 Mono k → k-1, 켠 Stereo k → k-1·k, 켠 Multi k → k-1(시작 채널 하나 — 예전에는
+/// 엔진이 k부터 장치 끝까지 열었다). 엔진 `core::output_groups::open_channels`와 같은 규칙(사용자 결정 2026-11-21
+/// "채널 하나로 묶기"). 0번 키는 뺀다.
+Set<int> openOutputChannels(AppConfig config) {
+  final open = <int>{};
+  config.monoConfigs.forEach((k, s) {
+    if (s.enabled && k >= 1) open.add(k - 1);
+  });
+  config.stereoConfigs.forEach((k, s) {
+    if (s.enabled && k >= 1) open.addAll([k - 1, k]);
+  });
+  config.multiConfigs.forEach((k, s) {
+    if (s.enabled && k >= 1) open.add(k - 1);
+  });
+  return open;
 }
