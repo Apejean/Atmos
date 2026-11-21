@@ -162,6 +162,13 @@ pub struct AudioMixer {
     pub temp_active_instances: Vec<usize>,
     /// 이번 블록에서 인스턴스 슬롯마다 트랙 출력이 켠 그룹과 맞는가(core::output_groups). 블록 시작에 한 번 정한다.
     pub temp_route_open: Vec<bool>,
+    /// 출력 채널마다 게이트 게인(0 -> 1). 채널 게이트(`GLOBAL_STATE.enabled_channels`)를 한 샘플 만에 적용하지 않고
+    /// [OUTPUT_RAMP_S]에 걸쳐 따라간다(3법칙 3, 2026-11-21). 예전에는 채널을 닫으면 그 채널 소리가 바로 끊겼다.
+    pub channel_gate_gain: Vec<f32>,
+    /// 이번 블록의 게이트 목표(열림 1, 닫힘 0). 블록 시작에 한 번 읽는다.
+    pub temp_gate_target: Vec<f32>,
+    /// 첫 블록에는 게이트 게인을 목표로 바로 맞춘다(새 믹서가 열린 채널을 0에서 키우지 않게).
+    pub gate_gain_ready: bool,
     
     // Pre-allocated buffers for spatial dsp recalculation
     pub temp_base_delays: Vec<f32>,
@@ -360,6 +367,9 @@ impl AudioMixer {
             temp_vals: vec![0.0; channels],
             temp_active_instances: Vec::with_capacity(4096),
             temp_route_open: vec![false; 4096],
+            channel_gate_gain: vec![0.0; 4096],
+            temp_gate_target: vec![0.0; 4096],
+            gate_gain_ready: false,
             temp_base_delays: vec![0.0; channels],
             temp_base_eqs: (0..channels).map(|_| Vec::with_capacity(32)).collect(),
             temp_channel_dists: vec![0.0; channels],
@@ -610,7 +620,35 @@ impl AudioMixer {
                 }
             }
         }
+        // 채널 게이트 목표를 블록 시작에 한 번 읽는다. 게이트 게인은 아래 프레임마다 OUTPUT_RAMP_S에 걸쳐 따라간다.
+        let gate_len = out_channels
+            .min(self.channel_gate_gain.len())
+            .min(GLOBAL_STATE.enabled_channels.len());
+        let mut gate_moving = false;
+        for ch in 0..gate_len {
+            let target = if GLOBAL_STATE.enabled_channels[ch].load(Ordering::Relaxed) { 1.0 } else { 0.0 };
+            self.temp_gate_target[ch] = target;
+            if !self.gate_gain_ready {
+                self.channel_gate_gain[ch] = target;
+            } else if self.channel_gate_gain[ch] != target {
+                gate_moving = true;
+            }
+        }
+        self.gate_gain_ready = true;
+        let gate_step = 1.0 / (OUTPUT_RAMP_S * self.sample_rate as f32);
         for frame in 0..frames {
+            // 채널 게이트 게인을 목표로 한 걸음(열고 닫을 때 딸깍 없이, 3법칙 3).
+            if gate_moving {
+                for ch in 0..gate_len {
+                    let target = self.temp_gate_target[ch];
+                    let gain = self.channel_gate_gain[ch];
+                    if gain < target {
+                        self.channel_gate_gain[ch] = (gain + gate_step).min(target);
+                    } else if gain > target {
+                        self.channel_gate_gain[ch] = (gain - gate_step).max(target);
+                    }
+                }
+            }
             // Anti-zipper smoothing for spatial automation (~4ms time constant) and 50ms Equal-Power Crossfade for Scene changes
             let fade_step = 1.0 / (self.sample_rate as f32 * 0.05); // 50ms
             
@@ -881,30 +919,22 @@ impl AudioMixer {
                             let mono_val = sum / ch_limit as f32;
 
                             let hw_ch = output_channel;
-                            if hw_ch < out_channels {
-                                let is_enabled = if hw_ch < GLOBAL_STATE.enabled_channels.len() {
-                                    GLOBAL_STATE.enabled_channels[hw_ch].load(Ordering::Relaxed)
-                                } else {
-                                    false
-                                };
+                            if hw_ch < gate_len {
+                                let gate = self.channel_gate_gain[hw_ch];
                                 let out_idx = frame * out_channels + hw_ch;
-                                if is_enabled && out_idx < output.len() {
-                                    output[out_idx] += mono_val * route_vol;
+                                if gate > 0.0 && out_idx < output.len() {
+                                    output[out_idx] += mono_val * route_vol * gate;
                                 }
                             }
                         } else {
                             // N:N direct routing
                             for (ch, val) in vals.iter().enumerate().take(ch_limit) {
                                 let hw_ch = output_channel + ch;
-                                if hw_ch < out_channels {
-                                    let is_enabled = if hw_ch < GLOBAL_STATE.enabled_channels.len() {
-                                        GLOBAL_STATE.enabled_channels[hw_ch].load(Ordering::Relaxed)
-                                    } else {
-                                        false
-                                    };
+                                if hw_ch < gate_len {
+                                    let gate = self.channel_gate_gain[hw_ch];
                                     let out_idx = frame * out_channels + hw_ch;
-                                    if is_enabled && out_idx < output.len() {
-                                        output[out_idx] += val * route_vol;
+                                    if gate > 0.0 && out_idx < output.len() {
+                                        output[out_idx] += val * route_vol * gate;
                                     }
                                 }
                             }
@@ -926,15 +956,11 @@ impl AudioMixer {
                             // 적용해 좌우를 대칭으로 만든다.
                             if ch_limit == 1 && output_stereo {
                                 let hw_ch_r = output_channel + 1;
-                                if hw_ch_r < out_channels {
-                                    let is_enabled_r = if hw_ch_r < GLOBAL_STATE.enabled_channels.len() {
-                                        GLOBAL_STATE.enabled_channels[hw_ch_r].load(Ordering::Relaxed)
-                                    } else {
-                                        false
-                                    };
+                                if hw_ch_r < gate_len {
+                                    let gate_r = self.channel_gate_gain[hw_ch_r];
                                     let out_idx_r = frame * out_channels + hw_ch_r;
-                                    if is_enabled_r && out_idx_r < output.len() {
-                                        output[out_idx_r] += vals[0] * route_vol;
+                                    if gate_r > 0.0 && out_idx_r < output.len() {
+                                        output[out_idx_r] += vals[0] * route_vol * gate_r;
                                     }
                                 }
                             }
@@ -1009,12 +1035,9 @@ impl AudioMixer {
         }
 
         for ch in 0..dsp_limit {
-            let is_enabled = if ch < GLOBAL_STATE.enabled_channels.len() {
-                GLOBAL_STATE.enabled_channels[ch].load(Ordering::Relaxed)
-            } else {
-                false
-            };
-            if !is_enabled { continue; }
+            // 닫힌 채널도 채널 DSP를 계속 돌린다(입력은 위 게이트 게인으로 0이 된다). 예전에는 닫힌 채널을 건너뛰어,
+            // 닫는 순간 지연선에 남은 소리가 끊기고 다시 열면 그 옛 소리가 튀어나왔다(2026-11-21). DSP는 자기 채널
+            // 입력만 다루므로(지연·EQ·게인·극성·초기반사) 0이 들어오면 꼬리가 빠진 뒤 0이다.
             // 서브는 메인 채널을 다 처리해 합산 저역이 모인 **뒤에** 아래에서 처리한다.
             // 예전에는 합산 저역을 바이노럴 렌더와 서브 채널 DSP가 끝난 뒤에 더해서,
             // ① 서브의 딜레이·EQ·게인이 그 저역에 걸리지 않았고 ② 헤드폰 미리듣기에서

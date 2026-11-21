@@ -146,6 +146,11 @@ fn 자리가_닫힌_트랙은_무음이고_위치는_흐르며_자리가_열리�
         worst_jump = worst_jump.max(block(&mut mixer, &mut buf, &mut prev).1);
     }
     assert!(worst_jump <= steady_jump * 2.0, "자리가 닫힐 때 CH1이 튀었다: {worst_jump}");
+    // 닫힌 채널도 채널 DSP를 계속 돌려(test_channel_gate_fade.rs), 줄어드는 순간 생긴 극저역이 DSP 끝의 직류 차단기
+    // (0.5Hz, 시간 상수 약 0.3초)에서 천천히 빠진다(-100dB 안팎, 들리지 않음). 3초 뒤의 크기를 본다.
+    for _ in 0..300 {
+        block(&mut mixer, &mut buf, &mut prev);
+    }
     let mut tail = 0.0f32;
     for _ in 0..20 {
         tail = tail.max(block(&mut mixer, &mut buf, &mut prev).0);
