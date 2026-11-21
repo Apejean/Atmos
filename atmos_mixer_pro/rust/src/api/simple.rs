@@ -131,26 +131,20 @@ fn apply_enabled_channels(config: &AppConfig) {
 }
 
 /// 출력 설정에서 켠 채널 범위가 바뀌어 믹서 처리 폭(core::processing_channels)이 달라지면 엔진을
-/// 다시 시작하게 한다. 믹서 폭은 엔진을 만들 때 정해지므로, 장치 유실과 같은 자기 재시작 경로를 쓴다
-/// (재생 상태를 떠 두었다가 멈춘 위치부터 이어 간다).
+/// 다시 시작하게 한다. 믹서 폭은 엔진을 만들 때 정해지므로 자기 재시작 경로를 쓴다(재생 상태를 떠 두었다가
+/// 멈춘 위치부터 이어 간다). 요청은 장치 유실 신호와 따로 남기고, 엔진 관리 스레드가 꺼낼 때 폭을 다시 비교한다
+/// (`take_width_restart_request` — 저장 한 번에 두 번 재시작하지 않게, 2026-11-21). 로그는 요청이 새로 생길 때만.
 fn request_restart_if_processing_width_changed(config: &AppConfig) {
     use std::sync::atomic::Ordering;
     if !ENGINE_ACTIVE.load(Ordering::SeqCst) {
         return;
     }
-    let hw_channels = GLOBAL_STATE.active_device_channels.load(Ordering::SeqCst) as usize;
-    let current = GLOBAL_STATE.processing_channels.load(Ordering::SeqCst) as usize;
-    if hw_channels == 0 || current == 0 {
-        return;
-    }
-    let wanted = crate::core::processing_channels::mixer_width(
-        crate::core::processing_channels::current_processing_channels(config, hw_channels),
-    );
-    if wanted != current {
-        GLOBAL_STATE.log(format!(
-            "출력 채널 범위가 바뀌어 믹서 처리 폭을 {current} → {wanted}채널로 바꾼다(엔진 다시 시작)"
-        ));
-        GLOBAL_STATE.device_needs_reset.store(true, Ordering::Release);
+    if let Some((current, wanted)) = crate::core::processing_channels::width_change(config) {
+        if !GLOBAL_STATE.processing_width_restart.swap(true, Ordering::AcqRel) {
+            GLOBAL_STATE.log(format!(
+                "출력 채널 범위가 바뀌어 믹서 처리 폭을 {current} → {wanted}채널로 바꾼다(엔진 다시 시작)"
+            ));
+        }
     }
 }
 
@@ -1287,6 +1281,13 @@ fn start_audio_system_with(
                         crate::core::state::GLOBAL_STATE
                             .device_needs_reset
                             .store(false, std::sync::atomic::Ordering::Release);
+                        break;
+                    }
+
+                    // 처리 폭 재시작 요청: 이미 원하는 폭으로 열린 엔진이면 건너뛴다(core::processing_channels). 장치 신호를 먼저
+                    // 본다 — 둘 다 섰으면 장치 쪽으로 다시 열고, 새 엔진은 지금 설정으로 폭을 정하므로 남은 폭 요청은 건너뛴다.
+                    if crate::core::processing_channels::take_width_restart_request() {
+                        stop_reason = "processing_width_changed";
                         break;
                     }
 

@@ -217,7 +217,7 @@ pub struct TrackConfig {
     pub is_loop: bool,       // true = BGM, false = SFX
     #[serde(default)]
     pub is_streaming: bool,  // true = disk streaming, false = memory preload
-    pub output_channel: u32, // 1 to 24 (1-indexed for user, mapped to 0-23 internally)
+    pub output_channel: u32, // 0부터 센 장치 채널(CH1 = 0). 파일 채널 c는 output_channel + c로 나간다(audio/mixer.rs)
     #[serde(default = "default_true")]
     pub output_stereo: bool,
     #[serde(default)]

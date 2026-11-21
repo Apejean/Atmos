@@ -44,34 +44,48 @@ fn channels(path: &str) -> Option<usize> {
     }
 }
 
+// 트랙의 `output_channel`은 0부터 센 장치 채널 번호다(CH1 = 0, Dart `TrackConfig.outputChannel`·믹서 audio/mixer.rs와 같다).
+// 1.3.14는 1부터 센다고 보고 계산해 맨 위 채널 하나를 빠뜨렸다(2026-11-21 설치본 확인: CH25·26 스테레오 트랙인데 25채널만 처리).
 #[test]
 fn 트랙이_쓰는_가장_높은_채널까지_센다() {
-    assert_eq!(used_channel_ceiling(&config(vec![track("mono_a", 5, false)]), 94, &channels, 0), 5, "모노 트랙 CH5");
+    assert_eq!(used_channel_ceiling(&config(vec![track("mono_a", 4, false)]), 94, &channels, 0), 5, "모노 트랙 CH5(0번부터 4)");
     assert_eq!(
-        used_channel_ceiling(&config(vec![track("mono_a", 5, true)]), 94, &channels, 0),
+        used_channel_ceiling(&config(vec![track("mono_a", 4, true)]), 94, &channels, 0),
         6,
         "모노 파일을 스테레오로 내면 CH5·6"
     );
     assert_eq!(
-        used_channel_ceiling(&config(vec![track("ch24_long", 1, true)]), 94, &channels, 0),
+        used_channel_ceiling(&config(vec![track("ch24_long", 0, true)]), 94, &channels, 0),
         24,
         "24채널 파일 N:N은 CH1~24"
     );
     assert_eq!(
-        used_channel_ceiling(&config(vec![track("ch6_a", 7, false)]), 94, &channels, 0),
+        used_channel_ceiling(&config(vec![track("ch6_a", 6, false)]), 94, &channels, 0),
         7,
         "다채널 파일도 스테레오 출력을 끄면 모노로 합쳐 CH7 하나"
     );
-    let several = config(vec![track("stereo_a", 3, true), track("mono_b", 11, false), track("ch6_c", 2, true)]);
+    let several = config(vec![track("stereo_a", 2, true), track("mono_b", 10, false), track("ch6_c", 1, true)]);
     assert_eq!(used_channel_ceiling(&several, 94, &channels, 0), 11, "가장 높은 것(CH11)");
 }
 
 #[test]
+fn 맨_위_채널을_빠뜨리지_않는다() {
+    // 1.3.14 설치본 확인에서 본 공연: 24채널 루프 CH1~24, 스테레오 트랙 CH25·26 → 26채널을 처리해야 한다.
+    let seen = config(vec![track("ch24_long", 0, true), track("stereo_short", 24, true)]);
+    assert_eq!(used_channel_ceiling(&seen, 94, &channels, 0), 26, "스테레오 CH25·26의 CH26까지");
+    assert_eq!(
+        used_channel_ceiling(&config(vec![track("mono_a", 16, false)]), 94, &channels, 0),
+        17,
+        "모노 CH17(믹서 최소 16채널 위)"
+    );
+}
+
+#[test]
 fn 읽지_못하는_파일은_빼고_서브우퍼_채널도_센다() {
-    let with_missing = config(vec![track("x_missing", 40, true), track("stereo_a", 1, true)]);
+    let with_missing = config(vec![track("x_missing", 39, true), track("stereo_a", 0, true)]);
     assert_eq!(used_channel_ceiling(&with_missing, 94, &channels, 0), 2, "읽지 못하는 파일은 재생되지 않으므로 뺀다");
     assert_eq!(
-        used_channel_ceiling(&config(vec![track("stereo_a", 1, true)]), 94, &channels, 40),
+        used_channel_ceiling(&config(vec![track("stereo_a", 0, true)]), 94, &channels, 40),
         40,
         "서브우퍼 CH40은 트랙이 없어도 저역이 나간다"
     );
@@ -79,14 +93,14 @@ fn 읽지_못하는_파일은_빼고_서브우퍼_채널도_센다() {
 
 #[test]
 fn 장치_채널로_자르고_아무것도_없으면_2채널이다() {
-    assert_eq!(used_channel_ceiling(&config(vec![track("ch24_long", 80, true)]), 94, &channels, 0), 94, "장치 끝에서 자름");
+    assert_eq!(used_channel_ceiling(&config(vec![track("ch24_long", 79, true)]), 94, &channels, 0), 94, "장치 끝에서 자름");
     assert_eq!(used_channel_ceiling(&AppConfig::default(), 94, &channels, 0), 2, "트랙·서브 없음");
-    assert_eq!(used_channel_ceiling(&config(vec![track("mono_a", 0, false)]), 94, &channels, 0), 2, "0번은 1번으로 친다");
+    assert_eq!(used_channel_ceiling(&config(vec![track("mono_a", 0, false)]), 94, &channels, 0), 2, "CH1 모노 하나도 최소 2");
 }
 
 #[test]
 fn 켠_그룹이_없을_때만_트랙_기준을_쓴다() {
-    let empty = config(vec![track("ch24_long", 1, true)]);
+    let empty = config(vec![track("ch24_long", 0, true)]);
     assert_eq!(effective_processing_channels(&empty, 94, 24), 24, "출력 설정이 비었으면 트랙 기준");
     let mut configured = empty.clone();
     configured.mono_configs.insert(
@@ -123,8 +137,8 @@ fn 실제_파일_머리말과_서브우퍼_채널로_처리_폭을_정한다() {
     let six = dir.join("six.wav");
     wav(&six, 6);
     let cfg = config(vec![
-        track(&six.to_string_lossy(), 3, true),                                // CH3~8
-        track(&dir.join("없는.wav").to_string_lossy(), 60, true),             // 읽지 못함 → 뺌
+        track(&six.to_string_lossy(), 2, true),                                // CH3~8(0번부터 2)
+        track(&dir.join("없는.wav").to_string_lossy(), 59, true),             // 읽지 못함 → 뺌
     ]);
     GLOBAL_STATE.highest_sub_channel.store(0, Ordering::SeqCst);
     assert_eq!(current_processing_channels(&cfg, 94), 8, "6채널 파일 N:N CH3 → CH8");
