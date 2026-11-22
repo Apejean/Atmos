@@ -63,9 +63,17 @@ pub fn default_dir() -> PathBuf {
 /// `saveWindowsAutostart`(lib/core/state/launch_mode.dart)와 같아야 한다. 로그인 작업은 그대로 두고 여기서 끝낸다:
 /// 앱은 관리자 권한 없이 돌아 관리자 설치가 등록한 작업을 끄거나 켤 수 없다(사용자 계정은 읽기 권한뿐).
 fn windows_autostart_off() -> bool {
-    std::env::var_os("APPDATA").is_some_and(|appdata| {
-        Path::new(&appdata).join("com.example").join("atmos_mixer_pro").join("windows_autostart_off").exists()
-    })
+    std::env::var_os("APPDATA").is_some_and(|appdata| autostart_off_in(Path::new(&appdata)))
+}
+
+/// 앱 데이터 폴더는 앱 실행 파일의 회사 이름으로 정해진다(windows/runner/Runner.rc CompanyName `The Awesome`,
+/// 2026-11-22 — 그 전에는 `com.example`). 새 버전 앱이 처음 뜰 때 옛 폴더를 새 폴더로 복사하므로(rust
+/// core::app_data_migration), 새 폴더가 아직 없으면(업데이트 뒤 앱이 한 번도 뜨지 않음) 옛 폴더의 표시를 본다. 새 폴더가
+/// 있으면 새 폴더만 본다 — 새 버전에서 다시 켠 뒤에도 옛 폴더에 남은 옛 표시로 끝나지 않게.
+fn autostart_off_in(appdata: &Path) -> bool {
+    let current = appdata.join("The Awesome").join("atmos_mixer_pro");
+    let folder = if current.is_dir() { current } else { appdata.join("com.example").join("atmos_mixer_pro") };
+    folder.join("windows_autostart_off").exists()
 }
 
 impl Config {

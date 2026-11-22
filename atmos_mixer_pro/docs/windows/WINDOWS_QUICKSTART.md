@@ -111,7 +111,7 @@ Copy-Item supervisor\target\release\atmos_supervisor.exe build\windows\x64\runne
 - v1.1.3 태그와 `main`의 버전 차이(현장에 설치된 버전 확인)
 - Windows CI에 `cargo test`(`--no-run`) 단계 추가
 - ASIO 채널 이름: 엔진이 연 드라이버에서 읽는다(2026-10-11, HANDOFF 9)
-- 앱 데이터 폴더 이름(`com.example`)
+- 앱 데이터 폴더 이름: Windows는 `The Awesome`으로 바꿈(2026-11-22, 처음 뜰 때 옛 `com.example` 폴더를 복사), macOS는 Mac 세션 몫
 
 ## 7. 현장 PC 준비 (설치 전에)
 
@@ -136,14 +136,14 @@ Copy-Item supervisor\target\release\atmos_supervisor.exe build\windows\x64\runne
 - **버전**: Help → About Awesome...
 - **인터페이스가 없을 때**: 켤 때나 재생 중에 인터페이스를 열지 못하면 기본 장치로 바꾸지 않고 무음으로 기다리며(주황 대기 배너) 1·2·4·8·16·30초, 그 뒤 30초마다 다시 찾는다. 인터페이스가 다시 나타나면 다음 시도에 열리고 끊긴 시간만큼 건너뛴 자리에서 이어 간다(2026-11-19 #116, 예전의 −40dB 비상 전환은 없어졌다).
 - **로그**: File → Export Log가 바탕화면 폴더에 저장한다. 원본은 `%TEMP%\atmos_mixer_pro_logs`다.
-- **앱 데이터**: `%APPDATA%\com.example\atmos_mixer_pro`(설정). 삭제하지 않는다. 제거해도 남는다.
+- **앱 데이터**: `%APPDATA%\The Awesome\atmos_mixer_pro`(설정). 삭제하지 않는다. 제거해도 남는다.
 - **3D 방 뷰어가 스피너만 돌 때**: WebView2 런타임부터 본다(5절).
 - **로그인해도 앱이 안 뜰 때**: 작업 스케줄러에 "The Awesome Autostart" 작업이 있는지, 보안 프로그램의 격리 기록에 atmos 파일이 없는지 본다.
 
 ### 8-3 새 버전 설치(업그레이드)
 
 1. 공연이 돌고 있지 않을 때 한다. 설치가 감시와 앱을 강제 종료하므로 소리가 끊긴다.
-2. 앱 데이터 폴더(`%APPDATA%\com.example\atmos_mixer_pro`)를 복사해 둔다.
+2. 앱 데이터 폴더(`%APPDATA%\The Awesome\atmos_mixer_pro`)를 복사해 둔다.
 3. 보안 프로그램이 설치 프로그램을 샌드박스에서 먼저 돌리면 설치가 한 번 더 도는 현상(오류 122)이 있다. 설치하는 동안 Avast CyberCapture를 끄거나 설치 파일과 설치 폴더를 예외에 넣는다(7절).
 4. `The_Awesome_Setup_v버전.exe`를 관리자 승인(UAC)으로 실행한다. 같은 설치 항목 위로 올라가고 기존 설치 폴더를 유지한다. 설치 마지막에 앱이 저절로 뜨지 않으니 바로가기로 시작한다.
 5. About 창의 버전, 소리, 로그인 자동 시작을 확인한다.

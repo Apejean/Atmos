@@ -8,7 +8,9 @@ import 'error.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
 /// 지난 공연 상태를 읽어 두고 5초마다 저장을 시작한다. 앱 시작 때(시작 관문 다음) 한 번 부른다.
-/// [dir]는 앱 지원 폴더(설정 파일과 같은 곳)다.
+/// [dir]는 앱 지원 폴더(설정 파일과 같은 곳)다. 그 전에 Windows 옛 앱 데이터 폴더(`com.example`)를 새 폴더로 복사한다
+/// (core::app_data_migration, 2026-11-22) — 이 함수가 앱이 앱 지원 폴더의 파일을 읽는 첫 자리다(main.dart: 공연 상태 →
+/// 설계 데이터 검사 → SharedPreferences·설정).
 Future<void> apiStartShowState({required String dir}) =>
     RustLib.instance.api.crateApiShowApiStartShowState(dir: dir);
 

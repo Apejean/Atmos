@@ -89,8 +89,10 @@ BEGIN
     BEGIN
         BLOCK "040904e4"
         BEGIN
-            // CompanyName and ProductName stay: path_provider_windows names the %APPDATA% data folder after them.
-            VALUE "CompanyName", "com.example" "\0"
+            // path_provider_windows names the %APPDATA% data folder after CompanyName and ProductName
+            // (%APPDATA%\The Awesome\atmos_mixer_pro). CompanyName was "com.example" before 2026-11-22; the app copies the
+            // old folder on its first start (rust core::app_data_migration) and the supervisor falls back to it.
+            VALUE "CompanyName", "The Awesome" "\0"
             VALUE "FileDescription", "The Awesome" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
             VALUE "InternalName", "atmos_mixer_pro" "\0"

@@ -85,11 +85,23 @@ fn supervisor_with_app(
     Supervised(command.spawn().unwrap())
 }
 
+/// 앱 데이터 폴더(`%APPDATA%\The Awesome\atmos_mixer_pro`, 2026-11-22 — 그 전 버전은 `com.example`).
+fn app_data(dir: &Path) -> PathBuf {
+    dir.join("appdata").join("The Awesome").join("atmos_mixer_pro")
+}
+
+fn legacy_app_data(dir: &Path) -> PathBuf {
+    dir.join("appdata").join("com.example").join("atmos_mixer_pro")
+}
+
 /// 환경설정 "Windows 시작 시 자동 실행"을 끈 상태를 만든다(앱이 앱 데이터 폴더에 남기는 표시 파일).
-fn turn_autostart_off(dir: &Path) {
-    let folder = dir.join("appdata").join("com.example").join("atmos_mixer_pro");
-    std::fs::create_dir_all(&folder).unwrap();
+fn turn_autostart_off_in(folder: &Path) {
+    std::fs::create_dir_all(folder).unwrap();
     std::fs::write(folder.join("windows_autostart_off"), "").unwrap();
+}
+
+fn turn_autostart_off(dir: &Path) {
+    turn_autostart_off_in(&app_data(dir));
 }
 
 /// 가짜 앱 실행 기록(줄마다 "PID 인자…")
@@ -224,6 +236,30 @@ fn 자동_실행을_껐으면_로그인_실행은_앱을_띄우지_않고_끝난
     assert!(status.success(), "종료 코드: {status:?}");
     assert_eq!(launches(&dir), Vec::<String>::new(), "앱을 띄우면 안 된다");
     assert!(log_text(&dir).contains("자동 실행이 꺼져"), "감시 기록: {}", log_text(&dir));
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+fn 업데이트_뒤_앱이_아직_안_떴으면_옛_폴더의_자동_실행_끔을_따른다() {
+    // 옛 버전에서 껐고, 새 버전 설치 뒤 앱이 한 번도 뜨지 않아 새 폴더가 없다.
+    let dir = fresh_dir("autostart_off_legacy");
+    turn_autostart_off_in(&legacy_app_data(&dir));
+    let mut sup = supervisor(&dir, &["--logon"], &[("FAKE_FIRST", "clean")]);
+    let status = sup.wait_exit(15, "감시가 끝나지 않았다");
+    assert!(status.success(), "종료 코드: {status:?}");
+    assert_eq!(launches(&dir), Vec::<String>::new(), "앱을 띄우면 안 된다");
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+fn 새_폴더가_있으면_옛_폴더에_남은_자동_실행_끔은_보지_않는다() {
+    // 옛 버전에서 껐다가 새 버전에서 다시 켰다(새 폴더에는 표시가 없고 옛 폴더에는 남아 있다).
+    let dir = fresh_dir("autostart_on_after_migration");
+    turn_autostart_off_in(&legacy_app_data(&dir));
+    std::fs::create_dir_all(app_data(&dir)).unwrap();
+    let mut sup = supervisor(&dir, &["--logon"], &[("FAKE_FIRST", "clean")]);
+    sup.wait_exit(15, "감시가 끝나지 않았다");
+    assert_eq!(launch_args(&dir), vec!["--supervised --logon"]);
     let _ = std::fs::remove_dir_all(dir);
 }
 
