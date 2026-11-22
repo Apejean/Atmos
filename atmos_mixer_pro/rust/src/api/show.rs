@@ -4,8 +4,11 @@ use crate::api::simple::{api_set_active_room, stop_all};
 use crate::core::state::GLOBAL_STATE;
 
 /// 지난 공연 상태를 읽어 두고 5초마다 저장을 시작한다. 앱 시작 때(시작 관문 다음) 한 번 부른다.
-/// [dir]는 앱 지원 폴더(설정 파일과 같은 곳)다.
+/// [dir]는 앱 지원 폴더(설정 파일과 같은 곳)다. 그 전에 Windows 옛 앱 데이터 폴더(`com.example`)를 새 폴더로 복사한다
+/// (core::app_data_migration, 2026-11-22) — 이 함수가 앱이 앱 지원 폴더의 파일을 읽는 첫 자리다(main.dart: 공연 상태 →
+/// 설계 데이터 검사 → SharedPreferences·설정).
 pub fn api_start_show_state(dir: String) {
+    crate::core::app_data_migration::run_at_startup(std::path::Path::new(&dir));
     crate::core::show_state::start(std::path::PathBuf::from(dir), crate::core::show_state::SAVE_INTERVAL);
 }
 

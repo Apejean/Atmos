@@ -1,3 +1,4 @@
+pub mod app_data_migration;
 pub mod app_signals;
 pub mod config_notice;
 pub mod device_search;

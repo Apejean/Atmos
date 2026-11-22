@@ -104,7 +104,7 @@ D:\VS\2022\Community  D:\VS\Shared  D:\VS\Cache   Visual Studio
 ### 3.4 안전
 - 빌드·장치 시험 전에 `preflight.ps1`. Atmos가 실행 중이면 사용자에게 먼저 묻는다(사용자의 청음·장시간 확인일 수 있다).
 - 소리가 나는 시험(재생 점검, `app_flow_test`의 −30dBFS 톤) 전에는 어떤 장치로 소리가 나는지 알리고 음량을 확인받는다.
-- `%APPDATA%\com.example\atmos_mixer_pro`(설정·환경설정·공연 상태)와 `%TEMP%\atmos_mixer_pro_logs`는 사용자의 실제 데이터다. 바꾸는 시험 전에 `backup-appdata.ps1`. 되돌리기·삭제는 사용자 확인 뒤에 한다.
+- `%APPDATA%\The Awesome\atmos_mixer_pro`(설정·환경설정·공연 상태)와 `%TEMP%\atmos_mixer_pro_logs`는 사용자의 실제 데이터다. 바꾸는 시험 전에 `backup-appdata.ps1`. 되돌리기·삭제는 사용자 확인 뒤에 한다.
 - 지우는 것은 이 세션이 만든 것만이다. `rust\target`, `build`, `pub-cache`, 사용자 캐시는 묻고 지운다.
 - 시스템·보안 설정(개발자 모드, Defender 예외, 방화벽 규칙, LongPaths, 전원 계획, Windows Update, UAC 수준)은 사용자가 한다. Windows Claude는 어디서 무엇을 누르는지만 안내한다. 스크립트 실행 정책도 바꾸지 않는다(`-ExecutionPolicy Bypass`로 그 실행만).
 - 라이선스·약관 동의(Visual Studio Community, Steinberg ASIO SDK)는 사용자에게 확인받는다.
@@ -135,7 +135,7 @@ D:\VS\2022\Community  D:\VS\Shared  D:\VS\Cache   Visual Studio
 
 | 무엇 | 경로 | 메모 |
 |---|---|---|
-| 앱 데이터 | `%APPDATA%\com.example\atmos_mixer_pro\` | `config.json`, `shared_preferences.json`, 공연 상태. `windows/runner/Runner.rc`의 CompanyName `com.example`·ProductName `atmos_mixer_pro`에서 정해진다. 개발 빌드·CI zip·설치본이 **같은 폴더**를 쓴다 |
+| 앱 데이터 | `%APPDATA%\The Awesome\atmos_mixer_pro\` | `config.json`, `shared_preferences.json`, 공연 상태. `windows/runner/Runner.rc`의 CompanyName `The Awesome`·ProductName `atmos_mixer_pro`에서 정해진다. 개발 빌드·CI zip·설치본이 **같은 폴더**를 쓴다. 2026-11-22 전 버전은 `%APPDATA%\com.example\atmos_mixer_pro\` — 새 버전이 처음 뜰 때 복사하고 옛 폴더는 남긴다(HANDOFF "앱 식별자") |
 | 앱 로그·신호 파일 | `%TEMP%\atmos_mixer_pro_logs\` | `atmos_mixer_pro.log`(밀린 `.1`~`.4`), `supervisor.log`, `app.lock`, `app.pid`, `heartbeat`, `clean_exit`, `supervisor.lock` |
 | 설치 위치 | `C:\Program Files\Atmos Mixer Pro\` | `installer.iss`의 `{autopf}` |
 | 바로가기 | 시작 메뉴·바탕화면 "Atmos Mixer Pro" | `atmos_supervisor.exe`를 띄운다 |
@@ -323,7 +323,7 @@ CI("Build and Release")는 `main` 대상 PR마다 Windows·macOS를 빌드해 `a
 | 게이트 | 내용 | 통과 기준 |
 |---|---|---|
 | Z1 | `fetch-artifact.ps1 -Pr 12`(또는 `-RunId`, `-Branch`) | `D:\dev\artifacts\<run>\app`, `manifest.txt`에 MISS 없음 |
-| Z2 | manifest의 exe 버전 | ProductVersion = pubspec 버전(지금 1.1.2), CompanyName `com.example` |
+| Z2 | manifest의 exe 버전 | ProductVersion = pubspec 버전(지금 1.1.2), CompanyName `The Awesome`(2026-11-22 전 `com.example`) |
 | Z3 | `deps.ps1 -Dir <app>` | VC++ 런타임 의존 목록(X1) |
 | Z4 | 감시로 실행하고 정상 종료(아래) | 감시와 앱(`--supervised`)이 뜨고 heartbeat가 갱신, 창을 닫으면 둘 다 끝나고 다시 뜨지 않음 |
 | Z5 | 설치 파일 만들기 | W3 전: 우회 / W3 뒤: `/DReleaseDir` |
@@ -514,7 +514,7 @@ HANDOFF "⚠️ Windows 미검증" 1~15를 확인하는 곳:
 | K7 | 감시 프로그램이 꺼진 앱을 다시 띄운다. 대기 중 충돌 뒤 다시 뜨면 첫 방 테마로 시작(소리) | 감시 먼저 끈다(3.4) |
 | K8 | 설치하면 로그인할 때마다 공연이 시작된다(작업 스케줄러 "The Awesome Autostart", 옛 설치본은 HKCU Run. 기본 켜짐) | 시험 뒤 사용자에게 묻는다 |
 | K9 | 방화벽 허용 창은 exe 경로마다 따로 뜬다(Debug, CI 폴더, 설치 폴더) | "첫 실행" 점검은 설치본으로. W4 뒤 설치본은 규칙이 미리 들어가 창이 뜨지 않아야 한다 |
-| K10 | 앱 데이터 폴더가 `com.example`(Runner.rc 기본값)이고 개발 빌드·CI zip·설치본이 같이 쓴다 | 시험 전 백업. 이름 변경은 현장 데이터 이전이 필요해 사용자 결정 |
+| K10 | 앱 데이터 폴더(`The Awesome`, 2026-11-22 전 `com.example`)를 개발 빌드·CI zip·설치본이 같이 쓴다. 새 이름의 개발 빌드를 한 번 띄우면 옛 폴더가 새 폴더로 복사된다 | 시험 전 백업(두 폴더 다). 새 이름 빌드를 시험한 뒤 옛 이름 설치본을 계속 쓰면 새 폴더가 낡은 복사본으로 남아, 나중에 새 버전을 설치할 때 옮기기가 건너뛰어진다 — 시험 뒤 새 폴더는 사용자 확인 받고 지운다 |
 | K11 | ASIO는 한 번에 한 프로그램만 연다 | 다른 DAW·앱·다른 Atmos를 끈다 |
 | K12 | CI는 앱의 `cargo test`·`flutter test`를 돌리지 않는다 | Windows 테스트 결과의 근거는 이 PC뿐이다 |
 | K13 | Claude 셸의 자식으로 띄운 앱은 셸이 정리될 때 같이 꺼질 수 있다 | 장시간·감시·로그인 시험은 사용자가 띄운다 |
@@ -594,7 +594,7 @@ HANDOFF "⚠️ Windows 미검증" 1~15를 확인하는 곳:
 - 저장소 CLAUDE.md와 .claude\rules는 사용자가 요청할 때만 고친다. 옛 다중 에이전트 문서(atmos_mixer_pro\docs\archive\legacy-multi-agent, .claude\agents)는 따르지 않는다.
 
 ## 안전
-- %APPDATA%\com.example\atmos_mixer_pro와 %TEMP%\atmos_mixer_pro_logs는 사용자의 실제 데이터다. 바꾸는 시험 전에 backup-appdata.ps1, 되돌리기·삭제는 사용자 확인 뒤.
+- %APPDATA%\The Awesome\atmos_mixer_pro와 %TEMP%\atmos_mixer_pro_logs는 사용자의 실제 데이터다. 바꾸는 시험 전에 backup-appdata.ps1, 되돌리기·삭제는 사용자 확인 뒤.
 - 지우는 것은 이 세션이 만든 것만. rust\target, build, pub-cache, 사용자 캐시는 묻고 지운다.
 - 시스템·보안 설정(개발자 모드, Defender 예외, 방화벽 규칙, LongPaths, 전원 계획, Windows Update, UAC)은 사용자가 직접 한다. 어디서 무엇을 누르는지만 안내한다.
 - 라이선스·약관 동의(Visual Studio, ASIO SDK)는 사용자에게 확인받는다.
@@ -773,7 +773,7 @@ HANDOFF "⚠️ Windows 미검증" 1~15를 확인하는 곳:
 | Windows CI에 `cargo test --no-run` 단계 | G4-05 뒤 | HANDOFF 12 |
 | ASIO 채널 이름 | 진행(2026-10-11, W7) | HANDOFF 9 |
 | v1.1.3 태그와 `main` 버전 차이(현장 설치 버전) | 대기 | HANDOFF 11 |
-| 앱 데이터 폴더 이름(`com.example`) 변경 | 대기(바꾸면 현장 데이터 이전 필요) | 4절 |
+| 앱 데이터 폴더 이름(`com.example`) 변경 | Windows 구현(2026-11-22, `The Awesome`, 처음 뜰 때 복사), macOS 대기(Mac 세션) | 4절 |
 | 코드 서명(SmartScreen) | 대기 | X6 |
 | Visual Studio Community 라이선스 적합성 | P2 전 | P2 |
 | 이 PC의 Defender 예외·전원 계획·Windows Update | 사용자 판단 | 3.4 |

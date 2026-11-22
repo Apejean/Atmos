@@ -56,6 +56,9 @@ $Atmos = @{
   Logs      = (Join-Path $AtmosDevRoot 'logs')
   Artifacts = (Join-Path $AtmosDevRoot 'artifacts')
   Backups   = (Join-Path $AtmosDevRoot 'backups')
-  AppData   = (Join-Path $env:APPDATA 'com.example\atmos_mixer_pro')
+  # 앱 데이터 폴더는 앱 실행 파일의 회사 이름으로 정해진다(windows/runner/Runner.rc). 2026-11-22부터 The Awesome,
+  # 그 전 버전은 com.example — 새 버전이 처음 뜰 때 옛 폴더를 복사하고 옛 폴더는 남긴다(rust core::app_data_migration).
+  AppData   = (Join-Path $env:APPDATA 'The Awesome\atmos_mixer_pro')
+  AppDataLegacy = (Join-Path $env:APPDATA 'com.example\atmos_mixer_pro')
   AppLogs   = (Join-Path $env:TEMP 'atmos_mixer_pro_logs')
 }
