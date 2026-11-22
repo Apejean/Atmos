@@ -260,15 +260,22 @@ impl AudioMixer {
 
         if let Ok(config_guard) = GLOBAL_STATE.config.read() {
             if let Some(config) = config_guard.as_ref() {
-                for (&ch_key, setting) in &config.mono_configs {
+                // 채널 보정값은 그 채널의 모노 줄 값이 이긴다: 멀티 → 스테레오 → 모노 순서로 적용해 모노가 마지막에 남는다.
+                // 출력 설정에서 스테레오·멀티 줄을 새로 켜면 기본값(지연 0·게인 0·위치 없음) 항목이 생기는데, 예전에는 모노 →
+                // 스테레오 → 멀티 순서라 그 기본값이 모노 보정값을 덮었다(2026-11-22). 모노 줄이 없는 채널은 예전처럼
+                // 스테레오·멀티 값을 쓴다.
+                for (&ch_key, setting) in &config.multi_configs {
                     if ch_key > 0 {
-                        let ch_idx = (ch_key - 1) as usize;
-                        if ch_idx < channel_dsp.len() {
-                            channel_dsp[ch_idx].update_delay_target(setting.delay_ms);
-                            channel_dsp[ch_idx].update_eq_targets(&setting.eq_bands.clone(), sample_rate as f32);
-                            channel_positions[ch_idx] = setting.position.clone();
-                            channel_dsp[ch_idx].phase_invert = setting.phase_invert;
-                            channel_dsp[ch_idx].set_gain_db(setting.gain_db);
+                        let ch_idx_base = (ch_key - 1) as usize;
+                        for i in 0..6 {
+                            let ch_idx = ch_idx_base + i;
+                            if ch_idx < channel_dsp.len() {
+                                channel_dsp[ch_idx].update_delay_target(setting.delay_ms);
+                                channel_dsp[ch_idx].update_eq_targets(&setting.eq_bands.clone(), sample_rate as f32);
+                                channel_positions[ch_idx] = setting.position.clone();
+                                channel_dsp[ch_idx].phase_invert = setting.phase_invert;
+                                channel_dsp[ch_idx].set_gain_db(setting.gain_db);
+                            }
                         }
                     }
                 }
@@ -292,18 +299,15 @@ impl AudioMixer {
                         }
                     }
                 }
-                for (&ch_key, setting) in &config.multi_configs {
+                for (&ch_key, setting) in &config.mono_configs {
                     if ch_key > 0 {
-                        let ch_idx_base = (ch_key - 1) as usize;
-                        for i in 0..6 {
-                            let ch_idx = ch_idx_base + i;
-                            if ch_idx < channel_dsp.len() {
-                                channel_dsp[ch_idx].update_delay_target(setting.delay_ms);
-                                channel_dsp[ch_idx].update_eq_targets(&setting.eq_bands.clone(), sample_rate as f32);
-                                channel_positions[ch_idx] = setting.position.clone();
-                                channel_dsp[ch_idx].phase_invert = setting.phase_invert;
-                                channel_dsp[ch_idx].set_gain_db(setting.gain_db);
-                            }
+                        let ch_idx = (ch_key - 1) as usize;
+                        if ch_idx < channel_dsp.len() {
+                            channel_dsp[ch_idx].update_delay_target(setting.delay_ms);
+                            channel_dsp[ch_idx].update_eq_targets(&setting.eq_bands.clone(), sample_rate as f32);
+                            channel_positions[ch_idx] = setting.position.clone();
+                            channel_dsp[ch_idx].phase_invert = setting.phase_invert;
+                            channel_dsp[ch_idx].set_gain_db(setting.gain_db);
                         }
                     }
                 }
@@ -939,31 +943,10 @@ impl AudioMixer {
                                 }
                             }
 
-                            // Mono file -> Stereo Out upmix for backwards compatibility
-                            //
-                            // 이 경로에는 두 가지 결함이 있었다.
-                            // 1) enabled_channels 게이트를 건너뛰어서 Output Config
-                            //    에서 닫은 채널로도 소리가 나갔다. 바로 위 N:N
-                            //    라우팅은 게이트를 거치므로, 왼쪽은 음소거되고
-                            //    오른쪽만 나오는 비대칭이 생겼다.
-                            // 2) channel_spatial_gains를 오른쪽에만 곱했다. 이 배열은
-                            //    궤적/공간 코드가 1.0에서 크게 벗어나게 변조하므로
-                            //    (같은 파일 436~469행), 모노 소스를 스테레오 쌍으로
-                            //    보내면 왼쪽은 원래 레벨, 오른쪽만 궤적 게인이 걸려
-                            //    이미지가 한쪽으로 쏠리거나 오른쪽이 사라졌다.
-                            //    믹스다운 전체에서 이 배열을 곱하는 곳은 여기뿐이었다.
-                            // 이제 왼쪽과 같은 규칙(게이트 통과, 추가 게인 없음)을
-                            // 적용해 좌우를 대칭으로 만든다.
-                            if ch_limit == 1 && output_stereo {
-                                let hw_ch_r = output_channel + 1;
-                                if hw_ch_r < gate_len {
-                                    let gate_r = self.channel_gate_gain[hw_ch_r];
-                                    let out_idx_r = frame * out_channels + hw_ch_r;
-                                    if gate_r > 0.0 && out_idx_r < output.len() {
-                                        output[out_idx_r] += vals[0] * route_vol * gate_r;
-                                    }
-                                }
-                            }
+                            // 모노 파일은 자기 채널 하나로만 낸다. 예전에는 스테레오 출력 표시가 남은 모노 파일(새 트랙
+                            // 기본값)을 옆 채널로도 올려 냈는데, 화면과 출력 자리 판단은 모노 파일을 모노 자리로 본다
+                            // (core::output_groups::required_group, 2026-11-21). 그래서 옆 채널이 다른 줄로 열려 있으면
+                            // 고르지 않은 채널로 소리가 샜다(2026-11-22 업믹스 제거, tests/test_mono_file_own_channel.rs).
                         }
                     }
                     if fade < 1.0 {
@@ -1584,9 +1567,10 @@ impl AudioMixer {
                     }
                 };
 
-                for (&ch_key, setting) in &config.mono_configs { apply_config(ch_key, setting, 0, 1); }
-                for (&ch_key, setting) in &config.stereo_configs { apply_config(ch_key, setting, 0, 2); }
+                // 모노 줄이 마지막에 남게 멀티 → 스테레오 → 모노 순서(AudioMixer::new와 같다).
                 for (&ch_key, setting) in &config.multi_configs { apply_config(ch_key, setting, 0, 6); }
+                for (&ch_key, setting) in &config.stereo_configs { apply_config(ch_key, setting, 0, 2); }
+                for (&ch_key, setting) in &config.mono_configs { apply_config(ch_key, setting, 0, 1); }
 
                 // 2. Find target pos
                 let target_pos = if let Some(traj) = &self.trajectory {

@@ -125,8 +125,10 @@ pub fn api_get_config(path: String) -> AppConfig {
     crate::core::ducking::apply_settings(&config);
 
     // Apply tunings on boot immediately
+    // 믹서는 받은 순서대로 적용하므로(채널마다 마지막 값이 남는다) 멀티 → 스테레오 → 모노 순서로 보내 그 채널의 모노 줄
+    // 보정값이 이기게 한다. 예전에는 모노가 먼저라, 출력 설정에서 새로 켠 스테레오·멀티 줄의 기본값이 덮었다(2026-11-22).
     let mut tunings = Vec::new();
-    for (&ch, setting) in &config.mono_configs {
+    for (&ch, setting) in &config.multi_configs {
         if setting.enabled {
             tunings.push((
                 ch as usize - 1,
@@ -148,7 +150,7 @@ pub fn api_get_config(path: String) -> AppConfig {
             ));
         }
     }
-    for (&ch, setting) in &config.multi_configs {
+    for (&ch, setting) in &config.mono_configs {
         if setting.enabled {
             tunings.push((
                 ch as usize - 1,

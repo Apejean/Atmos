@@ -359,7 +359,7 @@ class TuningStateNotifier extends Notifier<Map<int, ChannelTuningState>>
   void syncFromBackendConfig(AppConfig config, {bool treatAsManual = false}) {
     final Map<int, ChannelTuningState> newState = {};
 
-    void processConfigs(Map<int, ChannelSetting> configs, bool isStereo) {
+    void processConfigs(Map<int, ChannelSetting> configs) {
       for (final entry in configs.entries) {
         final chKey = entry.key;
         final setting = entry.value;
@@ -420,14 +420,20 @@ class TuningStateNotifier extends Notifier<Map<int, ChannelTuningState>>
           freqs: freqs,
           gains: gains,
           qs: qs,
-          isStereoLinked: isStereo,
+          // 링크는 튜닝 창의 사용자 스위치다 — 이미 있으면 그대로 둔다. 처음 보는 채널만 스테레오 줄이 있으면 링크된
+          // 채로 시작한다(예전에는 동기화할 때마다 줄 종류로 다시 정해, 끈 링크가 앱을 켤 때마다 다시 켜졌다).
+          isStereoLinked:
+              existing?.isStereoLinked ?? config.stereoConfigs.containsKey(chKey),
         );
       }
     }
 
-    processConfigs(config.monoConfigs, false);
-    processConfigs(config.stereoConfigs, true);
-    processConfigs(config.multiConfigs, false);
+    // 채널 보정값은 그 채널의 모노 줄 값이 이긴다: 멀티 → 스테레오 → 모노 순서로 모노가 마지막에 남는다(엔진
+    // AudioMixer::new·api_get_config와 같다). 예전에는 모노가 먼저라, 출력 설정에서 새로 켠 스테레오·멀티 줄의
+    // 기본값(지연 0·게인 0)이 수동 보정값을 덮었다(2026-11-22). 모노 줄이 없는 채널은 스테레오·멀티 값을 쓴다.
+    processConfigs(config.multiConfigs);
+    processConfigs(config.stereoConfigs);
+    processConfigs(config.monoConfigs);
 
     // config에 없는 채널의 상태까지 날리지 않는다.
     state = {...state, ...newState};
