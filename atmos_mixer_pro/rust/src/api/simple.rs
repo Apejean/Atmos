@@ -48,21 +48,23 @@ pub fn api_update_sound_source_position(sound_id: String, x: f32, y: f32, z: f32
 /// 반환하는 `Vec<bool>`과 `GLOBAL_STATE.enabled_channels`는 **0-based**(CPAL `hw_ch` 인덱스)이다.
 /// 이 변환(`ch as usize - 1`)은 이 함수 안에서만 일어난다 — 호출부에서 다시 변환하지 말 것.
 ///
-/// ## 채널 개방 규칙(열린 채널, `core::output_groups::open_channels`)
-/// 켠 Mono k → CHk, 켠 Stereo k → CHk·CHk+1, 켠 Multi k → CHk(시작 채널 하나). 2026-11-21 사용자 결정
-/// "채널 하나로 묶기"(설계 docs/superpowers/specs/2026-11-21-output-config-open-channels-design.md) — 예전에는
-/// Multi k가 k부터 하드웨어 끝까지 열었다. 다채널 파일의 각 채널은 열린 채널로만 나간다.
+/// ## 채널 개방 규칙(`core::output_groups::open_channels`)
+/// 켠 Mono k → CHk, 켠 Stereo k → CHk·CHk+1, 켠 Multi k → CHk부터 그 자리를 쓰는 다채널 트랙의 파일 채널 수만큼
+/// (트랙이 없으면 CHk 하나). 줄은 종류마다 따로 켜고 끄며, 트랙은 자기 종류의 줄이 켜져 있어야 소리를 낸다(2026-11-22
+/// 사용자 결정 "이전처럼 에이블톤처럼 따로", 설계 docs/superpowers/specs/2026-11-22-output-config-separate-rows-design.md).
+/// 1.3.15·1.3.16에서는 세 줄을 열린 채널 하나로 묶고 Multi k는 CHk 하나만 열었다. 1.3.14까지는 Multi k가 장치 끝까지 열었다.
 ///
 /// 켠 것이 하나도 없으면(세 맵이 비었거나 전부 꺼짐) 어느 채널도 열지 않는다 — 소리 없음
 /// (사용자 결정 2026-11-21, 설계 docs/superpowers/specs/2026-11-21-empty-output-config-silent-design.md).
 pub fn compute_enabled_channels(config: &AppConfig, hw_len: usize) -> Vec<bool> {
-    // 화면(`buildChannelRoutingItems`, lib/core/utils/channel_routing.dart)도 같은 열린 채널을 쓴다 — 화면이 내놓는
-    // 자리와 엔진이 여는 채널이 어긋나지 않는다.
     crate::core::output_groups::open_channels(config, hw_len)
 }
 
-/// `compute_enabled_channels()` 결과를 `GLOBAL_STATE.enabled_channels` 원자 배열에 반영한다.
+/// `compute_enabled_channels()` 결과를 `GLOBAL_STATE.enabled_channels` 원자 배열에, 종류별 줄을 줄 표
+/// (`core::output_groups::apply_row_tables`)에 반영한다. 화면(`buildChannelRoutingItems`, lib/core/utils/channel_routing.dart)도
+/// 같은 줄로 트랙이 고를 자리를 만든다.
 fn apply_enabled_channels(config: &AppConfig) {
+    crate::core::output_groups::apply_row_tables(config);
     let enabled = compute_enabled_channels(config, GLOBAL_STATE.enabled_channels.len());
     // 열린 채널이 없어지면 한 번 남긴다(켠 그룹이 없음 — 소리 없음, 2026-11-21).
     static NO_OPEN_CHANNEL: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);

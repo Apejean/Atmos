@@ -30,6 +30,9 @@ fn run_mono_to_stereo(
     }
     GLOBAL_STATE.enabled_channels[0].store(enable_left, Ordering::SeqCst);
     GLOBAL_STATE.enabled_channels[1].store(enable_right, Ordering::SeqCst);
+    // 모노 파일의 자리는 모노 줄 CH1이다(core::output_groups). 왼쪽 채널은 그 줄이 켜져야 열리므로 줄 표도 같이 맞춘다
+    // (오른쪽 CH2는 다른 줄 — 예: 모노 CH2 — 이 연다).
+    GLOBAL_STATE.mono_rows_open[0].store(enable_left, Ordering::SeqCst);
 
     mixer.startup_ramp.current_gain = 1.0;
 
@@ -106,10 +109,10 @@ fn mono_to_stereo_upmix_respects_gate_and_stays_symmetric() {
         right
     );
 
-    // --- 시나리오 3: 왼쪽(트랙 시작 채널) 닫힘 -> 무음 ---
-    // 트랙 출력 자리(모노 파일은 시작 채널 CH1)가 닫혀 있으면 화면에 "출력 설정에 없음"이 뜨고 엔진도 그 트랙을
-    // 무음으로 둔다(사용자 결정 2026-11-21 "A. 안내 뜨는 트랙은 무음"·"채널 하나로 묶기", core::output_groups).
-    // 예전에는 열린 오른쪽으로만 소리가 났다.
+    // --- 시나리오 3: 왼쪽(트랙 자리 모노 CH1 줄) 꺼짐 -> 무음 ---
+    // 트랙 출력 자리(모노 파일은 모노 줄 CH1)가 꺼져 있으면 화면에 "출력 설정에 없음"이 뜨고 엔진도 그 트랙을
+    // 무음으로 둔다(사용자 결정 2026-11-21 "A. 안내 뜨는 트랙은 무음", 2026-11-22 "이전처럼 에이블톤처럼 따로",
+    // core::output_groups). 예전에는 열린 오른쪽으로만 소리가 났다.
     let out = run_mono_to_stereo(2, false, true, 1.0);
     let left: f32 = out.iter().step_by(2).map(|s| s.abs()).sum();
     let right: f32 = out.iter().skip(1).step_by(2).map(|s| s.abs()).sum();
