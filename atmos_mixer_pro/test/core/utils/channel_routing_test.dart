@@ -91,10 +91,10 @@ void main() {
     });
   });
 
-  // 다채널 파일은 열린 채널마다 시작 자리가 생기고, 파일 채널은 열린 채널로만 나간다(2026-11-21 "채널 하나로
-  // 묶기" — 멀티 k는 시작 채널 하나만 연다). 시작부터 이어서 열린 범위가 파일보다 짧으면 부분 출력이다.
-  group('멀티채널 파일과 열린 채널', () {
-    test('열린 채널 안에 다 들어가면 부분 출력이 아니다', () {
+  // 다채널 파일은 켠 멀티 줄마다 시작 자리가 생기고, 파일 채널은 시작 채널부터 이어서 나간다(2026-11-22 "이전처럼
+  // 에이블톤처럼 따로" — 모노 줄을 켜지 않아도 된다). 시작부터 이어진 물리 채널이 파일보다 짧으면 부분 출력이다.
+  group('멀티채널 파일과 멀티 줄', () {
+    test('장치 안에 다 들어가면 부분 출력이 아니다', () {
       final items = buildChannelRoutingItems(
         channelNames: hw(6),
         config: everyChannel(6),
@@ -114,7 +114,7 @@ void main() {
       expect(items[0].label, 'N-Ch (Ch-1~4)');
     });
 
-    test('멀티 CH1 시작만 켜면 CH1 하나만 열려 부분 출력이다', () {
+    test('멀티 CH1 시작만 켜도 모노 줄 없이 CH1~4로 나간다', () {
       final items = buildChannelRoutingItems(
         channelNames: hw(6),
         config: config(multi: {1: setting()}),
@@ -123,8 +123,17 @@ void main() {
 
       expect(items.length, 1);
       expect(items.first.value, 'multi_0');
-      expect(items.first.isPartialOutput, isTrue);
-      expect(items.first.label, 'N-Ch (Ch-1~1) · 부분 출력 1/4ch (나머지 무시됨)');
+      expect(items.first.isPartialOutput, isFalse);
+      expect(items.first.label, 'N-Ch (Ch-1~4)');
+    });
+
+    test('모노 줄만 켜면 다채널 파일은 고를 자리가 없다', () {
+      final items = buildChannelRoutingItems(
+        channelNames: hw(6),
+        config: config(mono: {for (var k = 1; k <= 6; k++) k: setting()}),
+        fileChannels: 4,
+      );
+      expect(items, isEmpty);
     });
 
     test('4채널 파일 + 2채널 장치: Ch-1 시작 항목이 부분 출력으로 표시된다', () {
@@ -223,15 +232,33 @@ void main() {
       expect(items, isEmpty);
     });
 
-    // 2026-11-21 "채널 하나로 묶기": 세 맵은 열린 채널만 뜻한다. 스테레오 1/2를 켜면 CH1·CH2가 열려 모노 파일도
-    // 모노 CH1·CH2 자리를 고를 수 있다(예전에는 종류별로 따로 봐서 모노 항목이 없었다). 열리지 않은 채널은 없다.
-    test('스테레오 1/2만 켜도 모노 파일은 열린 CH1·CH2 모노 자리를 고를 수 있다', () {
+    // 2026-11-22 "이전처럼 에이블톤처럼 따로": 줄은 종류마다 따로다. 1.3.15·1.3.16은 열린 채널 하나로 묶어, 스테레오
+    // 1/2만 켜도 모노 CH1·CH2 자리가 생겼다.
+    test('스테레오 1/2만 켜면 모노 파일은 고를 자리가 없고, 스테레오 파일은 스테레오 자리만 있다', () {
+      final cfg = config(stereo: {1: setting()});
+      expect(buildChannelRoutingItems(channelNames: hw(4), config: cfg, fileChannels: 1), isEmpty);
+      expect(
+        buildChannelRoutingItems(channelNames: hw(4), config: cfg, fileChannels: 2).map((e) => e.value).toList(),
+        ['stereo_0'],
+      );
+    });
+
+    test('모노 CH1·CH2만 켜면 스테레오 파일은 모노 자리만 있고 스테레오 1/2 자리는 없다', () {
       final items = buildChannelRoutingItems(
         channelNames: hw(4),
-        config: config(stereo: {1: setting()}),
-        fileChannels: 1,
+        config: config(mono: {1: setting(), 2: setting()}),
+        fileChannels: 2,
       );
       expect(items.map((e) => e.value).toList(), ['mono_0', 'mono_1']);
+    });
+
+    test('스테레오 줄은 화면의 짝(1/2·3/4…)에서만 자리가 생긴다', () {
+      final items = buildChannelRoutingItems(
+        channelNames: hw(4),
+        config: config(stereo: {2: setting(), 3: setting()}),
+        fileChannels: 2,
+      );
+      expect(items.map((e) => e.value).toList(), ['stereo_2']);
     });
   });
 
@@ -431,7 +458,7 @@ void main() {
     test('부분 출력 표시는 장치 이름 뒤에 남는다', () {
       final items = buildChannelRoutingItems(
         channelNames: ['Line 1', 'Line 2'],
-        config: config(stereo: {1: setting()}),
+        config: config(multi: {1: setting()}),
         fileChannels: 4,
       );
       expect(items.first.label, 'N-Ch (Ch-1~2) · Line 1~2 · 부분 출력 2/4ch (나머지 무시됨)');

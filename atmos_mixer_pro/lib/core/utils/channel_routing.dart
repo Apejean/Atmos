@@ -160,13 +160,12 @@ String channelOutOfRangeName(int index0) =>
 /// `*Configs` 맵의 1-based 키를 읽어 0-based로 변환하는 것 외에는 Dart 코드
 /// 어디에서도 1-based 값을 만들거나 소비하지 않는다.
 ///
-/// ## 열린 채널 규칙(사용자 결정 2026-11-21 "채널 하나로 묶기")
-/// 출력 설정 세 맵은 모두 "어느 채널을 여는가"만 뜻한다([openOutputChannels]: 켠 Mono k → CHk, 켠 Stereo k →
-/// CHk·CHk+1, 켠 Multi k → CHk). 항목은 열린 채널로 만든다: 모노 자리 = 열린 채널, 스테레오 자리 = 짝(1/2·3/4…)이
-/// 모두 열림, 멀티 자리 = 열린 시작 채널. 엔진(`core::output_groups`)도 같은 규칙으로 자리가 열려 있을 때만 소리를
-/// 낸다(설계 `docs/superpowers/specs/2026-11-21-output-config-open-channels-design.md`). 열린 채널이 없으면 항목이
-/// 없다 — 엔진도 어느 채널로도 내보내지 않는다(같은 날 "아무것도 안 켜면 소리 없음"). 2026-09-13부터 1.3.14까지는
-/// 켠 그룹이 없으면 모든 하드웨어 채널로 자동 생성했고, 켠 그룹은 종류별로 따로 봤다.
+/// ## 줄마다 따로(사용자 결정 2026-11-22 "이전처럼 에이블톤처럼 따로 하자")
+/// 항목은 파일 종류에 맞는 줄에서만 만든다: 모노·스테레오 파일의 모노 자리 = 켠 Mono 줄, 스테레오 파일의 스테레오 자리 =
+/// 켠 Stereo 줄(짝 1/2·3/4…), 다채널 파일의 멀티 자리 = 켠 Multi 줄. 엔진(`core::output_groups`)도 트랙 자리의 줄이
+/// 켜져 있을 때만 소리를 낸다(설계 `docs/superpowers/specs/2026-11-22-output-config-separate-rows-design.md`). 켠 줄이
+/// 없으면 항목이 없다 — 엔진도 어느 채널로도 내보내지 않는다(2026-11-21 "아무것도 안 켜면 소리 없음"). 1.3.15·1.3.16은
+/// 세 줄을 열린 채널 하나로 묶어 항목을 만들었고, 1.3.14까지는 켠 줄이 없으면 모든 하드웨어 채널로 자동 생성했다.
 ///
 /// ## 부분 재생 규칙
 /// Multi 항목은 파일 채널 수가 하드웨어 채널 수를 넘어서면 실제로 열리는
@@ -192,22 +191,25 @@ List<ChannelRoutingItem> buildChannelRoutingItems({
   final bool isMulti = fileChannels != null && fileChannels > 2;
   final bool isMono = fileChannels == 1;
 
-  final open = openOutputChannels(config);
-  final usable = open.where((c) => c < hwCount && physical.contains(c)).toList()..sort();
-  if (usable.isEmpty) return const [];
-  String nameOf(Map<int, ChannelSetting> map, int ch0) => map[ch0 + 1]?.customName ?? '';
+  bool usable(int ch0) => ch0 >= 0 && ch0 < hwCount && physical.contains(ch0);
+  // 켠 줄의 시작 채널(0부터, 오름차순). 맵 키는 1부터(레거시)이고 0번 키는 쓰지 않는다.
+  List<MapEntry<int, ChannelSetting>> enabledRows(Map<int, ChannelSetting> map) =>
+      map.entries.where((e) => e.value.enabled && e.key >= 1).map((e) => MapEntry(e.key - 1, e.value)).toList()
+        ..sort((a, b) => a.key.compareTo(b.key));
 
   final items = <ChannelRoutingItem>[];
 
-  // 멀티채널 파일이 아니면(모노/스테레오 파일) 열린 채널마다 모노 자리를 낸다. Mono 하나는 **채널 하나**다(예전에
+  // 멀티채널 파일이 아니면(모노/스테레오 파일) 켠 Mono 줄마다 모노 자리를 낸다. Mono 하나는 **채널 하나**다(예전에
   // 한 슬롯이 L/R 페어를 연다고 보고 같은 채널을 두 번 내 DropdownButton assert로 죽던 잠복 크래시가 있었다).
   if (!isMulti) {
-    for (final realCh in usable) {
+    for (final row in enabledRows(config.monoConfigs)) {
+      final realCh = row.key;
+      if (!usable(realCh)) continue;
       items.add(
         ChannelRoutingItem(
           value: ChannelDropdownValueHelper.getMonoValue(realCh),
           label: withHardwareName(
-            _withCustomSuffix('Mono (Ch-${realCh + 1})', nameOf(config.monoConfigs, realCh)),
+            _withCustomSuffix('Mono (Ch-${realCh + 1})', row.value.customName),
             hardwareChannelName(channelNames, realCh),
           ),
           realChannel0: realCh,
@@ -217,43 +219,41 @@ List<ChannelRoutingItem> buildChannelRoutingItems({
     }
   }
 
-  // 스테레오 파일은 위 모노 자리에 더해, 두 채널이 모두 열린 짝(1/2·3/4…, Output Config 창과 같은 짝)을 낸다.
+  // 스테레오 파일은 위 모노 자리에 더해 켠 Stereo 줄(짝 1/2·3/4…, Output Config 창과 같은 짝)마다 스테레오 자리를 낸다.
   // 짝 채널이 하드웨어에 없거나 가상 채널이면 만들지 않는다.
   if (!isMono && !isMulti) {
-    for (final realCh in usable) {
-      if (realCh.isEven && open.contains(realCh + 1) && realCh + 1 < hwCount && physical.contains(realCh + 1)) {
-        items.add(
-          ChannelRoutingItem(
-            value: ChannelDropdownValueHelper.getStereoValue(realCh),
-            label: withHardwareName(
-              _withCustomSuffix(
-                'Stereo (Ch-${realCh + 1}/Ch-${realCh + 2})',
-                nameOf(config.stereoConfigs, realCh),
-              ),
-              hardwareRangeName(channelNames, realCh, realCh + 1),
-            ),
-            realChannel0: realCh,
-            isPartialOutput: false,
+    for (final row in enabledRows(config.stereoConfigs)) {
+      final realCh = row.key;
+      if (!realCh.isEven || !usable(realCh) || !usable(realCh + 1)) continue;
+      items.add(
+        ChannelRoutingItem(
+          value: ChannelDropdownValueHelper.getStereoValue(realCh),
+          label: withHardwareName(
+            _withCustomSuffix('Stereo (Ch-${realCh + 1}/Ch-${realCh + 2})', row.value.customName),
+            hardwareRangeName(channelNames, realCh, realCh + 1),
           ),
-        );
-      }
+          realChannel0: realCh,
+          isPartialOutput: false,
+        ),
+      );
     }
   }
 
-  // 멀티채널 파일은 열린 채널마다 시작 자리를 낸다. 파일 채널은 열린 채널로만 나가므로, 시작 채널부터 이어서 열린
-  // 범위가 파일보다 짧으면 그 범위만 라벨에 담고 부분 출력으로 표시한다.
+  // 멀티채널 파일은 켠 Multi 줄마다 시작 자리를 낸다. 파일 채널은 시작 채널부터 이어서 나가고(모노 줄을 켜지 않아도
+  // 된다), 하드웨어가 부족하면(부분 재생) 실제로 나가는 범위만 라벨에 담고 부분 출력으로 표시한다.
   if (isMulti) {
     final fileCh = fileChannels; // isMulti == true 이므로 항상 non-null
-    final openPhysical = usable.toSet();
-    for (final startCh in usable) {
+    for (final row in enabledRows(config.multiConfigs)) {
+      final startCh = row.key;
+      if (!usable(startCh)) continue;
       items.add(
         _buildMultiItem(
           startCh: startCh,
           fileCh: fileCh,
           hwCount: hwCount,
-          physical: openPhysical,
+          physical: physical,
           channelNames: channelNames,
-          customName: nameOf(config.multiConfigs, startCh),
+          customName: row.value.customName,
         ),
       );
     }
@@ -315,21 +315,4 @@ String _withCustomSuffix(String base, String customName, {String? pairSuffix}) {
   if (customName.isEmpty) return base;
   if (pairSuffix != null) return '$base ($customName $pairSuffix)';
   return '$base ($customName)';
-}
-
-/// 출력 설정의 열린 채널(0부터). 켠 Mono k → k-1, 켠 Stereo k → k-1·k, 켠 Multi k → k-1(시작 채널 하나 — 예전에는
-/// 엔진이 k부터 장치 끝까지 열었다). 엔진 `core::output_groups::open_channels`와 같은 규칙(사용자 결정 2026-11-21
-/// "채널 하나로 묶기"). 0번 키는 뺀다.
-Set<int> openOutputChannels(AppConfig config) {
-  final open = <int>{};
-  config.monoConfigs.forEach((k, s) {
-    if (s.enabled && k >= 1) open.add(k - 1);
-  });
-  config.stereoConfigs.forEach((k, s) {
-    if (s.enabled && k >= 1) open.addAll([k - 1, k]);
-  });
-  config.multiConfigs.forEach((k, s) {
-    if (s.enabled && k >= 1) open.add(k - 1);
-  });
-  return open;
 }

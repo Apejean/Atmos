@@ -39,6 +39,11 @@ pub struct GlobalEngineState {
     /// 믹서가 정한 더킹 상태. 바뀔 때만 믹서가 저장하고, 감시 스레드가 `is_ducking`(화면 표시)으로 옮긴다.
     pub ducking_engaged: AtomicBool,
     pub enabled_channels: Vec<AtomicBool>,
+    /// 출력 설정의 종류별 줄 표(0부터 센 시작 채널, core::output_groups). 트랙은 자기 종류의 줄이 켜져 있어야 소리를 낸다
+    /// (2026-11-22 "이전처럼 에이블톤처럼 따로"). 설정을 읽기 전에는 채널 게이트처럼 모두 열림.
+    pub mono_rows_open: Vec<AtomicBool>,
+    pub stereo_rows_open: Vec<AtomicBool>,
+    pub multi_rows_open: Vec<AtomicBool>,
     // VU levels for up to 4096 output channels, stored as f32 bits
     pub vu_levels: Vec<AtomicU32>,
     // Spatial gains for up to 4096 output channels, stored as f32 bits
@@ -141,6 +146,9 @@ impl GlobalEngineState {
             ducking_floor: AtomicU32::new(crate::core::ducking::DEFAULT_FLOOR.to_bits()),
             ducking_engaged: AtomicBool::new(false),
             enabled_channels: enabled,
+            mono_rows_open: (0..4096).map(|_| AtomicBool::new(true)).collect(),
+            stereo_rows_open: (0..4096).map(|_| AtomicBool::new(true)).collect(),
+            multi_rows_open: (0..4096).map(|_| AtomicBool::new(true)).collect(),
             vu_levels: vu,
             spatial_gains: sg,
             lufs_master,

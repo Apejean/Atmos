@@ -9,9 +9,9 @@ use crate::common::config::AppConfig;
 
 /// 처리할 채널 수 = 가장 높은 열린 채널(1부터 센 번호, `core::output_groups::open_channels`). 결과는 `hw_channels`를
 /// 넘지 않는다. 열린 채널이 없으면 0 — 어느 채널로도 내보내지 않는다(사용자 결정 2026-11-21 "아무것도 안 켜면 소리
-/// 없음"). 믹서 폭은 [`mixer_width`]로 최소 16이다. 멀티 k는 시작 채널 하나만 연다(2026-11-21 "채널 하나로 묶기") —
-/// 예전의 "멀티가 가장 높으면 파일 길이를 몰라 장치 끝까지" 규칙은 없어졌다. 장치 채널 수를 넘는 번호(예전 화면이 남긴
-/// 255 등)는 세지 않는다.
+/// 없음"). 믹서 폭은 [`mixer_width`]로 최소 16이다. 멀티 k는 그 자리를 쓰는 다채널 트랙의 파일 채널 수만큼 연다
+/// (2026-11-22 "이전처럼 에이블톤처럼 따로" — 파일 머리말을 읽어 기억한다) — 1.3.14까지의 "멀티가 가장 높으면 장치
+/// 끝까지" 규칙은 쓰지 않는다. 장치 채널 수를 넘는 번호(예전 화면이 남긴 255 등)는 세지 않는다.
 pub fn processing_channel_count(config: &AppConfig, hw_channels: usize) -> usize {
     crate::core::output_groups::open_channels(config, hw_channels)
         .iter()
