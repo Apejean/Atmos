@@ -1,5 +1,7 @@
 # 출력 설정 = 열린 채널 하나(짧은 설계)
 
+> **대체됨(2026-11-22).** 1.3.16 설치본 확인 중 사용자가 "이전처럼 에이블톤처럼 따로 하자"를 골라 `2026-11-22-output-config-separate-rows-design.md`로 바뀌었다. 세 줄은 다시 따로 켜고 끄며, 트랙은 자기 종류의 줄이 켜져 있어야 소리를 낸다. 이 문서는 1.3.15·1.3.16의 동작 기록이다.
+
 > 상태: **사용자 결정(2026-11-21 "채널 하나로 묶기", 예시로 다시 설명한 뒤 "응 진행해"), Windows Main 작성.** 구현: `rust/src/core/output_groups.rs`(`open_channels`·`route_open`), `compute_enabled_channels`·`processing_channel_count`가 그것을 씀, 믹서 `SoundInstance.route_gain`, Dart `channel_routing.dart` `openOutputChannels`, `core/utils/output_channel_toggle.dart`(창 켜고 끄기). 경로는 `atmos_mixer_pro/` 기준. 1.3.15 범위(브랜치 `win/width-zero-based`). 같은 날의 `2026-11-21-track-route-must-match-group-design.md`(종류가 맞아야 소리, A)를 이 문서로 바꾼다 — "화면에 안내가 뜨는 트랙은 무음"은 그대로이고, 기준이 "그룹 종류"에서 "열린 채널"로 바뀐다.
 
 ## 왜

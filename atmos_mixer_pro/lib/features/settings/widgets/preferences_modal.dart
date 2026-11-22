@@ -1773,19 +1773,8 @@ class _OutputConfigDialogState extends ConsumerState<OutputConfigDialog> {
     multiConfigs = Map.from(widget.initialMultiConfigs);
   }
 
-  /// 세 줄은 열린 채널 하나를 보여 준다(사용자 결정 2026-11-21 "채널 하나로 묶기", core/utils/output_channel_toggle.dart).
-  OutputGroupMaps get _maps =>
-      OutputGroupMaps(mono: monoConfigs, stereo: stereoConfigs, multi: multiConfigs);
-
-  /// 줄 하나를 누르면 그 줄의 채널([channels], 0부터)을 열거나 닫는다. 다른 줄도 따라 바뀐다.
-  void _toggleChannels(Set<int> channels, bool open) {
-    setState(() {
-      final next = setOutputChannelsOpen(_maps, channels, open);
-      monoConfigs = next.mono;
-      stereoConfigs = next.stereo;
-      multiConfigs = next.multi;
-    });
-  }
+  // 줄은 종류마다 따로 켜고 끈다(Ableton처럼, 사용자 결정 2026-11-22 "이전처럼 에이블톤처럼 따로 하자",
+  // core/utils/output_channel_toggle.dart). 줄을 누르면 그 줄만 바뀌고, 창은 저장된 값을 그대로 보여 준다.
 
   /// Output Config의 Stereo 목록에 쓸 쌍의 시작 채널(0-based 하드웨어 인덱스).
   ///
@@ -1817,7 +1806,7 @@ class _OutputConfigDialogState extends ConsumerState<OutputConfigDialog> {
       child: Row(
         children: [
           InkWell(
-            // 켜고 끄기는 열린 채널을 바꾼다(다른 줄도 따라 바뀐다). 항목의 다른 보정값은 그대로다.
+            // 켜고 끄기는 이 줄만 바꾼다(줄마다 따로, 2026-11-22). 항목의 다른 보정값은 그대로다.
             onTap: onToggle,
             child: Container(
               width: 80,
@@ -1962,7 +1951,7 @@ class _OutputConfigDialogState extends ConsumerState<OutputConfigDialog> {
                                     eqBands: [],
                                   );
 
-                              final on = _maps.isMonoOn(key);
+                              final on = setting.enabled;
                               return _buildChannelRow(
                                 '$displayCh1',
                                 setting,
@@ -1972,7 +1961,7 @@ class _OutputConfigDialogState extends ConsumerState<OutputConfigDialog> {
                                   });
                                 },
                                 on: on,
-                                onToggle: () => _toggleChannels({chStart}, !on),
+                                onToggle: () => setState(() => monoConfigs = setOutputRow(monoConfigs, key, !on)),
                                 hardwareName: hardwareChannelName(
                                   widget.channelNames,
                                   chStart,
@@ -2020,7 +2009,7 @@ class _OutputConfigDialogState extends ConsumerState<OutputConfigDialog> {
                                     eqBands: [],
                                   );
 
-                              final on = _maps.isStereoOn(key);
+                              final on = setting.enabled;
                               return _buildChannelRow(
                                 '$displayCh1/$displayCh2',
                                 setting,
@@ -2030,7 +2019,7 @@ class _OutputConfigDialogState extends ConsumerState<OutputConfigDialog> {
                                   });
                                 },
                                 on: on,
-                                onToggle: () => _toggleChannels({chStart, chStart + 1}, !on),
+                                onToggle: () => setState(() => stereoConfigs = setOutputRow(stereoConfigs, key, !on)),
                                 hardwareName: hardwareRangeName(
                                   widget.channelNames,
                                   chStart,
@@ -2076,7 +2065,7 @@ class _OutputConfigDialogState extends ConsumerState<OutputConfigDialog> {
                                     eqBands: [],
                                   );
 
-                              final on = _maps.isMultiOn(key);
+                              final on = setting.enabled;
                               return _buildChannelRow(
                                 'Ch $displayCh1 시작',
                                 setting,
@@ -2086,7 +2075,7 @@ class _OutputConfigDialogState extends ConsumerState<OutputConfigDialog> {
                                   });
                                 },
                                 on: on,
-                                onToggle: () => _toggleChannels({chStart}, !on),
+                                onToggle: () => setState(() => multiConfigs = setOutputRow(multiConfigs, key, !on)),
                                 hardwareName: hardwareChannelName(
                                   widget.channelNames,
                                   chStart,
