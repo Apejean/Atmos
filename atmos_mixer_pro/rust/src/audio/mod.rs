@@ -5,6 +5,7 @@ pub mod engine;
 pub mod mixer;
 pub mod player;
 pub mod streaming;
+pub mod wav_reader;
 pub mod spatial;
 pub mod dsp;
 pub mod denormal;

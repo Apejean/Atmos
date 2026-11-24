@@ -47,6 +47,11 @@ pub fn downsample_hi_res_if_needed(
 
 impl SoundData {
     pub fn probe_channels(path: &std::path::Path) -> u32 {
+        // 27채널 이상·RF64 WAV는 자체 리더의 머리말로 센다(안정성 ⑨). 예전에는 symphonia가 열지 못해 아래에서
+        // 2(스테레오)를 돌려줘 화면과 처리 폭이 틀렸다.
+        if let crate::audio::wav_reader::Choice::Own(info) = crate::audio::wav_reader::choose(path) {
+            return info.channels as u32;
+        }
         if let Ok(file) = File::open(path) {
             let mss = MediaSourceStream::new(Box::new(file), Default::default());
             let mut hint = Hint::new();
@@ -79,75 +84,13 @@ impl SoundData {
         path: &std::path::Path,
         target_sample_rate: u32,
     ) -> anyhow::Result<(Self, u32)> {
-        let file = Box::new(File::open(path)?);
-        let mss = MediaSourceStream::new(file, Default::default());
-
-        let mut hint = Hint::new();
-        if let Some(ext) = path.extension().and_then(|s| s.to_str()) {
-            hint.with_extension(&ext.to_lowercase());
-        }
-        let format_opts = FormatOptions::default();
-        let metadata_opts = MetadataOptions::default();
-        let decoder_opts = DecoderOptions::default();
-
-        let probed =
-            symphonia::default::get_probe().format(&hint, mss, &format_opts, &metadata_opts)?;
-
-        let mut format = probed.format;
-        let track = format
-            .default_track()
-            .ok_or_else(|| anyhow::anyhow!("No default track"))?;
-        let mut decoder =
-            symphonia::default::get_codecs().make(&track.codec_params, &decoder_opts)?;
-
-        let track_id = track.id;
-        let src_sample_rate = track.codec_params.sample_rate.unwrap_or(48000);
-        let channels = track
-            .codec_params
-            .channels
-            .map(|c| c.count() as u16)
-            .unwrap_or(2);
-
-        let mut sample_buf = None;
-        let mut all_samples = Vec::new();
+        // 27채널 이상·RF64 WAV는 자체 리더로 끝까지 읽는다(안정성 ⑨). 그 밖은 지금의 symphonia 길이다.
+        let (mut all_samples, channels, src_sample_rate) = match crate::audio::wav_reader::choose(path) {
+            crate::audio::wav_reader::Choice::Own(info) => Self::read_with_own_reader(path, info)?,
+            crate::audio::wav_reader::Choice::Unsupported(msg) => return Err(anyhow::anyhow!(msg)),
+            crate::audio::wav_reader::Choice::Symphonia => Self::decode_with_symphonia(path)?,
+        };
         let actual_channels = channels;
-
-        loop {
-            let packet = match format.next_packet() {
-                Ok(packet) => packet,
-                Err(symphonia::core::errors::Error::ResetRequired) => {
-                    decoder.reset();
-                    continue;
-                }
-                Err(symphonia::core::errors::Error::IoError(err)) => {
-                    if err.kind() == std::io::ErrorKind::UnexpectedEof {
-                        break;
-                    }
-                    break;
-                }
-                Err(_) => break,
-            };
-
-            if packet.track_id() != track_id {
-                continue;
-            }
-
-            match decoder.decode(&packet) {
-                Ok(audio_buf) => {
-                    if sample_buf.is_none() {
-                        let spec = *audio_buf.spec();
-                        let duration = audio_buf.capacity() as u64;
-                        sample_buf = Some(SampleBuffer::<f32>::new(duration, spec));
-                    }
-                    if let Some(buf) = &mut sample_buf {
-                        buf.copy_interleaved_ref(audio_buf);
-                        all_samples.extend_from_slice(buf.samples());
-                    }
-                }
-                Err(symphonia::core::errors::Error::DecodeError(_)) => {}
-                Err(_) => break,
-            }
-        }
 
         let needs_resampling = src_sample_rate != target_sample_rate && target_sample_rate > 0;
 
@@ -229,6 +172,141 @@ impl SoundData {
             src_sample_rate,
         ))
     }
+
+    /// symphonia로 끝까지 해독한다(26채널 이하 WAV와 그 밖의 형식). 인터리브 표본, 채널 수, 원래 샘플레이트.
+    fn decode_with_symphonia(path: &std::path::Path) -> anyhow::Result<(Vec<f32>, u16, u32)> {
+        let file = Box::new(File::open(path)?);
+        let mss = MediaSourceStream::new(file, Default::default());
+
+        let mut hint = Hint::new();
+        if let Some(ext) = path.extension().and_then(|s| s.to_str()) {
+            hint.with_extension(&ext.to_lowercase());
+        }
+        let format_opts = FormatOptions::default();
+        let metadata_opts = MetadataOptions::default();
+        let decoder_opts = DecoderOptions::default();
+
+        let probed =
+            symphonia::default::get_probe().format(&hint, mss, &format_opts, &metadata_opts)?;
+
+        let mut format = probed.format;
+        let track = format
+            .default_track()
+            .ok_or_else(|| anyhow::anyhow!("No default track"))?;
+        let mut decoder =
+            symphonia::default::get_codecs().make(&track.codec_params, &decoder_opts)?;
+
+        let track_id = track.id;
+        let src_sample_rate = track.codec_params.sample_rate.unwrap_or(48000);
+        let channels = track
+            .codec_params
+            .channels
+            .map(|c| c.count() as u16)
+            .unwrap_or(2);
+
+        let mut sample_buf = None;
+        let mut all_samples = Vec::new();
+
+        loop {
+            let packet = match format.next_packet() {
+                Ok(packet) => packet,
+                Err(symphonia::core::errors::Error::ResetRequired) => {
+                    decoder.reset();
+                    continue;
+                }
+                Err(symphonia::core::errors::Error::IoError(err)) => {
+                    if err.kind() == std::io::ErrorKind::UnexpectedEof {
+                        break;
+                    }
+                    break;
+                }
+                Err(_) => break,
+            };
+
+            if packet.track_id() != track_id {
+                continue;
+            }
+
+            match decoder.decode(&packet) {
+                Ok(audio_buf) => {
+                    if sample_buf.is_none() {
+                        let spec = *audio_buf.spec();
+                        let duration = audio_buf.capacity() as u64;
+                        sample_buf = Some(SampleBuffer::<f32>::new(duration, spec));
+                    }
+                    if let Some(buf) = &mut sample_buf {
+                        buf.copy_interleaved_ref(audio_buf);
+                        all_samples.extend_from_slice(buf.samples());
+                    }
+                }
+                Err(symphonia::core::errors::Error::DecodeError(_)) => {}
+                Err(_) => break,
+            }
+        }
+
+        Ok((all_samples, channels, src_sample_rate))
+    }
+
+    /// 자체 WAV 리더로 끝까지 읽는다(27채널 이상·RF64, 안정성 ⑨).
+    fn read_with_own_reader(
+        path: &std::path::Path,
+        info: crate::audio::wav_reader::WavInfo,
+    ) -> anyhow::Result<(Vec<f32>, u16, u32)> {
+        let channels = info.channels;
+        let rate = info.sample_rate;
+        let mut reader = crate::audio::wav_reader::WavReader::open_with(path, info)?;
+        let mut all = Vec::with_capacity((reader.info().frames as usize).saturating_mul(channels as usize));
+        let mut block = Vec::new();
+        loop {
+            let n = reader.read(4096, &mut block)?;
+            if n == 0 {
+                break;
+            }
+            all.extend_from_slice(&block);
+        }
+        Ok((all, channels, rate))
+    }
+}
+
+/// 메모리에 미리 올리는 음원의 최대 표본 수(f32 4바이트 → 약 100MB). 넘는 파일은 재생할 때 디스크에서 읽는다
+/// (사용자 결정 2026-11-24 D3, 예전에는 미리 읽기가 실패해 그 트랙이 나지 않았다).
+pub const PRELOAD_MAX_SAMPLES: u64 = 25_000_000;
+
+/// 메모리에 올렸을 때의 표본 수(장치 샘플레이트로 바꾼 뒤). 머리말만 읽는다. 길이·채널을 모르면 None.
+pub fn estimated_samples(path: &std::path::Path, target_sample_rate: u32) -> Option<u64> {
+    let (frames, rate, channels) = match crate::audio::wav_reader::choose(path) {
+        crate::audio::wav_reader::Choice::Own(info) => (info.frames, info.sample_rate, info.channels as u64),
+        crate::audio::wav_reader::Choice::Unsupported(_) => return None,
+        crate::audio::wav_reader::Choice::Symphonia => {
+            let file = File::open(path).ok()?;
+            let mss = MediaSourceStream::new(Box::new(file), Default::default());
+            let mut hint = Hint::new();
+            if let Some(ext) = path.extension().and_then(|s| s.to_str()) {
+                hint.with_extension(&ext.to_lowercase());
+            }
+            let probed = symphonia::default::get_probe()
+                .format(&hint, mss, &FormatOptions::default(), &MetadataOptions::default())
+                .ok()?;
+            let params = &probed.format.default_track()?.codec_params;
+            (params.n_frames?, params.sample_rate?, params.channels?.count() as u64)
+        }
+    };
+    let out_frames = if target_sample_rate > 0 && rate > 0 && target_sample_rate != rate {
+        (frames as f64 * target_sample_rate as f64 / rate as f64).round() as u64
+    } else {
+        frames
+    };
+    Some(out_frames * channels)
+}
+
+/// 메모리에 올리기에 너무 큰가([`PRELOAD_MAX_SAMPLES`]). 길이를 모르면 false(지금처럼 올려 본다).
+pub fn too_big_for_memory(path: &std::path::Path, target_sample_rate: u32) -> bool {
+    estimated_samples(path, target_sample_rate).is_some_and(|n| n > PRELOAD_MAX_SAMPLES)
+}
+
+/// 이 트랙을 디스크에서 읽어 재생하는가: 루프, 스트리밍 켬, 또는 메모리에 올리기에 너무 큰 파일.
+pub fn plays_from_disk(is_loop: bool, is_streaming: bool, path: &std::path::Path, target_sample_rate: u32) -> bool {
+    is_loop || is_streaming || too_big_for_memory(path, target_sample_rate)
 }
 
 pub struct SoundInstance {

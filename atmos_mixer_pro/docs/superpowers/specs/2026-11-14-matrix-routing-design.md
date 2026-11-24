@@ -160,6 +160,7 @@ pub struct AppConfig {
 pub const MAX_TRACK_ROUTES: usize = 512;
 /// 표 경로가 한 파일에서 읽는 채널 수 상한(6.5). **따로 두지 않는다**: 안정성 ⑨가 정하는 "파일 채널 최대 수" 상수
 /// 하나를 같이 쓴다. ⑨가 상한을 정하지 않았을 때만 이 상수(64)를 둔다(Main 검수).
+/// → ⑨가 정했다(2026-11-24): `audio::wav_reader::MAX_FILE_CHANNELS` = 256. 구현 때 이 상수 대신 그것을 쓴다.
 pub const FILE_CHANNEL_READ_CAP: usize = 64;
 
 /// 엔진이 쓰는 칸(검증·변환 끝).
