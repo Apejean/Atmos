@@ -1335,14 +1335,17 @@ fn start_audio_system_with(
                         let avg_us = total_us.checked_div(count).unwrap_or(0);
                         let warn = heavy > 0 || late > 0 || overruns > 0;
                         // 화면 부하 배너(core::load_warning): 예산 초과·늦은 콜백이 있으면 경고, 1분 정상이면 해제.
-                        if let Some(status) = load_warning.update(crate::core::load_warning::LoadWindow {
+                        let window = crate::core::load_warning::LoadWindow {
                             max_us,
                             budget_us,
                             overruns,
                             late,
                             // 엔진 시작 로그의 "M채널 처리"와 같은 값(측정 결과와 바로 비교된다).
                             processing_channels: state.output_processing_channels.load(relaxed),
-                        }) {
+                            avg_us,
+                            heavy,
+                        };
+                        if let Some(status) = load_warning.update(window) {
                             broadcast_stream_status(status);
                         }
                         let since_log = last_load_log.map(|t: std::time::Instant| t.elapsed());
@@ -1364,7 +1367,7 @@ fn start_audio_system_with(
                                 late,
                                 f64::from(gap_max_us) / 1000.0,
                                 state.processing_channels.load(relaxed),
-                                if warn { " — 쓰지 않는 출력 채널을 끄거나 리버브를 줄이면 줄어든다" } else { "" },
+                                if warn { crate::core::load_warning::log_hint(crate::core::load_warning::load_cause(&window)) } else { "" },
                             ));
                             last_load_log = Some(std::time::Instant::now());
                         }
