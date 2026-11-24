@@ -44,6 +44,7 @@ fn track(room: &str, id: &str, path: &str, is_loop: bool, is_streaming: bool) ->
         output_stereo: false,
         play_osc_address: format!("/{room}/{id}/play"),
         stop_osc_address: format!("/{room}/{id}/stop"),
+        routes: vec![],
     }
 }
 

@@ -8,6 +8,8 @@ import 'package:atmos_mixer_pro/core/state/global_state.dart';
 import 'package:atmos_mixer_pro/src/rust/api/simple.dart' as rust_api;
 import 'package:atmos_mixer_pro/core/utils/channel_dropdown_helper.dart';
 import 'package:atmos_mixer_pro/core/utils/channel_routing.dart';
+import 'package:atmos_mixer_pro/core/utils/track_routes.dart';
+import 'package:atmos_mixer_pro/features/dashboard/widgets/track_routing_dialog.dart';
 
 class TrackCard extends ConsumerStatefulWidget {
   final TrackConfig track;
@@ -22,6 +24,12 @@ class TrackCard extends ConsumerStatefulWidget {
   final ValueChanged<String>? onNameChanged;
   final void Function(int channel, bool isStereo)? onOutputChanged;
 
+  /// 매트릭스 방식에서 표 창이 연결 표를 바꿀 때(매트릭스 라우팅 7.4). 매핑 방식에서는 쓰지 않는다.
+  final RoutesChanged? onRoutesChanged;
+
+  /// 표 창 제목에 쓰는 방 이름.
+  final String roomName;
+
   const TrackCard({
     super.key,
     required this.track,
@@ -35,6 +43,8 @@ class TrackCard extends ConsumerStatefulWidget {
     this.onStreamChanged,
     this.onNameChanged,
     this.onOutputChanged,
+    this.onRoutesChanged,
+    this.roomName = '',
   });
 
   @override
@@ -106,6 +116,79 @@ class _TrackCardState extends ConsumerState<TrackCard> {
 
   /// 라우팅 항목이 0개일 때 사용자에게 보일 이유. `outputChannelsProvider`가
   /// 조회 중/장치 없음/조회 실패를 구분해 주므로 그대로 문구로 옮긴다.
+  /// 매트릭스 방식의 출력 자리: 표 요약과 표 창 단추(매트릭스 라우팅 7.4). 표가 비어 있으면(채널 수를 몰라 채우지
+  /// 못한 트랙) 엔진은 매핑대로 낸다.
+  Widget _matrixOutput(AppConfig config, OutputChannelsState channels) {
+    final routes = widget.track.routes;
+    final problems = routeProblems(
+      routes,
+      fileChannels: _fileChannels,
+      enabled: List.filled(channels.channelNames.length, true),
+      deviceChannels: channels.channelNames.length,
+    );
+    final reasons = [
+      if (problems.missingFileChannel.isNotEmpty) '파일에 없는 채널 ${problems.missingFileChannel.length}칸',
+      if (problems.missingOutput.isNotEmpty) '지금 장치에 없는 출력 ${problems.missingOutput.length}칸',
+    ];
+    final text = routes.isEmpty ? '매핑대로 출력 중 — 표 열기' : routesSummary(routes);
+    return Row(
+      children: [
+        Expanded(
+          child: Tooltip(
+            message: reasons.isEmpty ? text : '${reasons.join(', ')} — 소리가 나지 않습니다',
+            child: Text(
+              text,
+              key: const Key('track_routes_summary'),
+              style: TextStyle(color: reasons.isEmpty ? Colors.white : Colors.orangeAccent, fontSize: 12),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ),
+        IconButton(
+          key: const Key('track_routes_button'),
+          tooltip: '출력 연결 표',
+          visualDensity: VisualDensity.compact,
+          icon: const Icon(Icons.grid_on, size: 18, color: Colors.white70),
+          onPressed: () => _openRoutingDialog(config, channels),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _openRoutingDialog(AppConfig config, OutputChannelsState channels) async {
+    final names = channels.channelNames;
+    List<bool> enabled;
+    try {
+      enabled = await rust_api.computeEnabledChannels(config: config, hwLen: BigInt.from(names.length));
+    } catch (_) {
+      enabled = List.filled(names.length, true);
+    }
+    if (!mounted) return;
+    final fileChannels = _fileChannels;
+    List<TrackRoute>? seed() => fileChannels == null
+        ? null
+        : seedRoutesFromLegacy(
+            fileChannels: fileChannels,
+            outputChannel: widget.track.outputChannel,
+            outputStereo: widget.track.outputStereo,
+          );
+    // 표가 빈 트랙은 매핑과 같은 표를 보여 주기만 하고, 무엇이든 바꾸면 그때 저장한다(설계 7.3).
+    final initial = widget.track.routes.isEmpty ? (seed() ?? const <TrackRoute>[]) : widget.track.routes;
+    await showDialog<void>(
+      context: context,
+      builder: (_) => TrackRoutingDialog(
+        title: '${widget.roomName.isEmpty ? '' : '${widget.roomName} · '}${widget.track.name}',
+        fileChannels: fileChannels,
+        initialRoutes: initial,
+        channelNames: names,
+        enabled: enabled,
+        limiterOn: config.peakLimiterEnabled,
+        seedRoutes: seed,
+        onChanged: (routes, {required commit}) => widget.onRoutesChanged?.call(routes, commit: commit),
+      ),
+    );
+  }
+
   String _emptyOutputReason(OutputChannelsState channels) {
     switch (channels.status) {
       case OutputChannelsStatus.loading:
@@ -331,7 +414,9 @@ class _TrackCardState extends ConsumerState<TrackCard> {
                       // 항목이 하나도 없으면 왜 없는지 알려준다. 예전에는 빈
                       // 드롭다운만 남아 장치 미인식과 조회 실패를 구분할 수
                       // 없었다(무음 실패).
-                      if (outputItems.isEmpty)
+                      if (config != null && config.outputRoutingMode == OutputRoutingMode.matrix)
+                        Expanded(child: _matrixOutput(config, outputChannels))
+                      else if (outputItems.isEmpty)
                         Expanded(
                           child: Text(
                             _emptyOutputReason(outputChannels),

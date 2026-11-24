@@ -39,6 +39,7 @@ void main() {
     peakLimiterEnabled: true,
     globalReverbMix: 0.0,
     globalReverbDecay: 1.0,
+    outputRoutingMode: OutputRoutingMode.trackMapping,
   );
 
   // 이름을 모르는 장치: 백엔드가 채우는 기본값이라 라벨에 붙지 않는다(hardwareChannelName).
@@ -358,6 +359,7 @@ void main() {
       peakLimiterEnabled: true,
       globalTrajectory: null,
       roomZones: const [],
+      outputRoutingMode: OutputRoutingMode.trackMapping,
     );
 
     test('연속한 Mono 키를 열어도 같은 채널이 두 번 나오지 않는다', () {

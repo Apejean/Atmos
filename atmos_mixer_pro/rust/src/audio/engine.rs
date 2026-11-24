@@ -848,17 +848,20 @@ impl AudioEngine {
                 } => {
                     for inst in mixer.instances.iter_mut().flatten() {
                         if inst.room_id == room_id && inst.id == track_id {
-                            if inst.output_channel != output_channel || inst.output_stereo != output_stereo {
-                                // 옛 경로에서 새 경로로 짧게 크로스페이드한다(3법칙 3). 바꾸는 도중에 또 바뀌면 지금
-                                // 경로를 옛 경로로 삼아 다시 시작한다.
-                                inst.prev_output_channel = inst.output_channel;
-                                inst.prev_output_stereo = inst.output_stereo;
-                                inst.output_fade = 0.0;
-                            }
-                            inst.output_channel = output_channel;
-                            inst.output_stereo = output_stereo;
+                            // 옛 경로에서 새 경로로 짧게 크로스페이드한다(3법칙 3). 바꾸는 도중에 또 오면 대기했다가
+                            // 페이드가 끝난 뒤 바꾼다 — 예전에는 그때 들리던 경로가 한 샘플 만에 끊겼다(매트릭스 라우팅 6.3).
+                            inst.request_legacy_path(output_channel, output_stereo);
                         }
                     }
+                }
+                AudioCommand::SetTrackRoutes { room_id, track_id, entries } => {
+                    for inst in mixer.instances.iter_mut().flatten() {
+                        if inst.room_id == room_id && inst.id == track_id {
+                            // 페이드 중이면 대기했다가 바꾼다(SetTrackOutput과 같은 규칙, 매트릭스 라우팅 6.3).
+                            inst.request_table_path(&entries);
+                        }
+                    }
+                    mixer.dispose_routes(entries);
                 }
                 AudioCommand::SetChannelReverbSend { channel, send } => {
                     if channel < mixer.channel_dsp.len() {

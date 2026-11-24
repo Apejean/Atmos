@@ -46,6 +46,7 @@ fn 동시_재생은_각자_번호를_받고_재개_도중_전체_정지하면_�
             output_stereo: false,
             play_osc_address: String::new(),
             stop_osc_address: String::new(),
+            routes: vec![],
         }],
     });
     *GLOBAL_STATE.config.write().unwrap() = Some(config);

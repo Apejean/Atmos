@@ -155,6 +155,43 @@ pub struct AppConfig {
     #[serde(default = "default_ducking_reduction_db")]
     #[frb(default = "-10.457575")]
     pub ducking_reduction_db: f32,
+    /// 프로젝트의 출력 방식(매트릭스 라우팅 설계 D13). 기본(트랙별 출력 매핑)은 저장할 때 키를 쓰지 않아,
+    /// 매트릭스를 쓰지 않는 프로젝트의 config.json은 예전과 같은 모양이다.
+    #[serde(default, skip_serializing_if = "OutputRoutingMode::is_track_mapping")]
+    pub output_routing_mode: OutputRoutingMode,
+}
+
+/// 프로젝트의 출력 방식. 한 번에 하나만 쓴다(매트릭스 라우팅 설계 D2·D13).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum OutputRoutingMode {
+    /// 트랙별 출력 매핑(`output_channel`·`output_stereo`). 지금까지의 방식이고 기본값이다.
+    #[default]
+    TrackMapping,
+    /// 매트릭스 라우팅(`TrackConfig.routes`).
+    Matrix,
+}
+
+impl OutputRoutingMode {
+    pub fn is_track_mapping(&self) -> bool {
+        *self == OutputRoutingMode::TrackMapping
+    }
+}
+
+/// 트랙 연결 표의 칸 하나: 파일 채널 → 출력 채널, 음량(매트릭스 라우팅 설계 5.1).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct TrackRoute {
+    /// 파일 안 채널(0부터).
+    pub file_channel: u32,
+    /// 출력 채널(0부터). `TrackConfig.output_channel`과 같은 기준이고 화면에는 +1로 보인다.
+    pub output_channel: u32,
+    /// 선형 음량(0 초과 1 이하, 1.0 = 그대로). 트랙 `volume`과 같은 단위.
+    #[serde(default = "default_route_gain")]
+    pub gain: f32,
+}
+
+fn default_route_gain() -> f32 {
+    1.0
 }
 
 fn default_master_headroom() -> f32 {
@@ -188,6 +225,7 @@ impl Default for AppConfig {
             osc_reply_targets: Vec::new(),
             ducking_enabled: true,
             ducking_reduction_db: crate::core::ducking::DEFAULT_REDUCTION_DB,
+            output_routing_mode: OutputRoutingMode::TrackMapping,
         }
     }
 }
@@ -224,6 +262,10 @@ pub struct TrackConfig {
     pub play_osc_address: String,
     #[serde(default)]
     pub stop_osc_address: String,
+    /// 연결 표(매트릭스 라우팅의 설정). 매트릭스 방식이고 비어 있지 않을 때만 쓴다(설계 D2). 트랙별 출력 매핑의
+    /// 설정(`output_channel`·`output_stereo`)과 서로 건드리지 않는다(D14). 빈 표는 저장할 때 키를 쓰지 않는다.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub routes: Vec<TrackRoute>,
 }
 
 impl AppConfig {

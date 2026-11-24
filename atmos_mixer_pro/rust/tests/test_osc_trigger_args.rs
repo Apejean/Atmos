@@ -106,6 +106,7 @@ fn track(room: &str, id: &str, path: &str) -> TrackConfig {
         output_stereo: false,
         play_osc_address: format!("/{room}/{id}/play"),
         stop_osc_address: format!("/{room}/{id}/stop"),
+        routes: vec![],
     }
 }
 

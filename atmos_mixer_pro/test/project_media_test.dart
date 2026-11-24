@@ -19,6 +19,7 @@ AppConfig _config(String tag) => AppConfig(
       peakLimiterEnabled: true,
       globalReverbMix: 0.0,
       globalReverbDecay: 1.0,
+      outputRoutingMode: OutputRoutingMode.trackMapping,
     );
 
 /// 가짜 Rust 다시 연결: 폴더마다 찾을 수 있는 원래 경로를 정해 둔다.
@@ -268,6 +269,7 @@ void main() {
           peakLimiterEnabled: true,
           globalReverbMix: 0.0,
           globalReverbDecay: 1.0,
+          outputRoutingMode: OutputRoutingMode.trackMapping,
         );
     final current = cfg(device: '[ASIO] ASIO MADIface USB', buffer: 1024, tag: 'current');
     const windowsDevices = ['[ASIO] ASIO MADIface USB', '[WASAPI] Analog (1+2) (RME UFX+ USB 3.0)'];
@@ -321,7 +323,7 @@ void main() {
   group('프로젝트가 쓰는 채널 수', () {
     ChannelSetting on() => const ChannelSetting(
         enabled: true, customName: '', delayMs: 0.0, eqBands: [], phaseInvert: false, gainDb: 0.0);
-    TrackConfig track(int outputChannel, {required bool stereo}) => TrackConfig(
+    TrackConfig track(int outputChannel, {required bool stereo, List<TrackRoute> routes = const []}) => TrackConfig(
           id: 't$outputChannel',
           name: 't',
           filePath: '/x.wav',
@@ -332,12 +334,14 @@ void main() {
           outputStereo: stereo,
           playOscAddress: '',
           stopOscAddress: '',
+          routes: routes,
         );
     AppConfig project({
       Map<int, ChannelSetting> mono = const {},
       Map<int, ChannelSetting> stereo = const {},
       Map<int, ChannelSetting> multi = const {},
       List<TrackConfig> tracks = const [],
+      OutputRoutingMode mode = OutputRoutingMode.trackMapping,
     }) =>
         AppConfig(
           oscPort: 8000,
@@ -363,7 +367,14 @@ void main() {
           peakLimiterEnabled: true,
           globalReverbMix: 0.0,
           globalReverbDecay: 1.0,
+          outputRoutingMode: mode,
         );
+
+    test('매트릭스 방식이면 표가 가리키는 가장 높은 출력을 세고, 매핑 방식이면 표를 보지 않는다(7.5)', () {
+      const cells = [TrackRoute(fileChannel: 0, outputChannel: 19, gain: 1.0)];
+      expect(highestProjectChannel(project(tracks: [track(0, stereo: false, routes: cells)], mode: OutputRoutingMode.matrix)), 20);
+      expect(highestProjectChannel(project(tracks: [track(0, stereo: false, routes: cells)])), 1);
+    });
 
     test('맥 프로젝트처럼 CH12까지 켰으면 12, 자리표 255는 세지 않는다', () {
       final mac = project(

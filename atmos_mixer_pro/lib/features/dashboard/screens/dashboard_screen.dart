@@ -787,6 +787,20 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               fontWeight: FontWeight.bold,
             ),
           ),
+          // 매트릭스 방식이면 지금 방식을 보인다(매트릭스 라우팅 7.0). 매핑 방식이면 아무것도 더하지 않는다.
+          Consumer(
+            builder: (context, ref, child) {
+              final matrix = ref.watch(
+                configProvider.select((c) => c?.outputRoutingMode == OutputRoutingMode.matrix),
+              );
+              if (!matrix) return const SizedBox.shrink();
+              return const Text(
+                '출력: 매트릭스',
+                key: Key('routing_mode_indicator'),
+                style: TextStyle(color: Colors.lightBlueAccent, fontSize: 13, fontWeight: FontWeight.bold),
+              );
+            },
+          ),
           Consumer(
             builder: (context, ref, child) {
               final isMasterMuted = ref.watch(

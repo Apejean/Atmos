@@ -168,3 +168,72 @@ fn 그룹_시작과_밀린_만큼_건너뛰기는_힙을_건드리지_않는다(
     assert_eq!(ops, 0, "밀린 만큼 건너뛰며 묶음을 바꿀 때 콜백에서 힙을 건드렸다");
     assert_eq!(mixer.instances[0].as_ref().map(|i| i.lag_frames), Some(0.0), "밀린 프레임을 다 건너뛰지 않았다");
 }
+
+// ---- 매트릭스 라우팅(설계 6.4, 8.2): 연결 표 명령과 표 경로 블록 ----
+
+use rust_lib_atmos_mixer_pro::audio::mixer::SpatialGarbage;
+use rust_lib_atmos_mixer_pro::audio::player::SoundData;
+use rust_lib_atmos_mixer_pro::audio::route::RouteEntry;
+
+/// 소리가 있는 루프 인스턴스(표 경로의 샘플 루프가 실제로 돌게).
+fn sounding(instance_id: u64) -> SoundInstance {
+    let data = std::sync::Arc::new(SoundData { samples: vec![0.1f32; 4800], channels: 1, sample_rate: FS });
+    SoundInstance::new(
+        instance_id, 1, 1, "t".into(), Some(data), None, FS, 1, true, 1.0, 0, false, None,
+        GLOBAL_STATE.enabled_channels.len(),
+    )
+}
+
+fn routes_cmd(cells: &[(u16, u16, f32)]) -> AudioCommand {
+    AudioCommand::SetTrackRoutes {
+        room_id: 1,
+        track_id: 1,
+        entries: cells.iter().map(|&(src, out, gain)| RouteEntry { src, out, gain }).collect(),
+    }
+}
+
+#[test]
+fn 연결_표_바꾸기와_표_경로_블록은_힙을_건드리지_않는다() {
+    let mut mixer = mixer();
+    mixer.instances[0] = Some(sounding(7));
+    assert_eq!(ops_for_command(&mut mixer, routes_cmd(&[(0, 0, 1.0), (0, 1, 0.5)])), 0, "연결 표 명령 처리 중 힙을 건드렸다");
+    {
+        let inst = mixer.instances[0].as_ref().unwrap();
+        assert!(inst.table_active);
+        assert_eq!(inst.routes.len(), 2);
+    }
+    // 페이드 도중 또 바꾼다(대기). 블록을 돌며 페이드·대기 승격·표 경로 믹스가 모두 일어난다.
+    assert_eq!(ops_for_command(&mut mixer, routes_cmd(&[(0, 1, 1.0)])), 0, "대기에 둘 때 힙을 건드렸다");
+    let mut temp = vec![0.0f32; BLOCK * CH];
+    let mut data = vec![0.0f32; BLOCK * CH];
+    let ops = heap_ops(|| {
+        for _ in 0..4 {
+            AudioEngine::render_block(&mut mixer, &mut temp, &mut data, CH, CH);
+        }
+    });
+    assert_eq!(ops, 0, "표 경로 블록(페이드·대기 승격 포함)에서 힙을 건드렸다");
+    let inst = mixer.instances[0].as_ref().unwrap();
+    assert!(inst.pending_path.is_none(), "대기한 표가 적용되지 않았다");
+    assert_eq!(inst.routes.as_slice(), &[RouteEntry { src: 0, out: 1, gain: 1.0 }]);
+}
+
+#[test]
+fn 정리_채널이_가득_차도_연결_표를_콜백에서_풀지_않는다() {
+    let mut mixer = mixer();
+    let (tx, rx) = crossbeam_channel::bounded::<SpatialGarbage>(1);
+    tx.send(SpatialGarbage::Routes(Vec::new())).unwrap(); // 가득 참(받는 쪽이 비우지 않는다)
+    mixer.spatial_gc_tx = tx;
+    mixer.instances[0] = Some(sounding(8));
+    let parked_before = GLOBAL_STATE.route_garbage_parked.load(Ordering::Relaxed);
+    assert_eq!(ops_for_command(&mut mixer, routes_cmd(&[(0, 0, 1.0)])), 0, "정리 채널이 가득 찼을 때 콜백에서 표를 풀었다");
+    assert_eq!(mixer.route_garbage.len(), 1, "못 보낸 표를 맡아 두지 않았다");
+    assert!(GLOBAL_STATE.route_garbage_parked.load(Ordering::Relaxed) > parked_before, "맡아 둔 횟수를 세지 않았다");
+    let mut temp = vec![0.0f32; BLOCK * CH];
+    let mut data = vec![0.0f32; BLOCK * CH];
+    let ops = heap_ops(|| {
+        AudioEngine::render_block(&mut mixer, &mut temp, &mut data, CH, CH);
+    });
+    assert_eq!(ops, 0, "블록 끝에 다시 보내다가 힙을 건드렸다");
+    assert_eq!(mixer.route_garbage.len(), 1, "아직 가득 차 있으니 그대로 맡고 있어야 한다");
+    drop(rx);
+}

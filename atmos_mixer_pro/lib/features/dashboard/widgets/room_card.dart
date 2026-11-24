@@ -9,6 +9,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:atmos_mixer_pro/core/state/global_state.dart';
 import 'package:atmos_mixer_pro/core/state/config_copy.dart';
 import 'package:atmos_mixer_pro/core/utils/osc_addresses.dart';
+import 'package:atmos_mixer_pro/core/utils/track_routes.dart';
 import 'package:atmos_mixer_pro/src/rust/api/simple.dart' as rust_api;
 import 'package:atmos_mixer_pro/features/dashboard/widgets/track_play_failure.dart';
 import 'package:desktop_drop/desktop_drop.dart';
@@ -196,6 +197,7 @@ class _RoomCardState extends ConsumerState<RoomCard> {
           outputStereo: true,
           playOscAddress: osc.play,
           stopOscAddress: osc.stop,
+          routes: const [],
         );
         newTracks.add(newTrack);
       }
@@ -214,7 +216,61 @@ class _RoomCardState extends ConsumerState<RoomCard> {
           .saveConfig(
             currentConfig.copyWith(rooms: newRooms),
           );
+      if (currentConfig.outputRoutingMode == OutputRoutingMode.matrix) {
+        _seedNewTrackRoutes([for (final t in newTracks.skip(newRooms[idx].tracks.length - paths.length)) t.id]);
+      }
     }
+  }
+
+  /// 매트릭스 방식에서 새로 넣은 트랙의 표를 지금 매핑과 같은 연결로 채워 저장한다(매트릭스 라우팅 7.3). 채널 수를
+  /// 못 읽은 트랙은 비워 두고(엔진은 매핑대로 낸다), 이미 표가 있는 트랙은 건드리지 않는다.
+  Future<void> _seedNewTrackRoutes(List<String> trackIds) async {
+    final channels = <String, int>{};
+    final before = ref.read(configProvider);
+    if (before == null) return;
+    for (final t in before.rooms.expand((r) => r.tracks)) {
+      if (!trackIds.contains(t.id)) continue;
+      try {
+        channels[t.id] = await rust_api.apiGetAudioFileChannels(filePath: t.filePath);
+      } catch (_) {}
+    }
+    if (!mounted || channels.isEmpty) return;
+    final current = ref.read(configProvider);
+    if (current == null || current.outputRoutingMode != OutputRoutingMode.matrix) return;
+    final rooms = [
+      for (final r in current.rooms)
+        RoomConfig(
+          id: r.id,
+          name: r.name,
+          colorHex: r.colorHex,
+          volume: r.volume,
+          clearOscAddress: r.clearOscAddress,
+          tracks: [
+            for (final t in r.tracks)
+              if (channels.containsKey(t.id) && t.routes.isEmpty)
+                TrackConfig(
+                  id: t.id,
+                  name: t.name,
+                  filePath: t.filePath,
+                  volume: t.volume,
+                  isLoop: t.isLoop,
+                  isStreaming: t.isStreaming,
+                  outputChannel: t.outputChannel,
+                  outputStereo: t.outputStereo,
+                  playOscAddress: t.playOscAddress,
+                  stopOscAddress: t.stopOscAddress,
+                  routes: seedRoutesFromLegacy(
+                    fileChannels: channels[t.id]!,
+                    outputChannel: t.outputChannel,
+                    outputStereo: t.outputStereo,
+                  ),
+                )
+              else
+                t,
+          ],
+        ),
+    ];
+    ref.read(configProvider.notifier).saveConfig(current.copyWith(rooms: rooms), skipPreload: true);
   }
 
   @override
@@ -610,6 +666,52 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                             key: ValueKey(track.id),
                             track: track,
                             accentColor: accentColor,
+                            roomName: room.name,
+                            onRoutesChanged: (routes, {required commit}) {
+                              // 엔진 먼저, 저장은 확정일 때만(매트릭스 라우팅 7.4). 드래그 중 값은 저장 전이라 강제
+                              // 종료되면 마지막으로 저장된 표로 돌아간다(의도).
+                              rust_api
+                                  .apiSetTrackRoutes(roomId: room.id, trackId: track.id, routes: routes)
+                                  .catchError((Object _) {});
+                              if (!commit) return;
+                              final currentConfig = ref.read(configProvider);
+                              if (currentConfig == null) return;
+                              final newRooms = [
+                                for (final r in currentConfig.rooms)
+                                  if (r.id != room.id)
+                                    r
+                                  else
+                                    RoomConfig(
+                                      id: r.id,
+                                      name: r.name,
+                                      colorHex: r.colorHex,
+                                      volume: r.volume,
+                                      clearOscAddress: r.clearOscAddress,
+                                      tracks: [
+                                        for (final t in r.tracks)
+                                          if (t.id != track.id)
+                                            t
+                                          else
+                                            TrackConfig(
+                                              id: t.id,
+                                              name: t.name,
+                                              filePath: t.filePath,
+                                              volume: t.volume,
+                                              isLoop: t.isLoop,
+                                              isStreaming: t.isStreaming,
+                                              outputChannel: t.outputChannel,
+                                              outputStereo: t.outputStereo,
+                                              playOscAddress: t.playOscAddress,
+                                              stopOscAddress: t.stopOscAddress,
+                                              routes: routes,
+                                            ),
+                                      ],
+                                    ),
+                              ];
+                              ref
+                                  .read(configProvider.notifier)
+                                  .saveConfig(currentConfig.copyWith(rooms: newRooms), skipPreload: true);
+                            },
                             onPlay: () async {
                               try {
                                 await rust_api.apiPlayTrack(
@@ -705,6 +807,7 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                                       playOscAddress: track.playOscAddress,
                                       stopOscAddress: track.stopOscAddress,
                                       isStreaming: track.isStreaming,
+                                      routes: track.routes,
                                     );
                                     newRooms[idx] = RoomConfig(
                                       id: room.id,
@@ -752,6 +855,7 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                                       outputStereo: track.outputStereo,
                                       playOscAddress: track.playOscAddress,
                                       stopOscAddress: track.stopOscAddress,
+                                      routes: track.routes,
                                     );
                                     newRooms[idx] = RoomConfig(
                                       id: room.id,
@@ -798,6 +902,7 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                                       outputStereo: track.outputStereo,
                                       playOscAddress: track.playOscAddress,
                                       stopOscAddress: track.stopOscAddress,
+                                      routes: track.routes,
                                     );
                                     newRooms[idx] = RoomConfig(
                                       id: room.id,
@@ -844,6 +949,7 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                                       playOscAddress: track.playOscAddress,
                                       stopOscAddress: track.stopOscAddress,
                                       isStreaming: track.isStreaming,
+                                      routes: track.routes,
                                     );
                                     newRooms[idx] = RoomConfig(
                                       id: room.id,
@@ -890,6 +996,7 @@ class _RoomCardState extends ConsumerState<RoomCard> {
                                       playOscAddress: track.playOscAddress,
                                       stopOscAddress: track.stopOscAddress,
                                       isStreaming: track.isStreaming,
+                                      routes: track.routes,
                                     );
                                     newRooms[idx] = RoomConfig(
                                       id: room.id,

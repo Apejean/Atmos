@@ -95,6 +95,7 @@ fn config(files: &[String], n: usize) -> AppConfig {
             output_stereo: false,
             play_osc_address: String::new(),
             stop_osc_address: String::new(),
+            routes: vec![],
         })
         .collect();
     AppConfig {

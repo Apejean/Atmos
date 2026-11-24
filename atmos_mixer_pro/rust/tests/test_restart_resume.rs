@@ -25,6 +25,7 @@ fn track(id: &str, path: &str) -> TrackConfig {
         output_stereo: false,
         play_osc_address: String::new(),
         stop_osc_address: String::new(),
+        routes: vec![],
     }
 }
 

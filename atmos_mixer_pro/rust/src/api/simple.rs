@@ -116,7 +116,10 @@ pub fn api_get_config(path: String) -> AppConfig {
         GLOBAL_STATE
             .config_version
             .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let old = global_config.take();
         *global_config = Some(config.clone());
+        // 방식이나 표가 바뀐 트랙의 경로를 맞춘다(매트릭스 라우팅 6.6).
+        resync_routing(old.as_ref(), &config);
     }
     GLOBAL_STATE.is_exhibition_mode.store(
         config.is_exhibition_mode,
@@ -180,7 +183,10 @@ pub fn api_save_config(path: String, config: AppConfig) -> Result<(), AtmosError
         GLOBAL_STATE
             .config_version
             .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let old = global_config.take();
         *global_config = Some(config.clone());
+        // 방식이나 표가 바뀐 트랙의 경로를 맞춘다(매트릭스 라우팅 6.6).
+        resync_routing(old.as_ref(), &config);
     }
     GLOBAL_STATE.is_exhibition_mode.store(
         config.is_exhibition_mode,
@@ -319,6 +325,101 @@ pub fn build_play_track_command(
 pub fn api_play_track(room_id: String, track_id: String) -> Result<(), AtmosError> {
     crate::core::event_log::record_request("play", &format!("{room_id}/{track_id}"));
     play_track_from(room_id, track_id, 0.0)
+}
+
+/// 매트릭스 방식이고 트랙에 연결 표가 있으면 재생 명령의 인스턴스를 표 경로로 시작하게 한다(오디오 스레드 밖,
+/// 매트릭스 라우팅 설계 6.6). 파일 채널 수는 인스턴스가 연 실제 파일의 것을 쓴다. 그 밖에는 그대로(매핑 경로).
+fn with_routes(
+    mut cmd: AudioCommand,
+    mode: crate::common::config::OutputRoutingMode,
+    room: &crate::common::config::RoomConfig,
+    track: &crate::common::config::TrackConfig,
+) -> AudioCommand {
+    if mode != crate::common::config::OutputRoutingMode::Matrix || track.routes.is_empty() {
+        return cmd;
+    }
+    if let AudioCommand::PlayTrack { instance, .. } = &mut cmd {
+        let resolved = crate::audio::route::resolve_routes(&track.routes, Some(instance.stream_channels as usize));
+        log_dropped_routes(room, track, &resolved);
+        instance.set_initial_routes(&resolved.entries);
+    }
+    cmd
+}
+
+/// 버린 칸을 앱 로그에 남긴다. 같은 트랙은 설정 버전마다 한 번만(효과음을 다시 틀 때마다 쌓이지 않게).
+fn log_dropped_routes(
+    room: &crate::common::config::RoomConfig,
+    track: &crate::common::config::TrackConfig,
+    r: &crate::audio::route::ResolvedRoutes,
+) {
+    static LOGGED: std::sync::Mutex<Option<(u64, std::collections::HashSet<String>)>> = std::sync::Mutex::new(None);
+    if r.dropped() == 0 {
+        return;
+    }
+    let version = GLOBAL_STATE.config_version.load(std::sync::atomic::Ordering::Relaxed);
+    let mut guard = LOGGED.lock().unwrap_or_else(|e| e.into_inner());
+    let fresh = match guard.as_mut() {
+        Some((v, set)) if *v == version => set.insert(track.id.clone()),
+        _ => {
+            *guard = Some((version, std::collections::HashSet::from([track.id.clone()])));
+            true
+        }
+    };
+    if fresh {
+        GLOBAL_STATE.log(format!(
+            "라우팅 표: 방 '{}' 트랙 '{}' 칸 {}개 중 {}개를 쓰지 않는다(음량 {}, 파일 채널 {}, 출력 {}, 겹침 {}, 상한 {})",
+            room.name,
+            track.name,
+            r.entries.len() + r.dropped(),
+            r.dropped(),
+            r.dropped_bad_gain,
+            r.dropped_file_channel,
+            r.dropped_output,
+            r.dropped_duplicate,
+            r.dropped_over_limit
+        ));
+    }
+}
+
+/// 설정을 통째로 바꾼 뒤 부른다(매트릭스 라우팅 6.6). 옛 설정과 견줘 방식이 바뀌었으면 모든 트랙에, 매트릭스 그대로이고
+/// 표가 달라진 트랙에는 그 트랙에 새 설정의 경로 명령을 차례로 보낸다(매트릭스이고 표가 있으면 표, 아니면 매핑).
+/// 재생 중인 인스턴스는 10ms 크로스페이드하고, 같은 경로면 아무 일도 없다. 매핑 방식에서 매핑 값만 바뀐 경우는 예전처럼
+/// 보내지 않는다.
+pub(crate) fn resync_routing(old: Option<&AppConfig>, new: &AppConfig) {
+    use crate::common::config::OutputRoutingMode;
+    let old_mode = old.map(|c| c.output_routing_mode).unwrap_or_default();
+    let mode_changed = old_mode != new.output_routing_mode;
+    if !mode_changed && new.output_routing_mode != OutputRoutingMode::Matrix {
+        return;
+    }
+    let old_routes: std::collections::HashMap<&str, &Vec<crate::common::config::TrackRoute>> = old
+        .map(|c| c.rooms.iter().flat_map(|r| r.tracks.iter()).map(|t| (t.id.as_str(), &t.routes)).collect())
+        .unwrap_or_default();
+    for room in &new.rooms {
+        for track in &room.tracks {
+            let changed = mode_changed
+                || old_routes.get(track.id.as_str()).map_or(!track.routes.is_empty(), |r| **r != track.routes);
+            if !changed {
+                continue;
+            }
+            let (room_id, track_id) = (hash_id(&room.id), hash_id(&track.id));
+            let cmd = if new.output_routing_mode == OutputRoutingMode::Matrix && !track.routes.is_empty() {
+                AudioCommand::SetTrackRoutes {
+                    room_id,
+                    track_id,
+                    entries: crate::audio::route::resolve_routes(&track.routes, None).entries,
+                }
+            } else {
+                AudioCommand::SetTrackOutput {
+                    room_id,
+                    track_id,
+                    output_channel: track.output_channel as usize,
+                    output_stereo: track.output_stereo,
+                }
+            };
+            let _ = GLOBAL_STATE.command_sender.send(cmd);
+        }
+    }
 }
 
 /// 재생 명령의 인스턴스를 `seconds` 지점부터 시작하게 하고(0이면 그대로), 그룹이면 대기로 표시한다
@@ -470,7 +571,7 @@ pub(crate) fn play_track_from_in(
                             GLOBAL_STATE.add_playing_track(instance_id, track_id.clone());
                             GLOBAL_STATE
                                 .command_sender
-                                .send(with_start(build_play_track_command(
+                                .send(with_start(with_routes(build_play_track_command(
                                     instance_id,
                                     hash_id(&room_id),
                                     hash_id(&track_id),
@@ -485,7 +586,7 @@ pub(crate) fn play_track_from_in(
                                     track.output_channel as usize,
                                     track.output_stereo,
                                     None,
-                                ), start_seconds, group_id))
+                                ), config.output_routing_mode, room, track), start_seconds, group_id))
                                 .map_err(|e| AtmosError {
                                     message: e.to_string(),
                                 })?;
@@ -526,7 +627,7 @@ pub(crate) fn play_track_from_in(
                         GLOBAL_STATE.add_playing_track(instance_id, track_id.clone());
                         GLOBAL_STATE
                             .command_sender
-                            .send(with_start(build_play_track_command(
+                            .send(with_start(with_routes(build_play_track_command(
                                 instance_id,
                                 hash_id(&room_id),
                                 hash_id(&track_id),
@@ -541,7 +642,7 @@ pub(crate) fn play_track_from_in(
                                 track.output_channel as usize,
                                 track.output_stereo,
                                 None,
-                            ), start_seconds, group_id))
+                            ), config.output_routing_mode, room, track), start_seconds, group_id))
                             .map_err(|e| AtmosError {
                                 message: e.to_string(),
                             })?;
@@ -569,7 +670,7 @@ pub(crate) fn play_track_from_in(
                         GLOBAL_STATE.add_playing_track(instance_id, track_id.clone());
                         GLOBAL_STATE
                             .command_sender
-                            .send(with_start(build_play_track_command(
+                            .send(with_start(with_routes(build_play_track_command(
                                 instance_id,
                                 hash_id(&room_id),
                                 hash_id(&track_id),
@@ -584,7 +685,7 @@ pub(crate) fn play_track_from_in(
                                 track.output_channel as usize,
                                 track.output_stereo,
                                 None,
-                            ), start_seconds, group_id))
+                            ), config.output_routing_mode, room, track), start_seconds, group_id))
                             .map_err(|e| AtmosError {
                                 message: e.to_string(),
                             })?;
@@ -621,7 +722,7 @@ pub(crate) fn play_track_from_in(
                                 GLOBAL_STATE.add_playing_track(instance_id, track_id.clone());
                                 GLOBAL_STATE
                                     .command_sender
-                                    .send(with_start(build_play_track_command(
+                                    .send(with_start(with_routes(build_play_track_command(
                                         instance_id,
                                         hash_id(&room_id),
                                         hash_id(&track_id),
@@ -636,7 +737,7 @@ pub(crate) fn play_track_from_in(
                                         track.output_channel as usize,
                                         track.output_stereo,
                                         None,
-                                    ), start_seconds, group_id))
+                                    ), config.output_routing_mode, room, track), start_seconds, group_id))
                                     .map_err(|e| AtmosError {
                                         message: e.to_string(),
                                     })?;
@@ -911,6 +1012,13 @@ pub fn api_set_track_output(
     output_channel: usize,
     output_stereo: bool,
 ) -> Result<(), AtmosError> {
+    // 매트릭스 방식이고 이 트랙에 표가 있으면 매핑 경로로 바꾸지 않는다(두 방식이 섞이지 않게, 매트릭스 라우팅 6.6).
+    if track_uses_table(&room_id, &track_id) {
+        GLOBAL_STATE.log(format!(
+            "트랙 출력 변경을 보내지 않음: 매트릭스 방식이고 연결 표가 있는 트랙이다 — {room_id}/{track_id}"
+        ));
+        return Ok(());
+    }
     GLOBAL_STATE
         .command_sender
         .send(AudioCommand::SetTrackOutput {
@@ -922,6 +1030,46 @@ pub fn api_set_track_output(
         .map_err(|e| AtmosError {
             message: e.to_string(),
         })?;
+    Ok(())
+}
+
+/// 지금 설정이 매트릭스 방식이고 이 트랙에 연결 표가 있는가.
+fn track_uses_table(room_id: &str, track_id: &str) -> bool {
+    let guard = GLOBAL_STATE.config.read().unwrap_or_else(|e| e.into_inner());
+    guard.as_ref().is_some_and(|c| {
+        c.output_routing_mode == crate::common::config::OutputRoutingMode::Matrix
+            && c.rooms
+                .iter()
+                .filter(|r| r.id == room_id)
+                .flat_map(|r| r.tracks.iter())
+                .any(|t| t.id == track_id && !t.routes.is_empty())
+    })
+}
+
+/// 재생 중인 트랙의 연결 표를 바꾼다(화면이 표를 고칠 때, 매트릭스 라우팅 6.6). 매트릭스 방식이 아니거나 표가 비어 있으면
+/// 오류이고 명령을 보내지 않는다(매핑 경로로 돌아갈 때는 api_set_track_output). 설정 저장은 화면이 따로 한다.
+pub fn api_set_track_routes(
+    room_id: String,
+    track_id: String,
+    routes: Vec<crate::common::config::TrackRoute>,
+) -> Result<(), AtmosError> {
+    let matrix = GLOBAL_STATE
+        .config
+        .read()
+        .unwrap_or_else(|e| e.into_inner())
+        .as_ref()
+        .is_some_and(|c| c.output_routing_mode == crate::common::config::OutputRoutingMode::Matrix);
+    if !matrix {
+        return Err(AtmosError { message: "매트릭스 라우팅 방식이 아니라 연결 표를 보낼 수 없습니다".to_string() });
+    }
+    if routes.is_empty() {
+        return Err(AtmosError { message: "연결 표가 비어 있습니다(연결이 하나는 있어야 합니다)".to_string() });
+    }
+    let entries = crate::audio::route::resolve_routes(&routes, None).entries;
+    GLOBAL_STATE
+        .command_sender
+        .send(AudioCommand::SetTrackRoutes { room_id: hash_id(&room_id), track_id: hash_id(&track_id), entries })
+        .map_err(|e| AtmosError { message: e.to_string() })?;
     Ok(())
 }
 
@@ -1347,6 +1495,14 @@ fn start_audio_system_with(
                         };
                         if let Some(status) = load_warning.update(window) {
                             broadcast_stream_status(status);
+                        }
+                        // 정리 채널이 가득 차 믹서가 맡아 두거나 풀지 못한 연결 표(매트릭스 라우팅 6.4). 0이 아니면 남긴다.
+                        let parked = state.route_garbage_parked.swap(0, relaxed);
+                        let forgotten = state.route_garbage_forgotten.swap(0, relaxed);
+                        if parked > 0 || forgotten > 0 {
+                            state.log(format!(
+                                "연결 표 정리 채널이 가득 찼다(최근 10초): 맡아 둠 {parked}개, 풀지 못하고 잃음 {forgotten}개"
+                            ));
                         }
                         let since_log = last_load_log.map(|t: std::time::Instant| t.elapsed());
                         let due = match since_log {
@@ -1774,7 +1930,10 @@ pub fn api_preload_all_sounds(config: AppConfig) -> Result<(), AtmosError> {
     GLOBAL_STATE
         .config_version
         .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    let old = global_config.take();
     *global_config = Some(config.clone());
+    // 방식이나 표가 바뀐 트랙의 경로를 맞춘다(매트릭스 라우팅 6.6).
+    resync_routing(old.as_ref(), &config);
     drop(global_config);
 
     // Check if active_room_id exists in the new config

@@ -39,6 +39,10 @@ pub struct GlobalEngineState {
     /// 믹서가 정한 더킹 상태. 바뀔 때만 믹서가 저장하고, 감시 스레드가 `is_ducking`(화면 표시)으로 옮긴다.
     pub ducking_engaged: AtomicBool,
     pub enabled_channels: Vec<AtomicBool>,
+    /// 정리 채널이 가득 차 믹서가 맡아 둔(다음 블록에 다시 보낸) 연결 표 수와 풀지 못하고 잃은 수. 엔진 점검 루프가
+    /// 0이 아니면 앱 로그에 남기고 비운다(매트릭스 라우팅 6.4).
+    pub route_garbage_parked: AtomicU32,
+    pub route_garbage_forgotten: AtomicU32,
     /// 출력 설정의 종류별 줄 표(0부터 센 시작 채널, core::output_groups). 트랙은 자기 종류의 줄이 켜져 있어야 소리를 낸다
     /// (2026-11-22 "이전처럼 에이블톤처럼 따로"). 설정을 읽기 전에는 채널 게이트처럼 모두 열림.
     pub mono_rows_open: Vec<AtomicBool>,
@@ -146,6 +150,8 @@ impl GlobalEngineState {
             ducking_floor: AtomicU32::new(crate::core::ducking::DEFAULT_FLOOR.to_bits()),
             ducking_engaged: AtomicBool::new(false),
             enabled_channels: enabled,
+            route_garbage_parked: AtomicU32::new(0),
+            route_garbage_forgotten: AtomicU32::new(0),
             mono_rows_open: (0..4096).map(|_| AtomicBool::new(true)).collect(),
             stereo_rows_open: (0..4096).map(|_| AtomicBool::new(true)).collect(),
             multi_rows_open: (0..4096).map(|_| AtomicBool::new(true)).collect(),

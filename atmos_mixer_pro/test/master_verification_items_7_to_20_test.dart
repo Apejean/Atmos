@@ -145,6 +145,7 @@ void main() {
         peakLimiterEnabled: true,
         globalTrajectory: null,
         roomZones: [],
+        outputRoutingMode: OutputRoutingMode.trackMapping,
       );
 
       expect(config.oscPort, equals(9000));
@@ -267,6 +268,7 @@ void main() {
         peakLimiterEnabled: true,
         globalTrajectory: null,
         roomZones: [],
+        outputRoutingMode: OutputRoutingMode.trackMapping,
       );
 
       expect(resetConfig.bufferSize, equals(512));

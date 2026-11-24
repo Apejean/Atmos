@@ -36,6 +36,7 @@ void main() {
     peakLimiterEnabled: true,
     globalReverbMix: 0.0,
     globalReverbDecay: 1.0,
+    outputRoutingMode: OutputRoutingMode.trackMapping,
   );
 
   /// [outputChannelsProvider]의 상태가 `status`에 도달할 때까지 기다린다.
