@@ -195,11 +195,18 @@ pub fn api_preload_sound(file_path: String) -> Result<(), AtmosError> {
     let target_sr = GLOBAL_STATE
         .engine_sample_rate
         .load(std::sync::atomic::Ordering::Relaxed);
+    // 머리말로 먼저 본다: 통째로 읽은 뒤 거절하면(예전) 다채널 큰 파일은 그 사이 수 GB를 잡는다. 이런 파일은
+    // 재생할 때 디스크에서 읽는다(D3, player::plays_from_disk).
+    if crate::audio::player::too_big_for_memory(path, target_sr) {
+        return Err(AtmosError {
+            message: "File is too large for preload (exceeds 100MB).".to_string(),
+        });
+    }
     match crate::audio::player::SoundData::load_from_file_with_source(path, target_sr) {
         Ok((data, source_rate)) => {
             GLOBAL_STATE.note_file_source_rate(&file_path, source_rate);
             // 100MB limit check (samples * 4 bytes per f32)
-            if data.samples.len() > 25_000_000 {
+            if data.samples.len() as u64 > crate::audio::player::PRELOAD_MAX_SAMPLES {
                 println!(
                     "[TELEMETRY] OOM Protection triggered: File {} exceeds 100MB limit.",
                     file_path
@@ -401,7 +408,17 @@ pub(crate) fn play_track_from_in(
                         room_id: hash_id(&room_id),
                         volume: room.volume,
                     });
-                if track.is_loop || track.is_streaming {
+                // 루프·스트리밍 켬, 그리고 메모리에 올리기에 너무 큰 단발(약 100MB 넘음)은 디스크에서 읽는다(사용자 결정
+                // 2026-11-24 D3 — 예전에는 미리 읽기가 실패해 그 단발이 나지 않았다). 단발만 머리말을 읽는다.
+                let engine_sr = GLOBAL_STATE
+                    .engine_sample_rate
+                    .load(std::sync::atomic::Ordering::Relaxed);
+                if crate::audio::player::plays_from_disk(
+                    track.is_loop,
+                    track.is_streaming,
+                    std::path::Path::new(&track.file_path),
+                    engine_sr,
+                ) {
                     // Prevent duplicate playback of the same looping track if it is a BGM
                     if track.is_loop {
                         let is_playing = {
@@ -1663,9 +1680,19 @@ pub fn api_create_engine_state_stream(sink: StreamSink<EngineStateUpdate>) {
 
 pub fn api_preload_all_sounds(config: AppConfig) -> Result<(), AtmosError> {
     let mut needed_files = std::collections::HashSet::new();
+    let target_sr = GLOBAL_STATE
+        .engine_sample_rate
+        .load(std::sync::atomic::Ordering::Relaxed);
     for room in &config.rooms {
         for track in &room.tracks {
             if !track.is_loop && !track.is_streaming {
+                if crate::audio::player::too_big_for_memory(std::path::Path::new(&track.file_path), target_sr) {
+                    GLOBAL_STATE.log(format!(
+                        "미리 읽기 한도(약 100MB)를 넘어 재생할 때 디스크에서 읽는다 — 방 '{}' 트랙 '{}': {}",
+                        room.name, track.name, track.file_path
+                    ));
+                    continue;
+                }
                 needed_files.insert(track.file_path.clone());
             }
         }

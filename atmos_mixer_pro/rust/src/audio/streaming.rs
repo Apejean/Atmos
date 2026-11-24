@@ -76,11 +76,6 @@ impl DiskStreamer {
         let path = std::path::PathBuf::from(file_path);
         let run_flag = is_running.clone();
 
-        let file_for_probe = std::fs::File::open(&path)?;
-        let mss_probe = symphonia::core::io::MediaSourceStream::new(
-            Box::new(file_for_probe),
-            Default::default(),
-        );
         let mut hint = symphonia::core::probe::Hint::new();
         if let Some(ext) = path.extension().and_then(|s| s.to_str()) {
             hint.with_extension(&ext.to_lowercase());
@@ -89,18 +84,36 @@ impl DiskStreamer {
         let metadata_opts = symphonia::core::meta::MetadataOptions::default();
         let decoder_opts = symphonia::core::codecs::DecoderOptions::default();
 
-        let probed = symphonia::default::get_probe().format(&hint, mss_probe, &format_opts, &metadata_opts)?;
-
-        let track = probed.format.default_track().ok_or_else(|| anyhow::anyhow!("No default track"))?;
-        let src_sample_rate = track.codec_params.sample_rate.unwrap_or(48000);
-        let channels = track.codec_params.channels.map(|c| c.count() as u16).unwrap_or(2);
+        // 27채널 이상·RF64 WAV는 자체 리더로 읽는다(안정성 ⑨, symphonia는 열지 못한다). 그 밖은 symphonia 길 그대로.
+        let own = match crate::audio::wav_reader::choose(&path) {
+            crate::audio::wav_reader::Choice::Own(info) => Some(info),
+            crate::audio::wav_reader::Choice::Unsupported(msg) => return Err(anyhow::anyhow!(msg)),
+            crate::audio::wav_reader::Choice::Symphonia => None,
+        };
+        let (src_sample_rate, channels, total_frames) = match &own {
+            Some(info) => (info.sample_rate, info.channels, Some(info.frames)),
+            None => {
+                let file_for_probe = std::fs::File::open(&path)?;
+                let mss_probe = symphonia::core::io::MediaSourceStream::new(
+                    Box::new(file_for_probe),
+                    Default::default(),
+                );
+                let probed =
+                    symphonia::default::get_probe().format(&hint, mss_probe, &format_opts, &metadata_opts)?;
+                let track = probed.format.default_track().ok_or_else(|| anyhow::anyhow!("No default track"))?;
+                (
+                    track.codec_params.sample_rate.unwrap_or(48000),
+                    track.codec_params.channels.map(|c| c.count() as u16).unwrap_or(2),
+                    track.codec_params.n_frames,
+                )
+            }
+        };
         
         let needs_resampling = src_sample_rate != target_sample_rate;
         let output_sample_rate = if needs_resampling { target_sample_rate } else { src_sample_rate };
         // 이 위치까지는 디코딩만 하고 버린다. 믹서가 세는 위치와 같게 출력(리샘플링 뒤) 프레임으로 센다.
         let mut skip_samples =
             (start_seconds.max(0.0) * output_sample_rate as f64).round() as usize * channels as usize;
-        let total_frames = track.codec_params.n_frames;
         let loop_len_frames = total_frames.map(|n| n as f64 * output_sample_rate as f64 / src_sample_rate as f64);
         let first_chunk_ready = Arc::new(AtomicBool::new(false));
         let ready_flag = first_chunk_ready.clone();
@@ -114,6 +127,7 @@ impl DiskStreamer {
             total_frames,
             src_rate: src_sample_rate,
             unknown_length_give_up: UNKNOWN_LENGTH_GIVE_UP,
+            own,
         };
         let handle = std::thread::spawn(move || {
             // 처음 열기. 실패하면 사건 로그만 남기고 끝낸다(검토 A6 (c) — new_at이 바로 앞에서 한 번 열어 봤으므로 드물다).
@@ -142,11 +156,9 @@ impl DiskStreamer {
                         target %= len;
                     }
                 }
-                let to = symphonia::core::formats::SeekTo::TimeStamp { ts: target, track_id: src.track_id };
-                if let Ok(seeked) = src.format.seek(symphonia::core::formats::SeekMode::Accurate, to) {
-                    src.decoder.reset();
-                    skip_samples = target.saturating_sub(seeked.actual_ts) as usize * ch;
-                    next_ts = seeked.actual_ts;
+                if let Some(actual_ts) = src.seek_to(target) {
+                    skip_samples = target.saturating_sub(actual_ts) as usize * ch;
+                    next_ts = actual_ts;
                 }
             }
 
@@ -180,16 +192,13 @@ impl DiskStreamer {
             let mut consecutive_errors: u32 = 0;
             let mut recovery = Recovery::default();
 
+            // 한 묶음의 인터리브 표본(두 소스가 같이 쓴다).
+            let mut block: Vec<f32> = Vec::new();
             while run_flag.value.load(Ordering::Relaxed) {
-                let packet = match src.format.next_packet() {
-                    Ok(p) => p,
-                    Err(symphonia::core::errors::Error::ResetRequired) => {
-                        src.decoder.reset();
-                        continue;
-                    }
-                    Err(symphonia::core::errors::Error::IoError(err))
-                        if err.kind() == std::io::ErrorKind::UnexpectedEof =>
-                    {
+                let (packet_ts, packet_end) = match next_block(&mut src, &mut sample_buf, &mut block) {
+                    Step::Data { ts, end } => (ts, end),
+                    Step::Skip => continue,
+                    Step::Eof => {
                         if !is_loop {
                             break;
                         }
@@ -205,9 +214,8 @@ impl DiskStreamer {
                             None => break,
                         }
                     }
-                    Err(symphonia::core::errors::Error::IoError(err)) => {
+                    Step::ReadError(detail) => {
                         // 파일 끝이 아닌 읽기 오류(디스크·USB·네트워크): 루프·단발 모두 끊긴 자리부터 다시 연다(A6 (a)).
-                        let detail = err.to_string();
                         match reopen(&ctx, next_ts, ReopenCause::ReadError, Some(&detail), is_loop, &mut recovery, &run_flag) {
                             Some(s) => {
                                 src = s;
@@ -218,11 +226,26 @@ impl DiskStreamer {
                             None => break,
                         }
                     }
-                    Err(e) => {
+                    Step::PacketError(detail) => {
                         // 같은 오류가 계속되면 바쁜 반복이 된다. 연속 상한을 넘으면 읽기 오류처럼 다시 연다(A6 (b)).
                         consecutive_errors += 1;
                         if consecutive_errors >= MAX_CONSECUTIVE_ERRORS {
-                            let detail = e.to_string();
+                            match reopen(&ctx, next_ts, ReopenCause::RepeatedErrors, Some(&detail), is_loop, &mut recovery, &run_flag) {
+                                Some(s) => {
+                                    src = s;
+                                    resume_from = resume_point(resume_from, next_ts);
+                                    consecutive_errors = 0;
+                                }
+                                None => break,
+                            }
+                        }
+                        continue;
+                    }
+                    Step::DecodeError { end, detail } => {
+                        // 깨진 묶음은 건너뛴다(다시 열면 그 뒤부터). 연속 상한을 넘으면 다시 연다(A6 (b)).
+                        next_ts = end;
+                        consecutive_errors += 1;
+                        if consecutive_errors >= MAX_CONSECUTIVE_ERRORS {
                             match reopen(&ctx, next_ts, ReopenCause::RepeatedErrors, Some(&detail), is_loop, &mut recovery, &run_flag) {
                                 Some(s) => {
                                     src = s;
@@ -236,90 +259,53 @@ impl DiskStreamer {
                     }
                 };
 
-                if packet.track_id() != src.track_id {
-                    continue;
+                consecutive_errors = 0;
+                next_ts = packet_end;
+                let ch_count = (channels as usize).max(1);
+                // 다시 연 자리 앞은 버린다(끊긴 자리부터 정확히 잇는다).
+                let mut drop_frames = 0usize;
+                if let Some(from) = resume_from {
+                    if packet_end <= from {
+                        continue;
+                    }
+                    drop_frames = from.saturating_sub(packet_ts) as usize;
+                    resume_from = None;
                 }
-                let packet_ts = packet.ts();
-                let packet_end = packet_ts + packet.dur();
+                let samples = &block[(drop_frames * ch_count).min(block.len())..];
+                // 소리가 다시 나간다: 기다리던 중이었으면 회복으로 적고 실패 목록에서 뺀다.
+                recovery.progressed(&ctx, is_loop);
 
-                match src.decoder.decode(&packet) {
-                    Ok(audio_buf) => {
-                        consecutive_errors = 0;
-                        next_ts = packet_end;
-                        if sample_buf.is_none() {
-                            let spec = *audio_buf.spec();
-                            sample_buf = Some(symphonia::core::audio::SampleBuffer::<f32>::new(
-                                audio_buf.capacity() as u64, spec,
-                            ));
+                if let Some(r) = &mut resampler {
+                    let frames = samples.len() / ch_count;
+                    for ch in 0..channels as usize {
+                        for frame in 0..frames {
+                            input_accumulator[ch].push(samples[frame * ch_count + ch]);
+                        }
+                    }
+
+                    while input_accumulator[0].len() >= r.input_frames_next() {
+                        let required = r.input_frames_next();
+                        let mut process_buf = vec![vec![0.0; required]; channels as usize];
+                        for ch in 0..channels as usize {
+                            let drained: Vec<f32> = input_accumulator[ch].drain(0..required).collect();
+                            process_buf[ch].copy_from_slice(&drained);
                         }
 
-                        if let Some(buf) = &mut sample_buf {
-                            buf.copy_interleaved_ref(audio_buf);
-                            let ch_count = (channels as usize).max(1);
-                            // 다시 연 자리 앞은 버린다(끊긴 자리부터 정확히 잇는다).
-                            let mut drop_frames = 0usize;
-                            if let Some(from) = resume_from {
-                                if packet_end <= from {
-                                    continue;
-                                }
-                                drop_frames = from.saturating_sub(packet_ts) as usize;
-                                resume_from = None;
-                            }
-                            let all = buf.samples();
-                            let samples = &all[(drop_frames * ch_count).min(all.len())..];
-                            // 소리가 다시 나간다: 기다리던 중이었으면 회복으로 적고 실패 목록에서 뺀다.
-                            recovery.progressed(&ctx, is_loop);
-
-                            if let Some(r) = &mut resampler {
-                                let frames = samples.len() / ch_count;
+                        if let Ok(resampled) = r.process(&process_buf, None) {
+                            let out_frames = resampled[0].len();
+                            let mut chunk = Vec::with_capacity(out_frames * channels as usize);
+                            for frame in 0..out_frames {
                                 for ch in 0..channels as usize {
-                                    for frame in 0..frames {
-                                        input_accumulator[ch].push(samples[frame * ch_count + ch]);
-                                    }
+                                    chunk.push(resampled[ch][frame]);
                                 }
-
-                                while input_accumulator[0].len() >= r.input_frames_next() {
-                                    let required = r.input_frames_next();
-                                    let mut process_buf = vec![vec![0.0; required]; channels as usize];
-                                    for ch in 0..channels as usize {
-                                        let drained: Vec<f32> = input_accumulator[ch].drain(0..required).collect();
-                                        process_buf[ch].copy_from_slice(&drained);
-                                    }
-
-                                    if let Ok(resampled) = r.process(&process_buf, None) {
-                                        let out_frames = resampled[0].len();
-                                        let mut chunk = Vec::with_capacity(out_frames * channels as usize);
-                                        for frame in 0..out_frames {
-                                            for ch in 0..channels as usize {
-                                                chunk.push(resampled[ch][frame]);
-                                            }
-                                        }
-                                        send_chunk(&mut tx, &run_flag, &ready_flag, &mut skip_samples, chunk);
-                                    }
-                                }
-                            } else if !samples.is_empty() {
-                                let mut chunk = Vec::with_capacity(samples.len());
-                                chunk.extend_from_slice(samples);
-                                send_chunk(&mut tx, &run_flag, &ready_flag, &mut skip_samples, chunk);
                             }
+                            send_chunk(&mut tx, &run_flag, &ready_flag, &mut skip_samples, chunk);
                         }
                     }
-                    Err(e) => {
-                        // 깨진 묶음은 건너뛴다(다시 열면 그 뒤부터). 연속 상한을 넘으면 다시 연다(A6 (b)).
-                        next_ts = packet_end;
-                        consecutive_errors += 1;
-                        if consecutive_errors >= MAX_CONSECUTIVE_ERRORS {
-                            let detail = e.to_string();
-                            match reopen(&ctx, next_ts, ReopenCause::RepeatedErrors, Some(&detail), is_loop, &mut recovery, &run_flag) {
-                                Some(s) => {
-                                    src = s;
-                                    resume_from = resume_point(resume_from, next_ts);
-                                    consecutive_errors = 0;
-                                }
-                                None => break,
-                            }
-                        }
-                    }
+                } else if !samples.is_empty() {
+                    let mut chunk = Vec::with_capacity(samples.len());
+                    chunk.extend_from_slice(samples);
+                    send_chunk(&mut tx, &run_flag, &ready_flag, &mut skip_samples, chunk);
                 }
             }
         });
@@ -358,16 +344,115 @@ struct OpenCtx {
     src_rate: u32,
     /// 길이를 모르는 단발이 포기하기까지 기다리는 시간(운영은 [`UNKNOWN_LENGTH_GIVE_UP`], 시험은 줄인다).
     unknown_length_give_up: std::time::Duration,
+    /// 자체 WAV 리더로 읽는 파일의 머리말(27채널 이상·RF64). None이면 symphonia.
+    own: Option<crate::audio::wav_reader::WavInfo>,
 }
 
-/// 열린 파일: 읽개·디코더·트랙 번호.
-struct Source {
-    format: Box<dyn symphonia::core::formats::FormatReader>,
-    decoder: Box<dyn symphonia::core::codecs::Decoder>,
-    track_id: u32,
+/// 열린 파일. symphonia 읽개·디코더·트랙 번호, 또는 자체 WAV 리더(27채널 이상·RF64, 안정성 ⑨).
+enum Source {
+    Symphonia {
+        format: Box<dyn symphonia::core::formats::FormatReader>,
+        decoder: Box<dyn symphonia::core::codecs::Decoder>,
+        track_id: u32,
+    },
+    Wav(crate::audio::wav_reader::WavReader),
+}
+
+impl Source {
+    /// `ts`(소스 프레임) 자리로 찾는다. 찾은 자리(그 앞 묶음일 수 있다), 못 찾으면 None. 자체 리더는 늘 정확하다.
+    fn seek_to(&mut self, ts: u64) -> Option<u64> {
+        match self {
+            Source::Symphonia { format, decoder, track_id } => {
+                let to = symphonia::core::formats::SeekTo::TimeStamp { ts, track_id: *track_id };
+                let seeked = format.seek(symphonia::core::formats::SeekMode::Accurate, to).ok()?;
+                decoder.reset();
+                Some(seeked.actual_ts)
+            }
+            Source::Wav(w) => w.seek(ts).ok().map(|_| w.position()),
+        }
+    }
+}
+
+/// 자체 리더가 한 번에 읽는 프레임 수(symphonia WAV 묶음과 비슷한 크기).
+const WAV_BLOCK_FRAMES: usize = 1024;
+
+/// 다음 묶음을 읽은 결과.
+enum Step {
+    /// `block`에 인터리브 표본. `ts`..`end`는 소스 프레임.
+    Data { ts: u64, end: u64 },
+    /// 다른 트랙의 묶음이거나 디코더를 다시 맞췄다 — 다음으로.
+    Skip,
+    /// 파일 끝.
+    Eof,
+    /// 파일 끝이 아닌 읽기 오류.
+    ReadError(String),
+    /// 묶음을 꺼내지 못했다(읽기 오류 아님).
+    PacketError(String),
+    /// 묶음은 꺼냈는데 해독하지 못했다. `end`는 그 묶음의 끝.
+    DecodeError { end: u64, detail: String },
+}
+
+/// 다음 묶음을 `block`에 채운다(디코더 스레드).
+fn next_block(
+    src: &mut Source,
+    sample_buf: &mut Option<symphonia::core::audio::SampleBuffer<f32>>,
+    block: &mut Vec<f32>,
+) -> Step {
+    match src {
+        Source::Wav(w) => {
+            let ts = w.position();
+            match w.read(WAV_BLOCK_FRAMES, block) {
+                Ok(0) => Step::Eof,
+                Ok(n) => Step::Data { ts, end: ts + n as u64 },
+                Err(e) => Step::ReadError(e.to_string()),
+            }
+        }
+        Source::Symphonia { format, decoder, track_id } => {
+            let packet = match format.next_packet() {
+                Ok(p) => p,
+                Err(symphonia::core::errors::Error::ResetRequired) => {
+                    decoder.reset();
+                    return Step::Skip;
+                }
+                Err(symphonia::core::errors::Error::IoError(err))
+                    if err.kind() == std::io::ErrorKind::UnexpectedEof =>
+                {
+                    return Step::Eof;
+                }
+                Err(symphonia::core::errors::Error::IoError(err)) => return Step::ReadError(err.to_string()),
+                Err(e) => return Step::PacketError(e.to_string()),
+            };
+            if packet.track_id() != *track_id {
+                return Step::Skip;
+            }
+            let ts = packet.ts();
+            let end = ts + packet.dur();
+            match decoder.decode(&packet) {
+                Ok(audio_buf) => {
+                    if sample_buf.is_none() {
+                        let spec = *audio_buf.spec();
+                        *sample_buf = Some(symphonia::core::audio::SampleBuffer::<f32>::new(
+                            audio_buf.capacity() as u64,
+                            spec,
+                        ));
+                    }
+                    block.clear();
+                    if let Some(buf) = sample_buf.as_mut() {
+                        buf.copy_interleaved_ref(audio_buf);
+                        block.extend_from_slice(buf.samples());
+                    }
+                    Step::Data { ts, end }
+                }
+                Err(e) => Step::DecodeError { end, detail: e.to_string() },
+            }
+        }
+    }
 }
 
 fn open_source(ctx: &OpenCtx) -> anyhow::Result<Source> {
+    if let Some(info) = &ctx.own {
+        return Ok(Source::Wav(crate::audio::wav_reader::WavReader::open_with(&ctx.path, info.clone())?));
+    }
     let file = std::fs::File::open(&ctx.path)?;
     let mss = symphonia::core::io::MediaSourceStream::new(Box::new(file), Default::default());
     let probed = symphonia::default::get_probe().format(&ctx.hint, mss, &ctx.format_opts, &ctx.metadata_opts)?;
@@ -375,7 +460,7 @@ fn open_source(ctx: &OpenCtx) -> anyhow::Result<Source> {
     let track = format.default_track().ok_or_else(|| anyhow::anyhow!("No default track"))?;
     let track_id = track.id;
     let decoder = symphonia::default::get_codecs().make(&track.codec_params, &ctx.decoder_opts)?;
-    Ok(Source { format, decoder, track_id })
+    Ok(Source::Symphonia { format, decoder, track_id })
 }
 
 /// `ts`(소스 프레임) 자리로 연다. 찾기(seek)가 되면 true. 안 되면 처음부터 다시 연 것을 돌려주고(부르는 쪽이 그
@@ -385,14 +470,10 @@ fn open_source_at(ctx: &OpenCtx, ts: u64) -> anyhow::Result<(Source, bool)> {
     if ts == 0 {
         return Ok((src, true));
     }
-    let to = symphonia::core::formats::SeekTo::TimeStamp { ts, track_id: src.track_id };
-    match src.format.seek(symphonia::core::formats::SeekMode::Accurate, to) {
-        Ok(_) => {
-            src.decoder.reset();
-            Ok((src, true))
-        }
+    match src.seek_to(ts) {
+        Some(_) => Ok((src, true)),
         // 찾기에 실패한 읽개는 상태를 믿을 수 없어 새로 연다.
-        Err(_) => Ok((open_source(ctx)?, false)),
+        None => Ok((open_source(ctx)?, false)),
     }
 }
 
@@ -595,6 +676,10 @@ fn resume_point(pending: Option<u64>, next_ts: u64) -> Option<u64> {
 /// 파일의 프레임 수와 샘플레이트(머리말만 읽는다). 모르면 None. 그룹 이어 가기가 길이가 같은 트랙을 가리는 데
 /// 쓴다(core::group_start::align_plan). 오디오 스레드에서 부르지 않는다(파일 I/O).
 pub fn file_frames(path: &str) -> Option<(u64, u32)> {
+    // 27채널 이상·RF64 WAV는 자체 리더의 머리말로(안정성 ⑨).
+    if let crate::audio::wav_reader::Choice::Own(info) = crate::audio::wav_reader::choose(std::path::Path::new(path)) {
+        return Some((info.frames, info.sample_rate));
+    }
     let file = std::fs::File::open(path).ok()?;
     let mss = symphonia::core::io::MediaSourceStream::new(Box::new(file), Default::default());
     let mut hint = symphonia::core::probe::Hint::new();
@@ -665,6 +750,7 @@ mod tests {
             total_frames,
             src_rate: 48_000,
             unknown_length_give_up: Duration::from_millis(300),
+            own: None,
         }
     }
 
