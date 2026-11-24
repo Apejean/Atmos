@@ -1,3 +1,4 @@
+import 'package:atmos_mixer_pro/core/utils/track_routes.dart';
 import 'dart:io';
 
 import 'package:atmos_mixer_pro/src/rust/api/project.dart' as project_api;
@@ -80,6 +81,7 @@ ProjectDeviceChoice deviceForImportedProject({
       oscReplyTargets: c.oscReplyTargets,
       duckingEnabled: c.duckingEnabled,
       duckingReductionDb: c.duckingReductionDb,
+      outputRoutingMode: c.outputRoutingMode,
     ),
     keptCurrent: true,
     projectDevice: wanted,
@@ -96,9 +98,15 @@ int highestProjectChannel(AppConfig config) {
     if (channel < placeholder && channel > highest) highest = channel;
   }
 
+  final matrix = config.outputRoutingMode == OutputRoutingMode.matrix;
   for (final room in config.rooms) {
     for (final track in room.tracks) {
-      see(track.outputChannel + (track.outputStereo ? 2 : 1));
+      // 매트릭스 방식이고 표가 있는 트랙은 표가 가리키는 가장 높은 출력을 센다(매트릭스 라우팅 7.5).
+      if (matrix && track.routes.isNotEmpty) {
+        see(highestRouteChannel(track.routes));
+      } else {
+        see(track.outputChannel + (track.outputStereo ? 2 : 1));
+      }
     }
   }
   config.monoConfigs.forEach((k, s) {

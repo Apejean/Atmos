@@ -36,6 +36,10 @@ class AppConfig {
   /// 더킹 때 루프를 줄이는 양(dB, −40~0). 기본은 예전 고정값 0.3배와 같은 20·log10(0.3).
   final double duckingReductionDb;
 
+  /// 프로젝트의 출력 방식(매트릭스 라우팅 설계 D13). 기본(트랙별 출력 매핑)은 저장할 때 키를 쓰지 않아,
+  /// 매트릭스를 쓰지 않는 프로젝트의 config.json은 예전과 같은 모양이다.
+  final OutputRoutingMode outputRoutingMode;
+
   const AppConfig({
     required this.oscPort,
     this.deviceName,
@@ -57,6 +61,7 @@ class AppConfig {
     this.oscReplyTargets = const [],
     this.duckingEnabled = true,
     this.duckingReductionDb = -10.457575,
+    required this.outputRoutingMode,
   });
 
   @override
@@ -80,7 +85,8 @@ class AppConfig {
       globalReverbDecay.hashCode ^
       oscReplyTargets.hashCode ^
       duckingEnabled.hashCode ^
-      duckingReductionDb.hashCode;
+      duckingReductionDb.hashCode ^
+      outputRoutingMode.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -106,7 +112,8 @@ class AppConfig {
           globalReverbDecay == other.globalReverbDecay &&
           oscReplyTargets == other.oscReplyTargets &&
           duckingEnabled == other.duckingEnabled &&
-          duckingReductionDb == other.duckingReductionDb;
+          duckingReductionDb == other.duckingReductionDb &&
+          outputRoutingMode == other.outputRoutingMode;
 }
 
 class ChannelSetting {
@@ -195,6 +202,15 @@ class EqBand {
 }
 
 enum EqType { lowCut, lowShelf, bell, notch, highShelf, highCut }
+
+/// 프로젝트의 출력 방식. 한 번에 하나만 쓴다(매트릭스 라우팅 설계 D2·D13).
+enum OutputRoutingMode {
+  /// 트랙별 출력 매핑(`output_channel`·`output_stereo`). 지금까지의 방식이고 기본값이다.
+  trackMapping,
+
+  /// 매트릭스 라우팅(`TrackConfig.routes`).
+  matrix,
+}
 
 class Point3D {
   final double x;
@@ -341,6 +357,10 @@ class TrackConfig {
   final String playOscAddress;
   final String stopOscAddress;
 
+  /// 연결 표(매트릭스 라우팅의 설정). 매트릭스 방식이고 비어 있지 않을 때만 쓴다(설계 D2). 트랙별 출력 매핑의
+  /// 설정(`output_channel`·`output_stereo`)과 서로 건드리지 않는다(D14). 빈 표는 저장할 때 키를 쓰지 않는다.
+  final List<TrackRoute> routes;
+
   const TrackConfig({
     required this.id,
     required this.name,
@@ -352,6 +372,7 @@ class TrackConfig {
     required this.outputStereo,
     required this.playOscAddress,
     required this.stopOscAddress,
+    required this.routes,
   });
 
   @override
@@ -365,7 +386,8 @@ class TrackConfig {
       outputChannel.hashCode ^
       outputStereo.hashCode ^
       playOscAddress.hashCode ^
-      stopOscAddress.hashCode;
+      stopOscAddress.hashCode ^
+      routes.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -381,7 +403,39 @@ class TrackConfig {
           outputChannel == other.outputChannel &&
           outputStereo == other.outputStereo &&
           playOscAddress == other.playOscAddress &&
-          stopOscAddress == other.stopOscAddress;
+          stopOscAddress == other.stopOscAddress &&
+          routes == other.routes;
+}
+
+/// 트랙 연결 표의 칸 하나: 파일 채널 → 출력 채널, 음량(매트릭스 라우팅 설계 5.1).
+class TrackRoute {
+  /// 파일 안 채널(0부터).
+  final int fileChannel;
+
+  /// 출력 채널(0부터). `TrackConfig.output_channel`과 같은 기준이고 화면에는 +1로 보인다.
+  final int outputChannel;
+
+  /// 선형 음량(0 초과 1 이하, 1.0 = 그대로). 트랙 `volume`과 같은 단위.
+  final double gain;
+
+  const TrackRoute({
+    required this.fileChannel,
+    required this.outputChannel,
+    required this.gain,
+  });
+
+  @override
+  int get hashCode =>
+      fileChannel.hashCode ^ outputChannel.hashCode ^ gain.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is TrackRoute &&
+          runtimeType == other.runtimeType &&
+          fileChannel == other.fileChannel &&
+          outputChannel == other.outputChannel &&
+          gain == other.gain;
 }
 
 class Trajectory {

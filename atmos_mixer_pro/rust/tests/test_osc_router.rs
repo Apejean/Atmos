@@ -16,6 +16,7 @@ fn track(id: &str, play: &str, stop: &str) -> TrackConfig {
         output_stereo: true,
         play_osc_address: play.into(),
         stop_osc_address: stop.into(),
+        routes: vec![],
     }
 }
 

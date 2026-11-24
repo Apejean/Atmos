@@ -4,6 +4,8 @@ import 'package:atmos_mixer_pro/core/state/engine_resync.dart';
 import 'package:atmos_mixer_pro/core/state/launch_mode.dart';
 import 'package:atmos_mixer_pro/core/utils/osc_reply_targets.dart';
 import 'package:atmos_mixer_pro/core/utils/output_channel_toggle.dart';
+import 'package:atmos_mixer_pro/core/utils/track_routes.dart';
+import 'package:atmos_mixer_pro/features/dashboard/widgets/track_routing_dialog.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -41,6 +43,10 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
   bool _windowsAutostart = true;
   bool get _isWindows => defaultTargetPlatform == TargetPlatform.windows;
   final Map<String, int> _trackChannels = {};
+
+  /// 출력 방식 `?` 도움말을 펼쳤나, 방식을 바꾼 뒤 보일 안내(매트릭스 라우팅 7.0).
+  bool _routingHelpOpen = false;
+  String? _routingModeNotice;
 
   String _getDriverType(String? deviceName) {
     if (deviceName == null) return 'WASAPI';
@@ -108,6 +114,7 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
             peakLimiterEnabled: true,
             globalTrajectory: null,
             roomZones: [],
+            outputRoutingMode: OutputRoutingMode.trackMapping,
           );
 
     if (_tempConfig.deviceName != null && GlobalDeviceCache.devices == null) {
@@ -293,6 +300,7 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                       outputStereo: t.outputStereo,
                       playOscAddress: t.playOscAddress,
                       stopOscAddress: t.stopOscAddress,
+                      routes: t.routes,
                     ),
                   )
                   .toList(),
@@ -322,6 +330,7 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
           outputStereo: track.outputStereo,
           playOscAddress: track.playOscAddress,
           stopOscAddress: track.stopOscAddress,
+          routes: track.routes,
         );
       }).toList();
       return RoomConfig(
@@ -383,6 +392,7 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                 outputStereo: tempTrack.outputStereo,
                 playOscAddress: tempTrack.playOscAddress,
                 stopOscAddress: tempTrack.stopOscAddress,
+                routes: tempTrack.routes,
               );
             }).toList();
             return RoomConfig(
@@ -596,6 +606,162 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
     final virtual = total - physical;
     if (virtual <= 0) return '';
     return ' (드라이버 보고 $total개 중 $virtual개는 내부 가상 채널이라 제외)';
+  }
+
+  static const String _routingModeHelp = '''출력 방식
+• 트랙별 출력 매핑: 트랙마다 출력 하나(또는 이어진 출력)를 고릅니다. 지금까지의 방식입니다.
+• 매트릭스 라우팅: 트랙의 파일 채널마다 보낼 출력을 표에서 고릅니다. 한 소리를 여러 출력으로 보내거나, 여러 채널을 한 출력으로 합치거나, 연결마다 음량을 다르게 할 수 있습니다.
+• 두 방식의 설정은 따로 저장됩니다. 방식을 바꿔도 다른 방식의 설정은 지워지지 않습니다.
+• 한 프로젝트는 한 번에 한 방식만 씁니다.''';
+
+  /// 출력 방식 선택(매트릭스 라우팅 7.0). `_tempConfig`만 바꾸고 환경설정을 저장할 때 적용된다.
+  Widget _buildRoutingModeSelector() {
+    final mode = _tempConfig.outputRoutingMode;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Text('출력 방식', style: TextStyle(color: AppColors.primaryNeon, fontWeight: FontWeight.bold)),
+            IconButton(
+              key: const Key('routing_mode_help_button'),
+              tooltip: '사용법',
+              icon: const Icon(Icons.help_outline, size: 18, color: Colors.white70),
+              onPressed: () => setState(() => _routingHelpOpen = !_routingHelpOpen),
+            ),
+          ],
+        ),
+        Wrap(
+          spacing: 8,
+          children: [
+            ChoiceChip(
+              key: const Key('routing_mode_mapping'),
+              label: const Text('트랙별 출력 매핑'),
+              selected: mode == OutputRoutingMode.trackMapping,
+              onSelected: (_) => _setRoutingMode(OutputRoutingMode.trackMapping),
+            ),
+            ChoiceChip(
+              key: const Key('routing_mode_matrix'),
+              label: const Text('매트릭스 라우팅'),
+              selected: mode == OutputRoutingMode.matrix,
+              onSelected: (_) => _setRoutingMode(OutputRoutingMode.matrix),
+            ),
+          ],
+        ),
+        if (_routingHelpOpen)
+          Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Text(_routingModeHelp, style: const TextStyle(color: Colors.white70, fontSize: 12, height: 1.4)),
+          ),
+        if (_routingModeNotice != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Text(_routingModeNotice!, style: const TextStyle(color: Colors.lightBlueAccent, fontSize: 12)),
+          ),
+      ],
+    );
+  }
+
+  /// 방식을 바꾼다. 매트릭스로 바꿀 때 표가 없는 트랙은 지금 매핑과 같은 연결로 채운다(D15). 매핑으로 바꿀 때는 아무
+  /// 설정도 고치지 않는다(표는 남는다).
+  void _setRoutingMode(OutputRoutingMode mode) {
+    if (mode == _tempConfig.outputRoutingMode) return;
+    if (mode == OutputRoutingMode.trackMapping) {
+      setState(() {
+        _tempConfig = _tempConfig.copyWith(outputRoutingMode: mode);
+        _routingModeNotice = '트랙별 출력 매핑으로 바꿉니다. 매트릭스 표는 설정에 그대로 남습니다.';
+      });
+      return;
+    }
+    final seeded = seedMissingRoutes(_tempConfig.rooms, _trackChannels);
+    final rooms = seeded.rooms;
+    final filled = seeded.filled;
+    final unread = seeded.unread;
+    setState(() {
+      _tempConfig = _tempConfig.copyWith(outputRoutingMode: mode, rooms: rooms);
+      _routingModeNotice = '표가 없던 트랙 $filled개를 지금 출력과 같은 연결로 채웠습니다. 트랙별 출력 매핑 설정은 그대로 남아 있습니다.'
+          '${unread > 0 ? ' $unread개는 파일을 읽지 못해 채우지 못했습니다. 그 트랙은 매핑대로 납니다.' : ''}';
+    });
+  }
+
+  TrackConfig _withRoutes(TrackConfig t, List<TrackRoute> routes) => TrackConfig(
+        id: t.id,
+        name: t.name,
+        filePath: t.filePath,
+        volume: t.volume,
+        isLoop: t.isLoop,
+        isStreaming: t.isStreaming,
+        outputChannel: t.outputChannel,
+        outputStereo: t.outputStereo,
+        playOscAddress: t.playOscAddress,
+        stopOscAddress: t.stopOscAddress,
+        routes: routes,
+      );
+
+  /// 매트릭스 방식의 트랙 행: 표 요약과 표 창 단추(매트릭스 라우팅 7.4). 표 창의 확정은 `_tempConfig`만 바꾸고
+  /// 환경설정을 저장할 때 함께 저장된다(엔진에는 저장 때 경로 맞추기로 간다).
+  Widget _matrixTrackRow(int rIndex, int tIndex, TrackConfig track, List<String> channelNames) {
+    final text = track.routes.isEmpty ? '매핑대로 출력 중 — 표 열기' : routesSummary(track.routes);
+    return Padding(
+      padding: const EdgeInsets.only(left: 16, bottom: 8),
+      child: Row(
+        children: [
+          Expanded(child: Text(track.name, style: const TextStyle(color: Colors.white))),
+          Expanded(child: Text(text, style: const TextStyle(color: Colors.white, fontSize: 12), overflow: TextOverflow.ellipsis)),
+          IconButton(
+            tooltip: '출력 연결 표',
+            icon: const Icon(Icons.grid_on, size: 18, color: Colors.white70),
+            onPressed: () async {
+              List<bool> enabled;
+              try {
+                enabled = await rust_api.computeEnabledChannels(config: _tempConfig, hwLen: BigInt.from(channelNames.length));
+              } catch (_) {
+                enabled = List.filled(channelNames.length, true);
+              }
+              if (!mounted) return;
+              final fileChannels = _trackChannels[track.id];
+              List<TrackRoute>? seed() => fileChannels == null
+                  ? null
+                  : seedRoutesFromLegacy(
+                      fileChannels: fileChannels,
+                      outputChannel: track.outputChannel,
+                      outputStereo: track.outputStereo,
+                    );
+              await showDialog<void>(
+                context: context,
+                builder: (_) => TrackRoutingDialog(
+                  title: '${_tempConfig.rooms[rIndex].name} · ${track.name}',
+                  fileChannels: fileChannels,
+                  initialRoutes: track.routes.isEmpty ? (seed() ?? const <TrackRoute>[]) : track.routes,
+                  channelNames: channelNames,
+                  enabled: enabled,
+                  limiterOn: _tempConfig.peakLimiterEnabled,
+                  seedRoutes: seed,
+                  onChanged: (routes, {required commit}) {
+                    if (!commit || !mounted) return;
+                    setState(() {
+                      final rooms = List<RoomConfig>.from(_tempConfig.rooms);
+                      final room = rooms[rIndex];
+                      final tracks = List<TrackConfig>.from(room.tracks);
+                      tracks[tIndex] = _withRoutes(tracks[tIndex], routes);
+                      rooms[rIndex] = RoomConfig(
+                        id: room.id,
+                        name: room.name,
+                        colorHex: room.colorHex,
+                        volume: room.volume,
+                        clearOscAddress: room.clearOscAddress,
+                        tracks: tracks,
+                      );
+                      _tempConfig = _tempConfig.copyWith(rooms: rooms);
+                    });
+                  },
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildAudioTab() {
@@ -1216,6 +1382,8 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
           ),
         ),
         const SizedBox(height: 24),
+        _buildRoutingModeSelector(),
+        const SizedBox(height: 16),
         const Text(
           '트랙별 출력 채널 매핑 (Track Routing)',
           style: TextStyle(
@@ -1255,6 +1423,9 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
               ...room.tracks.asMap().entries.map((entry) {
                 final tIndex = entry.key;
                 final track = entry.value;
+                if (_tempConfig.outputRoutingMode == OutputRoutingMode.matrix) {
+                  return _matrixTrackRow(rIndex, tIndex, track, channelNames);
+                }
 
                 // 라우팅 항목 생성은 track_card.dart와 동일한 순수 함수를
                 // 공유해 두 화면의 라벨/값이 항상 일치하도록 한다.
@@ -1353,6 +1524,7 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                                 outputStereo: isStereo,
                                 playOscAddress: track.playOscAddress,
                                 stopOscAddress: track.stopOscAddress,
+                                routes: track.routes,
                               );
                               newRooms[rIndex] = RoomConfig(
                                 id: room.id,
@@ -1592,6 +1764,7 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                                 outputStereo: track.outputStereo,
                                 playOscAddress: val,
                                 stopOscAddress: track.stopOscAddress,
+                                routes: track.routes,
                               );
                               newRooms[rIndex] = RoomConfig(
                                 id: room.id,
@@ -1640,6 +1813,7 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
                                 outputStereo: track.outputStereo,
                                 playOscAddress: track.playOscAddress,
                                 stopOscAddress: val,
+                                routes: track.routes,
                               );
                               newRooms[rIndex] = RoomConfig(
                                 id: room.id,

@@ -4,6 +4,7 @@ pub mod coreaudio_fallback;
 pub mod engine;
 pub mod mixer;
 pub mod player;
+pub mod route;
 pub mod streaming;
 pub mod wav_reader;
 pub mod spatial;

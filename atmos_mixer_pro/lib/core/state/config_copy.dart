@@ -27,6 +27,7 @@ extension AppConfigCopy on AppConfig {
     List<String>? oscReplyTargets,
     bool? duckingEnabled,
     double? duckingReductionDb,
+    OutputRoutingMode? outputRoutingMode,
   }) =>
       AppConfig(
         oscPort: oscPort ?? this.oscPort,
@@ -51,6 +52,7 @@ extension AppConfigCopy on AppConfig {
         oscReplyTargets: oscReplyTargets ?? this.oscReplyTargets,
         duckingEnabled: duckingEnabled ?? this.duckingEnabled,
         duckingReductionDb: duckingReductionDb ?? this.duckingReductionDb,
+        outputRoutingMode: outputRoutingMode ?? this.outputRoutingMode,
       );
 }
 

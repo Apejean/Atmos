@@ -196,6 +196,7 @@ AppConfig _withTrackPaths(AppConfig c, Map<String, String> newPaths) => AppConfi
                   outputStereo: t.outputStereo,
                   playOscAddress: t.playOscAddress,
                   stopOscAddress: t.stopOscAddress,
+                  routes: t.routes,
                 ),
             ],
           ),
@@ -210,4 +211,5 @@ AppConfig _withTrackPaths(AppConfig c, Map<String, String> newPaths) => AppConfi
       oscReplyTargets: c.oscReplyTargets,
       duckingEnabled: c.duckingEnabled,
       duckingReductionDb: c.duckingReductionDb,
+      outputRoutingMode: c.outputRoutingMode,
     );

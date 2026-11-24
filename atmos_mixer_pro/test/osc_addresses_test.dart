@@ -16,6 +16,7 @@ void main() {
         outputStereo: true,
         playOscAddress: play,
         stopOscAddress: stop,
+        routes: const [],
       );
   RoomConfig room(String id, String clear, List<TrackConfig> tracks) => RoomConfig(
         id: id,
@@ -40,6 +41,7 @@ void main() {
         peakLimiterEnabled: true,
         globalReverbMix: 0.0,
         globalReverbDecay: 1.0,
+        outputRoutingMode: OutputRoutingMode.trackMapping,
       );
 
   test('겹치는 주소를 찾는다(빈칸은 보지 않는다)', () {

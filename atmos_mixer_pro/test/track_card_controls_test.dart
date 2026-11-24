@@ -44,7 +44,7 @@ ChannelSetting _setting(String name) => ChannelSetting(
   eqBands: const [],
 );
 
-AppConfig _config() => AppConfig(
+AppConfig _config({OutputRoutingMode mode = OutputRoutingMode.trackMapping}) => AppConfig(
   globalReverbMix: 0.0,
   globalReverbDecay: 1.0,
   oscPort: 8000,
@@ -60,12 +60,14 @@ AppConfig _config() => AppConfig(
   peakLimiterEnabled: true,
   globalTrajectory: null,
   roomZones: const [],
+  outputRoutingMode: mode,
 );
 
 TrackConfig _track({
   bool isLoop = false,
   bool isStreaming = false,
   int outputChannel = 0,
+  List<TrackRoute> routes = const [],
 }) => TrackConfig(
   id: 't1',
   name: 'Track 1',
@@ -77,6 +79,7 @@ TrackConfig _track({
   outputStereo: false,
   playOscAddress: '',
   stopOscAddress: '',
+  routes: routes,
 );
 
 Future<void> _pump(
@@ -84,8 +87,9 @@ Future<void> _pump(
   TrackConfig track, {
   ValueChanged<bool>? onStreamChanged,
   void Function(int channel, bool isStereo)? onOutputChanged,
+  OutputRoutingMode mode = OutputRoutingMode.trackMapping,
 }) async {
-  final config = _config();
+  final config = _config(mode: mode);
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
@@ -109,6 +113,33 @@ Future<void> _pump(
 }
 
 void main() {
+  group('출력 방식(매트릭스 라우팅 7.4)', () {
+    testWidgets('매핑 방식이면 지금처럼 드롭다운만 있고 표 단추가 없다(표가 저장돼 있어도)', (tester) async {
+      await _pump(tester, _track(routes: const [TrackRoute(fileChannel: 0, outputChannel: 2, gain: 1.0)]));
+      expect(find.byType(DropdownButton<String>), findsOneWidget);
+      expect(find.byKey(const Key('track_routes_button')), findsNothing);
+    });
+
+    testWidgets('매트릭스 방식이면 요약과 표 단추가 있고 드롭다운이 없다', (tester) async {
+      await _pump(
+        tester,
+        _track(routes: const [
+          TrackRoute(fileChannel: 0, outputChannel: 0, gain: 1.0),
+          TrackRoute(fileChannel: 0, outputChannel: 2, gain: 0.5),
+        ]),
+        mode: OutputRoutingMode.matrix,
+      );
+      expect(find.byType(DropdownButton<String>), findsNothing);
+      expect(find.byKey(const Key('track_routes_button')), findsOneWidget);
+      expect(find.text('표 · Ch-1, 3'), findsOneWidget);
+    });
+
+    testWidgets('매트릭스 방식인데 표가 비어 있으면 매핑대로 나간다고 알린다', (tester) async {
+      await _pump(tester, _track(), mode: OutputRoutingMode.matrix);
+      expect(find.text('매핑대로 출력 중 — 표 열기'), findsOneWidget);
+    });
+  });
+
   testWidgets('Bed·3D Object 선택과 3D Trajectory 버튼이 없고 Ext. Out만 보인다', (tester) async {
     await _pump(tester, _track());
 

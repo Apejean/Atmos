@@ -26,7 +26,24 @@ void main() {
             colorHex: '#123456',
             volume: 0.5,
             clearOscAddress: '/room1/clear',
-            tracks: [],
+            tracks: [
+              TrackConfig(
+                id: 't1',
+                name: '모노',
+                filePath: 'a.wav',
+                volume: 0.7,
+                isLoop: true,
+                isStreaming: true,
+                outputChannel: 2,
+                outputStereo: false,
+                playOscAddress: '/room1/track1/play',
+                stopOscAddress: '/room1/track1/stop',
+                routes: [
+                  TrackRoute(fileChannel: 0, outputChannel: 0, gain: 1.0),
+                  TrackRoute(fileChannel: 0, outputChannel: 4, gain: 0.5),
+                ],
+              ),
+            ],
           ),
         ],
         globalTrajectory: const Trajectory(waypoints: [point], currentPosition: point, targetRoomZoneId: 'r1'),
@@ -39,6 +56,7 @@ void main() {
         oscReplyTargets: const ['192.168.0.20:9000'],
         duckingEnabled: false,
         duckingReductionDb: -6.0,
+        outputRoutingMode: OutputRoutingMode.matrix,
       );
 
   test('아무것도 넘기지 않으면 모든 칸이 그대로다', () {
@@ -57,6 +75,9 @@ void main() {
     expect(changed.duckingEnabled, isFalse);
     expect(changed.duckingReductionDb, -6.0);
     expect(changed.trackingOscAddress, '/hrtf/custom');
+    expect(changed.outputRoutingMode, OutputRoutingMode.matrix);
+    expect(config.copyWith(outputRoutingMode: OutputRoutingMode.trackMapping).rooms, config.rooms,
+        reason: '방식만 바꿔도 트랙(표 포함)은 그대로다');
     expect(changed.copyWith(rooms: config.rooms, oscPort: config.oscPort), config);
   });
 
