@@ -39,6 +39,7 @@ AppConfig configWith(Map<int, ChannelSetting> mono) => AppConfig(
       peakLimiterEnabled: true,
       globalReverbMix: 0.0,
       globalReverbDecay: 1.0,
+      outputRoutingMode: OutputRoutingMode.trackMapping,
     );
 
 /// 프로젝트 파일을 불러올 때(dashboard_screen `_loadProject`)는 `treatAsManual: true`로 동기화한다. 손으로 맞춘
