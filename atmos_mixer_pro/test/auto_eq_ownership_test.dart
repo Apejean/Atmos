@@ -214,13 +214,16 @@ void main() {
     );
     expect(notifier.getTuning(1).bandEnabled[kAutoEqSlotLowCut], isTrue);
 
-    // 사용자가 직접 임포트한 config는 확정값으로 보고 수동으로 둔다.
+    // 사용자가 직접 임포트한 config는 그 파일에 든 밴드만 확정값(수동)으로 본다. 이 config에는 EQ 밴드가 없으니
+    // 자동 소유권이 그대로 남는다(2026-11-25 사용자 결정: 게인·지연처럼 파일에 값이 없는 EQ는 자동 그대로).
+    // 파일에 든 밴드가 수동이 되는 것은 tuning_import_keeps_auto_test.dart가 본다.
     notifier.syncFromBackendConfig(config, treatAsManual: true);
     expect(
       notifier.getTuning(1).bandAuto.sublist(0, kAutoEqSlotCount),
-      List.filled(kAutoEqSlotCount, false),
-      reason: '명시적 임포트는 자동 계산이 덮어쓰지 않아야 한다',
+      List.filled(kAutoEqSlotCount, true),
+      reason: 'EQ 밴드가 없는 임포트가 자동 소유권을 꺼뜨렸다',
     );
+    expect(notifier.getTuning(1).freqs[kAutoEqSlotLowCut], 80.0, reason: '임포트가 이 PC의 EQ 값을 지웠다');
   });
 
   test('앱 시작 때 config 동기화가 저장값 불러오기보다 먼저 와도 튜닝이 사라지지 않는다', () async {

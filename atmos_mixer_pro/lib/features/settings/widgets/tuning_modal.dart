@@ -348,8 +348,9 @@ class TuningStateNotifier extends Notifier<Map<int, ChannelTuningState>>
   /// 백엔드 `AppConfig`의 채널 설정을 튜닝 상태로 옮긴다.
   ///
   /// [treatAsManual]이 true면 불러온 EQ를 "엔지니어가 확정한 값"으로 보고
-  /// 전 밴드를 수동으로 둔다(자동 계산이 덮어쓰지 않는다). 사용자가 직접
-  /// config 파일을 임포트한 경우가 그렇다.
+  /// 파일에 든 밴드를 수동으로 둔다(자동 계산이 덮어쓰지 않는다). 파일에 없는 밴드는 자동/수동 표시를 그대로 둔다. 사용자가 직접
+  /// config 파일을 임포트한 경우가 그렇다. 단 지연·게인은 파일에 0이 아닌 값이 든 항목만 수동으로 두고, 0인 항목은
+  /// 자동 계산에 맡긴 채로 둔다(보정값을 넣지 않은 채널이다).
   ///
   /// 기본값은 false다. 이 함수는 **앱을 켤 때마다** 자동으로도 불리는데
   /// (global_state.dart의 엔진 상태 스트림), 거기서도 수동으로 처리하면
@@ -410,11 +411,20 @@ class TuningStateNotifier extends Notifier<Map<int, ChannelTuningState>>
           // 자동/수동 플래그는 config.json에 없다. 이미 들고 있던 값이 있으면
           // 그대로 유지하고(엔지니어가 떼어놓은 밴드를 지키기 위해),
           // 없으면 자동 계산이 소유하도록 무장한 채로 시작한다.
+          // 확정값으로 불러올 때도 파일에 든 밴드만 수동으로 지킨다. 파일에 없는 밴드는 이 PC의 값과 자동/수동 표시를
+          // 그대로 둔다(2026-11-25 Windows 실기: EQ 밴드가 없는 프로젝트를 불러오자 CH1~3의 bandAuto 8개가 모두 false).
           bandAuto: treatAsManual
-              ? List.filled(8, false)
+              ? List.generate(8, (i) {
+                  if (i < setting.eqBands.length) return false;
+                  final kept = existing?.bandAuto;
+                  return (kept != null && i < kept.length) ? kept[i] : ChannelTuningState.defaultBandAuto()[i];
+                })
               : (state[chKey]?.bandAuto ?? ChannelTuningState.defaultBandAuto()),
-          gainAuto: treatAsManual ? false : (state[chKey]?.gainAuto ?? true),
-          delayAuto: treatAsManual ? false : (state[chKey]?.delayAuto ?? true),
+          // 확정값으로 불러올 때도 파일에 손 보정값(0이 아님)이 든 항목만 수동으로 지킨다. 0은 보정값을 넣지 않은
+          // 채널이라, 그것까지 수동으로 굳히면 스피커를 놓아도 그 채널의 자동 게인·지연이 영영 계산되지 않는다
+          // (2026-11-24 Windows 실기: 스피커 배치 없는 프로젝트를 불러오자 CH1~3의 gainAuto/delayAuto가 false).
+          gainAuto: treatAsManual ? setting.gainDb == 0.0 : (state[chKey]?.gainAuto ?? true),
+          delayAuto: treatAsManual ? setting.delayMs == 0.0 : (state[chKey]?.delayAuto ?? true),
           bandTypes: bandTypes,
           bandSlopes: bandSlopes,
           freqs: freqs,
