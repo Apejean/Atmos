@@ -14,6 +14,7 @@ import 'package:atmos_mixer_pro/core/state/config_copy.dart';
 import 'package:atmos_mixer_pro/core/utils/channel_routing.dart';
 import 'package:atmos_mixer_pro/core/utils/log_export_dir.dart';
 import 'package:atmos_mixer_pro/core/utils/osc_addresses.dart';
+import 'package:atmos_mixer_pro/core/utils/single_open_guard.dart';
 import 'package:atmos_mixer_pro/features/dashboard/widgets/room_card.dart';
 import 'package:atmos_mixer_pro/features/settings/widgets/preferences_modal.dart';
 import 'package:atmos_mixer_pro/features/settings/widgets/tuning_modal.dart';
@@ -101,6 +102,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   StreamSubscription<String>? _statusSub;
   // 엔진 상태 스트림을 배너와 나눠 쓴다(Rust 쪽 싱크는 하나라 여기서 다시 내보낸다).
   final StreamController<String> _statusRelay = StreamController<String>.broadcast();
+  // 메뉴로 여는 창은 열려 있는 동안 다시 열지 않는다. 원격 제어가 클릭 한 번에 눌림·뗌을 두 쌍 보내면
+  // onPressed가 두 번 불려 창이 두 장 겹쳐 열렸고, 뒤 창을 저장하면 앞 창의 변경이 되돌아갔다(2026-11-24).
+  final SingleOpenGuard _preferencesGuard = SingleOpenGuard();
+  final SingleOpenGuard _aboutGuard = SingleOpenGuard();
+  final SingleOpenGuard _oscMonitorGuard = SingleOpenGuard();
 
   @override
   void initState() {
@@ -444,6 +450,30 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     );
   }
 
+  /// Settings → Preferences. macOS 메뉴와 Windows 메뉴가 같이 쓴다.
+  Future<void> _openPreferences(BuildContext context) => _preferencesGuard.run(() async {
+        if (!context.mounted) return;
+        await showDialog<void>(
+          context: context,
+          builder: (context) => const PreferencesModal(),
+        );
+      });
+
+  /// Help → About Awesome...
+  Future<void> _openAbout(BuildContext context) => _aboutGuard.run(() async {
+        if (!context.mounted) return;
+        await showCredits(context);
+      });
+
+  /// View → OSC Packet Monitor.
+  Future<void> _openOscMonitor(BuildContext context) => _oscMonitorGuard.run(() async {
+        if (!context.mounted) return;
+        await showDialog<void>(
+          context: context,
+          builder: (context) => const OscMonitorDialog(),
+        );
+      });
+
   List<PlatformMenuItem> _buildMenus(BuildContext context) {
     return [
       PlatformMenu(
@@ -558,14 +588,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           ),
           PlatformMenuItem(
             label: 'OSC Packet Monitor',
-            onSelected: () {
-              if (context.mounted) {
-                showDialog(
-                  context: context,
-                  builder: (context) => const OscMonitorDialog(),
-                );
-              }
-            },
+            onSelected: () => _openOscMonitor(context),
           ),
         ],
       ),
@@ -574,14 +597,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         menus: [
           PlatformMenuItem(
             label: 'Preferences',
-            onSelected: () {
-              if (context.mounted) {
-                showDialog(
-                  context: context,
-                  builder: (context) => const PreferencesModal(),
-                );
-              }
-            },
+            onSelected: () => _openPreferences(context),
           ),
         ],
       ),
@@ -590,11 +606,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         menus: [
           PlatformMenuItem(
             label: 'About Awesome...',
-            onSelected: () {
-              if (context.mounted) {
-                showCredits(context);
-              }
-            },
+            onSelected: () => _openAbout(context),
           ),
         ],
       ),
@@ -720,14 +732,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     child: const Text('Toggle Exhibition Mode'),
                   ),
                   MenuItemButton(
-                    onPressed: () {
-                      if (context.mounted) {
-                        showDialog(
-                          context: context,
-                          builder: (context) => const OscMonitorDialog(),
-                        );
-                      }
-                    },
+                    onPressed: () => _openOscMonitor(context),
                     child: const Text('OSC Packet Monitor'),
                   ),
                 ],
@@ -736,14 +741,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               SubmenuButton(
                 menuChildren: [
                   MenuItemButton(
-                    onPressed: () {
-                      if (context.mounted) {
-                        showDialog(
-                          context: context,
-                          builder: (context) => const PreferencesModal(),
-                        );
-                      }
-                    },
+                    onPressed: () => _openPreferences(context),
                     child: const Text('Preferences'),
                   ),
                 ],
@@ -752,11 +750,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               SubmenuButton(
                 menuChildren: [
                   MenuItemButton(
-                    onPressed: () {
-                      if (context.mounted) {
-                        showCredits(context);
-                      }
-                    },
+                    onPressed: () => _openAbout(context),
                     child: const Text('About Awesome...'),
                   ),
                 ],
