@@ -177,6 +177,7 @@ void main() {
       peakLimiterEnabled: true,
       globalReverbMix: 0.0,
       globalReverbDecay: 1.0,
+      outputRoutingMode: OutputRoutingMode.trackMapping,
     );
 
     // 시작 시 자동 동기화: 자동 소유권이 유지돼야 한다.
@@ -265,6 +266,7 @@ void main() {
           peakLimiterEnabled: true,
           globalReverbMix: 0.0,
           globalReverbDecay: 1.0,
+          outputRoutingMode: OutputRoutingMode.trackMapping,
         ));
     final notifier = container.read(tuningStateProvider.notifier);
     await notifier.ensureLoaded();

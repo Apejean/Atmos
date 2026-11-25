@@ -19,6 +19,7 @@ void main() {
         outputStereo: true,
         playOscAddress: '',
         stopOscAddress: '',
+        routes: const [],
       );
   AppConfig config(List<String> paths) => AppConfig(
         oscPort: 8000,
@@ -47,6 +48,7 @@ void main() {
         globalReverbDecay: 1.0,
         duckingEnabled: false,
         duckingReductionDb: -6.0,
+        outputRoutingMode: OutputRoutingMode.trackMapping,
       );
 
   group('복사 계획', () {

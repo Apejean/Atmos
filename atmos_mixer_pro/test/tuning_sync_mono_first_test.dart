@@ -34,6 +34,7 @@ AppConfig configWith({
       peakLimiterEnabled: true,
       globalReverbMix: 0.0,
       globalReverbDecay: 1.0,
+      outputRoutingMode: OutputRoutingMode.trackMapping,
     );
 
 /// 채널 보정값은 그 채널의 모노 줄 값이 이긴다(2026-11-22). 출력 설정에서 스테레오·멀티 줄을 새로 켜면 기본값 항목이

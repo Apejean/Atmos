@@ -91,6 +91,7 @@ AppConfig _config() => AppConfig(
   peakLimiterEnabled: true,
   globalTrajectory: null,
   roomZones: const [],
+  outputRoutingMode: OutputRoutingMode.trackMapping,
 );
 
 const _track = TrackConfig(
@@ -104,6 +105,7 @@ const _track = TrackConfig(
   outputStereo: false,
   playOscAddress: '',
   stopOscAddress: '',
+  routes: [],
 );
 
 void main() {

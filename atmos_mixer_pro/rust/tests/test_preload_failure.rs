@@ -46,6 +46,7 @@ fn config_with(path: &str) -> AppConfig {
             output_stereo: false,
             play_osc_address: String::new(),
             stop_osc_address: String::new(),
+            routes: vec![],
         }],
     });
     config

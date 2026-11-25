@@ -53,6 +53,7 @@ TrackConfig _track(String id, String filePath) => TrackConfig(
       outputStereo: false,
       playOscAddress: '',
       stopOscAddress: '',
+      routes: const [],
     );
 
 AppConfig _config(List<TrackConfig> tracks) => AppConfig(
@@ -79,6 +80,7 @@ AppConfig _config(List<TrackConfig> tracks) => AppConfig(
       peakLimiterEnabled: true,
       globalReverbMix: 0.0,
       globalReverbDecay: 1.0,
+      outputRoutingMode: OutputRoutingMode.trackMapping,
     );
 
 /// 이 PC의 파일 경로를 그 OS의 구분자로 잇는다. 다시 연결된 경로는 폴더를 훑어 찾으므로

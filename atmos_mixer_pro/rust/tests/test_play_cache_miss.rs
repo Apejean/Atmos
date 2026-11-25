@@ -52,6 +52,7 @@ fn 캐시에_없는_메모리_트랙을_재생해도_멈추지_않고_캐시에_
             output_stereo: false,
             play_osc_address: String::new(),
             stop_osc_address: String::new(),
+            routes: vec![],
         }],
     });
     *GLOBAL_STATE.config.write().expect("설정") = Some(config);

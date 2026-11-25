@@ -13,6 +13,8 @@ pub enum SpatialGarbage {
     SimBands(Vec<[crate::common::config::EqBand; crate::audio::binaural::MAX_SIM_BANDS]>),
     EarlyReflectionTaps(Vec<[crate::audio::acoustic::EarlyReflectionTap; crate::audio::acoustic::MAX_EARLY_REFLECTION_TAPS]>),
     ChannelTunings(Vec<(usize, f32, Vec<crate::common::config::EqBand>, bool, f32)>),
+    /// 연결 표 명령(SetTrackRoutes)이 가져온 칸 목록. 인스턴스에 복사한 뒤 콜백 밖에서 푼다(매트릭스 라우팅 6.4).
+    Routes(Vec<crate::audio::route::RouteEntry>),
 }
 
 /// 베이스 매니지먼트 켜기/끄기·LFE 변경 크로스페이드 길이(초).
@@ -153,6 +155,11 @@ pub struct AudioMixer {
     pub temp_spatial_weights: Vec<f32>,
     pub analysis_tx: Option<rtrb::Producer<f32>>,
     pub temp_vals: Vec<f32>,
+    /// 믹서 폭(new의 채널 수). 옛 경로가 파일에서 읽는 채널 수의 한도다(예전의 `temp_vals` 길이). `temp_vals`는 표
+    /// 경로가 폭보다 많은 파일 채널을 읽을 수 있게 파일 채널 상한까지 잡는다(매트릭스 라우팅 6.5, 개정 3 ⑤).
+    pub mix_width: usize,
+    /// 정리 채널이 가득 차 못 보낸 연결 표 칸 목록. 블록 끝에 다시 보낸다(용량 64, 콜백에서 풀지 않는다).
+    pub route_garbage: Vec<Vec<crate::audio::route::RouteEntry>>,
     /// 이번 블록에서 실제로 재생 중인 인스턴스 슬롯 번호.
     ///
     /// 예전에는 프레임 루프 **안에서** 인스턴스 4096칸을 매번 훑었다. 블록마다
@@ -368,7 +375,9 @@ impl AudioMixer {
             channel_spatial_gains_phase: vec![1.0; channels],
             temp_spatial_weights: vec![0.0; channels],
             analysis_tx,
-            temp_vals: vec![0.0; channels],
+            temp_vals: vec![0.0; channels.max(crate::audio::wav_reader::MAX_FILE_CHANNELS as usize)],
+            mix_width: channels,
+            route_garbage: Vec::with_capacity(64),
             temp_active_instances: Vec::with_capacity(4096),
             temp_route_open: vec![false; 4096],
             channel_gate_gain: vec![0.0; 4096],
@@ -424,6 +433,23 @@ impl AudioMixer {
         crate::audio::playback_cursor::CURSOR_TABLE.clear_all();
 
         mixer
+    }
+
+    /// 연결 표 명령이 가져온 칸 목록을 콜백 밖에서 풀게 넘긴다. 정리 채널이 가득 찼으면 맡아 두고(블록 끝에 다시
+    /// 보낸다), 그것도 차 있으면 풀지 않고 잃는다(지금 `local_recycle`과 같은 방식). 맡거나 잃은 횟수는 엔진 점검
+    /// 루프가 앱 로그에 남긴다(매트릭스 라우팅 6.4).
+    pub fn dispose_routes(&mut self, cells: Vec<crate::audio::route::RouteEntry>) {
+        if let Err(e) = self.spatial_gc_tx.try_send(SpatialGarbage::Routes(cells)) {
+            if let SpatialGarbage::Routes(cells) = e.into_inner() {
+                if self.route_garbage.len() < self.route_garbage.capacity() {
+                    self.route_garbage.push(cells);
+                    GLOBAL_STATE.route_garbage_parked.fetch_add(1, Ordering::Relaxed);
+                } else {
+                    std::mem::forget(cells);
+                    GLOBAL_STATE.route_garbage_forgotten.fetch_add(1, Ordering::Relaxed);
+                }
+            }
+        }
     }
 
     pub fn process(&mut self, output: &mut [f32], out_channels: usize) {
@@ -606,14 +632,18 @@ impl AudioMixer {
         for (i, inst_opt) in self.instances.iter_mut().enumerate() {
             if let Some(inst) = inst_opt {
                 if inst.is_playing {
+                    // 페이드 중에 와서 기다리던 경로 변경을 페이드가 끝났으면 적용한다(매트릭스 라우팅 6.3).
+                    inst.promote_pending();
                     active_instances.push(i);
                     // 트랙 출력이 켠 그룹과 맞는가(화면과 같은 규칙, 2026-11-21 사용자 결정 A). 블록 동안은 그대로 쓴다.
-                    let open = crate::core::output_groups::route_open(
-                        inst.stream_channels as usize,
-                        inst.output_channel,
-                        inst.output_stereo,
-                        out_channels,
-                    );
+                    // 표 경로는 이 검사를 받지 않는다 — 칸마다 채널 게이트가 거른다(매트릭스 라우팅 개정 3 ③).
+                    let open = inst.table_active
+                        || crate::core::output_groups::route_open(
+                            inst.stream_channels as usize,
+                            inst.output_channel,
+                            inst.output_stereo,
+                            out_channels,
+                        );
                     if let Some(slot) = self.temp_route_open.get_mut(i) {
                         *slot = open;
                     }
@@ -756,8 +786,13 @@ impl AudioMixer {
                 let mut frac = (idx_f - (idx_base as f64)) as f32;
                 let mut idx_i = idx_base * channels;
 
-                let ch_limit = channels.min(temp_vals.len());
-                let vals = &mut temp_vals[..ch_limit];
+                // 옛 경로는 믹서 폭까지만 읽는다(예전 그대로). 표 경로(현재나 페이드 중인 직전)는 파일 채널 상한까지 읽는다
+                // (매트릭스 라우팅 6.5). 옛 경로의 식(평균의 분모, N:N)은 ch_limit만 쓴다.
+                let ch_limit = channels.min(self.mix_width).min(temp_vals.len());
+                let reads_table =
+                    instance.table_active || (instance.output_fade < 1.0 && instance.prev_table_active);
+                let read_limit = if reads_table { channels.min(temp_vals.len()) } else { ch_limit };
+                let vals = &mut temp_vals[..read_limit];
                 let mut has_sample = false;
 
                 if let Some(stream_rx) = &mut instance.stream_receiver {
@@ -830,7 +865,7 @@ impl AudioMixer {
                         } else {
                             idx_i
                         };
-                        for (ch, val) in vals.iter_mut().enumerate().take(ch_limit) {
+                        for (ch, val) in vals.iter_mut().enumerate().take(read_limit) {
                             let idx0 = if idx_i >= channels { idx_i - channels } else { idx_i };
                             let idx3 = if next_idx + channels < instance.stream_buffer.len() { next_idx + channels } else { next_idx };
 
@@ -847,7 +882,7 @@ impl AudioMixer {
                     } else {
                         has_sample = true;
                         instance.anti_click_multiplier *= 0.95; // 1-pole non-linear fade
-                        for (ch, val) in vals.iter_mut().enumerate().take(ch_limit) {
+                        for (ch, val) in vals.iter_mut().enumerate().take(read_limit) {
                             *val = instance.last_samples.get(ch).copied().unwrap_or(0.0) * instance.anti_click_multiplier;
                         }
                     }
@@ -874,7 +909,7 @@ impl AudioMixer {
                                 next_idx = idx_i;
                             }
                         }
-                        for (ch, val) in vals.iter_mut().enumerate().take(ch_limit) {
+                        for (ch, val) in vals.iter_mut().enumerate().take(read_limit) {
                             let idx0 = if idx_i >= channels { idx_i - channels } else { if instance.is_loop && data.samples.len() >= channels { data.samples.len() - channels } else { idx_i } };
                             let idx3 = if next_idx + channels < data.samples.len() { next_idx + channels } else { if instance.is_loop { 0 } else { next_idx } };
 
@@ -906,15 +941,31 @@ impl AudioMixer {
                 if has_sample {
                     // 출력 경로를 바꾼 직후에는 옛 경로를 줄이고 새 경로를 키운다(SetTrackOutput, 3법칙 3).
                     // 평소에는 새 경로 하나만 돈다.
+                    // 경로는 매핑(output_channel·output_stereo) 또는 연결 표(매트릭스 라우팅 6.4). 표 칸은 파일 채널 s를
+                    // 출력 o로 칸 음량만큼 더하고, 옛 경로와 같은 채널 게이트를 곱한다(개정 3 ①).
                     let fade = instance.output_fade;
                     let routes = [
-                        (instance.output_channel, instance.output_stereo, fade),
-                        (instance.prev_output_channel, instance.prev_output_stereo, 1.0 - fade),
+                        (instance.table_active, instance.output_channel, instance.output_stereo, fade),
+                        (instance.prev_table_active, instance.prev_output_channel, instance.prev_output_stereo, 1.0 - fade),
                     ];
                     let route_count = if fade < 1.0 { 2 } else { 1 };
-                    for &(output_channel, output_stereo, route_gain) in routes.iter().take(route_count) {
+                    for (r, &(is_table, output_channel, output_stereo, route_gain)) in
+                        routes.iter().enumerate().take(route_count)
+                    {
                         let route_vol = current_vol * route_gain;
-                        if !output_stereo && ch_limit > 1 {
+                        if is_table {
+                            let cells = if r == 0 { &instance.routes } else { &instance.prev_routes };
+                            for e in cells.iter() {
+                                let (s, o) = (e.src as usize, e.out as usize);
+                                if s < read_limit && o < gate_len {
+                                    let gate = self.channel_gate_gain[o];
+                                    let out_idx = frame * out_channels + o;
+                                    if gate > 0.0 && out_idx < output.len() {
+                                        output[out_idx] += vals[s] * (route_vol * e.gain) * gate;
+                                    }
+                                }
+                            }
+                        } else if !output_stereo && ch_limit > 1 {
                             // Downmix all to Mono for backwards compatibility if output_stereo is false
                             let mut sum = 0.0;
                             for val in vals.iter().take(ch_limit) {
@@ -1197,6 +1248,16 @@ impl AudioMixer {
                     }
                     chunk.commit_all();
                 }
+            }
+        }
+
+        // 정리 채널이 가득 차 맡아 둔 연결 표를 다시 보낸다(콜백에서 풀지 않는다, 매트릭스 라우팅 6.4).
+        while let Some(cells) = self.route_garbage.pop() {
+            if let Err(e) = self.spatial_gc_tx.try_send(SpatialGarbage::Routes(cells)) {
+                if let SpatialGarbage::Routes(cells) = e.into_inner() {
+                    self.route_garbage.push(cells); // 방금 꺼낸 자리라 용량 안이다
+                }
+                break;
             }
         }
 

@@ -48,6 +48,7 @@ fn track(file_path: &str, output_channel: u32, output_stereo: bool) -> TrackConf
         output_stereo,
         play_osc_address: String::new(),
         stop_osc_address: String::new(),
+        routes: vec![],
     }
 }
 

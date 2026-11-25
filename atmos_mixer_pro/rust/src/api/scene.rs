@@ -44,7 +44,10 @@ pub fn load_scene(scene_id: &str) -> Result<(), AtmosError> {
         
     {
         let mut state = crate::core::state::GLOBAL_STATE.config.write().unwrap();
+        let old = state.take();
         *state = Some(new_config.clone());
+        // 방식이나 표가 바뀐 트랙의 경로를 맞춘다(매트릭스 라우팅 6.6).
+        crate::api::simple::resync_routing(old.as_ref(), &new_config);
     }
     
     // Notify audio engine to update config

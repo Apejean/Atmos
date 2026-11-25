@@ -32,6 +32,7 @@ fn track(id: &str, file_path: &str) -> TrackConfig {
         output_stereo: false,
         play_osc_address: format!("/{id}/play"),
         stop_osc_address: format!("/{id}/stop"),
+        routes: vec![],
     }
 }
 

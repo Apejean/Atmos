@@ -152,6 +152,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<TrackConfig> dco_decode_list_track_config(dynamic raw);
 
   @protected
+  List<TrackRoute> dco_decode_list_track_route(dynamic raw);
+
+  @protected
   String? dco_decode_opt_String(dynamic raw);
 
   @protected
@@ -165,6 +168,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   OutputDeviceInfo dco_decode_output_device_info(dynamic raw);
+
+  @protected
+  OutputRoutingMode dco_decode_output_routing_mode(dynamic raw);
 
   @protected
   PlaybackPosition dco_decode_playback_position(dynamic raw);
@@ -195,6 +201,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   TrackConfig dco_decode_track_config(dynamic raw);
+
+  @protected
+  TrackRoute dco_decode_track_route(dynamic raw);
 
   @protected
   Trajectory dco_decode_trajectory(dynamic raw);
@@ -357,6 +366,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<TrackConfig> sse_decode_list_track_config(SseDeserializer deserializer);
 
   @protected
+  List<TrackRoute> sse_decode_list_track_route(SseDeserializer deserializer);
+
+  @protected
   String? sse_decode_opt_String(SseDeserializer deserializer);
 
   @protected
@@ -372,6 +384,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   OutputDeviceInfo sse_decode_output_device_info(SseDeserializer deserializer);
+
+  @protected
+  OutputRoutingMode sse_decode_output_routing_mode(
+    SseDeserializer deserializer,
+  );
 
   @protected
   PlaybackPosition sse_decode_playback_position(SseDeserializer deserializer);
@@ -408,6 +425,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   TrackConfig sse_decode_track_config(SseDeserializer deserializer);
+
+  @protected
+  TrackRoute sse_decode_track_route(SseDeserializer deserializer);
 
   @protected
   Trajectory sse_decode_trajectory(SseDeserializer deserializer);
@@ -614,6 +634,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_list_track_route(
+    List<TrackRoute> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_opt_String(String? self, SseSerializer serializer);
 
   @protected
@@ -634,6 +660,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_output_device_info(
     OutputDeviceInfo self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_output_routing_mode(
+    OutputRoutingMode self,
     SseSerializer serializer,
   );
 
@@ -684,6 +716,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_track_config(TrackConfig self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_track_route(TrackRoute self, SseSerializer serializer);
 
   @protected
   void sse_encode_trajectory(Trajectory self, SseSerializer serializer);

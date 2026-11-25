@@ -54,6 +54,13 @@ pub enum AudioCommand {
         output_channel: usize,
         output_stereo: bool,
     },
+    /// 트랙의 연결 표를 바꾼다(매트릭스 라우팅 6.4). `entries`는 오디오 스레드 밖에서 검증·변환했다
+    /// (`audio::route::resolve_routes`). 콜백은 인스턴스가 미리 잡은 배열에 복사만 하고, 받은 Vec은 정리 스레드로 넘긴다.
+    SetTrackRoutes {
+        room_id: u32,
+        track_id: u32,
+        entries: Vec<crate::audio::route::RouteEntry>,
+    },
     ClearRoom {
         room_id: u32,
     },

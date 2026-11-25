@@ -111,6 +111,7 @@ void main() {
       peakLimiterEnabled: true,
       globalTrajectory: null,
       roomZones: [],
+      outputRoutingMode: OutputRoutingMode.trackMapping,
     );
 
     final track = const TrackConfig(
@@ -124,6 +125,7 @@ void main() {
       outputStereo: false,
       playOscAddress: '',
       stopOscAddress: '',
+      routes: [],
     );
 
     await tester.pumpWidget(

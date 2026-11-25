@@ -353,6 +353,25 @@ pub struct SoundInstance {
     /// `OUTPUT_RAMP_S`에 걸쳐 옮긴다(3법칙 3). 음수면 아직 정하지 않음 — 믹서가 첫 블록에 바로 0이나 1로 정한다
     /// (시작하자마자 맞지 않는 트랙이 새어 나오지 않게).
     pub route_gain: f32,
+    /// 현재 경로가 연결 표인가(false면 `output_channel`·`output_stereo`의 매핑 경로). 매트릭스 라우팅 설계 6.2.
+    pub table_active: bool,
+    /// 직전 경로가 표였나(`output_fade` < 1 동안만 뜻이 있다).
+    pub prev_table_active: bool,
+    /// 현재·직전·대기 표. 셋 다 `MAX_TRACK_ROUTES` 용량으로 `new()`에서 잡고, 콜백은 clear·extend_from_slice·
+    /// mem::swap만 한다(할당 없음, 3법칙 1).
+    pub routes: Vec<crate::audio::route::RouteEntry>,
+    pub prev_routes: Vec<crate::audio::route::RouteEntry>,
+    pub pending_routes: Vec<crate::audio::route::RouteEntry>,
+    /// 페이드 중에 온 경로 변경. 페이드가 끝난 블록 시작에 적용한다(`promote_pending`).
+    pub pending_path: Option<PendingPath>,
+}
+
+/// 페이드 중에 온 경로 변경(설계 6.3). 표면 칸은 `pending_routes`에 있다.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct PendingPath {
+    pub is_table: bool,
+    pub output_channel: usize,
+    pub output_stereo: bool,
 }
 
 impl SoundInstance {
@@ -419,7 +438,103 @@ impl SoundInstance {
             lag_frames: 0.0,
             rejoin_gain: 1.0,
             route_gain: -1.0,
+            table_active: false,
+            prev_table_active: false,
+            routes: Vec::with_capacity(crate::audio::route::MAX_TRACK_ROUTES),
+            prev_routes: Vec::with_capacity(crate::audio::route::MAX_TRACK_ROUTES),
+            pending_routes: Vec::with_capacity(crate::audio::route::MAX_TRACK_ROUTES),
+            pending_path: None,
         }
+    }
+
+    /// 재생 전에(오디오 스레드 밖) 이 인스턴스를 표 경로로 시작하게 한다. 페이드는 걸지 않는다. 용량을 넘는 칸은
+    /// 앞에서부터 용량만큼만 받는다.
+    pub fn set_initial_routes(&mut self, entries: &[crate::audio::route::RouteEntry]) {
+        let n = entries.len().min(self.routes.capacity());
+        self.routes.clear();
+        self.routes.extend_from_slice(&entries[..n]);
+        self.table_active = true;
+    }
+
+    /// 경로를 표로 바꾼다(콜백에서 부른다, 할당 없음). 페이드 중이면 대기에 두었다가 페이드가 끝나면 바꾼다
+    /// (설계 6.3: 몰린 변경에도 들리던 경로는 언제나 10ms에 걸쳐 준다).
+    pub fn request_table_path(&mut self, entries: &[crate::audio::route::RouteEntry]) {
+        let n = entries.len().min(self.pending_routes.capacity());
+        let entries = &entries[..n];
+        let same = match self.pending_path {
+            Some(p) => p.is_table && self.pending_routes.as_slice() == entries,
+            None => self.table_active && self.routes.as_slice() == entries,
+        };
+        if same {
+            return;
+        }
+        if self.output_fade >= 1.0 {
+            self.begin_switch();
+            self.routes.clear();
+            self.routes.extend_from_slice(entries);
+            self.table_active = true;
+        } else {
+            self.pending_routes.clear();
+            self.pending_routes.extend_from_slice(entries);
+            self.pending_path =
+                Some(PendingPath { is_table: true, output_channel: self.output_channel, output_stereo: self.output_stereo });
+        }
+    }
+
+    /// 경로를 매핑(`output_channel`·`output_stereo`)으로 바꾼다. 규칙은 [`Self::request_table_path`]와 같다.
+    pub fn request_legacy_path(&mut self, output_channel: usize, output_stereo: bool) {
+        let same = match self.pending_path {
+            Some(p) => !p.is_table && p.output_channel == output_channel && p.output_stereo == output_stereo,
+            None => !self.table_active && self.output_channel == output_channel && self.output_stereo == output_stereo,
+        };
+        if same {
+            return;
+        }
+        if self.output_fade >= 1.0 {
+            self.begin_switch();
+            self.output_channel = output_channel;
+            self.output_stereo = output_stereo;
+            self.table_active = false;
+        } else {
+            self.pending_path = Some(PendingPath { is_table: false, output_channel, output_stereo });
+        }
+    }
+
+    /// 페이드가 끝났고 대기한 변경이 있으면 적용한다. 믹서가 블록 시작에 재생 중인 인스턴스마다 부른다.
+    pub fn promote_pending(&mut self) {
+        if self.output_fade < 1.0 {
+            return;
+        }
+        let Some(p) = self.pending_path.take() else {
+            return;
+        };
+        let same = if p.is_table {
+            self.table_active && self.routes == self.pending_routes
+        } else {
+            !self.table_active && self.output_channel == p.output_channel && self.output_stereo == p.output_stereo
+        };
+        if same {
+            return;
+        }
+        self.begin_switch();
+        if p.is_table {
+            // begin_switch가 현재 표를 직전으로 옮겼다. 대기 표를 현재로 가져온다(남는 배열은 다음 대기에 다시 쓴다).
+            std::mem::swap(&mut self.routes, &mut self.pending_routes);
+            self.table_active = true;
+        } else {
+            self.output_channel = p.output_channel;
+            self.output_stereo = p.output_stereo;
+            self.table_active = false;
+        }
+    }
+
+    /// 현재 경로를 직전으로 옮기고 페이드를 시작한다(새 경로는 부른 쪽이 넣는다).
+    fn begin_switch(&mut self) {
+        std::mem::swap(&mut self.routes, &mut self.prev_routes);
+        self.prev_table_active = self.table_active;
+        self.prev_output_channel = self.output_channel;
+        self.prev_output_stereo = self.output_stereo;
+        self.output_fade = 0.0;
     }
 
     /// 그룹 `group_id`(0이 아님)의 대기 인스턴스로 표시한다. StartGroup이 오면 그룹과 함께 시작한다.

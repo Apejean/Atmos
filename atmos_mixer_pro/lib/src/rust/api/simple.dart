@@ -9,7 +9,7 @@ import '../osc/metrics.dart';
 import 'error.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These functions are ignored because they are not marked as `pub`: `apply_enabled_channels`, `classify_start_error`, `clear_room_and_advance`, `init_audio_system_for_user`, `init_audio_system_with`, `keeper_open`, `keeper_stop_engine`, `monitored_output_device_names`, `play_track_from_in`, `play_track_from`, `reject_if_engine_down`, `request_restart_if_processing_width_changed`, `room_after`, `sim_band_from_json`, `start_audio_system_with`, `start_audio_system`, `stop_all`, `stop_audio_engine`, `with_start`
+// These functions are ignored because they are not marked as `pub`: `apply_enabled_channels`, `classify_start_error`, `clear_room_and_advance`, `init_audio_system_for_user`, `init_audio_system_with`, `keeper_open`, `keeper_stop_engine`, `log_dropped_routes`, `monitored_output_device_names`, `play_track_from_in`, `play_track_from`, `reject_if_engine_down`, `request_restart_if_processing_width_changed`, `resync_routing`, `room_after`, `sim_band_from_json`, `start_audio_system_with`, `start_audio_system`, `stop_all`, `stop_audio_engine`, `track_uses_table`, `with_routes`, `with_start`
 // These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `ENGINE_ACTIVE`, `ENGINE_THREAD`, `STREAM_STATUS_SINK`, `VU_THREAD_RUNNING`
 // These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `clone`, `deref`, `deref`, `deref`, `deref`, `fmt`, `fmt`, `fmt`, `fmt`, `initialize`, `initialize`, `initialize`, `initialize`
 // These functions have error during generation (see debug logs or enable `stop_on_error: true` for more details): `build_play_track_command`
@@ -148,6 +148,18 @@ Future<void> apiSetTrackOutput({
   trackId: trackId,
   outputChannel: outputChannel,
   outputStereo: outputStereo,
+);
+
+/// 재생 중인 트랙의 연결 표를 바꾼다(화면이 표를 고칠 때, 매트릭스 라우팅 6.6). 매트릭스 방식이 아니거나 표가 비어 있으면
+/// 오류이고 명령을 보내지 않는다(매핑 경로로 돌아갈 때는 api_set_track_output). 설정 저장은 화면이 따로 한다.
+Future<void> apiSetTrackRoutes({
+  required String roomId,
+  required String trackId,
+  required List<TrackRoute> routes,
+}) => RustLib.instance.api.crateApiSimpleApiSetTrackRoutes(
+  roomId: roomId,
+  trackId: trackId,
+  routes: routes,
 );
 
 Future<void> apiSetChannelDelay({
