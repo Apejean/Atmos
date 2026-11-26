@@ -223,7 +223,16 @@ fn 로그인_자동_실행이면_첫_실행에만_logon을_넘긴다() {
     let dir = fresh_dir("logon");
     let mut sup = supervisor(&dir, &["--logon"], &[("FAKE_FIRST", "crash"), ("FAKE_NEXT", "clean")]);
     sup.wait_exit(15, "감시가 끝나지 않았다");
-    assert_eq!(launch_args(&dir), vec!["--supervised --logon", "--supervised --auto-relaunched"]);
+    // 규칙은 "첫 실행에만 --logon"이다. 실행 횟수는 묻지 않는다: 2026-11-22 이 PC에서 다시 띄운 가짜 앱이 시작 직후
+    // 바깥에서 끝나(종료 코드 0xC000013A, 새로 빌드한 exe를 백신이 처음 다룰 때로 추정) 감시가 충돌로 보고 한 번 더
+    // 띄웠다. 감시는 맞게 움직였는데 "정확히 두 번"을 기대한 시험만 실패했다(남은 폴더의 supervisor.log로 확인).
+    let args = launch_args(&dir);
+    assert!(args.len() >= 2, "충돌 뒤 다시 띄우지 않았다: {args:?}");
+    assert_eq!(args[0], "--supervised --logon", "첫 실행에 --logon이 없다: {args:?}");
+    assert!(
+        args[1..].iter().all(|a| a == "--supervised --auto-relaunched"),
+        "다시 띄울 때 --logon을 넘겼거나 --auto-relaunched가 없다: {args:?}"
+    );
     let _ = std::fs::remove_dir_all(dir);
 }
 
