@@ -5,7 +5,7 @@
 - 목적: 현장(전시 운영) PC는 Windows다. macOS에서 만든 기능이 Windows에서도 똑같이 동작하는지 이 PC에서 빌드·자동 테스트·현장 점검으로 확인하고, Windows에만 필요한 작업(3D 방 뷰어 등)을 한다.
 - 이 문서와 `tool/windows/*.ps1`은 macOS에서 코드를 읽고 쓴 것이다. **Windows에서 실행해 본 적이 없다.** 명령이 틀리면 고쳐 쓰고, 고친 내용은 W8로 이 문서와 스크립트에 되돌린다.
 - 저장소 루트 `CLAUDE.md`(PR #17, Main/Sub 방식)에 맞췄다. 이 문서와 CLAUDE.md가 다르면 CLAUDE.md가 우선이다.
-- 표기: "HANDOFF n"은 `docs/HANDOFF.md` "남은 일" n번, "HANDOFF ⚠️ n"은 같은 문서 "⚠️ Windows 미검증" n번이다. "점검표 n절"은 `docs/WINDOWS_FIELD_CHECKLIST.md`의 n절이다.
+- 표기: "HANDOFF n"은 `docs/HANDOFF.md` "남은 일" n번, "HANDOFF ⚠️ n"은 같은 문서 "Windows 확인 현황" 표의 n번(2026-11-27 전 이름 "⚠️ Windows 미검증", 원문은 `docs/HISTORY.md`)이다. "점검표 n절"은 `docs/WINDOWS_FIELD_CHECKLIST.md`의 n절이다.
 
 ## 0. 지금 할 일
 
