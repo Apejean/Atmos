@@ -21,6 +21,25 @@ fn new_lufs_meter(channels: u32, sample_rate: u32) -> Option<ebur128::EbuR128> {
     .ok()
 }
 
+/// 마스터 LUFS 값을 다시 계산해 내놓는 간격.
+///
+/// 예전에는 오디오 조각이 들어올 때마다(수 ms) 순간·단기·통합 음량을 물어, 2채널 재생에서도 이 스레드가
+/// 코어 약 12%를 썼다(2026-11-28 Mac 측정, 대부분 단기 음량 계산). 화면은 16ms마다 읽지만 순간 음량 창이
+/// 0.4초라 0.1초 간격이면 충분하다. 측정기에는 오디오를 모두 넣고, 트루 피크는 지금까지의 최댓값이라 놓치지 않는다.
+pub const LUFS_PUBLISH_INTERVAL: std::time::Duration = std::time::Duration::from_millis(100);
+
+/// 지난 계산에서 [LUFS_PUBLISH_INTERVAL]이 지났으면 시각을 갱신하고 true. 처음 부르면 true.
+fn lufs_publish_due(last: &mut Option<std::time::Instant>) -> bool {
+    let now = std::time::Instant::now();
+    match *last {
+        Some(t) if now.duration_since(t) < LUFS_PUBLISH_INTERVAL => false,
+        _ => {
+            *last = Some(now);
+            true
+        }
+    }
+}
+
 pub fn start_analysis_thread(
     mut rx: Consumer<f32>,
     sample_rate: u32,
@@ -37,6 +56,8 @@ pub fn start_analysis_thread(
         }
 
         let mut lufs_meter = new_lufs_meter(channels.max(1) as u32, sample_rate);
+        // 음량 질의(특히 단기 음량은 3초 창을 매번 다시 계산)는 [LUFS_PUBLISH_INTERVAL]마다만 한다.
+        let mut last_lufs_publish: Option<std::time::Instant> = None;
 
         let mut temp_buffer = Vec::with_capacity(16384);
         let mut mono_mix = Vec::with_capacity(16384);
@@ -100,7 +121,7 @@ pub fn start_analysis_thread(
 
                 // --- LUFS Metering ---
                 if let Some(meter) = &mut lufs_meter {
-                    if meter.add_frames_f32(&temp_buffer).is_ok() {
+                    if meter.add_frames_f32(&temp_buffer).is_ok() && lufs_publish_due(&mut last_lufs_publish) {
                         if let Ok(m) = meter.loudness_momentary() {
                             GLOBAL_STATE.lufs_master[0].store(f32::to_bits(m as f32), Ordering::Relaxed);
                         }
@@ -169,5 +190,15 @@ mod tests {
         .expect("큐 측정기");
         let (a, b) = (integrated_of_sine(&mut ours), integrated_of_sine(&mut queue));
         assert!((a - b).abs() < 0.1, "히스토그램 {a:.3} LUFS, 큐 {b:.3} LUFS");
+    }
+
+    #[test]
+    fn lufs_publish_waits_for_the_interval() {
+        // 예전에는 오디오 조각마다 음량을 물어 2채널 재생에서도 코어 약 12%를 썼다(2026-11-28 Mac 측정).
+        let mut last = None;
+        assert!(lufs_publish_due(&mut last), "처음에는 바로 계산해야 한다");
+        assert!(!lufs_publish_due(&mut last), "간격 안에 다시 계산했다");
+        last = Some(std::time::Instant::now() - LUFS_PUBLISH_INTERVAL);
+        assert!(lufs_publish_due(&mut last), "간격이 지났는데 계산하지 않았다");
     }
 }
