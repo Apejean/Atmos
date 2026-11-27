@@ -42,6 +42,11 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
   // 감시 프로그램도 읽어야 해서 앱 데이터 폴더의 표시 파일로 둔다(launch_mode.dart).
   bool _windowsAutostart = true;
   bool get _isWindows => defaultTargetPlatform == TargetPlatform.windows;
+  bool get _isMacOS => defaultTargetPlatform == TargetPlatform.macOS;
+  String get _home => Platform.environment['HOME'] ?? '';
+
+  /// macOS 자동 실행은 /Applications에 설치된 앱에서만 켠다(개발 빌드·시험 복사본은 로그인 항목을 남기지 않는다).
+  bool get _macAutostartAvailable => macSupervisorFor(Platform.resolvedExecutable) != null;
   final Map<String, int> _trackChannels = {};
 
   /// 출력 방식 `?` 도움말을 펼쳤나, 방식을 바꾼 뒤 보일 안내(매트릭스 라우팅 7.0).
@@ -92,6 +97,12 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
     });
     if (_isWindows) {
       showStateDir().then(loadWindowsAutostart).then((value) {
+        if (mounted) setState(() => _windowsAutostart = value);
+      });
+    } else if (_isMacOS) {
+      // macOS 기본은 꺼짐(LaunchAgent 파일이 없음). 파일을 읽기 전에도 꺼짐으로 보인다.
+      _windowsAutostart = false;
+      loadMacAutostart(_home).then((value) {
         if (mounted) setState(() => _windowsAutostart = value);
       });
     }
@@ -352,6 +363,7 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
     );
     unawaited(saveAutoResumeOnLogon(_autoResumeOnLogon));
     if (_isWindows) unawaited(_saveWindowsAutostart());
+    if (_isMacOS && _macAutostartAvailable) unawaited(_saveMacAutostart());
     ref.read(configProvider.notifier).saveConfig(finalConfig);
     Navigator.of(context).pop();
   }
@@ -363,6 +375,15 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
       await saveWindowsAutostart(await showStateDir(), _windowsAutostart);
     } catch (e) {
       errors.showOperationError('Windows 시작 시 자동 실행 저장 실패: ${errorText(e)}');
+    }
+  }
+
+  Future<void> _saveMacAutostart() async {
+    final errors = ref.read(globalErrorProvider.notifier);
+    try {
+      await saveMacAutostart(_home, Platform.resolvedExecutable, _windowsAutostart);
+    } catch (e) {
+      errors.showOperationError('macOS 시작 시 자동 실행 저장 실패: ${errorText(e)}');
     }
   }
 
@@ -1274,7 +1295,9 @@ class _PreferencesModalState extends ConsumerState<PreferencesModal>
 
         const SizedBox(height: 16),
         StartupSettings(
-          showWindowsAutostart: _isWindows,
+          showWindowsAutostart: _isWindows || _isMacOS,
+          autostartLabel: _isMacOS ? 'macOS 시작 시\n자동 실행' : 'Windows 시작 시\n자동 실행',
+          autostartHint: _isMacOS && !_macAutostartAvailable ? '/Applications에 설치한 앱에서만 켤 수 있습니다.' : null,
           windowsAutostart: _windowsAutostart,
           autoResumeOnLogon: _autoResumeOnLogon,
           onWindowsAutostartChanged: (val) => setState(() => _windowsAutostart = val),
