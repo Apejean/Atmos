@@ -45,6 +45,12 @@ void main() {
     await app.main(const []);
     await pumpUntil(tester, () => find.byType(DashboardScreen).evaluate().isNotEmpty,
         timeout: const Duration(seconds: 30), reason: '0단계: 30초 안에 대시보드가 뜨지 않았다');
+    // 로딩 화면에서 대시보드로 넘어오는 화면 전환이 끝난 뒤에 누른다. 전환 중에는 대시보드가 오른쪽에서 밀려
+    // 들어오는 중이라(x≈980) 재생 단추가 창 밖에 있어 누름이 빗나갔다(2026-11-27, 4번 중 2번).
+    await pumpUntil(tester, () {
+      final route = ModalRoute.of(tester.element(find.byType(DashboardScreen)));
+      return route?.animation?.isCompleted ?? true;
+    }, timeout: const Duration(seconds: 5), reason: '0단계: 대시보드로 넘어오는 화면 전환이 5초 안에 끝나지 않았다');
     final container = ProviderScope.containerOf(tester.element(find.byType(app.AtmosMixerProApp)));
     expect(await rust_api.apiIsEngineReady(), isTrue, reason: '0단계: 엔진이 준비되지 않았다');
     // 엔진 상태 스트림은 방송이 있어야 채널 수가 갱신된다. 전체 정지가 방송을 일으킨다.
