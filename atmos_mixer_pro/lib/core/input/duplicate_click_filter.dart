@@ -8,8 +8,10 @@ import 'package:flutter/widgets.dart';
 /// 누를 때마다 뒤집히는 단추는 두 번 눌려 제자리로 돌아갔다. 사람이 일부러 두 번 누르는 간격은 보통 100ms를 넘으므로,
 /// 같은 장치·같은 단추로 같은 자리(몇 픽셀 안)에 [window] 안에 다시 들어온 누름은 그 뒤 움직임·뗌까지 통째로 버린다.
 /// 기준 시각은 버리지 않은 앞 누름이라, 세 번 이상 겹쳐 와도 [window] 안이면 모두 버린다.
+/// 창은 100ms다(2026-11-27 사용자 결정). 휴대폰 TeamViewer의 두 번째 눌림은 32ms(11-24)뿐 아니라 47·62·78ms(11-27)
+/// 뒤에도 왔다(OS 기록 `D:\dev\logs\2026-11-27\W1127_mouse_hover*.log`). 처음의 40ms로는 일부를 못 걸렀다.
 class DuplicateClickFilter {
-  DuplicateClickFilter({this.window = const Duration(milliseconds: 40), this.slop = 4.0});
+  DuplicateClickFilter({this.window = const Duration(milliseconds: 100), this.slop = 4.0});
 
   /// 이 시간 안에 다시 온 누름은 같은 클릭으로 본다.
   final Duration window;
