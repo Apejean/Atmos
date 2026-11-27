@@ -30,9 +30,17 @@ void main() {
     expect(f.dropped, 1);
   });
 
-  test('사람의 빠른 더블클릭(간격 60ms 이상)은 그대로 둔다', () {
+  test('휴대폰 TeamViewer: 눌림 사이 32·47·62·78ms의 두 번째 클릭도 버린다(2026-11-24·27 OS 기록)', () {
+    for (final gap in [32, 47, 62, 78]) {
+      final f = DuplicateClickFilter();
+      expect(run(f, [down(1, 0, a), up(1, 16, a), down(2, gap, a), up(2, gap + 16, a)]), [false, false, true, true],
+          reason: '간격 ${gap}ms');
+    }
+  });
+
+  test('사람의 더블클릭(눌림 사이 120ms 이상)은 그대로 둔다', () {
     final f = DuplicateClickFilter();
-    expect(run(f, [down(1, 0, a), up(1, 40, a), down(2, 60, a), up(2, 100, a)]), everyElement(isFalse));
+    expect(run(f, [down(1, 0, a), up(1, 60, a), down(2, 120, a), up(2, 180, a)]), everyElement(isFalse));
   });
 
   test('다른 자리·다른 단추·다른 장치·펜은 같은 클릭으로 보지 않는다', () {
