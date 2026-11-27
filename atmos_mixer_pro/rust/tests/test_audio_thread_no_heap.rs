@@ -237,3 +237,24 @@ fn 정리_채널이_가득_차도_연결_표를_콜백에서_풀지_않는다() 
     assert_eq!(mixer.route_garbage.len(), 1, "아직 가득 차 있으니 그대로 맡고 있어야 한다");
     drop(rx);
 }
+
+#[test]
+fn 무음_채널의_리미터_건너뛰기는_힙을_건드리지_않는다() {
+    let mut mixer = mixer();
+    assert!(mixer.limiter_skip, "리미터 건너뛰기는 기본으로 켜져 있어야 한다");
+    assert!(
+        mixer.limiters.iter().take(CH).all(|l| l.is_idle()),
+        "새 리미터는 비어 있으니 처음부터 건너뛸 수 있어야 한다"
+    );
+    let mut temp = vec![0.0f32; BLOCK * CH];
+    let mut data = vec![0.0f32; BLOCK * CH];
+    let ops = heap_ops(|| {
+        for _ in 0..4 {
+            AudioEngine::render_block(&mut mixer, &mut temp, &mut data, CH, CH);
+        }
+    });
+    assert_eq!(ops, 0, "무음 블록에서 리미터를 건너뛰다가 힙을 건드렸다");
+    assert!(data.iter().all(|&s| s == 0.0));
+    assert_eq!(mixer.limiter_skipped, 4 * CH as u64, "무음 블록마다 모든 채널의 리미터를 건너뛰어야 한다");
+    assert!(mixer.limiters.iter().take(CH).all(|l| l.is_idle()));
+}

@@ -141,6 +141,12 @@ pub struct AudioMixer {
     pub mute_gain: f32,
     pub peak_limiter_enabled: bool,
     pub limiters: Vec<crate::audio::limiter::PeakLimiter>,
+    /// 무음 채널의 리미터 건너뛰기(설계 `docs/superpowers/specs/2026-11-27-limiter-silence-skip-design.md`).
+    /// 블록의 채널 입력이 모두 0이고 리미터가 비었으면 `process()`를 부르지 않고 상태만 한 번에 넘긴다.
+    /// 소리·VU·LUFS·게인 리덕션은 늘 처리할 때와 같다. 기본은 켬, 시험과 벤치가 끄고 비교한다.
+    pub limiter_skip: bool,
+    /// 리미터를 건너뛴 (채널 × 블록) 수. 시험이 실제로 건너뛰었는지, 벤치가 얼마나 건너뛰었는지 본다.
+    pub limiter_skipped: u64,
     pub temp_room_vols: Vec<f32>,
     pub temp_room_vols_target: Vec<f32>,
     pub temp_room_vols_start: Vec<f32>,
@@ -349,6 +355,8 @@ impl AudioMixer {
             mute_gain: 1.0,
             peak_limiter_enabled,
             limiters,
+            limiter_skip: true,
+            limiter_skipped: 0,
             temp_room_vols: vec![1.0; 4096],
             temp_room_vols_target: vec![1.0; 4096],
             temp_room_vols_start: vec![1.0; 4096],
@@ -1020,6 +1028,35 @@ impl AudioMixer {
         let mute_target = if self.master_mute { 0.0 } else { 1.0 };
 
         for ch in 0..out_channels {
+            // 무음 채널의 리미터 건너뛰기: 이 블록의 입력이 모두 0이고 리미터가 비었으면(지연 줄이 모두 0, 게인 1)
+            // 아래에서 처리해도 출력은 0이다(0에 헤드룸·램프를 곱해도 0). 출력·VU는 그대로 두고 리미터 상태만
+            // 같은 표본 수만큼 한 번에 넘긴다. 입력을 한 번 훑는 비용은 process()보다 훨씬 싸다(3법칙: 할당·잠금 없음).
+            if self.peak_limiter_enabled
+                && self.limiter_skip
+                && ch < self.limiters.len()
+                && self.limiters[ch].is_idle()
+            {
+                let mut silent_frames = 0;
+                let mut silent = true;
+                for frame in 0..frames {
+                    let sample_idx = frame * out_channels + ch;
+                    if sample_idx >= output.len() {
+                        break;
+                    }
+                    if output[sample_idx] != 0.0 {
+                        silent = false;
+                        break;
+                    }
+                    silent_frames += 1;
+                }
+                if silent {
+                    self.limiters[ch].skip_silent(silent_frames);
+                    self.limiter_skipped = self.limiter_skipped.wrapping_add(1);
+                    GLOBAL_STATE.vu_levels[ch].store(0.0f32.to_bits(), Ordering::Relaxed);
+                    continue;
+                }
+            }
+
             let mut peak: f32 = 0.0;
             for frame in 0..frames {
                 let sample_idx = frame * out_channels + ch;
