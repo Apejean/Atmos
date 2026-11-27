@@ -148,6 +148,8 @@ impl DiskStreamer {
             // 못 하는 형식이면 예전처럼 처음부터 해독해 버린다.
             // 마지막으로 해독한 묶음의 다음 소스 프레임. 읽기 오류 뒤 다시 열면 여기부터 잇는다(끊긴 자리).
             let mut next_ts: u64 = 0;
+            // 찾은 뒤 이 소스 프레임 앞은 해독해 버린다(리샘플 파일이 찾기가 앞 묶음에 섰을 때).
+            let mut seek_resume: Option<u64> = None;
             if skip_samples > 0 && !needs_resampling {
                 let ch = (channels as usize).max(1);
                 let mut target = (skip_samples / ch) as u64;
@@ -159,6 +161,46 @@ impl DiskStreamer {
                 if let Some(actual_ts) = src.seek_to(target) {
                     skip_samples = target.saturating_sub(actual_ts) as usize * ch;
                     next_ts = actual_ts;
+                }
+            } else if skip_samples > 0 {
+                // 리샘플 파일도 찾는다(HANDOFF 남은 일 8). 찾는 자리는 요청한 자리보다 [RESAMPLE_WARMUP_FRAMES]만큼
+                // 앞이고, 출력 프레임으로 정수가 되는 소스 프레임(src/gcd의 배수)으로 내린다 — 그래야 새 리샘플러의 위상이
+                // 처음부터 푼 흐름의 그 자리와 같아 소리가 같다. 앞 부분은 리샘플러가 이력을 채우게 풀어 버린다.
+                // 루프에서 파일 길이를 넘는 위치(두 번째 바퀴 이후)는 바퀴 안 위치로 찾는다. 이때는 바퀴마다 리샘플
+                // 위상이 조금씩 달라 1샘플 안쪽으로 어긋날 수 있다(리샘플 파일은 동기를 약속하지 않는다, HANDOFF 동기).
+                let ch = (channels as usize).max(1);
+                let (src_rate, out_rate) = (src_sample_rate as u64, output_sample_rate as u64);
+                let g = gcd(src_rate, out_rate).max(1);
+                let (src_step, out_step) = (src_rate / g, out_rate / g);
+                let mut within_out = (skip_samples / ch) as f64;
+                if let (Some(len), true) = (total_frames, is_loop) {
+                    let loop_out = len as f64 * out_rate as f64 / src_rate as f64;
+                    if loop_out > 0.0 {
+                        within_out -= (within_out / loop_out).floor() * loop_out;
+                    }
+                }
+                let src_within = within_out * src_rate as f64 / out_rate as f64;
+                let earliest = (src_within - RESAMPLE_WARMUP_FRAMES as f64).max(0.0) as u64;
+                let start = earliest / src_step * src_step;
+                if start > 0 {
+                    if let Some(actual_ts) = src.seek_to(start) {
+                        // 보통 actual ≤ start(앞 묶음). 넘어서면 그 자리부터 잇고 위상 차이는 받아들인다.
+                        let base = if actual_ts <= start {
+                            if actual_ts < start {
+                                seek_resume = Some(start);
+                            }
+                            start as f64
+                        } else {
+                            actual_ts as f64
+                        };
+                        let base_out = if actual_ts <= start {
+                            (start / src_step * out_step) as f64
+                        } else {
+                            base * out_rate as f64 / src_rate as f64
+                        };
+                        skip_samples = (within_out - base_out).max(0.0).round() as usize * ch;
+                        next_ts = actual_ts;
+                    }
                 }
             }
 
@@ -188,7 +230,7 @@ impl DiskStreamer {
             let mut input_accumulator = vec![Vec::<f32>::new(); channels as usize];
 
             // 다시 연 뒤 이 소스 프레임 앞은 해독해 버린다(찾기가 그 앞 묶음에 서거나 찾기를 못 하는 형식).
-            let mut resume_from: Option<u64> = None;
+            let mut resume_from: Option<u64> = seek_resume;
             let mut consecutive_errors: u32 = 0;
             let mut recovery = Recovery::default();
 
@@ -321,6 +363,17 @@ impl DiskStreamer {
             first_chunk_ready,
         })
     }
+}
+
+/// 리샘플 파일을 찾을 때 요청한 자리보다 이만큼(소스 프레임) 앞에서 풀기 시작한다. 리샘플러(sinc 256탭)가 이력을
+/// 채워, 버리는 앞 부분이 지나면 처음부터 푼 흐름과 같은 소리가 된다.
+const RESAMPLE_WARMUP_FRAMES: u64 = 2048;
+
+fn gcd(mut a: u64, mut b: u64) -> u64 {
+    while b != 0 {
+        (a, b) = (b, a % b);
+    }
+    a
 }
 
 /// 다시 열기를 기다리는 동안 정지(실행 깃발)를 보는 간격. 정지에 100ms 안에 반응한다.
