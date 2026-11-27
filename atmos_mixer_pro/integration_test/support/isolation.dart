@@ -74,6 +74,11 @@ class Fixture {
       // 시스템 기본 출력 장치(engine.rs start). 장치 이름을 하드코딩하지 않는다.
       'device_name': null,
       'buffer_size': 512,
+      // 출력 설정이 빈 공연은 무음이다(#134). 서브(CH1)와 메인(CH2) 모노 그룹을 연다(키는 1부터 센다).
+      'mono_configs': {
+        for (final ch in [subChannel + 1, mainChannel + 1])
+          '$ch': {'enabled': true, 'custom_name': '', 'delay_ms': 0.0, 'eq_bands': [], 'phase_invert': false, 'gain_db': 0.0},
+      },
       'rooms': [
         {
           'id': roomId,
