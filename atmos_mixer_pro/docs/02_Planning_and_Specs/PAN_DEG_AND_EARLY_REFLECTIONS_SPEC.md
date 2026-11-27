@@ -1,5 +1,7 @@
 # `pan_deg` (DBAP 방위 트림) & `early_ref_mix` (초기반사음) 설계 명세서
 
+> **2026-11-27 갱신: `pan_deg` 부분은 지웠다(A9 정리, 사용자 결정).** DBAP 가중치·채널별 공간 게인은 계산만 하고 출력에 쓰지 않았고, 엔진 계산(`channel_pan_deg`), FRB `api_set_channel_pan_deg`, 스피커 속성 창 "Pan Trim"을 지웠다. `SpeakerNode.panDeg`는 파일 모양을 지키려고 남겼지만 쓰지 않는다. 아래 `pan_deg` 절은 기록으로만 둔다. `early_ref_mix`(초기반사음) 부분은 그대로 유효하다.
+
 - 작성일: 2026-09-09
 - 작성자: @Architect (system-architect)
 - 조사 방법: `rust/src/audio/mixer.rs`, `rust/src/audio/dsp.rs`, `rust/src/audio/acoustic.rs`, `rust/src/audio/reverb.rs`, `rust/src/common/config.rs`, `rust/src/common/commands.rs`, `rust/src/audio/engine.rs`, `rust/src/api/simple.rs`, `lib/features/exhibition/models/speaker_node.dart`, `lib/features/exhibition/models/room_zone.dart`, `lib/features/exhibition/state/{speaker_layout_state,room_zone_state}.dart`, `lib/features/exhibition/widgets/hud/speaker_inspector_panel.dart` 전수 대조.

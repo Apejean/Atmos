@@ -19,7 +19,6 @@ fn run_mono_to_stereo(
     out_channels: usize,
     enable_left: bool,
     enable_right: bool,
-    right_spatial_gain: f32,
 ) -> Vec<f32> {
     let (gc_tx, _) = crossbeam_channel::unbounded();
     let mut mixer = AudioMixer::new(48000, out_channels, 512, gc_tx, None);
@@ -34,10 +33,6 @@ fn run_mono_to_stereo(
     GLOBAL_STATE.mono_rows_open[0].store(enable_left, Ordering::SeqCst);
 
     mixer.startup_ramp.current_gain = 1.0;
-
-    // 궤적 게인이 오른쪽에만 새는지 확인하기 위해 1.0이 아닌 값을 심는다.
-    mixer.channel_spatial_gains[1] = right_spatial_gain;
-    mixer.channel_spatial_gains_target[1] = right_spatial_gain;
 
     let sound_data = Arc::new(SoundData {
         samples: vec![1.0; 512 * 200],
@@ -78,8 +73,8 @@ fn run_mono_to_stereo(
 #[test]
 fn mono_file_plays_only_on_its_own_channel() {
     // --- 시나리오 1: CH1·CH2 모두 열림 -> CH1에만 소리 ---
-    // 옆 채널 CH2가 다른 줄로 열려 있고 궤적 게인을 0.1로 심어도 CH2는 조용해야 한다. 예전에는 CH2로도 올려 냈다.
-    let out = run_mono_to_stereo(2, true, true, 0.1);
+    // 옆 채널 CH2가 다른 줄로 열려 있어도 CH2는 조용해야 한다. 예전에는 CH2로도 올려 냈다.
+    let out = run_mono_to_stereo(2, true, true);
     let left: f32 = out.iter().step_by(2).map(|s| s.abs()).sum();
     let right: f32 = out.iter().skip(1).step_by(2).map(|s| s.abs()).sum();
 
@@ -87,7 +82,7 @@ fn mono_file_plays_only_on_its_own_channel() {
     assert_eq!(right, 0.0, "옆 채널 CH2로는 소리가 나가면 안 된다. right={}", right);
 
     // --- 시나리오 2: 오른쪽 닫힘 -> CH1에만 소리 ---
-    let out = run_mono_to_stereo(2, true, false, 1.0);
+    let out = run_mono_to_stereo(2, true, false);
     let left: f32 = out.iter().step_by(2).map(|s| s.abs()).sum();
     let right: f32 = out.iter().skip(1).step_by(2).map(|s| s.abs()).sum();
 
@@ -102,7 +97,7 @@ fn mono_file_plays_only_on_its_own_channel() {
     // 트랙 출력 자리(모노 파일은 모노 줄 CH1)가 꺼져 있으면 화면에 "출력 설정에 없음"이 뜨고 엔진도 그 트랙을
     // 무음으로 둔다(사용자 결정 2026-11-21 "A. 안내 뜨는 트랙은 무음", 2026-11-22 "이전처럼 에이블톤처럼 따로",
     // core::output_groups). 예전에는 열린 오른쪽으로만 소리가 났다.
-    let out = run_mono_to_stereo(2, false, true, 1.0);
+    let out = run_mono_to_stereo(2, false, true);
     let left: f32 = out.iter().step_by(2).map(|s| s.abs()).sum();
     let right: f32 = out.iter().skip(1).step_by(2).map(|s| s.abs()).sum();
 

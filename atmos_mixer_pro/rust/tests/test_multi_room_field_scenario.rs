@@ -9,7 +9,7 @@ use rust_lib_atmos_mixer_pro::api::simple::api_update_spatial_config_json;
 use rust_lib_atmos_mixer_pro::audio::acoustic::compute_early_reflection_taps;
 use rust_lib_atmos_mixer_pro::audio::mixer::AudioMixer;
 use rust_lib_atmos_mixer_pro::common::commands::AudioCommand;
-use rust_lib_atmos_mixer_pro::common::config::{Point3D, RoomZone, Trajectory};
+use rust_lib_atmos_mixer_pro::common::config::{Point3D, RoomZone};
 use rust_lib_atmos_mixer_pro::core::state::GLOBAL_STATE;
 
 const CH: usize = 16;
@@ -172,34 +172,6 @@ fn 헤드폰_전파_거리도_자기_방_기준이다() {
                 );
                 assert!(field.binaural.debug_propagation_distance(ch) > 0.0, "ch{ch} 거리가 0");
             }
-        }
-    }
-}
-
-#[test]
-fn 궤적은_대상_방_스피커에만_나가고_pan_deg도_그_방_중심으로_돈다() {
-    let traj = Trajectory {
-        waypoints: vec![],
-        current_position: p(3.0, 2.0, 1.5),
-        target_room_zone_id: Some("1002".to_string()),
-    };
-    let run = |mut m: AudioMixer| {
-        m.trajectory = Some(traj.clone());
-        m.channel_pan_deg[7] = 90.0; // 중형 방 스피커 하나를 방 중심 기준으로 90° 돌린다
-        let mut buf = vec![0.0f32; CH * 512];
-        m.process(&mut buf, CH);
-        m.channel_spatial_gains_target.clone()
-    };
-
-    let field = run(field_mixer());
-    let iso = run(isolated_mixer(1002));
-
-    for (ch, rid, _) in speakers() {
-        if rid == 1002 {
-            assert!(field[ch] > 0.0, "대상 방 ch{ch}에 소리가 없다");
-            assert_eq!(field[ch], iso[ch], "대상 방 ch{ch} 게인");
-        } else {
-            assert_eq!(field[ch], 0.0, "다른 방(방 {rid}) ch{ch}로 소리가 샜다");
         }
     }
 }

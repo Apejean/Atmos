@@ -1010,13 +1010,6 @@ impl AudioEngine {
                         let taps = mixer.channel_early_ref_taps[ch];
                         mixer.apply_early_reflection_taps(ch, &taps);
                     }
-
-                    mixer.recalculate_spatial_dsp();
-                }
-                AudioCommand::SetChannelPanDeg { channel, pan_deg } => {
-                    if channel < mixer.channel_pan_deg.len() {
-                        mixer.channel_pan_deg[channel] = pan_deg;
-                    }
                 }
                 AudioCommand::SetChannelEarlyRefMix { channel, mix } => {
                     // 실제 적용량은 믹서가 방 시뮬레이션 몫과 합쳐서 계산한다
@@ -1033,7 +1026,6 @@ impl AudioEngine {
                             ..Default::default()
                         });
                     }
-                    mixer.recalculate_spatial_dsp();
                 }
                 AudioCommand::UpdateSingleBandEq {
                     channel,
@@ -1090,7 +1082,6 @@ impl AudioEngine {
                             traj.current_position = point;
                         }
                     }
-                    mixer.recalculate_spatial_dsp();
                 }
                 AudioCommand::ApplyGlobalTuning {
                     master_headroom_db,

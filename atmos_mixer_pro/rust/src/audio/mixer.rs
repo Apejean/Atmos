@@ -126,9 +126,6 @@ pub struct AudioMixer {
     pub channel_er_effect_scale: Vec<f32>,
     /// 헤드폰 미리듣기에서 들려줄 방(지금 보고 있는 방). None이면 전체 채널.
     binaural_room: Option<u32>,
-    // pan_deg 방위 트림(도 단위). 채널 하드웨어 고정 길이(= channels). DBAP 계산의 가중치 입력(dx/dy)에만
-    // 적용되며 물리적 channel_positions/시간정렬은 건드리지 않는다.
-    pub channel_pan_deg: Vec<f32>,
     // 채널별 초기반사음 원시 탭(6슬롯). UpdateSpatialConfig로 통째 교체되며 channel_positions와 길이가
     // 다를 수 있음(프론트엔드가 통째로 교체). engine.rs 핸들러가 channel_dsp[ch].taps로 값만 이관한다.
     pub channel_early_ref_taps: Vec<[crate::audio::acoustic::EarlyReflectionTap; crate::audio::acoustic::MAX_EARLY_REFLECTION_TAPS]>,
@@ -148,11 +145,6 @@ pub struct AudioMixer {
     pub temp_room_vols_target: Vec<f32>,
     pub temp_room_vols_start: Vec<f32>,
     pub temp_room_vols_phase: Vec<f32>,
-    pub channel_spatial_gains: Vec<f32>,
-    pub channel_spatial_gains_target: Vec<f32>,
-    pub channel_spatial_gains_start: Vec<f32>,
-    pub channel_spatial_gains_phase: Vec<f32>,
-    pub temp_spatial_weights: Vec<f32>,
     pub analysis_tx: Option<rtrb::Producer<f32>>,
     pub temp_vals: Vec<f32>,
     /// 믹서 폭(new의 채널 수). 옛 경로가 파일에서 읽는 채널 수의 한도다(예전의 `temp_vals` 길이). `temp_vals`는 표
@@ -177,17 +169,11 @@ pub struct AudioMixer {
     /// 첫 블록에는 게이트 게인을 목표로 바로 맞춘다(새 믹서가 열린 채널을 0에서 키우지 않게).
     pub gate_gain_ready: bool,
     
-    // Pre-allocated buffers for spatial dsp recalculation
-    pub temp_base_delays: Vec<f32>,
-    pub temp_base_eqs: Vec<Vec<crate::common::config::EqBand>>,
-    pub temp_channel_dists: Vec<f32>,
-
     pub master_clock: f64,
     pub spatializer: Option<crate::audio::spatial::Spatializer3D>,
     /// 옛 마스터 리버브. 명령(SetSpatialReverb 등)은 값을 받아 두지만 출력에는 걸지 않는다(process 참고).
     pub reverb: crate::audio::reverb::VirtualRoomReverb,
     pub binaural: crate::audio::binaural::VirtualMixRoomBinaural,
-    pub smoothed_trajectory_pos: Option<crate::common::config::Point3D>,
     // Bass Management (LR24) — 방별
     /// 베이스 매니지먼트 적용량(0=바이패스, 1=완전 분할). 서브 지정 변경을
     /// BASS_MANAGEMENT_RAMP_S에 걸쳐 잇는다(Law 3).
@@ -319,7 +305,6 @@ impl AudioMixer {
                     }
                 }
                 
-                // Auto Boundary EQ and Acoustic Delay is now handled by recalculate_spatial_dsp()
                 // --------------------------------------------------------------------
                 room_zones = config.room_zones.clone();
                 trajectory = config.global_trajectory.clone();
@@ -355,7 +340,6 @@ impl AudioMixer {
             channel_er_mix: vec![0.0; channels],
             channel_er_effect_scale: vec![0.0; channels],
             binaural_room: None,
-            channel_pan_deg: vec![0.0; channels],
             channel_early_ref_taps: vec![[crate::audio::acoustic::EarlyReflectionTap::default(); crate::audio::acoustic::MAX_EARLY_REFLECTION_TAPS]; channels],
             listener_position: None,
             room_zones,
@@ -369,11 +353,6 @@ impl AudioMixer {
             temp_room_vols_target: vec![1.0; 4096],
             temp_room_vols_start: vec![1.0; 4096],
             temp_room_vols_phase: vec![1.0; 4096],
-            channel_spatial_gains: vec![1.0; channels],
-            channel_spatial_gains_target: vec![1.0; channels],
-            channel_spatial_gains_start: vec![1.0; channels],
-            channel_spatial_gains_phase: vec![1.0; channels],
-            temp_spatial_weights: vec![0.0; channels],
             analysis_tx,
             temp_vals: vec![0.0; channels.max(crate::audio::wav_reader::MAX_FILE_CHANNELS as usize)],
             mix_width: channels,
@@ -383,9 +362,6 @@ impl AudioMixer {
             channel_gate_gain: vec![0.0; 4096],
             temp_gate_target: vec![0.0; 4096],
             gate_gain_ready: false,
-            temp_base_delays: vec![0.0; channels],
-            temp_base_eqs: (0..channels).map(|_| Vec::with_capacity(32)).collect(),
-            temp_channel_dists: vec![0.0; channels],
             master_clock: 0.0,
             spatializer: None,
             reverb: crate::audio::reverb::VirtualRoomReverb::new(sample_rate as f32),
@@ -395,7 +371,6 @@ impl AudioMixer {
                 block_size,
                 sample_rate as f32,
             ),
-            smoothed_trajectory_pos: trajectory.as_ref().map(|t| t.current_position.clone()),
             bm_mix: 0.0,
             // 서브가 지정되기 전(엔진 기동 직후)에는 베이스 매니지먼트가 없다. 서브 지정은
             // 공간 설정 payload로 들어온다(simple.rs api_update_spatial_config_json).
@@ -418,8 +393,6 @@ impl AudioMixer {
             f.set_crossover_freq(LFE_TRACK_LPF_HZ, sample_rate as f32);
         }
         
-        mixer.recalculate_spatial_dsp();
-
         // 사용자가 켜 둔 바이노럴 상태를 새 믹서가 이어받는다(state.rs 참고).
         mixer.binaural.enabled = crate::core::state::GLOBAL_STATE
             .binaural_enabled
@@ -514,115 +487,6 @@ impl AudioMixer {
             }
         }
 
-        let active_ch = out_channels.min(self.channel_spatial_gains_target.len());
-        
-        self.channel_spatial_gains_target[..active_ch].fill(1.0);
-        self.temp_spatial_weights[..active_ch].fill(0.0);
-
-        if let Some(traj) = &self.trajectory {
-            if let Some(current_pos) = &mut self.smoothed_trajectory_pos {
-                // 1-pole Low-pass filter (Exponential Smoothing) for 60fps OSC
-                let alpha = 0.15; // Smooth over chunks to remove zipper noise
-                current_pos.x += alpha * (traj.current_position.x - current_pos.x);
-                current_pos.y += alpha * (traj.current_position.y - current_pos.y);
-                current_pos.z += alpha * (traj.current_position.z - current_pos.z);
-            } else {
-                self.smoothed_trajectory_pos = Some(traj.current_position.clone());
-            }
-        } else {
-            self.smoothed_trajectory_pos = None;
-        }
-
-        let mut sum_sq = 0.0;
-        let mut min_dist = f32::MAX;
-        let blur_radius = 2.0f32;
-
-        for ch in 0..active_ch {
-            let mut gain = 1.0;
-            if ch < self.channel_positions.len() {
-                if let Some(pos) = &self.channel_positions[ch] {
-                    // 1. 스피커가 속한 방에 연결(acoustic::bind_channel_zone 참고)
-                    let bound_room_id = crate::audio::acoustic::bind_channel_zone(
-                        &self.room_zones,
-                        self.channel_room_ids.get(ch).copied().flatten(),
-                        pos,
-                    )
-                    .map(|z| z.room_id);
-                    if let Some(rid) = bound_room_id {
-                        for (room_id, rvol) in self.room_volumes.iter().flatten() {
-                            if *room_id == rid {
-                                gain *= *rvol;
-                                break;
-                            }
-                        }
-                    }
-                    
-                    // 2. Trajectory DBAP Weight Collection
-                    if let Some(traj) = &self.trajectory {
-                        let mut in_target_room = true;
-                        if let Some(target_zone_str) = &traj.target_room_zone_id {
-                            let target_rid = target_zone_str.parse::<u32>().unwrap_or_else(|_| crate::common::utils::hash_id(target_zone_str));
-                            if bound_room_id != Some(target_rid) {
-                                in_target_room = false;
-                            }
-                        }
-
-                        if in_target_room {
-                            let smoothed_pos = self.smoothed_trajectory_pos.as_ref().unwrap_or(&traj.current_position);
-
-                            // pan_deg 방위 트림: 바인딩된 RoomZone 수평 중심을 피벗으로 DBAP 가중치 계산용
-                            // 유효 위치(eff_x/eff_y)만 회전시킨다. 물리적 pos.x/pos.y 자체는 불변(시간정렬/
-                            // off-axis EQ는 recalculate_spatial_dsp()에서 원본 좌표를 그대로 사용).
-                            let pan_deg = self.channel_pan_deg.get(ch).copied().unwrap_or(0.0);
-                            let (eff_x, eff_y) = if pan_deg != 0.0 {
-                                match bound_room_id.and_then(|rid| self.room_zones.iter().find(|z| z.room_id == rid)) {
-                                    Some(zone) => {
-                                        let pivot_x = (zone.boundary_min.x + zone.boundary_max.x) * 0.5;
-                                        let pivot_y = (zone.boundary_min.y + zone.boundary_max.y) * 0.5;
-                                        let theta = pan_deg.to_radians();
-                                        let (sin_t, cos_t) = theta.sin_cos();
-                                        let dx0 = pos.x - pivot_x;
-                                        let dy0 = pos.y - pivot_y;
-                                        (pivot_x + dx0 * cos_t - dy0 * sin_t, pivot_y + dx0 * sin_t + dy0 * cos_t)
-                                    }
-                                    None => (pos.x, pos.y), // 미바인딩 시 무동작
-                                }
-                            } else {
-                                (pos.x, pos.y)
-                            };
-
-                            let dx = eff_x - smoothed_pos.x;
-                            let dy = eff_y - smoothed_pos.y;
-                            let dz = pos.z - smoothed_pos.z;
-                            let dist = (dx*dx + dy*dy + dz*dz).sqrt();
-                            
-                            if dist < min_dist {
-                                min_dist = dist;
-                            }
-                            
-                            let effective_blur = blur_radius * (1.0 + traj.current_position.size * 3.0);
-                            let weight = 1.0 / (dist.powi(2) + effective_blur.powi(2));
-                            self.temp_spatial_weights[ch] = weight;
-                            sum_sq += weight * weight;
-                        } else {
-                            self.temp_spatial_weights[ch] = 0.0;
-                        }
-                    }
-                }
-            }
-            self.channel_spatial_gains_target[ch] = gain;
-        }
-
-        // Apply DBAP Normalization & Global Distance Attenuation
-        if self.trajectory.is_some() {
-            let norm_factor = if sum_sq > 0.0 { 1.0 / sum_sq.sqrt() } else { 0.0 };
-            let distance_attenuation = 1.0 / min_dist.max(1.0);
-
-            for ch in 0..active_ch {
-                let pan_ratio = self.temp_spatial_weights[ch] * norm_factor;
-                self.channel_spatial_gains_target[ch] *= pan_ratio * distance_attenuation;
-            }
-        }
 
         let mut temp_vals = std::mem::take(&mut self.temp_vals);
 
@@ -683,29 +547,8 @@ impl AudioMixer {
                     }
                 }
             }
-            // Anti-zipper smoothing for spatial automation (~4ms time constant) and 50ms Equal-Power Crossfade for Scene changes
+            // 방 볼륨(장면 전환) 50ms 등전력 크로스페이드의 한 걸음.
             let fade_step = 1.0 / (self.sample_rate as f32 * 0.05); // 50ms
-            
-            for ch in 0..active_ch {
-                if (self.channel_spatial_gains_target[ch] - self.channel_spatial_gains[ch]).abs() > 0.1 && self.channel_spatial_gains_phase[ch] >= 1.0 {
-                    self.channel_spatial_gains_start[ch] = self.channel_spatial_gains[ch];
-                    self.channel_spatial_gains_phase[ch] = 0.0;
-                }
-                
-                if self.channel_spatial_gains_phase[ch] < 1.0 {
-                    self.channel_spatial_gains_phase[ch] = (self.channel_spatial_gains_phase[ch] + fade_step).min(1.0);
-                    let p = self.channel_spatial_gains_phase[ch];
-                    let s = self.channel_spatial_gains_start[ch];
-                    let t = self.channel_spatial_gains_target[ch];
-                    self.channel_spatial_gains[ch] = s * (p * std::f32::consts::FRAC_PI_2).cos() + t * (p * std::f32::consts::FRAC_PI_2).sin();
-                } else {
-                    self.channel_spatial_gains[ch] += 0.005 * (self.channel_spatial_gains_target[ch] - self.channel_spatial_gains[ch]);
-                }
-                
-                if ch < GLOBAL_STATE.spatial_gains.len() {
-                    GLOBAL_STATE.spatial_gains[ch].store(self.channel_spatial_gains[ch].to_bits(), Ordering::Relaxed);
-                }
-            }
 
             // 더킹 무게를 프레임마다 움직인다(내림 150ms·올림 300ms 기울기, 기본 설정에서는 예전과 비트 단위로 같다).
             self.ducking.ducking_weight = crate::core::ducking::step_weight(
@@ -1319,12 +1162,8 @@ impl AudioMixer {
     /// RoomZone의 수평 중심이다(고도는 방위각 계산에 안 쓰므로 ear_level은
     /// 참조하지 않는다).
     ///
-    /// 룸 바인딩 판정은 pan_deg 피벗 계산(위 process() 내부)이 이미 하는
-    /// point-in-room 루프와 로직이 겹친다. 지금은 그 코드를 공유 헬퍼로
-    /// 뽑지 않고 여기 별도로 작게 둔다 — 기존에 검증된 pan_deg/초기반사음
-    /// 경로를 건드리지 않는 것이 이번 변경의 위험을 줄인다는 판단이다
-    /// (스펙 문서의 "권장"일 뿐 필수 요구는 아니다). 세 번째 자리가 생겼으니
-    /// 다음에 손댈 때는 공유 헬퍼로 통합을 고려할 것.
+    /// 룸 바인딩 판정은 초기반사음 경로의 point-in-room 루프와 로직이 겹친다. 지금은 공유 헬퍼로
+    /// 뽑지 않고 여기 별도로 작게 둔다(예전의 pan_deg 피벗 계산은 2026-11-27 A9 정리로 지웠다).
     /// 채널의 초기반사 탭을 DSP 스무딩 타겟으로 옮기고, 연출용 정규화 배율을 갱신한다.
     /// 커맨드 처리(UpdateSpatialConfig)에서 호출된다 — 고정 배열 대입만 하고 힙 할당은 없다.
     pub fn apply_early_reflection_taps(
@@ -1587,224 +1426,6 @@ impl AudioMixer {
                     self.binaural.set_channel_propagation(ch, distance, reference);
                 }
                 None => self.binaural.clear_channel_propagation(ch),
-            }
-        }
-    }
-
-    pub fn recalculate_spatial_dsp(&mut self) {
-        if let Ok(config_guard) = crate::core::state::GLOBAL_STATE.config.try_read() {
-            if let Some(config) = config_guard.as_ref() {
-                let max_ch = self.channel_dsp.len();
-                let max_pos = self.channel_positions.len();
-
-                // 1. Collect base delay and EQs from config
-                let mut base_delays = std::mem::take(&mut self.temp_base_delays);
-                let mut base_eqs = std::mem::take(&mut self.temp_base_eqs);
-                let mut channel_dists = std::mem::take(&mut self.temp_channel_dists);
-                
-                // Ensure capacities match
-                if base_delays.len() < max_ch { base_delays.resize(max_ch, 0.0); }
-                if base_eqs.len() < max_ch { base_eqs.resize(max_ch, Vec::new()); }
-                if channel_dists.len() < max_pos { channel_dists.resize(max_pos, 0.0); }
-                
-                for i in 0..max_ch {
-                    base_delays[i] = 0.0;
-                    base_eqs[i].clear();
-                }
-                for i in 0..max_pos {
-                    channel_dists[i] = 0.0;
-                }
-                
-                let mut apply_config = |ch_key: u32, setting: &crate::common::config::ChannelSetting, ch_offset: usize, count: usize| {
-                    if ch_key > 0 {
-                        let ch_idx_base = (ch_key - 1) as usize + ch_offset;
-                        for i in 0..count {
-                            let ch_idx = ch_idx_base + i;
-                            if ch_idx < max_ch {
-                                base_delays[ch_idx] = setting.delay_ms;
-                                base_eqs[ch_idx].clone_from(&setting.eq_bands);
-                            }
-                        }
-                    }
-                };
-
-                // 모노 줄이 마지막에 남게 멀티 → 스테레오 → 모노 순서(AudioMixer::new와 같다).
-                for (&ch_key, setting) in &config.multi_configs { apply_config(ch_key, setting, 0, 6); }
-                for (&ch_key, setting) in &config.stereo_configs { apply_config(ch_key, setting, 0, 2); }
-                for (&ch_key, setting) in &config.mono_configs { apply_config(ch_key, setting, 0, 1); }
-
-                // 2. Find target pos
-                let target_pos = if let Some(traj) = &self.trajectory {
-                    Some(traj.current_position.clone())
-                } else {
-                    None
-                };
-
-                // 3. Pre-calculate max_dist for time alignment
-                let mut max_dist = 0.0_f32;
-                
-                let target_room_id = if let Some(traj) = &self.trajectory {
-                    traj.target_room_zone_id.as_ref().map(|s| s.parse::<u32>().unwrap_or_else(|_| crate::common::utils::hash_id(s)))
-                } else {
-                    None
-                };
-
-                for ch_idx in 0..self.channel_positions.len() {
-                    if let Some(pos) = &self.channel_positions[ch_idx] {
-                        let bound_room_id = crate::audio::acoustic::bind_channel_zone(
-                            &self.room_zones,
-                            self.channel_room_ids.get(ch_idx).copied().flatten(),
-                            pos,
-                        )
-                        .map(|z| z.room_id);
-
-                        let in_target_room = match target_room_id {
-                            Some(target_id) => bound_room_id == Some(target_id),
-                            None => true,
-                        };
-
-                        if in_target_room {
-                            let t_pos = if let Some(tp) = &target_pos {
-                                tp.clone()
-                            } else {
-                                let zone = bound_room_id
-                                    .and_then(|rid| self.room_zones.iter().find(|z| z.room_id == rid));
-                                crate::audio::acoustic::listening_point(
-                                    self.listener_position.as_ref(),
-                                    zone,
-                                    pos,
-                                )
-                            };
-                            
-                            let dist = crate::audio::acoustic::distance_3d(pos, &t_pos);
-                            channel_dists[ch_idx] = dist;
-                            if dist > max_dist {
-                                max_dist = dist;
-                            }
-                        } else {
-                            channel_dists[ch_idx] = -1.0;
-                        }
-                    }
-                }
-
-                // 4. Apply Time Alignment & Dynamic Off-axis EQ
-                // channel_positions는 UpdateSpatialConfig 커맨드로 프론트엔드가 통째로 교체하므로
-                // channel_dsp(가상 채널 고정 길이)와 길이가 다를 수 있음 -> max_pos로 하한 클램프
-                for ch_idx in 0..max_ch.min(max_pos) {
-                    let dist = channel_dists[ch_idx];
-                    if dist < 0.0 {
-                        continue; // Not participating in spatial DSP (isolated)
-                    }
-
-                    if let Some(pos) = &self.channel_positions[ch_idx] {
-                        let matched_zone = crate::audio::acoustic::bind_channel_zone(
-                            &self.room_zones,
-                            self.channel_room_ids.get(ch_idx).copied().flatten(),
-                            pos,
-                        );
-
-                        let t_pos = if let Some(tp) = &target_pos {
-                            tp.clone()
-                        } else {
-                            crate::audio::acoustic::listening_point(
-                                self.listener_position.as_ref(),
-                                matched_zone,
-                                pos,
-                            )
-                        };
-                        
-                        // Phase 2: Time Alignment Formula
-                        let delay_seconds = (max_dist - dist) / crate::audio::acoustic::SPEED_OF_SOUND_M_S;
-                        let acoustic_delay_ms = delay_seconds * 1000.0;
-                        let zone_delay = matched_zone.map(|z| z.boundary_delay_ms).unwrap_or(0.0);
-                        
-                        let base_delay = base_delays[ch_idx];
-                        // 채널별 딜레이/EQ의 소유자는 Dart의 음향 동기화
-                        // (acoustic_sync_provider)다. 여기서도 같은 필드를
-                        // 계산해 쓰면 두 시스템이 서로 덮어써서, 나중에 도착한
-                        // 명령에 따라 값이 요동친다(실기 보고: "스피커를 누르면
-                        // EQ 계열 값이 미묘하게 바뀐다"). 계산 자체는 남겨두되
-                        // (아래 로그/후속 작업 참고) 기록하지 않는다.
-                        //
-                        // 공기 흡음도 여기(채널 DSP = 실제 스피커 출력)에 걸지 않는다. 현장에서는
-                        // 진짜 공기가 흡음하므로 두 번 깎인다. 헤드폰 미리듣기에서만 바이노럴
-                        // 전파 흉내가 건다(recalculate_binaural_propagation).
-                        let _ = base_delay + acoustic_delay_ms + zone_delay;
-
-                        // Phase 2: Dispersion Angle off-axis EQ roll-off
-                        let mut dynamic_eq = None;
-                        if pos.dispersion_angle > 0.0 {
-                            let forward_vec = crate::audio::acoustic::calculate_forward_vector(pos.pitch_tilt, pos.yaw_rotation);
-                            let to_target_vec = crate::audio::acoustic::vector_from_to(pos, &t_pos);
-                            
-                            let f_norm = crate::audio::acoustic::normalize(&forward_vec);
-                            let t_norm = crate::audio::acoustic::normalize(&to_target_vec);
-                            let theta = crate::audio::acoustic::angle_between_vectors(&f_norm, &t_norm);
-                            
-                            let half_dispersion = pos.dispersion_angle / 2.0;
-                            if theta > half_dispersion {
-                                let excess_angle = theta - half_dispersion;
-                                let roll_off_gain = - (excess_angle * 0.5).min(24.0); // max -24dB attenuation
-                                
-                                dynamic_eq = Some(crate::common::config::EqBand {
-                                    enabled: true,
-                                    freq: 4000.0,
-                                    gain: roll_off_gain,
-                                    q_factor: 0.707,
-                                    filter_type: crate::common::config::EqType::HighShelf,
-                                    slope_db_per_oct: 12,
-                                });
-                            }
-                        }
-
-                        // Apply Base EQ, Boundary EQ, and Dynamic EQ
-                        let final_eqs = &mut base_eqs[ch_idx];
-                        
-                        if let Some(zone) = matched_zone {
-                            for b_eq in &zone.boundary_eq_bands {
-                                let mut already_exists = false;
-                                for band in final_eqs.iter_mut() {
-                                    if band.enabled && (band.freq - b_eq.freq).abs() < 1.0 && band.filter_type == b_eq.filter_type {
-                                        already_exists = true;
-                                        band.gain = b_eq.gain;
-                                        break;
-                                    }
-                                }
-                                if !already_exists {
-                                    final_eqs.push(b_eq.clone());
-                                }
-                            }
-                        }
-
-                        if let Some(dyn_eq) = dynamic_eq {
-                            let mut already_exists = false;
-                            for band in final_eqs.iter_mut() {
-                                if band.enabled && (band.freq - dyn_eq.freq).abs() < 1.0 && band.filter_type == dyn_eq.filter_type {
-                                    already_exists = true;
-                                    band.gain = dyn_eq.gain;
-                                    break;
-                                }
-                            }
-                            if !already_exists {
-                                final_eqs.push(dyn_eq);
-                            }
-                        }
-
-                        // Make sure we don't exceed MAX_EQ_BANDS by truncating
-                        if final_eqs.len() > crate::audio::dsp::dsp_utils::MAX_EQ_BANDS {
-                            final_eqs.truncate(crate::audio::dsp::dsp_utils::MAX_EQ_BANDS);
-                        }
-
-                        // 위와 같은 이유로 EQ도 여기서 기록하지 않는다.
-                        // 오프액시스(분산각) 롤오프는 Dart 쪽 음향 동기화로
-                        // 옮겨서 FX 패널에 보이고 엔지니어가 수정할 수 있게 했다.
-                        let _ = &final_eqs;
-                    }
-                }
-                
-                self.temp_base_delays = base_delays;
-                self.temp_base_eqs = base_eqs;
-                self.temp_channel_dists = channel_dists;
             }
         }
     }

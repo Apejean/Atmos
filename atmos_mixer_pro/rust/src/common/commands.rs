@@ -138,10 +138,6 @@ pub enum AudioCommand {
         channel_sim_bands:
             Vec<[crate::common::config::EqBand; crate::audio::binaural::MAX_SIM_BANDS]>,
     },
-    SetChannelPanDeg {
-        channel: usize,
-        pan_deg: f32,
-    },
     SetChannelEarlyRefMix {
         channel: usize,
         mix: f32,

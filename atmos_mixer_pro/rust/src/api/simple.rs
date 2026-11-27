@@ -254,20 +254,6 @@ pub fn api_get_rta_magnitudes() -> Vec<f32> {
     vec![-140.0; crate::audio::rta::RTA_BIN_COUNT]
 }
 
-pub fn api_get_spatial_gains() -> Vec<f32> {
-    let out_channels = GLOBAL_STATE
-        .active_device_channels
-        .load(std::sync::atomic::Ordering::Relaxed) as usize;
-    let limit = out_channels.min(GLOBAL_STATE.spatial_gains.len());
-    let mut gains = Vec::with_capacity(limit);
-    for i in 0..limit {
-        gains.push(f32::from_bits(
-            GLOBAL_STATE.spatial_gains[i].load(std::sync::atomic::Ordering::Relaxed),
-        ));
-    }
-    gains
-}
-
 pub fn api_calculate_eq_response(bands: Vec<crate::common::config::EqBand>) -> Vec<f32> {
     let freqs = crate::audio::eq_response::generate_log_frequencies(20.0, 20000.0, 100);
     crate::audio::eq_response::calculate_total_eq_curve(&bands, 48000.0, &freqs)
@@ -2949,17 +2935,6 @@ fn sim_band_from_json(v: &serde_json::Value) -> crate::common::config::EqBand {
         filter_type,
         slope_db_per_oct: 12,
     }
-}
-
-#[flutter_rust_bridge::frb(sync)]
-pub fn api_set_channel_pan_deg(channel: usize, pan_deg: f32) {
-    // 명령 추적은 오디오 스레드 밖(보내는 쪽)에서 찍는다. 콜백 안의 eprintln!은 블로킹이다(3법칙 2).
-    if crate::core::state::debug_flags::trace_cmd() {
-        eprintln!("[CMD] SetChannelPanDeg ch={} deg={}", channel, pan_deg);
-    }
-    let _ = crate::core::state::GLOBAL_STATE
-        .command_sender
-        .send(crate::common::commands::AudioCommand::SetChannelPanDeg { channel, pan_deg });
 }
 
 #[flutter_rust_bridge::frb(sync)]

@@ -51,7 +51,6 @@ pub struct GlobalEngineState {
     // VU levels for up to 4096 output channels, stored as f32 bits
     pub vu_levels: Vec<AtomicU32>,
     // Spatial gains for up to 4096 output channels, stored as f32 bits
-    pub spatial_gains: Vec<AtomicU32>,
     pub lufs_master: [AtomicU32; 4],
     pub sound_cache: RwLock<HashMap<String, Arc<SoundData>>>,
     pub preloaded_sounds: RwLock<HashMap<String, Arc<SoundData>>>,
@@ -126,11 +125,9 @@ impl GlobalEngineState {
         let (sender, receiver) = crossbeam_channel::unbounded();
 
         let mut vu = Vec::with_capacity(4096);
-        let mut sg = Vec::with_capacity(4096);
         let mut enabled = Vec::with_capacity(4096);
         for _ in 0..4096 {
             vu.push(AtomicU32::new(0));
-            sg.push(AtomicU32::new(1.0f32.to_bits()));
             enabled.push(AtomicBool::new(true));
         }
         let lufs_master = [
@@ -156,7 +153,6 @@ impl GlobalEngineState {
             stereo_rows_open: (0..4096).map(|_| AtomicBool::new(true)).collect(),
             multi_rows_open: (0..4096).map(|_| AtomicBool::new(true)).collect(),
             vu_levels: vu,
-            spatial_gains: sg,
             lufs_master,
             sound_cache: RwLock::new(HashMap::new()),
             preloaded_sounds: RwLock::new(HashMap::new()),
