@@ -15,6 +15,7 @@ import 'package:atmos_mixer_pro/core/utils/rust_library.dart';
 import 'package:atmos_mixer_pro/core/utils/ui_error_reporter.dart';
 import 'package:atmos_mixer_pro/src/rust/api/ui_log.dart';
 import 'package:atmos_mixer_pro/core/state/config_notice.dart';
+import 'package:atmos_mixer_pro/core/input/duplicate_click_filter.dart';
 import 'package:atmos_mixer_pro/src/rust/api/prefs_file.dart';
 
 import 'package:atmos_mixer_pro/features/splash/screens/audio_init_splash_screen.dart';
@@ -27,7 +28,9 @@ final uiErrorReporter = UiErrorReporter(
 );
 
 Future<void> main(List<String> args) async {
-  WidgetsFlutterBinding.ensureInitialized();
+  // 원격 제어가 클릭 한 번을 두 번으로 보내는 것을 앱 입구에서 거른다(core/input/duplicate_click_filter.dart).
+  // 다른 바인딩보다 먼저 만들어야 걸린다.
+  AtmosBinding.ensureInitialized();
 
   // Initialize rust bridge
   //
