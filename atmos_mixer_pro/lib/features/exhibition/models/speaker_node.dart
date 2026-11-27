@@ -34,6 +34,8 @@ class SpeakerNode {
   /// 그 주석을 믿고 3D 씬 부호를 뒤집었다가 Auto-Aim이 거꾸로 조준한 적이
   /// 있다. 코드가 아니라 주석이 틀렸던 것이다.)
   final double pitchTilt;
+  /// 쓰지 않는다(2026-11-27 A9 정리: 엔진의 pan 계산과 화면 조절을 지웠다). 예전 프로젝트 파일·맥 판과
+  /// 같은 모양을 지키려고 읽고 쓰기만 한다.
   final double panDeg;
   final double reverbSend;
   final double earlyRefMix;

@@ -84,9 +84,6 @@ Future<void> apiClearPreloadedSounds() =>
 Future<Float32List> apiGetRtaMagnitudes() =>
     RustLib.instance.api.crateApiSimpleApiGetRtaMagnitudes();
 
-Future<Float32List> apiGetSpatialGains() =>
-    RustLib.instance.api.crateApiSimpleApiGetSpatialGains();
-
 Future<Float32List> apiCalculateEqResponse({required List<EqBand> bands}) =>
     RustLib.instance.api.crateApiSimpleApiCalculateEqResponse(bands: bands);
 
@@ -291,12 +288,6 @@ Future<void> apiApplyGlobalTuning({
 Future<void> apiUpdateSpatialConfigJson({required String jsonPayload}) =>
     RustLib.instance.api.crateApiSimpleApiUpdateSpatialConfigJson(
       jsonPayload: jsonPayload,
-    );
-
-void apiSetChannelPanDeg({required BigInt channel, required double panDeg}) =>
-    RustLib.instance.api.crateApiSimpleApiSetChannelPanDeg(
-      channel: channel,
-      panDeg: panDeg,
     );
 
 void apiSetChannelEarlyRefMix({required BigInt channel, required double mix}) =>

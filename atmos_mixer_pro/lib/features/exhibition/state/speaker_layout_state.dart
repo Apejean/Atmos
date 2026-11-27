@@ -195,8 +195,6 @@ class SpeakerLayoutState extends Notifier<List<SpeakerNode>> {
         final chIdx = node.channel;
         rust_api.apiSetChannelReverbSend(
             channel: BigInt.from(chIdx), send: node.reverbSendNormalized);
-        rust_api.apiSetChannelPanDeg(
-            channel: BigInt.from(chIdx), panDeg: node.panDeg);
         rust_api.apiSetChannelEarlyRefMix(
             channel: BigInt.from(chIdx), mix: node.earlyRefMix.clamp(0.0, 1.0));
       } catch (_) {
@@ -221,11 +219,10 @@ class SpeakerLayoutState extends Notifier<List<SpeakerNode>> {
     // Sync to Rust Backend (0-indexed channel, normalized 0.0 ~ 1.0 send)
     try {
       // SpeakerNode.channel은 이미 0-based다(첫 스피커가 channel 0으로 생성되고,
-      // UI는 'Output CH ${channel + 1}'로 표시한다). 엔진의 channel_dsp /
-      // channel_pan_deg 인덱스와 그대로 1:1 대응하므로 변환하면 안 된다.
+      // UI는 'Output CH ${channel + 1}'로 표시한다). 엔진의 channel_dsp 인덱스와 그대로 1:1 대응하므로
+      // 변환하면 안 된다.
       final chIdx = node.channel;
       rust_api.apiSetChannelReverbSend(channel: BigInt.from(chIdx), send: node.reverbSendNormalized);
-      rust_api.apiSetChannelPanDeg(channel: BigInt.from(chIdx), panDeg: node.panDeg);
       rust_api.apiSetChannelEarlyRefMix(channel: BigInt.from(chIdx), mix: node.earlyRefMix.clamp(0.0, 1.0));
     } catch (_) {}
 

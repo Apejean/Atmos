@@ -276,35 +276,6 @@ fn handle_packet(packet: OscPacket, debouncer: &OscDebouncer) {
                 }
             }
 
-            // Hardcoded audience pos
-            if msg.addr == "/audience/pos" {
-                if msg.args.len() >= 3 {
-                    let mut x = 0.0;
-                    let mut y = 0.0;
-                    let mut z = 0.0;
-                    if let rosc::OscType::Float(f) = msg.args[0] {
-                        x = f;
-                    }
-                    if let rosc::OscType::Float(f) = msg.args[1] {
-                        y = f;
-                    }
-                    if let rosc::OscType::Float(f) = msg.args[2] {
-                        z = f;
-                    }
-                    let _ = crate::core::state::GLOBAL_STATE.command_sender.send(
-                        crate::common::commands::AudioCommand::UpdateTrajectoryPosition {
-                            position: crate::common::config::Point3D {
-                                x,
-                                y,
-                                z,
-                                ..Default::default()
-                            },
-                        },
-                    );
-                }
-                return;
-            }
-
             // Hardcoded head-tracking input: /hrtf/tracking {yaw} {pitch} {roll} (라디안 단위,
             // VirtualMixRoomBinaural::process_interleaved에서 yaw.to_degrees()로 소비하는
             // 기존 규약과 동일). 바이노럴 렌더러가 오디오 콜백에서 읽는 GLOBAL_STATE 원자값을

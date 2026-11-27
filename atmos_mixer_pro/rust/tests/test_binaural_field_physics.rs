@@ -84,7 +84,7 @@ fn headphone_level(m: &mut AudioMixer, freq: f32) -> f32 {
 
 #[test]
 fn 공기_흡음은_현장_스피커_출력에는_걸리지_않는다() {
-    // 공간 DSP 재계산(recalculate_spatial_dsp)은 엔진 설정이 있어야 돈다(앱과 같은 조건).
+    // 엔진 설정이 있는 앱과 같은 조건으로 둔다.
     if let Ok(mut c) = GLOBAL_STATE.config.write() {
         if c.is_none() {
             *c = Some(AppConfig::default());
@@ -92,7 +92,6 @@ fn 공기_흡음은_현장_스피커_출력에는_걸리지_않는다() {
     }
     let level = |freq: f32| {
         let mut m = mixer_with_speaker(p(LISTENER.0, LISTENER.1 + 20.0, LISTENER.2), false);
-        m.recalculate_spatial_dsp();
         let n = FS as usize * 4;
         let samples: Vec<f32> = (0..n)
             .map(|i| 0.1 * (std::f32::consts::TAU * freq * i as f32 / FS as f32).sin())

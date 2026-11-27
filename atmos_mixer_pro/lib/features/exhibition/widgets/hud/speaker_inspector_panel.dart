@@ -394,7 +394,6 @@ class _SpeakerInspectorPanelState extends ConsumerState<SpeakerInspectorPanel> {
                                 _buildControlBox('assets/3d_simulator/icons/icon_yaw.svg', 'Yaw (Rotation)', speaker.rotation, '°', -180.0, 180.0, speaker.isFixed ? null : (v) => _updateSpeaker(speaker, rot: v)),
                                 _buildControlBox('assets/3d_simulator/icons/icon_tilt.svg', 'Pitch (Tilt)', speaker.pitchTilt, '°', -90.0, 90.0, speaker.isFixed ? null : (v) => _updateSpeaker(speaker, tilt: v)),
                                 _buildControlBox('assets/3d_simulator/icons/icon_dispersion.svg', 'Dispersion', speaker.dispersionAngle, '°', 10.0, 180.0, speaker.isFixed ? null : (v) => _updateSpeaker(speaker, disp: v)),
-                                _buildControlBox('assets/3d_simulator/icons/icon_pan.svg', 'Pan Trim', speaker.panDeg, '°', -45.0, 45.0, speaker.isFixed ? null : (v) => _updateSpeaker(speaker, pan: v)),
                                 // 스피커 저역 한계: 자동 EQ가 이 주파수에 보호용 로우컷(12dB/oct)을
                                 // 건다. 서브우퍼로 지정하거나 베이스 매니지먼트로 저역을 서브에
                                 // 넘기는 동안에는 쓰지 않는다(position_eq.dart).
@@ -673,7 +672,7 @@ class _SpeakerInspectorPanelState extends ConsumerState<SpeakerInspectorPanel> {
     );
   }
 
-  void _updateSpeaker(SpeakerNode speaker, {double? x, double? y, double? z, double? pan, double? tilt, double? rot, double? disp, double? rev, double? earlyRef, double? lowCut, bool? isFixed, bool? autoAimOn}) {
+  void _updateSpeaker(SpeakerNode speaker, {double? x, double? y, double? z, double? tilt, double? rot, double? disp, double? rev, double? earlyRef, double? lowCut, bool? isFixed, bool? autoAimOn}) {
     ref.read(speakerLayoutProvider.notifier).updateSpeaker(speaker.copyWith(
       x: x ?? speaker.x,
       y: y ?? speaker.y,
@@ -683,7 +682,6 @@ class _SpeakerInspectorPanelState extends ConsumerState<SpeakerInspectorPanel> {
       // Yaw나 Pitch를 직접 돌리면 자동 조준을 해제하고 지정한 각도를 쓴다.
       // 'Auto-Aim to Listener' 버튼은 반대로 다시 켠다.
       autoAim: autoAimOn ?? ((rot != null || tilt != null) ? false : speaker.autoAim),
-      panDeg: pan ?? speaker.panDeg,
       dispersionAngle: disp ?? speaker.dispersionAngle,
       reverbSend: rev ?? speaker.reverbSend,
       earlyRefMix: earlyRef ?? speaker.earlyRefMix,

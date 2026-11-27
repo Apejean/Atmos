@@ -67,7 +67,6 @@ fn render(positions: [Point3D; 2]) -> Vec<Vec<f32>> {
     m.binaural.enabled = false;
     m.set_binaural_room(Some(1));
     m.recalculate_binaural_channel_azimuths();
-    m.recalculate_spatial_dsp();
 
     let mut buf = vec![0.0f32; CH * BLOCK];
     let mut out = vec![Vec::new(); 5];
