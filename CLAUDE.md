@@ -25,7 +25,7 @@ flutter_rust_bridge_codegen generate        # rust/src/api/ 바꿨을 때만
 ```
 
 ## 작업 방식: Main / Sub 두 세션
-사용자 화면의 "Main"·"Sub" 세션이 역할을 나눈다. 세션 안에서 서브에이전트·워크플로는 쓰지 않는다(토큰 비용).
+사용자 화면의 "Main"·"Sub" 세션이 역할을 나눈다. 세션 안에서 서브에이전트·도구는 작업에 맞으면 쓴다(2026-11-28 사용자 결정). 쓸 수 있는 것은 PC마다 다르다(아래 "에이전트·도구").
 
 - **Main**: 요구 이해, 계획, 위험도 판단, 설계·디버깅, 실기 시험, Sub 결과 검수, HANDOFF 갱신 판단.
   - 국소적·저위험(구조 변경 없음, 별도 PR 불필요, 사용자와 실시간 조정)이면 직접 처리한다. 줄 수가 아니라 범위·위험으로 판단한다.
@@ -33,11 +33,18 @@ flutter_rust_bridge_codegen generate        # rust/src/api/ 바꿨을 때만
 - **Main → Sub 전달**: 대화 내역을 붙이지 않고 다음만 보낸다 — 목표, 범위·대상 파일, 건드리지 말 것, 관련 문서, 완료 조건, 검증(Main이 이미 돌린 결과 포함). Sub는 나머지를 이 파일·HANDOFF·코드에서 찾는다.
 - **Sub 에스컬레이션**: API 계약(FRB `rust/src/api/`)·`config.json` 구조·엔진 구조 변경, 광범위한 수정, 원인 불명, 요구와 구조 충돌, 3법칙 위반 발견 시 억지로 진행하지 않고 Main에 보고한다: 현재 작업 / 발견 / 근거 / 위험 / 권하는 다음 단계.
 - **검증 보고**: 실행한 명령과 결과 수치만 보고한다. 돌리지 않은 검증을 통과라고 쓰지 않는다.
-- **Git**: 공유 작업 폴더(`/Users/Allweno/Projects/GitHub/atmos`)의 다른 세션 미커밋 파일은 건드리지 않고 임시 worktree나 임시 인덱스로 커밋한다. `.DS_Store`, `.claude/agents/*`, `rust/.ua/`, `rust/data/`는 커밋에서 뺀다.
+- **Git**: 공유 작업 폴더(`/Users/Allweno/Projects/GitHub/atmos`)의 다른 세션 미커밋 파일은 건드리지 않고 임시 worktree나 임시 인덱스로 커밋한다. `.DS_Store`, `.claude/agents/*`, `rust/.ua/`, `rust/data/`, `.trail/`, `graft/`는 커밋에서 뺀다.
   - 커밋 메시지는 영어, PR 본문은 한국어. 문서 변경도 기능 브랜치에서 PR로 올린다.
   - 병합은 머지 커밋. 코드 PR은 CI(windows·macos) 통과 뒤 병합하고, 병합 뒤 브랜치를 지운다.
   - 충돌은 양쪽 내용을 모두 살린다(한쪽 일괄 선택 금지). 이미 병합된 문서는 origin/main 쪽을 우선한다.
 - **세션 간 협업**: Sub→Main 보고와 Main→Sub 지시는 세션 메시지로. Main이 넘기지 않은 다른 세션의 PR은 사용자 확인 뒤 병합한다. 다른 세션의 작업 폴더·브랜치는 사용자가 그 세션을 보관한 뒤 정리한다(세션 보관은 사용자가 한다).
+
+## 에이전트·도구 (2026-11-28 사용자 결정)
+- 설치된 PC에서만 쓴다. 2026-11-28 기준 Windows 개발 PC에 있다. Mac에 설치할지는 사용자가 정한다.
+  - 에이전트: 사용자 폴더 `~/.claude/agents`의 Agency Agents(msitarzewski/agency-agents) 12개. 저장소의 옛 `atmos_mixer_pro/.claude/agents/`는 여전히 따르지 않는다.
+  - 코드 구조·호출 관계 찾기: Codebase Memory MCP(DeusData/codebase-memory-mcp).
+  - 코드 지도·팀이 배운 것: Trail-Code(trailhq/Trail-Code, "나만 쓰기"). `.trail/`·`graft/`는 커밋하지 않는다.
+- 써도 그대로인 것: 3법칙, 검증 보고(돌리지 않은 검증을 통과라고 쓰지 않는다), 에스컬레이션, Main·Sub·PR 역할, 사용자 확인이 필요한 일. 에이전트의 보고는 확인한 뒤에 사용자에게 말한다.
 
 ## 모델 선택 (역할과 모델은 분리, 모델별 세션은 만들지 않는다)
 - **Haiku**: 탐색, 단순 분류·문서 정리.
