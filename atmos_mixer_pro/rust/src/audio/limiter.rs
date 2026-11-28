@@ -20,6 +20,10 @@ pub struct PeakLimiter {
 
     history: [f32; 3],
 
+    /// 마지막으로 0이 아닌 입력 뒤 연속으로 들어온 0의 개수. 지연 줄 길이(그리고 history 3칸) 이상이면 지연 줄과
+    /// history가 모두 0이다(`is_idle`). 새 리미터는 비어 있으므로 그 길이에서 시작한다.
+    zero_run: usize,
+
     // 출력 음량 측정(3초 창, 간이 LUFS). 엔진 상태의 short_term_lufs로 보내기만 하고 소리는 바꾸지 않는다.
     pub short_term_lufs: f32,
     lufs_integration_buffer: Vec<f32>,
@@ -77,6 +81,8 @@ impl PeakLimiter {
             
             history: [0.0; 3],
 
+            zero_run: delay_samples.max(3),
+
             short_term_lufs: -70.0,
             lufs_integration_buffer: vec![0.0; (sample_rate * 3.0) as usize], // 3 seconds integration window
             lufs_index: 0,
@@ -93,7 +99,67 @@ impl PeakLimiter {
         f32::from_bits(self.gain_reduction_db_bits.load(Ordering::Relaxed))
     }
 
+    /// 지금 0만 넣으면 출력이 0이고 게인이 1인가: 지연 줄과 history가 모두 0이고, 두 엔벨로프가 무릎 아래다.
+    /// 참이면 무음 블록을 `skip_silent`로 넘겨도 `process(0.0)`을 부른 것과 결과가 같다.
+    pub fn is_idle(&self) -> bool {
+        let knee_lower = self.threshold - self.knee_width / 2.0;
+        self.zero_run >= self.delay_buffer.len().max(3)
+            && self.fast_envelope <= knee_lower
+            && self.slow_envelope <= knee_lower
+    }
+
+    /// `is_idle()`일 때 `process(0.0)`을 `n`번 부른 것과 **비트까지 같게** 상태만 넘긴다(출력은 모두 0이다).
+    /// 보간·지연 줄·무릎 게인·안전 클립을 건너뛰고, 입력 0일 때 실제로 바뀌는 것만 같은 연산으로 되풀이한다.
+    /// - 엔벨로프(4배 검출이라 표본마다 4번): 입력 0이면 `coef × (env − 0) + 0` = `env × coef`다. 빠른 쪽은 hold가
+    ///   남은 동안 그대로다. `powi` 한 번으로 줄이면 반올림이 달라져 쓰지 않는다(2026-11-28 리뷰).
+    /// - LUFS 창: `process`와 같은 계산을 0으로 되풀이한다.
+    pub fn skip_silent(&mut self, n: usize) {
+        if n == 0 {
+            return;
+        }
+        self.history = [0.0; 3];
+        // 지연 줄은 모두 0이라 회전 위치와 상관없이 같지만, process와 같은 자리로 맞춰 둔다.
+        self.delay_index = (self.delay_index + n) % self.delay_buffer.len();
+        self.zero_run = self.zero_run.saturating_add(n);
+        // 엔벨로프가 무릎 아래라 process도 게인 1 → 0 dB를 쓴다.
+        self.gain_reduction_db_bits.store(0.0f32.to_bits(), Ordering::Relaxed);
+
+        for _ in 0..n {
+            for _ in 0..4 {
+                if self.hold_counter > 0 {
+                    self.hold_counter -= 1;
+                } else {
+                    self.fast_envelope *= self.fast_release_coef;
+                }
+                self.slow_envelope *= self.slow_release_coef;
+            }
+
+            let old_sq = self.lufs_integration_buffer[self.lufs_index];
+            self.sum_sq -= old_sq;
+            if self.sum_sq < 0.0 {
+                self.sum_sq = 0.0;
+            }
+            self.lufs_integration_buffer[self.lufs_index] = 0.0;
+            self.lufs_index += 1;
+            if self.lufs_index >= self.lufs_integration_buffer.len() {
+                self.lufs_index = 0;
+            }
+            if self.lufs_decimation_counter == 0 {
+                let mean_sq = self.sum_sq / self.lufs_integration_buffer.len() as f32;
+                self.short_term_lufs = if mean_sq > 1e-10 { -0.691 + 10.0 * mean_sq.log10() } else { -70.0 };
+                self.lufs_decimation_counter = 127;
+            } else {
+                self.lufs_decimation_counter -= 1;
+            }
+        }
+    }
+
     pub fn process(&mut self, sample: f32) -> f32 {
+        if sample == 0.0 {
+            self.zero_run = self.zero_run.saturating_add(1);
+        } else {
+            self.zero_run = 0;
+        }
         // 4x Oversampling interpolation for True Peak detection (ISP)
         let mut max_abs = 0.0_f32;
         
@@ -209,5 +275,91 @@ impl PeakLimiter {
         }
 
         final_out
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// 같은 입력을 넣은 두 리미터를 비운 뒤, 한쪽은 `process(0.0)`을 n번, 다른 쪽은 `skip_silent(n)`으로 넘겨
+    /// 내부 상태를 비트까지 비교한다. 출력 비교(`tests/test_limiter_silence_skip.rs`)는 엔벨로프가 무릎 아래라
+    /// 작은 차이가 다음 소리에서 곧 잊혀 잡지 못하므로, 상태를 직접 본다.
+    fn idle_pair(amp: f32) -> (PeakLimiter, PeakLimiter) {
+        let mut a = PeakLimiter::new(48_000.0, 1.0, 500.0, 0.99);
+        let mut b = PeakLimiter::new(48_000.0, 1.0, 500.0, 0.99);
+        for i in 0..9_600 {
+            let x = amp * (i as f32 * 0.13).sin();
+            a.process(x);
+            b.process(x);
+        }
+        while !a.is_idle() {
+            a.process(0.0);
+            b.process(0.0);
+        }
+        assert!(b.is_idle());
+        (a, b)
+    }
+
+    fn assert_same_state(a: &PeakLimiter, b: &PeakLimiter, what: &str) {
+        assert_eq!(a.fast_envelope.to_bits(), b.fast_envelope.to_bits(), "{what}: 빠른 엔벨로프 {} vs {}", a.fast_envelope, b.fast_envelope);
+        assert_eq!(a.slow_envelope.to_bits(), b.slow_envelope.to_bits(), "{what}: 느린 엔벨로프 {} vs {}", a.slow_envelope, b.slow_envelope);
+        assert_eq!(a.hold_counter, b.hold_counter, "{what}: hold");
+        assert_eq!(a.history, b.history, "{what}: history");
+        assert_eq!(a.delay_index, b.delay_index, "{what}: 지연 줄 위치");
+        assert_eq!(a.zero_run, b.zero_run, "{what}: 연속 0 개수");
+        assert_eq!(a.lufs_index, b.lufs_index, "{what}: LUFS 위치");
+        assert_eq!(a.lufs_decimation_counter, b.lufs_decimation_counter, "{what}: LUFS 간격");
+        assert_eq!(a.sum_sq.to_bits(), b.sum_sq.to_bits(), "{what}: LUFS 합");
+        assert_eq!(a.short_term_lufs.to_bits(), b.short_term_lufs.to_bits(), "{what}: LUFS 값");
+        assert_eq!(a.current_gain_reduction_db(), b.current_gain_reduction_db(), "{what}: 게인 리덕션");
+    }
+
+    /// a는 `process(0.0)`을 되풀이하고 b는 `skip_silent`으로 넘기며 블록마다 상태를 비교한다.
+    fn check_skips(mut a: PeakLimiter, mut b: PeakLimiter, what: &str) {
+        // 블록 길이 여러 가지, 마지막은 3초 LUFS 창을 몇 바퀴 넘긴다
+        for n in [1usize, 480, 1024, 333, 200_000] {
+            for _ in 0..n {
+                assert_eq!(a.process(0.0), 0.0);
+            }
+            b.skip_silent(n);
+            assert_same_state(&a, &b, &format!("{what}, {n}표본"));
+            assert!(b.is_idle());
+        }
+    }
+
+    #[test]
+    fn 무음_건너뛰기는_0을_되풀이해_넣은_상태와_같다() {
+        // 리미터가 일하던 큰 소리 뒤(엔벨로프가 무릎 바로 아래)와 작은 소리 뒤
+        for amp in [1.4f32, 0.3] {
+            let (a, b) = idle_pair(amp);
+            check_skips(a, b, &format!("진폭 {amp}"));
+        }
+        // 조용할 때 들어온 작은 펄스 하나 뒤: 리미터가 비는 순간에도 hold가 남아 있다
+        // (빠른 엔벨로프가 hold 동안 그대로인지 본다).
+        let mut a = PeakLimiter::new(48_000.0, 1.0, 500.0, 0.99);
+        let mut b = PeakLimiter::new(48_000.0, 1.0, 500.0, 0.99);
+        for l in [&mut a, &mut b] {
+            l.process(0.1);
+            while !l.is_idle() {
+                l.process(0.0);
+            }
+        }
+        assert!(a.hold_counter > 0, "이 경우는 비는 순간 hold가 남아야 한다");
+        check_skips(a, b, "작은 펄스");
+    }
+
+    #[test]
+    fn 새_리미터는_비어_있고_0이_아닌_입력이_들어오면_비지_않는다() {
+        let mut l = PeakLimiter::new(48_000.0, 1.0, 500.0, 0.99);
+        assert!(l.is_idle());
+        l.process(0.1);
+        assert!(!l.is_idle(), "지연 줄에 소리가 남았는데 비었다고 했다");
+        for _ in 0..239 {
+            l.process(0.0);
+        }
+        assert!(!l.is_idle(), "지연 줄(240표본)이 아직 다 비지 않았다");
+        l.process(0.0);
+        assert!(l.is_idle());
     }
 }
