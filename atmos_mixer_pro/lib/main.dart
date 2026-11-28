@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'dart:ui' show AppExitResponse;
+
 import 'package:flutter/material.dart';
 import 'package:atmos_mixer_pro/core/state/global_state.dart';
 import 'package:atmos_mixer_pro/core/state/engine_resync.dart';
@@ -111,7 +113,9 @@ class AtmosMixerProApp extends ConsumerStatefulWidget {
 }
 
 class _AtmosMixerProAppState extends ConsumerState<AtmosMixerProApp>
-    with WindowListener {
+    with WindowListener, WidgetsBindingObserver {
+  /// 종료 정리를 한 번만 한다(macOS는 창 닫기 뒤 앱 종료 요청이 한 번 더 온다).
+  Future<void>? _shutdown;
   Timer? _heartbeat;
   bool _heartbeatInFlight = false;
   final _restartResync = RestartResyncGate();
@@ -120,6 +124,7 @@ class _AtmosMixerProAppState extends ConsumerState<AtmosMixerProApp>
   void initState() {
     super.initState();
     windowManager.addListener(this);
+    WidgetsBinding.instance.addObserver(this);
     // 감시 프로그램이 이 앱이 응답하는지 본다(rust api::lifecycle). 3D 로딩과 상관없이 바로 시작한다.
     _beat();
     _heartbeat = Timer.periodic(const Duration(seconds: 2), (_) => _beat());
@@ -142,11 +147,27 @@ class _AtmosMixerProAppState extends ConsumerState<AtmosMixerProApp>
   void dispose() {
     _heartbeat?.cancel();
     windowManager.removeListener(this);
+    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  /// macOS의 Cmd+Q·메뉴 종료는 창 닫기(onWindowClose)를 거치지 않고 앱 종료 요청으로 온다. 정상 종료 표시를 남기지
+  /// 않으면 감시 프로그램(macOS 로그인 자동 실행, 2026-11-28)이 충돌로 보고 다시 띄운다(시험 복사본에서 확인).
+  @override
+  Future<AppExitResponse> didRequestAppExit() async {
+    if (Platform.isMacOS) await _shutdownOnce();
+    return AppExitResponse.exit;
   }
 
   @override
   void onWindowClose() async {
+    await _shutdownOnce();
+    await windowManager.destroy();
+  }
+
+  Future<void> _shutdownOnce() => _shutdown ??= _shutdownApp();
+
+  Future<void> _shutdownApp() async {
     // 종료 중에는 화면 오류를 남기지 않는다(엔진·Rust가 정리되는 중).
     uiErrorReporter.enabled = false;
     // 운영자가 닫는다. 감시 프로그램이 다시 띄우지 않도록 엔진을 멈추기 전에 표시한다(rust api::lifecycle).
@@ -171,7 +192,6 @@ class _AtmosMixerProAppState extends ConsumerState<AtmosMixerProApp>
         Future.delayed(const Duration(milliseconds: 1000)),
       ]);
     }
-    await windowManager.destroy();
   }
 
   @override

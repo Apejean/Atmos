@@ -57,3 +57,61 @@ Future<void> saveWindowsAutostart(String dir, bool value) async {
     await marker.delete();
   }
 }
+
+/// macOS 로그인 자동 실행 LaunchAgent 이름(2026-11-28 사용자 결정 "감시 프로그램 경유"). 로그인 때 앱 번들 안의 감시
+/// 프로그램(`Contents/MacOS/atmos_supervisor`, 릴리스 빌드 단계 `macos/Runner/add_supervisor.sh`)을 `--logon`으로 띄우고,
+/// 감시가 같은 폴더의 앱을 띄운다. Windows의 작업 스케줄러 → 감시 → 앱과 같다. 켜고 끄는 것은 이 파일이 있는지다.
+const macAutostartLabel = 'com.theawesome.atmos.autostart';
+
+/// 사용자 LaunchAgent 파일 경로. [home]은 사용자 홈 폴더다.
+String macAutostartPlistPath(String home) => '$home/Library/LaunchAgents/$macAutostartLabel.plist';
+
+/// 앱 실행 파일 [executable]이 /Applications에 설치된 앱 번들 안에 있으면 같은 폴더의 감시 프로그램 경로, 아니면 null.
+/// 개발 빌드·시험 복사본이 로그인 항목을 남기지 않게 설치된 앱만 등록한다.
+String? macSupervisorFor(String executable) {
+  final match = RegExp(r'^/Applications/[^/]+\.app/Contents/MacOS/[^/]+$').hasMatch(executable);
+  if (!match) return null;
+  return '${executable.substring(0, executable.lastIndexOf('/'))}/atmos_supervisor';
+}
+
+String _xmlEscape(String s) =>
+    s.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
+
+/// LaunchAgent 내용. 로그인(GUI 세션) 때 한 번 띄우고, 감시가 끝나면(운영자가 앱을 닫음) 다시 띄우지 않는다.
+String macAutostartPlist(String supervisor) => '''<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>$macAutostartLabel</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>${_xmlEscape(supervisor)}</string>
+    <string>--logon</string>
+  </array>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>LimitLoadToSessionType</key>
+  <string>Aqua</string>
+  <key>ProcessType</key>
+  <string>Interactive</string>
+</dict>
+</plist>
+''';
+
+/// "macOS 시작 시 자동 실행"이 켜져 있는가(LaunchAgent 파일이 있음). 기본은 꺼짐이다 — Mac은 설계용이라 사람이 켠다.
+Future<bool> loadMacAutostart(String home) => File(macAutostartPlistPath(home)).exists();
+
+/// 켜면 LaunchAgent 파일을 쓰고 끄면 지운다. 앱이 /Applications에 설치되지 않았으면 켜지 않고 false.
+Future<bool> saveMacAutostart(String home, String executable, bool value) async {
+  final file = File(macAutostartPlistPath(home));
+  if (!value) {
+    if (await file.exists()) await file.delete();
+    return true;
+  }
+  final supervisor = macSupervisorFor(executable);
+  if (supervisor == null) return false;
+  await file.parent.create(recursive: true);
+  await file.writeAsString(macAutostartPlist(supervisor));
+  return true;
+}

@@ -67,4 +67,42 @@ void main() {
     expect(switches, hasLength(1));
     expect(switches.single.onChanged, isNotNull);
   });
+
+  testWidgets('macOS에서는 "macOS 시작 시 자동 실행"으로 보인다', (tester) async {
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: StartupSettings(
+          showWindowsAutostart: true,
+          windowsAutostart: true,
+          autoResumeOnLogon: true,
+          autostartLabel: 'macOS 시작 시\n자동 실행',
+          onWindowsAutostartChanged: (_) {},
+          onAutoResumeOnLogonChanged: (_) {},
+        ),
+      ),
+    ));
+    expect(find.text('macOS 시작 시\n자동 실행'), findsOneWidget);
+    expect(find.text(_autostartLabel), findsNothing);
+    expect(_switches(tester).first.onChanged, isNotNull);
+  });
+
+  testWidgets('설치되지 않은 macOS 앱은 자동 실행을 잠그고 안내를 보인다', (tester) async {
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: StartupSettings(
+          showWindowsAutostart: true,
+          windowsAutostart: false,
+          autoResumeOnLogon: true,
+          autostartLabel: 'macOS 시작 시\n자동 실행',
+          autostartHint: '/Applications에 설치한 앱에서만 켤 수 있습니다.',
+          onWindowsAutostartChanged: (_) {},
+          onAutoResumeOnLogonChanged: (_) {},
+        ),
+      ),
+    ));
+    expect(find.text('/Applications에 설치한 앱에서만 켤 수 있습니다.'), findsOneWidget);
+    final switches = _switches(tester);
+    expect(switches[0].onChanged, isNull);
+    expect(switches[1].onChanged, isNull, reason: '자동 실행이 꺼져 있으면 공연 자동 시작도 잠긴다');
+  });
 }
