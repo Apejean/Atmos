@@ -46,6 +46,10 @@ class ConfigNotifier extends Notifier<AppConfig?> {
   final List<_SaveTask> _saveQueue = [];
   AppConfig? _lastProcessedConfig;
 
+  /// 시작 때 뒤에서 도는 미리 읽기. 끝날 때 엔진의 전역 설정을 읽은 설정으로 다시 쓰므로, 저장 큐는 이것이 끝난
+  /// 뒤에 저장한다(그 사이 저장한 새 설정을 옛 설정이 덮지 않게).
+  Future<void>? _startupPreload;
+
   @override
   AppConfig? build() {
     // Initial load will be handled by the splash screen
@@ -56,11 +60,6 @@ class ConfigNotifier extends Notifier<AppConfig?> {
     try {
       final path = await _getConfigPath();
       final config = await rust_api.apiGetConfig(path: path);
-      try {
-        await rust_api.apiPreloadAllSounds(config: config);
-      } catch (e) {
-        // Ignore initial preload errors
-      }
 
       _lastProcessedConfig = config;
       state = config;
@@ -77,6 +76,11 @@ class ConfigNotifier extends Notifier<AppConfig?> {
         // 실패 원인을 상태 배너(engine_down_banner)로 알린다. 예전에는 "치명적 시스템 오류" 창이 대기 중에도 떠서
         // 무인 운영에서 누를 사람이 없는 복구 버튼을 보였다(2026-11-16 ④ 실기 F3).
       }
+      // 음원 미리 읽기는 기다리지 않는다. 예전에는 엔진·OSC보다 먼저 끝까지 기다려, 느린 파일 하나(잠든 USB 디스크,
+      // 네트워크 경로, 2026-11-28 Mac의 파일 접근 확인 60~70초)가 엔진·OSC·공연 이어 가기를 모두 늦췄다. 아직 읽지 않은
+      // 음원은 재생할 때 그 자리에서 읽는다(rust play_track_from_in 캐시 미스 경로). 엔진을 연 뒤라 장치 샘플레이트로 읽는다.
+      _startupPreload = rust_api.apiPreloadAllSounds(config: config).then<void>((_) {}, onError: (_) {});
+
       await rust_api.apiStartOscListener(port: config.oscPort);
 
       try {
@@ -114,6 +118,13 @@ class ConfigNotifier extends Notifier<AppConfig?> {
   Future<void> _processQueue() async {
     if (_isSaving) return;
     _isSaving = true;
+
+    // 시작 미리 읽기가 끝난 뒤에 저장한다([_startupPreload]).
+    final startupPreload = _startupPreload;
+    if (startupPreload != null) {
+      await startupPreload;
+      _startupPreload = null;
+    }
 
     while (_saveQueue.isNotEmpty) {
       final task = _saveQueue.removeAt(0);

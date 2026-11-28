@@ -81,6 +81,15 @@ fn apply_enabled_channels(config: &AppConfig) {
     request_restart_if_processing_width_changed(config);
 }
 
+/// 지금 설정으로 채널 게이트를 다시 계산한다. 음원 채널 수 확인이 늦게 끝났을 때 부른다
+/// (`core::output_groups::cached_file_channels`). 설정이 아직 없으면 아무것도 하지 않는다.
+pub(crate) fn reapply_enabled_channels() {
+    let config = GLOBAL_STATE.config.read().unwrap_or_else(|e| e.into_inner()).clone();
+    if let Some(config) = config {
+        apply_enabled_channels(&config);
+    }
+}
+
 /// 출력 설정에서 켠 채널 범위가 바뀌어 믹서 처리 폭(core::processing_channels)이 달라지면 엔진을
 /// 다시 시작하게 한다. 믹서 폭은 엔진을 만들 때 정해지므로 자기 재시작 경로를 쓴다(재생 상태를 떠 두었다가
 /// 멈춘 위치부터 이어 간다). 요청은 장치 유실 신호와 따로 남기고, 엔진 관리 스레드가 꺼낼 때 폭을 다시 비교한다

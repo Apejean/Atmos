@@ -141,15 +141,28 @@ pub fn open_channels(config: &AppConfig, len: usize) -> Vec<bool> {
     open_channels_with(config, len, &cached_file_channels)
 }
 
-/// 파일 채널 수. 메모리에 읽은 음원이면 그 값, 아니면 머리말을 읽고 경로·크기·수정 시각으로 기억한다(설정이 바뀔
-/// 때마다 다시 읽지 않게). 오디오 스레드 밖에서만 부른다(파일 I/O·잠금). 파일을 열지 못하면 None.
-pub fn cached_file_channels(path: &str) -> Option<usize> {
-    use std::collections::HashMap;
-    use std::sync::Mutex;
-    type Key = (u64, Option<std::time::SystemTime>);
-    type Cache = Option<HashMap<String, (Key, Option<usize>)>>;
-    static CACHE: Mutex<Cache> = Mutex::new(None);
+/// 파일 채널 수 확인([`cached_file_channels`])을 기다리는 한도.
+///
+/// 머리말 읽기는 보통 수 ms다. 2026-11-28 Mac에서 macOS 파일 접근 확인에 걸린 `read`가 60~70초 멈췄고, 그동안 설정
+/// 읽기(`api_get_config`)와 시작 절차(엔진·OSC·공연 이어 가기)가 모두 기다렸다. 잠든 USB 디스크·네트워크 경로도 같다.
+/// 한도를 넘으면 그 파일은 모른다(None)고 보고 넘어가며, 확인은 뒤에서 계속한다.
+pub const FILE_CHANNELS_PROBE_WAIT: std::time::Duration = std::time::Duration::from_secs(1);
 
+type ProbeKey = (u64, Option<std::time::SystemTime>);
+
+/// 확인이 끝난 파일: 경로 → (크기·수정 시각, 채널 수).
+type ProbedMap = std::collections::HashMap<String, (ProbeKey, Option<usize>)>;
+static PROBED: std::sync::Mutex<Option<ProbedMap>> = std::sync::Mutex::new(None);
+/// 지금 뒤에서 확인 중인 파일.
+static PROBING: std::sync::Mutex<Option<std::collections::HashSet<String>>> = std::sync::Mutex::new(None);
+
+/// 파일 채널 수. 메모리에 읽은 음원이면 그 값, 아니면 머리말을 읽고 경로·크기·수정 시각으로 기억한다(설정이 바뀔
+/// 때마다 다시 읽지 않게). 오디오 스레드 밖에서만 부른다. 파일을 열지 못하면 None.
+///
+/// 파일 I/O(크기 확인·머리말 읽기)는 도우미 스레드에서 하고 잠금을 쥔 채 읽지 않는다. [`FILE_CHANNELS_PROBE_WAIT`]
+/// 안에 끝나지 않으면 None을 돌려준다(그 트랙의 멀티 범위는 한 채널로 본다). 확인 중인 파일을 다시 물으면 기다리지
+/// 않고 None이다. 늦게 끝난 확인은 기억해 두고 지금 설정으로 채널 게이트를 다시 계산한다.
+pub fn cached_file_channels(path: &str) -> Option<usize> {
     let state = &crate::core::state::GLOBAL_STATE;
     for loaded in [&state.preloaded_sounds, &state.sound_cache] {
         let channels = loaded
@@ -162,17 +175,67 @@ pub fn cached_file_channels(path: &str) -> Option<usize> {
             return channels;
         }
     }
+    {
+        let mut probing = PROBING.lock().unwrap_or_else(|e| e.into_inner());
+        let set = probing.get_or_insert_with(Default::default);
+        if set.contains(path) {
+            return None;
+        }
+        set.insert(path.to_string());
+    }
+    let (tx, rx) = std::sync::mpsc::channel();
+    let owned = path.to_string();
+    let spawned = std::thread::Builder::new().name("file-channels".into()).spawn(move || {
+        let result = probe_and_remember(&owned);
+        if let Some(set) = PROBING.lock().unwrap_or_else(|e| e.into_inner()).as_mut() {
+            set.remove(&owned);
+        }
+        // 받는 쪽이 이미 기다림을 끝냈으면 늦은 결과다.
+        if tx.send(result).is_err() {
+            crate::core::state::GLOBAL_STATE.log(format!(
+                "음원 채널 수 확인이 늦게 끝났다({}채널) — 출력 채널을 다시 계산한다: {owned}",
+                result.map_or("모름".to_string(), |n| n.to_string())
+            ));
+            crate::api::simple::reapply_enabled_channels();
+        }
+    });
+    if spawned.is_err() {
+        // 스레드를 만들지 못하면 예전처럼 여기서 읽는다.
+        let result = probe_and_remember(path);
+        if let Some(set) = PROBING.lock().unwrap_or_else(|e| e.into_inner()).as_mut() {
+            set.remove(path);
+        }
+        return result;
+    }
+    match rx.recv_timeout(FILE_CHANNELS_PROBE_WAIT) {
+        Ok(result) => result,
+        Err(_) => {
+            crate::core::state::GLOBAL_STATE.log(format!(
+                "음원 머리말을 {}초 안에 읽지 못해 채널 수를 모르는 채로 진행한다(뒤에서 계속 확인): {path}",
+                FILE_CHANNELS_PROBE_WAIT.as_secs_f32()
+            ));
+            None
+        }
+    }
+}
+
+/// 크기·수정 시각이 같으면 기억한 값, 아니면 머리말을 읽어 기억한다. 잠금은 읽는 동안 쥐지 않는다.
+fn probe_and_remember(path: &str) -> Option<usize> {
     let meta = std::fs::metadata(path).ok()?;
-    let key: Key = (meta.len(), meta.modified().ok());
-    let mut guard = CACHE.lock().unwrap_or_else(|e| e.into_inner());
-    let cache = guard.get_or_insert_with(HashMap::new);
-    if let Some((cached_key, channels)) = cache.get(path) {
+    let key: ProbeKey = (meta.len(), meta.modified().ok());
+    if let Some((cached_key, channels)) =
+        PROBED.lock().unwrap_or_else(|e| e.into_inner()).as_ref().and_then(|m| m.get(path))
+    {
         if *cached_key == key {
             return *channels;
         }
     }
     let channels = Some(crate::audio::player::SoundData::probe_channels(std::path::Path::new(path)) as usize)
         .filter(|&n| n > 0);
-    cache.insert(path.to_string(), (key, channels));
+    PROBED
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .get_or_insert_with(Default::default)
+        .insert(path.to_string(), (key, channels));
     channels
 }
