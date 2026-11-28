@@ -3,11 +3,12 @@
      Ableton_Live_EULA_Third_Party_URL_Logo.pdf처럼). tool/windows/make-legal-pdf.ps1이 {{EULA}} 자리에
      windows/legal/eula_bilingual.txt(사용자가 준 Word 파일에서 글자 그대로 뽑은 EULA 원문)를 넣고 Edge로 인쇄한다.
      ASIO 로고는 Steinberg가 SDK와 함께 준 파일을 바꾸지 않고 쓴다(가로세로비 유지, 너비만 지정). 로고 아래에 사용 지침
-     15절 문구와 계약서 3조 1항 k의 Steinberg 고지 문구를 글자로 둔다(근거가 달라 둘 다, 로고 그림으로 대신하지 않는다). -->
+     15절 문구와 계약서 3조 1항 k의 Steinberg 고지 문구를 글자로 둔다(근거가 달라 둘 다, 로고 그림으로 대신하지 않는다).
+     windows 표시 주석 두 개 사이의 구역은 Windows 판에만 들어간다(-Platform macos는 뺀다, 2026-11-28). -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>The Awesome - End User License Agreement, Third Party URLs and Logos</title>
+<title>The Awesome - End User License Agreement<!--windows-->, Third Party URLs and Logos<!--/windows--></title>
 <style>
   @page {
     size: A4;
@@ -42,12 +43,13 @@
   <h1>THE AWESOME</h1>
   <ol class="toc">
     <li>END USER LICENSE AGREEMENT<br><span lang="ko">최종 사용자 라이선스 계약</span></li>
-    <li>THIRD PARTY URLS AND LOGOS</li>
+    <!--windows--><li>THIRD PARTY URLS AND LOGOS</li><!--/windows-->
   </ol>
 </section>
 <section class="eula">
 {{EULA}}
 </section>
+<!--windows-->
 <section class="third-party">
   <h1>THIRD PARTY URLS AND LOGOS</h1>
   <div class="entry">
@@ -58,5 +60,6 @@
     <p class="notice">ASIO is a trademark of Steinberg Media Technologies GmbH, registered in Europe and other countries.</p>
   </div>
 </section>
+<!--/windows-->
 </body>
 </html>

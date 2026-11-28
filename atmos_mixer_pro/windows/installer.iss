@@ -89,6 +89,10 @@ SetupLogging=yes
 ; with Inno 6.7.1 and 6.7.3 alike, while upgrades and Windows Sandbox passed; the field PC gets a first install too.
 ; PrepareToInstall stops the supervisor and the app itself before any file is copied, so the check finds nothing.
 CloseApplications=no
+; End user license agreement page (2026-11-28, the final EULA; docs/HANDOFF.md 15): Setup goes on only after "I accept".
+; The same bilingual text is printed into Legal\The_Awesome_EULA_Third_Party_URL_Logo.pdf. It is UTF-8 without a BOM,
+; which Inno Setup reads as UTF-8 from 6.3 on. Unattended installs (/VERYSILENT) skip the page.
+LicenseFile=legal\eula_bilingual.txt
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"

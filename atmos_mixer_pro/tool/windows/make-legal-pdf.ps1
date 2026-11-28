@@ -4,13 +4,20 @@
 # 그 원문을 windows\legal\legal_document_template.html의 {{EULA}} 자리에 넣고 Edge를 화면 없이(headless) 임시
 # 프로필로 띄워 인쇄한다(사용자 Edge 프로필은 건드리지 않는다). EULA나 틀이 바뀌었을 때만 돌리고,
 # eula_bilingual.txt와 결과 PDF를 커밋한다.
+# -Platform macos(2026-11-28, Mac 세션 요청): macOS 앱 Legal에 넣을 판을 macos\legal\The_Awesome_EULA.pdf로 만든다. 같은
+# 원문에서 Windows에만 해당하는 것(제7조의 Steinberg ASIO® 문구와 Microsoft 구성요소 문단, 틀의 <!--windows--> 구역 =
+# 제3자 URL·ASIO 로고 쪽)을 뺀다. 원문이 바뀌어 뺄 문장을 찾지 못하면 멈춘다(빠뜨린 채 만들지 않는다).
 param(
   [string]$EulaDocx = '',
   [string]$LegalDir = (Join-Path $PSScriptRoot '..\..\windows\legal'),
-  [string]$PdfName = 'The_Awesome_EULA_Third_Party_URL_Logo.pdf'
+  [ValidateSet('windows', 'macos')][string]$Platform = 'windows',
+  [string]$OutDir = '',
+  [string]$PdfName = ''
 )
 $ErrorActionPreference = 'Stop'
 $dir = (Resolve-Path $LegalDir).Path
+if (-not $OutDir) { $OutDir = if ($Platform -eq 'macos') { Join-Path $PSScriptRoot '..\..\macos\legal' } else { $dir } }
+if (-not $PdfName) { $PdfName = if ($Platform -eq 'macos') { 'The_Awesome_EULA.pdf' } else { 'The_Awesome_EULA_Third_Party_URL_Logo.pdf' } }
 $eulaTxt = Join-Path $dir 'eula_bilingual.txt'
 $utf8 = New-Object Text.UTF8Encoding($false)
 
@@ -43,12 +50,32 @@ if ($EulaDocx) {
 function Esc([string]$s) { $s.Replace('&', '&amp;').Replace('<', '&lt;').Replace('>', '&gt;') }
 function Lang([string]$s) { if ($s -match '[가-힣]') { ' lang="ko"' } else { '' } }
 $lines = @([IO.File]::ReadAllLines($eulaTxt, [Text.Encoding]::UTF8) | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne '' })
+if ($Platform -eq 'macos') {
+  # 제7조: ASIO는 Windows 전용(ASIO 계약 3조 1항 g — macOS 판에 ASIO 문구·로고를 두지 않는다), Microsoft 구성요소는 Windows 설치만.
+  $cut = @(
+    @('Third-party components, including Steinberg ASIO® technology where applicable, remain subject', 'Third-party components remain subject'),
+    @('해당하는 경우 Steinberg ASIO® 기술을 포함한 제3자 구성요소에는', '제3자 구성요소에는')
+  )
+  foreach ($c in $cut) {
+    $hit = @($lines | Where-Object { $_.Contains($c[0]) }).Count
+    if ($hit -ne 1) { Write-Output "FAIL macOS 판: 바꿀 문장을 $hit 곳에서 찾음: $($c[0])"; exit 1 }
+    $lines = @($lines | ForEach-Object { $_.Replace($c[0], $c[1]) })
+  }
+  foreach ($start in @('On Windows, the Software installs and uses the Microsoft', 'Windows에서 프로그램은 Microsoft')) {
+    $hit = @($lines | Where-Object { $_.StartsWith($start) }).Count
+    if ($hit -ne 1) { Write-Output "FAIL macOS 판: 뺄 문단을 $hit 곳에서 찾음: $start"; exit 1 }
+    $lines = @($lines | Where-Object { -not $_.StartsWith($start) })
+  }
+  $left = @($lines | Where-Object { $_ -cmatch 'ASIO|Microsoft|WebView2' })
+  if ($left.Count) { Write-Output "FAIL macOS 판에 Windows 문장이 남음: $($left -join ' / ')"; exit 1 }
+}
 $sb = New-Object Text.StringBuilder
 $i = 0
 $title = @()
-while ($i -lt $lines.Count -and -not $lines[$i].StartsWith('[tbl] ')) { $title += $lines[$i]; $i++ }
+# 확정본(2026-11-28)에는 검토용 표시 표가 없으므로 제목은 "Version" 줄 앞에서도 끝난다.
+while ($i -lt $lines.Count -and -not $lines[$i].StartsWith('[tbl] ') -and $lines[$i] -notmatch '^Version\s') { $title += $lines[$i]; $i++ }
 [void]$sb.AppendLine('<h1>' + (($title | ForEach-Object { "<span$(Lang $_)>$(Esc $_)</span>" }) -join '<br>') + '</h1>')
-if ($i -lt $lines.Count) {
+if ($i -lt $lines.Count -and $lines[$i].StartsWith('[tbl] ')) {
   [void]$sb.AppendLine('<div class="draft">')
   while ($i -lt $lines.Count -and $lines[$i].StartsWith('[tbl] ')) {
     $t = $lines[$i].Substring(6); [void]$sb.AppendLine("<p$(Lang $t)>$(Esc $t)</p>"); $i++
@@ -82,6 +109,8 @@ if ($keep) { [void]$sb.AppendLine('</div>') }
 
 $template = [IO.File]::ReadAllText((Join-Path $dir 'legal_document_template.html'), [Text.Encoding]::UTF8)
 if (-not $template.Contains('{{EULA}}')) { Write-Output 'FAIL 틀에 {{EULA}} 자리가 없다'; exit 1 }
+# <!--windows--> … <!--/windows--> 구역(제목 꼬리, 목차의 제3자 줄, 제3자 URL·ASIO 로고 쪽)은 Windows 판에만 둔다.
+$template = if ($Platform -eq 'macos') { [regex]::Replace($template, '(?s)<!--windows-->.*?<!--/windows-->', '') } else { $template.Replace('<!--windows-->', '').Replace('<!--/windows-->', '') }
 $build = Join-Path $dir '_legal_document.build.html'
 [IO.File]::WriteAllText($build, $template.Replace('{{EULA}}', $sb.ToString()), $utf8)
 
@@ -90,7 +119,8 @@ $edge = @(
   (Join-Path $env:ProgramFiles 'Microsoft\Edge\Application\msedge.exe')
 ) | Where-Object { Test-Path $_ } | Select-Object -First 1
 if (-not $edge) { Remove-Item $build; Write-Output 'FAIL Edge(msedge.exe)를 찾지 못했다'; exit 1 }
-$out = Join-Path $dir $PdfName
+New-Item -ItemType Directory -Force $OutDir | Out-Null
+$out = Join-Path (Resolve-Path $OutDir).Path $PdfName
 $profileDir = Join-Path $env:TEMP ('legal-pdf-' + [guid]::NewGuid().ToString('N'))
 if (Test-Path $out) { Remove-Item $out }
 $p = Start-Process -FilePath $edge -PassThru -Wait -ArgumentList @(

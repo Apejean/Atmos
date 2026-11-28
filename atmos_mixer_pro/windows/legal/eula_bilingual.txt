@@ -1,8 +1,6 @@
 THE AWESOME
 END USER LICENSE AGREEMENT
 최종 사용자 라이선스 계약
-[tbl] DRAFT FOR REVIEW ONLY  |  검토용 초안
-[tbl] 사업자 정보 확정 및 국내 법률 검토 후 상업 배포용으로 확정할 것
 Version 1.0  |  Effective Date: To Be Determined
 버전 1.0  |  시행일: 추후 확정
 Copyright © 2026 The Awesome. All rights reserved.
@@ -92,10 +90,12 @@ Nothing in this Section prohibits any activity that applicable law expressly per
 제7조. 지식재산권 및 제3자 구성요소
 ENGLISH
 The Software and its original components remain the property of their respective rights holders. This Agreement does not grant ownership of any third-party software, trademarks, or other intellectual property.
-Third-party components, including Steinberg ASIO technology where applicable, remain subject to their respective license terms and notices. Nothing in this Agreement overrides, replaces, or expands the rights granted under those third-party terms.
+Third-party components, including Steinberg ASIO® technology where applicable, remain subject to their respective license terms and notices. Nothing in this Agreement overrides, replaces, or expands the rights granted under those third-party terms.
+On Windows, the Software installs and uses the Microsoft Visual C++ Redistributable and the Microsoft Edge WebView2 Runtime. These Microsoft components are licensed under Microsoft’s own license terms, which are included in “Third-party License Information.txt” in the Legal folder of the installation, and by installing or using the Software you agree to those terms. The WebView2 Runtime may send data to Microsoft, including through Microsoft Defender SmartScreen, in accordance with Microsoft’s privacy statement.
 한국어
 프로그램 및 그 독자적인 구성요소는 각각의 권리자에게 귀속됩니다. 본 계약은 제3자 소프트웨어, 상표 또는 기타 지식재산권의 소유권을 부여하지 않습니다.
-해당하는 경우 Steinberg ASIO 기술을 포함한 제3자 구성요소에는 각각의 라이선스 조건 및 고지가 적용됩니다. 본 계약은 그러한 제3자 라이선스 조건을 대체하거나 우선하지 않으며, 해당 조건에 따라 허용된 권리를 임의로 확대하지 않습니다.
+해당하는 경우 Steinberg ASIO® 기술을 포함한 제3자 구성요소에는 각각의 라이선스 조건 및 고지가 적용됩니다. 본 계약은 그러한 제3자 라이선스 조건을 대체하거나 우선하지 않으며, 해당 조건에 따라 허용된 권리를 임의로 확대하지 않습니다.
+Windows에서 프로그램은 Microsoft Visual C++ 재배포 패키지와 Microsoft Edge WebView2 런타임을 설치해 사용합니다. 이 Microsoft 구성요소에는 설치 폴더 Legal의 “Third-party License Information.txt”에 포함된 Microsoft의 라이선스 조건이 적용되며, 프로그램을 설치하거나 사용하면 그 조건에 동의하는 것입니다. WebView2 런타임은 Microsoft 개인정보처리방침에 따라 Microsoft Defender SmartScreen 등을 통해 Microsoft로 데이터를 보낼 수 있습니다.
 8. Warranty and Liability
 제8조. 보증 및 책임
 ENGLISH
@@ -129,8 +129,10 @@ This Agreement is provided in English and Korean. In the event of any inconsiste
 ENGLISH
 Licensor: The Awesome
 For licensing permissions, project deployment, distribution requests, or technical support, please use the official contact details designated by the Licensor.
-Legal contracting party and official contact details: [To be completed after business registration].
+Legal contracting party: Sion Kim, sole proprietor trading as The Awesome.
+Official contact: prod.all.weno@gmail.com
 한국어
 라이선스 제공자: The Awesome
 사용권 승인, 프로젝트 설치·납품, 배포 요청 또는 기술 지원에 관한 문의는 라이선스 제공자가 지정한 공식 연락처를 이용해 주시기 바랍니다.
-법적 계약 당사자 및 공식 연락처: [사업자등록 후 기재].
+법적 계약 당사자: Sion Kim(The Awesome을 상호로 쓰는 개인사업자)
+공식 연락처: prod.all.weno@gmail.com
